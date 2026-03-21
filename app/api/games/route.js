@@ -49,7 +49,6 @@ export async function GET(req) {
     const data = await res.json();
 
     const games = data
-      .filter((g) => isTodayInFinland(g.commence_time))
       .slice(0, 12)
       .map((g) => ({
         id: g.id,
