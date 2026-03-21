@@ -101,10 +101,14 @@ export async function GET(req) {
 
     const source = filtered.length > 0 ? filtered : uniqueGames;
 
-    const games = source
-      .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-      .slice(0, 20)
-      .map(formatGame);
+  const games = source
+  .sort((a, b) => {
+    const timeDiff = new Date(a.commence_time) - new Date(b.commence_time);
+    if (timeDiff !== 0) return timeDiff;
+    return a.sport_title.localeCompare(b.sport_title);
+  })
+  .slice(0, 30)
+  .map(formatGame);
 
     return NextResponse.json({ games });
   } catch (e) {
