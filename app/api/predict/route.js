@@ -48,13 +48,6 @@ function hashString(str) {
   return str.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
 }
 
-function pickForm(seed, len = 5) {
-  const chars = ["V", "H", "T"];
-  const arr = [];
-  for (let i = 0; i < len; i++) arr.push(chars[(seed + i) % chars.length]);
-  return arr;
-}
-
 function getFactorAdjustments(sport, selectedFactors = []) {
   let home = 0;
   let away = 0;
@@ -180,6 +173,12 @@ function poissonApprox(lambda, seedShift = 0) {
   return 6;
 }
 
+function formStringToPoints(form = "") {
+  return form
+    .split("")
+    .reduce((sum, c) => sum + (c === "W" ? 3 : c === "D" ? 1 : 0), 0);
+}
+
 function buildValueBets(game, sport, probs) {
   const oddsMap = getBestOdds(game);
   const candidates = [
@@ -214,7 +213,83 @@ function buildValueBets(game, sport, probs) {
   return out.sort((a, b) => b.edge - a.edge);
 }
 
-function makePrediction(game, sport, selectedFactors = []) {
+async function getTeamForm(req, home, away) {
+  try {
+    const origin = req.nextUrl.origin;
+    const res = await fetch(`${origin}/api/team-form`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      cache: "no-store",
+      body: JSON.stringify({ home, away })
+    });
+
+    if (!res.ok) return null;
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+function applyFormToProbabilities({
+  sport,
+  homeP,
+  awayP,
+  drawP,
+  homeStats,
+  awayStats
+}) {
+  if (!homeStats || !awayStats) {
+    return { homeP, awayP, drawP, formNote: null };
+  }
+
+  const homeFormPoints = formStringToPoints(homeStats.form);
+  const awayFormPoints = formStringToPoints(awayStats.form);
+  const formDiff = homeFormPoints - awayFormPoints;
+
+  const gfDiff = (homeStats.avgGoalsFor || 0) - (awayStats.avgGoalsFor || 0);
+  const gaDiff = (awayStats.avgGoalsAgainst || 0) - (homeStats.avgGoalsAgainst || 0);
+
+  let homeAdj = formDiff * 0.008 + gfDiff * 0.015 + gaDiff * 0.01;
+  let awayAdj = -homeAdj;
+  let drawAdj = 0;
+
+  if (sport === "jalkapallo") {
+    if (Math.abs(formDiff) <= 2) drawAdj += 0.01;
+    if ((homeStats.avgGoalsFor || 0) + (awayStats.avgGoalsFor || 0) < 2.2) drawAdj += 0.01;
+
+    homeP += homeAdj;
+    awayP += awayAdj;
+    drawP += drawAdj;
+
+    [homeP, drawP, awayP] = normalize3(
+      clamp(homeP, 0.05, 0.85),
+      clamp(drawP, 0.08, 0.35),
+      clamp(awayP, 0.05, 0.85)
+    );
+  } else {
+    homeP += homeAdj;
+    awayP += awayAdj;
+
+    [homeP, awayP] = normalize2(
+      clamp(homeP, 0.08, 0.92),
+      clamp(awayP, 0.08, 0.92)
+    );
+  }
+
+  return {
+    homeP,
+    awayP,
+    drawP,
+    formNote: {
+      homeForm: homeStats.form,
+      awayForm: awayStats.form,
+      homeGF: round1(homeStats.avgGoalsFor || 0),
+      awayGF: round1(awayStats.avgGoalsFor || 0)
+    }
+  };
+}
+
+function makePrediction({ game, sport, selectedFactors = [], formData }) {
   const oddsMap = getBestOdds(game);
   const seed = hashString(`${game.home}-${game.away}-${sport}`);
 
@@ -263,6 +338,19 @@ function makePrediction(game, sport, selectedFactors = []) {
     );
   }
 
+  const formAdjusted = applyFormToProbabilities({
+    sport,
+    homeP,
+    awayP,
+    drawP,
+    homeStats: formData?.homeStats,
+    awayStats: formData?.awayStats
+  });
+
+  homeP = formAdjusted.homeP;
+  awayP = formAdjusted.awayP;
+  drawP = formAdjusted.drawP;
+
   const homeWinProb = round1(homeP * 100);
   const awayWinProb = round1(awayP * 100);
   const drawProb = sport === "jalkapallo" ? round1(drawP * 100) : 0;
@@ -277,15 +365,16 @@ function makePrediction(game, sport, selectedFactors = []) {
   let xgLabel = "";
 
   if (sport === "jalkapallo") {
-    const baseTotalGoals = 2.45 + adj.totalGoals;
-    const decisiveShare = 1 - drawP;
-    const homeShare = homeP / (homeP + awayP);
+    const homeGF = formData?.homeStats?.avgGoalsFor ?? 1.3;
+    const awayGF = formData?.awayStats?.avgGoalsFor ?? 1.2;
+    const homeGA = formData?.homeStats?.avgGoalsAgainst ?? 1.2;
+    const awayGA = formData?.awayStats?.avgGoalsAgainst ?? 1.3;
 
-    homeXG = clamp(baseTotalGoals * decisiveShare * (0.75 + homeShare * 0.9), 0.3, 3.8);
-    awayXG = clamp(baseTotalGoals * decisiveShare * (0.75 + (1 - homeShare) * 0.9), 0.25, 3.2);
+    homeXG = 0.35 + homeGF * 0.35 + awayGA * 0.25 + homeP * 1.2 + adj.totalGoals * 0.2;
+    awayXG = 0.3 + awayGF * 0.35 + homeGA * 0.25 + awayP * 1.0 + adj.totalGoals * 0.15;
 
-    homeXG = round1(homeXG + ((seed % 7) - 3) * 0.03);
-    awayXG = round1(awayXG + (((seed >> 2) % 7) - 3) * 0.03);
+    homeXG = round1(clamp(homeXG, 0.2, 3.8));
+    awayXG = round1(clamp(awayXG, 0.2, 3.3));
 
     homeScore = poissonApprox(homeXG, seed % 17);
     awayScore = poissonApprox(awayXG, seed % 23);
@@ -309,9 +398,7 @@ function makePrediction(game, sport, selectedFactors = []) {
 
   if (sport === "jaakiekko") {
     const baseGoals = 5.3 + adj.totalGoals;
-    const homeShare = homeP;
-
-    homeXG = round1(clamp(baseGoals * (0.42 + homeShare * 0.38), 1.2, 4.8));
+    homeXG = round1(clamp(baseGoals * (0.42 + homeP * 0.38), 1.2, 4.8));
     awayXG = round1(clamp(baseGoals * (0.42 + awayP * 0.38), 1.1, 4.6));
 
     homeScore = clamp(poissonApprox(homeXG, seed % 19), 1, 7);
@@ -356,11 +443,14 @@ function makePrediction(game, sport, selectedFactors = []) {
   const bestBet = valueBets[0] || null;
 
   const analysis = [
-    `Perusennuste on johdettu suoraan markkinakertoimista, joten voittotodennäköisyydet seuraavat ensin markkinan näkemystä ja sen jälkeen valitut tekijät siirtävät mallia hieman suuntaan tai toiseen.`,
-    `Tärkein valittu tekijä tässä kohteessa on "${keyFactor}". Se vaikuttaa erityisesti voittotodennäköisyyksiin ja arvioituun maali- tai pistemäärään.`,
+    `Perusennuste on johdettu markkinakertoimista, minkä jälkeen siihen on lisätty valitut vaikuttavat tekijät ja joukkueiden viime otteluiden formi.`,
+    formAdjusted.formNote
+      ? `${game.home} formi: ${formAdjusted.formNote.homeForm}, ${game.away} formi: ${formAdjusted.formNote.awayForm}. Tämä näkyy myös arvioidussa maaliodotteessa.`
+      : `Formidataa ei saatu tällä kertaa mukaan, joten arvio perustuu markkinaan ja valittuihin tekijöihin.`,
+    `Tärkein yksittäinen käsin valittu tekijä on "${keyFactor}".`,
     bestBet
-      ? `Paras value löytyy kohteesta "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) ylittää markkinan implisiittisen arvion (${bestBet.marketProb}%).`
-      : `Selkeää value bet -ylikerrointa ei synny vahvasti, joten tämä kohde näyttää enemmänkin markkinan mukaiselta.`
+      ? `Paras value löytyy kohteesta "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) ylittää markkinan arvion (${bestBet.marketProb}%).`
+      : `Selkeää value bet -ylikerrointa ei tällä hetkellä muodostu vahvasti.`
   ].join("\n\n");
 
   return {
@@ -386,11 +476,17 @@ function makePrediction(game, sport, selectedFactors = []) {
     awayXG,
     valueBets,
     bestBet,
-    stats: {
-      homeLast5: pickForm(seed % 13, 5),
-      awayLast5: pickForm((seed % 13) + 7, 5),
-      h2h: `${game.home} 2W · 1D · 2L ${game.away}`
-    },
+    stats: formData
+      ? {
+          homeLast5: (formData.homeStats?.form || "").split(""),
+          awayLast5: (formData.awayStats?.form || "").split(""),
+          h2h: `${game.home} GF ${round1(formData.homeStats?.avgGoalsFor || 0)} · ${game.away} GF ${round1(formData.awayStats?.avgGoalsFor || 0)}`
+        }
+      : {
+          homeLast5: ["-", "-", "-", "-", "-"],
+          awayLast5: ["-", "-", "-", "-", "-"],
+          h2h: "Ei dataa"
+        },
     analysis
   };
 }
@@ -404,9 +500,22 @@ export async function POST(req) {
       return NextResponse.json({ error: "Ottelutiedot puuttuvat" }, { status: 400 });
     }
 
-    const result = makePrediction(game, sport, selectedFactors);
+    const formData = sport === "jalkapallo"
+      ? await getTeamForm(req, game.home, game.away)
+      : null;
+
+    const result = makePrediction({
+      game,
+      sport,
+      selectedFactors,
+      formData
+    });
+
     return NextResponse.json(result);
   } catch (e) {
-    return NextResponse.json({ error: "Ennustus epäonnistui" }, { status: 500 });
+    return NextResponse.json(
+      { error: "Ennustus epäonnistui", details: e.message },
+      { status: 500 }
+    );
   }
 }
