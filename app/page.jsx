@@ -51,11 +51,6 @@ const SPORTS = {
 };
 
 const today = new Date();
-const dateShort = today.toLocaleDateString("fi-FI", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric"
-});
 const dateLong = today.toLocaleDateString("fi-FI", {
   weekday: "long",
   day: "numeric",
@@ -170,25 +165,113 @@ export default function App() {
   const sc = (v) => (v >= 7 ? C.gr : v >= 5 ? C.ac3 : C.ac2);
   const cf = (c) => ({ KORKEA: C.gr, KOHTALAINEN: C.ac3, MATALA: C.ac2 }[c] || C.ac);
 
+  const groupGamesByDateAndLeague = (games) => {
+    const grouped = {};
+
+    for (const game of games) {
+      const dateKey = new Date(game.commence_time || new Date()).toLocaleDateString("fi-FI", {
+        timeZone: "Europe/Helsinki",
+        weekday: "long",
+        day: "numeric",
+        month: "numeric"
+      });
+
+      if (!grouped[dateKey]) grouped[dateKey] = {};
+      if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
+
+      grouped[dateKey][game.league].push(game);
+    }
+
+    return grouped;
+  };
+
+  const groupedGames = groupGamesByDateAndLeague(games);
+
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.tx, fontFamily: "'DM Sans', sans-serif", overflowY: "auto" }}>
+    <div
+      style={{
+        background: C.bg,
+        minHeight: "100vh",
+        color: C.tx,
+        fontFamily: "'DM Sans', sans-serif",
+        overflowY: "auto"
+      }}
+    >
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap');
         @keyframes bar { to { width: 100% } }
         * { box-sizing: border-box; margin: 0; padding: 0 }
       `}</style>
 
-      <div style={{ padding: "18px 20px 12px", borderBottom: `1px solid ${C.bd}`, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+      <div
+        style={{
+          padding: "18px 20px 12px",
+          borderBottom: `1px solid ${C.bd}`,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end"
+        }}
+      >
         <div>
-          <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 3, color: C.mu, marginBottom: 2 }}>AI-POWERED SPORTS ANALYTICS</div>
-          <div style={{ fontFamily: disp, fontSize: 38, letterSpacing: 4, background: `linear-gradient(135deg,${C.ac},${C.ac2})`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", lineHeight: 1 }}>
+          <div
+            style={{
+              fontFamily: mono,
+              fontSize: 8,
+              letterSpacing: 3,
+              color: C.mu,
+              marginBottom: 2
+            }}
+          >
+            AI-POWERED SPORTS ANALYTICS
+          </div>
+          <div
+            style={{
+              fontFamily: disp,
+              fontSize: 38,
+              letterSpacing: 4,
+              background: `linear-gradient(135deg,${C.ac},${C.ac2})`,
+              WebkitBackgroundClip: "text",
+              WebkitTextFillColor: "transparent",
+              lineHeight: 1
+            }}
+          >
             SCORECASTER
           </div>
         </div>
+
         <div style={{ textAlign: "right" }}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: C.ac, letterSpacing: 1, marginBottom: 3, textTransform: "uppercase" }}>{dateLong}</div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, justifyContent: "flex-end", fontFamily: mono, fontSize: 8, color: C.gr }}>
-            <div style={{ width: 6, height: 6, background: C.gr, borderRadius: "50%", boxShadow: `0 0 8px ${C.gr}` }} />
+          <div
+            style={{
+              fontFamily: mono,
+              fontSize: 9,
+              color: C.ac,
+              letterSpacing: 1,
+              marginBottom: 3,
+              textTransform: "uppercase"
+            }}
+          >
+            {dateLong}
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 5,
+              justifyContent: "flex-end",
+              fontFamily: mono,
+              fontSize: 8,
+              color: C.gr
+            }}
+          >
+            <div
+              style={{
+                width: 6,
+                height: 6,
+                background: C.gr,
+                borderRadius: "50%",
+                boxShadow: `0 0 8px ${C.gr}`
+              }}
+            />
             LIVE
           </div>
         </div>
@@ -220,8 +303,25 @@ export default function App() {
         </div>
 
         <div style={{ marginBottom: 18 }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
-            <div style={{ fontFamily: disp, fontSize: 16, letterSpacing: 3, color: C.ac3 }}>TÄMÄN PÄIVÄN PELIT</div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              marginBottom: 10
+            }}
+          >
+            <div
+              style={{
+                fontFamily: disp,
+                fontSize: 16,
+                letterSpacing: 3,
+                color: C.ac3
+              }}
+            >
+              TÄMÄN PÄIVÄN PELIT
+            </div>
+
             <button
               onClick={fetchGames}
               disabled={fetchSt === "loading"}
@@ -243,62 +343,184 @@ export default function App() {
           </div>
 
           {fetchSt === "idle" && (
-            <div style={{ padding: 18, textAlign: "center", color: C.mu, fontFamily: mono, fontSize: 9, border: `1px dashed ${C.bd}`, borderRadius: 8 }}>
+            <div
+              style={{
+                padding: 18,
+                textAlign: "center",
+                color: C.mu,
+                fontFamily: mono,
+                fontSize: 9,
+                border: `1px dashed ${C.bd}`,
+                borderRadius: 8
+              }}
+            >
               Paina nappia hakiaksesi tämän päivän ottelut
             </div>
           )}
 
           {fetchSt === "loading" && (
-            <div style={{ padding: 18, textAlign: "center", fontFamily: mono, fontSize: 9, color: C.mu }}>
+            <div
+              style={{
+                padding: 18,
+                textAlign: "center",
+                fontFamily: mono,
+                fontSize: 9,
+                color: C.mu
+              }}
+            >
               Haetaan otteluita…
-              <div style={{ width: "100%", height: 2, background: C.bd, borderRadius: 2, overflow: "hidden", margin: "10px 0" }}>
-                <div style={{ height: "100%", background: `linear-gradient(90deg,${C.ac},${C.ac2})`, animation: "bar 3s ease forwards", width: "0%" }} />
+              <div
+                style={{
+                  width: "100%",
+                  height: 2,
+                  background: C.bd,
+                  borderRadius: 2,
+                  overflow: "hidden",
+                  margin: "10px 0"
+                }}
+              >
+                <div
+                  style={{
+                    height: "100%",
+                    background: `linear-gradient(90deg,${C.ac},${C.ac2})`,
+                    animation: "bar 3s ease forwards",
+                    width: "0%"
+                  }}
+                />
               </div>
             </div>
           )}
 
           {fetchSt === "error" && (
-            <div style={{ padding: 14, color: C.ac2, fontFamily: mono, fontSize: 9, border: `1px dashed ${C.ac2}55`, borderRadius: 8, textAlign: "center" }}>
+            <div
+              style={{
+                padding: 14,
+                color: C.ac2,
+                fontFamily: mono,
+                fontSize: 9,
+                border: `1px dashed ${C.ac2}55`,
+                borderRadius: 8,
+                textAlign: "center"
+              }}
+            >
               Virhe: {errMsg}
             </div>
           )}
 
           {fetchSt === "done" && games.length === 0 && (
-            <div style={{ padding: 18, textAlign: "center", color: C.mu, fontFamily: mono, fontSize: 9, border: `1px dashed ${C.bd}`, borderRadius: 8 }}>
+            <div
+              style={{
+                padding: 18,
+                textAlign: "center",
+                color: C.mu,
+                fontFamily: mono,
+                fontSize: 9,
+                border: `1px dashed ${C.bd}`,
+                borderRadius: 8
+              }}
+            >
               Ei otteluita tänään. Kokeile toista lajia.
             </div>
           )}
 
           {fetchSt === "done" && games.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(250px,1fr))", gap: 8 }}>
-              {games.map((g, i) => (
-                <div
-                  key={i}
-                  onClick={() => setSel(g)}
-                  style={{
-                    background: sel === g ? `${C.ac}0f` : C.s1,
-                    border: `1px solid ${sel === g ? C.ac : C.bd}`,
-                    borderLeft: `3px solid ${sel === g ? C.ac : C.bd}`,
-                    borderRadius: 8,
-                    padding: "11px 13px",
-                    cursor: "pointer",
-                    position: "relative"
-                  }}
-                >
-                  <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 2, color: C.mu, marginBottom: 5 }}>
-                    {g.league}{g.context ? " · " + g.context : ""}
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {Object.entries(groupedGames).map(([date, leagues]) => (
+                <div key={date}>
+                  <div
+                    style={{
+                      fontFamily: disp,
+                      fontSize: 15,
+                      letterSpacing: 2,
+                      color: C.ac,
+                      marginBottom: 10
+                    }}
+                  >
+                    {date.toUpperCase()}
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 5 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
-                    <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>vs</div>
-                    <div style={{ fontSize: 13, fontWeight: 600, flex: 1, textAlign: "right" }}>{g.away}</div>
-                  </div>
-                  <div style={{ fontFamily: mono, fontSize: 8, color: C.ac }}>{g.time || "TBA"}</div>
-                  {sel === g && (
-                    <div style={{ position: "absolute", top: 7, right: 7, width: 15, height: 15, background: C.ac, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: C.bg, fontWeight: 700 }}>
-                      ✓
+
+                  {Object.entries(leagues).map(([league, leagueGames]) => (
+                    <div key={league} style={{ marginBottom: 14 }}>
+                      <div
+                        style={{
+                          fontFamily: mono,
+                          fontSize: 9,
+                          color: C.ac3,
+                          letterSpacing: 2,
+                          marginBottom: 8,
+                          textTransform: "uppercase"
+                        }}
+                      >
+                        {league}
+                      </div>
+
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
+                        {leagueGames.map((g, i) => (
+                          <div
+                            key={`${league}-${i}`}
+                            onClick={() => setSel(g)}
+                            style={{
+                              background: sel === g ? `${C.ac}0f` : C.s1,
+                              border: `1px solid ${sel === g ? C.ac : C.bd}`,
+                              borderLeft: `3px solid ${sel === g ? C.ac : C.bd}`,
+                              borderRadius: 8,
+                              padding: "11px 13px",
+                              cursor: "pointer",
+                              position: "relative"
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 5,
+                                marginBottom: 5
+                              }}
+                            >
+                              <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
+                              <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>vs</div>
+                              <div
+                                style={{
+                                  fontSize: 13,
+                                  fontWeight: 600,
+                                  flex: 1,
+                                  textAlign: "right"
+                                }}
+                              >
+                                {g.away}
+                              </div>
+                            </div>
+
+                            <div style={{ fontFamily: mono, fontSize: 8, color: C.ac }}>
+                              {g.time || "TBA"} {g.context ? `· ${g.context}` : ""}
+                            </div>
+
+                            {sel === g && (
+                              <div
+                                style={{
+                                  position: "absolute",
+                                  top: 7,
+                                  right: 7,
+                                  width: 15,
+                                  height: 15,
+                                  background: C.ac,
+                                  borderRadius: "50%",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 8,
+                                  color: C.bg,
+                                  fontWeight: 700
+                                }}
+                              >
+                                ✓
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               ))}
             </div>
@@ -306,17 +528,63 @@ export default function App() {
         </div>
 
         {sel && (
-          <div style={{ background: C.s1, border: `1px solid ${C.ac}`, borderRadius: 8, padding: "12px 15px", marginBottom: 14 }}>
-            <div style={{ fontFamily: mono, fontSize: 8, color: C.ac, letterSpacing: 3, marginBottom: 4 }}>✓ VALITTU OTTELU</div>
-            <div style={{ fontFamily: disp, fontSize: 20, letterSpacing: 2, marginBottom: 2 }}>
+          <div
+            style={{
+              background: C.s1,
+              border: `1px solid ${C.ac}`,
+              borderRadius: 8,
+              padding: "12px 15px",
+              marginBottom: 14
+            }}
+          >
+            <div
+              style={{
+                fontFamily: mono,
+                fontSize: 8,
+                color: C.ac,
+                letterSpacing: 3,
+                marginBottom: 4
+              }}
+            >
+              ✓ VALITTU OTTELU
+            </div>
+            <div
+              style={{
+                fontFamily: disp,
+                fontSize: 20,
+                letterSpacing: 2,
+                marginBottom: 2
+              }}
+            >
               {sel.home} — {sel.away}
             </div>
-            <div style={{ fontSize: 11, color: C.mu }}>{sel.league} · {sel.time || "TBA"}</div>
+            <div style={{ fontSize: 11, color: C.mu }}>
+              {sel.league} · {sel.time || "TBA"}
+            </div>
           </div>
         )}
 
-        <div style={{ background: C.s1, border: `1px solid ${C.bd}`, borderRadius: 8, padding: "13px 15px", marginBottom: 14 }}>
-          <div style={{ fontFamily: disp, fontSize: 13, letterSpacing: 3, color: C.ac3, marginBottom: 9 }}>VAIKUTTAVAT TEKIJÄT</div>
+        <div
+          style={{
+            background: C.s1,
+            border: `1px solid ${C.bd}`,
+            borderRadius: 8,
+            padding: "13px 15px",
+            marginBottom: 14
+          }}
+        >
+          <div
+            style={{
+              fontFamily: disp,
+              fontSize: 13,
+              letterSpacing: 3,
+              color: C.ac3,
+              marginBottom: 9
+            }}
+          >
+            VAIKUTTAVAT TEKIJÄT
+          </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 6 }}>
             {SPORTS[sport].factors.map((f) => (
               <div
@@ -333,7 +601,22 @@ export default function App() {
                   cursor: "pointer"
                 }}
               >
-                <div style={{ width: 12, height: 12, border: `2px solid ${factors.has(f) ? C.ac3 : C.bd}`, borderRadius: 2, flexShrink: 0, background: factors.has(f) ? C.ac3 : "transparent", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 8, color: C.bg, fontWeight: 700 }}>
+                <div
+                  style={{
+                    width: 12,
+                    height: 12,
+                    border: `2px solid ${factors.has(f) ? C.ac3 : C.bd}`,
+                    borderRadius: 2,
+                    flexShrink: 0,
+                    background: factors.has(f) ? C.ac3 : "transparent",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: 8,
+                    color: C.bg,
+                    fontWeight: 700
+                  }}
+                >
                   {factors.has(f) ? "✓" : ""}
                 </div>
                 <div style={{ fontSize: 11 }}>{f}</div>
@@ -363,48 +646,254 @@ export default function App() {
         </button>
 
         {predSt === "error" && (
-          <div style={{ padding: 12, color: C.ac2, fontFamily: mono, fontSize: 9, marginBottom: 14, border: `1px dashed ${C.ac2}55`, borderRadius: 8 }}>
+          <div
+            style={{
+              padding: 12,
+              color: C.ac2,
+              fontFamily: mono,
+              fontSize: 9,
+              marginBottom: 14,
+              border: `1px dashed ${C.ac2}55`,
+              borderRadius: 8
+            }}
+          >
             Virhe: {errMsg}
           </div>
         )}
 
         {result && predSt === "done" && (
           <div>
-            <div style={{ fontFamily: disp, fontSize: 19, letterSpacing: 4, color: C.ac3, marginBottom: 12 }}>📊 ENNUSTUSTULOS</div>
+            <div
+              style={{
+                fontFamily: disp,
+                fontSize: 19,
+                letterSpacing: 4,
+                color: C.ac3,
+                marginBottom: 12
+              }}
+            >
+              📊 ENNUSTUSTULOS
+            </div>
 
-            <div style={{ background: C.s1, border: `1px solid ${C.bd}`, borderRadius: 8, padding: "20px 14px", textAlign: "center", marginBottom: 10 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 14, marginBottom: 8 }}>
+            <div
+              style={{
+                background: C.s1,
+                border: `1px solid ${C.bd}`,
+                borderRadius: 8,
+                padding: "20px 14px",
+                textAlign: "center",
+                marginBottom: 10
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: 14,
+                  marginBottom: 8
+                }}
+              >
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>{sel.home}</div>
-                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>{result.homeScore}</div>
+                  <div
+                    style={{
+                      fontFamily: disp,
+                      fontSize: 15,
+                      letterSpacing: 2,
+                      marginBottom: 3
+                    }}
+                  >
+                    {sel.home}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: disp,
+                      fontSize: 50,
+                      lineHeight: 1,
+                      color: C.ac
+                    }}
+                  >
+                    {result.homeScore}
+                  </div>
                 </div>
+
                 <div style={{ fontFamily: disp, fontSize: 15, color: C.mu }}>VS</div>
+
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>{sel.away}</div>
-                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>{result.awayScore}</div>
+                  <div
+                    style={{
+                      fontFamily: disp,
+                      fontSize: 15,
+                      letterSpacing: 2,
+                      marginBottom: 3
+                    }}
+                  >
+                    {sel.away}
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: disp,
+                      fontSize: 50,
+                      lineHeight: 1,
+                      color: C.ac
+                    }}
+                  >
+                    {result.awayScore}
+                  </div>
                 </div>
               </div>
-              <div style={{ fontFamily: mono, fontSize: 8, color: C.mu, letterSpacing: 2 }}>
+
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 8,
+                  color: C.mu,
+                  letterSpacing: 2
+                }}
+              >
                 LUOTTAMUS: {result.confidence} · {result.keyFactor}
               </div>
             </div>
 
-            <div style={{ background: C.s1, border: `1px solid ${C.bd}`, borderRadius: 8, padding: "13px 15px", marginBottom: 10 }}>
-              <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 3, color: C.mu, textTransform: "uppercase", marginBottom: 9 }}>VOITTOTODENNÄKÖISYYDET</div>
+            <div
+              style={{
+                background: C.s1,
+                border: `1px solid ${C.bd}`,
+                borderRadius: 8,
+                padding: "13px 15px",
+                marginBottom: 10
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: mono,
+                  fontSize: 8,
+                  letterSpacing: 3,
+                  color: C.mu,
+                  textTransform: "uppercase",
+                  marginBottom: 9
+                }}
+              >
+                VOITTOTODENNÄKÖISYYDET
+              </div>
+
               {[
                 { l: sel.home, p: result.homeWinProb, c: C.ac },
                 ...(SPORTS[sport].drawPossible ? [{ l: "Tasapeli", p: result.drawProb || 0, c: C.mu }] : []),
                 { l: sel.away, p: result.awayWinProb, c: C.ac2 }
               ].map(({ l, p, c }) => (
                 <div key={l} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div style={{ fontFamily: mono, fontSize: 10, width: 85, flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{l}</div>
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 10,
+                      width: 85,
+                      flexShrink: 0,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }}
+                  >
+                    {l}
+                  </div>
+
                   <div style={{ flex: 1, height: 20, background: C.s2, borderRadius: 3, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${Math.max(p, 3)}%`, background: c, display: "flex", alignItems: "center", padding: "0 6px", fontFamily: mono, fontSize: 9, fontWeight: 700, color: C.bg }}>
+                    <div
+                      style={{
+                        height: "100%",
+                        width: `${Math.max(p, 3)}%`,
+                        background: c,
+                        display: "flex",
+                        alignItems: "center",
+                        padding: "0 6px",
+                        fontFamily: mono,
+                        fontSize: 9,
+                        fontWeight: 700,
+                        color: C.bg
+                      }}
+                    >
                       {p}%
                     </div>
                   </div>
                 </div>
               ))}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fill,minmax(155px,1fr))",
+                gap: 8,
+                marginBottom: 10
+              }}
+            >
+              {[
+                { l: "KOTIVOIMA", v: `${result.homeStrength}/10`, s: sel.home, c: sc(result.homeStrength) },
+                { l: "VIERASVOIMA", v: `${result.awayStrength}/10`, s: sel.away, c: sc(result.awayStrength) },
+                { l: "LUOTTAMUS", v: result.confidence, s: "varmuus", c: cf(result.confidence) },
+                { l: "MAALIODOTTAMA", v: result.homeScore + result.awayScore, s: result.expectedGoals, c: C.ac }
+              ].map(({ l, v, s, c }) => (
+                <div
+                  key={l}
+                  style={{
+                    background: C.s1,
+                    border: `1px solid ${C.bd}`,
+                    borderRadius: 8,
+                    padding: 11
+                  }}
+                >
+                  <div
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 7,
+                      letterSpacing: 2,
+                      color: C.mu,
+                      textTransform: "uppercase",
+                      marginBottom: 4
+                    }}
+                  >
+                    {l}
+                  </div>
+                  <div style={{ fontFamily: disp, fontSize: 19, color: c }}>{v}</div>
+                  <div style={{ fontSize: 10, color: C.mu, marginTop: 2 }}>{s}</div>
+                </div>
+              ))}
+            </div>
+
+            <div
+              style={{
+                background: C.s1,
+                borderLeft: `3px solid ${C.ac}`,
+                border: `1px solid ${C.bd}`,
+                borderRadius: 8,
+                padding: "13px 15px",
+                marginBottom: 10
+              }}
+            >
+              <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 3, color: C.mu, marginBottom: 7 }}>
+                AI-ANALYYSI
+              </div>
+              {result.analysis
+                ?.split(/\n\n|\n/)
+                .filter((p) => p.trim())
+                .map((p, i) => (
+                  <p key={i} style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8", marginBottom: 6 }}>
+                    {p}
+                  </p>
+                ))}
+            </div>
+
+            <div
+              style={{
+                fontFamily: mono,
+                fontSize: 8,
+                color: C.mu,
+                textAlign: "center",
+                paddingTop: 12,
+                borderTop: `1px solid ${C.bd}`
+              }}
+            >
+              ⚠️ VIIHDEKÄYTTÖÖN — EI VEDONLYÖNTISUOSITUS
             </div>
           </div>
         )}
