@@ -373,15 +373,33 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
     const homeGA = formData?.homeStats?.avgGoalsAgainst ?? 1.2;
     const awayGA = formData?.awayStats?.avgGoalsAgainst ?? 1.3;
 
-    homeXG = 0.35 + homeGF * 0.35 + awayGA * 0.25 + homeP * 1.2 + adj.totalGoals * 0.2;
-    awayXG = 0.3 + awayGF * 0.35 + homeGA * 0.25 + awayP * 1.0 + adj.totalGoals * 0.15;
+homeXG = round1(clamp(homeXG, 0.3, 2.8));
+awayXG = round1(clamp(awayXG, 0.3, 2.5));
 
-    homeXG = round1(clamp(homeXG, 0.2, 3.8));
-    awayXG = round1(clamp(awayXG, 0.2, 3.3));
+homeScore = clamp(poissonApprox(homeXG, seed % 17), 0, 4);
+awayScore = clamp(poissonApprox(awayXG, seed % 23), 0, 4);
 
-    homeScore = poissonApprox(homeXG, seed % 17);
-    awayScore = poissonApprox(awayXG, seed % 23);
+// estetään 5–0, 6–1 tyyppiset feikki tulokset
+if (homeScore >= 4 && awayScore === 0 && homeP < 0.75) {
+  homeScore = 3;
+}
+if (awayScore >= 4 && homeScore === 0 && awayP < 0.75) {
+  awayScore = 3;
+}
 
+// tasaiset pelit realistisiksi
+if (Math.abs(homeP - awayP) < 0.12) {
+  if (homeScore > 2) homeScore = 2;
+  if (awayScore > 2) awayScore = 2;
+}
+
+// korkea tasapelin todennäköisyys → pakotetaan draw
+if (drawP >= 0.30) {
+  const draws = [[1,1],[0,0],[2,2]];
+  const pick = draws[seed % draws.length];
+  homeScore = pick[0];
+  awayScore = pick[1];
+}
     if (drawP >= 0.28 && Math.abs(homeP - awayP) < 0.08) {
       const drawModes = [
         [0, 0],
