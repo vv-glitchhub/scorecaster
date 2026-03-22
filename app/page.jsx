@@ -284,7 +284,7 @@ const t = TEXT[lang];
               marginBottom: 2
             }}
           >
-            AI-POWERED SPORTS ANALYTICS
+            {t.tagline || "AI-POWERED SPORTS ANALYTICS"}
           </div>
           <div
             style={{
