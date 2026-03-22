@@ -313,6 +313,7 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
     homeP = 0.5;
     awayP = 0.5;
     drawP = sport === "jalkapallo" ? 0.24 : 0;
+
     if (sport === "jalkapallo") {
       [homeP, drawP, awayP] = normalize3(homeP, drawP, awayP);
     }
@@ -324,6 +325,7 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
     homeP += adj.home;
     awayP += adj.away;
     drawP += adj.draw;
+
     [homeP, drawP, awayP] = normalize3(
       clamp(homeP, 0.05, 0.85),
       clamp(drawP, 0.08, 0.35),
@@ -332,6 +334,7 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
   } else {
     homeP += adj.home;
     awayP += adj.away;
+
     [homeP, awayP] = normalize2(
       clamp(homeP, 0.08, 0.92),
       clamp(awayP, 0.08, 0.92)
@@ -442,6 +445,13 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
 
   const bestBet = valueBets[0] || null;
 
+  let recommendation = "NO BET";
+  const bestEdge = bestBet?.edge || 0;
+
+  if (bestEdge >= 5) recommendation = "🔥 STRONG BET";
+  else if (bestEdge >= 2) recommendation = "⚡ SMALL EDGE";
+  else if (bestEdge >= 1) recommendation = "👀 LEAN";
+
   const analysis = [
     `Perusennuste on johdettu markkinakertoimista, minkä jälkeen siihen on lisätty valitut vaikuttavat tekijät ja joukkueiden viime otteluiden formi.`,
     formAdjusted.formNote
@@ -476,10 +486,11 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
     awayXG,
     valueBets,
     bestBet,
+    recommendation,
     stats: formData
       ? {
-          homeLast5: (formData.homeStats?.form || "").split(""),
-          awayLast5: (formData.awayStats?.form || "").split(""),
+          homeLast5: (formData.homeStats?.form || "").split("").filter(Boolean),
+          awayLast5: (formData.awayStats?.form || "").split("").filter(Boolean),
           h2h: `${game.home} GF ${round1(formData.homeStats?.avgGoalsFor || 0)} · ${game.away} GF ${round1(formData.awayStats?.avgGoalsFor || 0)}`
         }
       : {
@@ -500,9 +511,10 @@ export async function POST(req) {
       return NextResponse.json({ error: "Ottelutiedot puuttuvat" }, { status: 400 });
     }
 
-    const formData = sport === "jalkapallo"
-      ? await getTeamForm(req, game.home, game.away)
-      : null;
+    const formData =
+      sport === "jalkapallo"
+        ? await getTeamForm(req, game.home, game.away)
+        : null;
 
     const result = makePrediction({
       game,
