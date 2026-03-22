@@ -783,7 +783,7 @@ const t = TEXT[lang];
             marginBottom: 16
           }}
         >
-          {predSt === "loading" ? `⟳ ${loadMsg}` : "⚡ ANALYSOI JA ENNUSTA"}
+          {predSt === "loading" ? `⟳ ${loadMsg}` : "{t.analyze}}
         </button>
 
         {predSt === "error" && (
