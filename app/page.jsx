@@ -164,7 +164,8 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loadMsg, setLoadMsg] = useState("");
   const [errMsg, setErrMsg] = useState("");
-
+const [lang, setLang] = useState("fi");
+const t = TEXT[lang];
   const changeSport = (s) => {
     setSport(s);
     setGames([]);
