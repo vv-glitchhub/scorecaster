@@ -40,11 +40,9 @@ function buildValueBets(game, sport, probs) {
   const oddsMap = getBestOdds(game);
   const out = [];
 
-  const drawLabel = "Draw";
-
   const candidates = [
     { outcome: game.home, modelProb: probs.homeWinProb },
-    ...(sport === "jalkapallo" ? [{ outcome: drawLabel, modelProb: probs.drawProb }] : []),
+    ...(sport === "jalkapallo" ? [{ outcome: "Draw", modelProb: probs.drawProb }] : []),
     { outcome: game.away, modelProb: probs.awayWinProb }
   ];
 
@@ -71,44 +69,183 @@ function buildValueBets(game, sport, probs) {
   return out.sort((a, b) => b.edge - a.edge);
 }
 
-function makePrediction(game, sport, selectedFactors) {
-  const seed = hashString(`${game.home}-${game.away}-${sport}`) % 100;
-  const factorBoost = Math.min(selectedFactors.length * 1.5, 6);
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
+}
 
-  let homeWinProb = 48 + (seed % 9) + factorBoost;
-  let awayWinProb = 52 - (seed % 9);
-  let drawProb = sport === "jalkapallo" ? 24 : 0;
+function poissonApprox(lambda, seedShift = 0) {
+  const seed = Math.abs(Math.sin(lambda * 12.9898 + seedShift * 78.233));
+  const r = seed - Math.floor(seed);
 
-  if (sport === "jalkapallo") {
-    awayWinProb = Math.max(10, 100 - homeWinProb - drawProb);
-  } else {
-    awayWinProb = Math.max(10, 100 - homeWinProb);
+  if (lambda < 0.8) {
+    if (r < 0.45) return 0;
+    if (r < 0.82) return 1;
+    if (r < 0.95) return 2;
+    return 3;
   }
 
-  const homeStrength = Math.min(9, Math.max(4, Math.round(homeWinProb / 10)));
-  const awayStrength = Math.min(9, Math.max(4, Math.round(awayWinProb / 10)));
+  if (lambda < 1.3) {
+    if (r < 0.22) return 0;
+    if (r < 0.58) return 1;
+    if (r < 0.84) return 2;
+    if (r < 0.95) return 3;
+    return 4;
+  }
 
-  const homeXG = +(1.1 + (homeWinProb / 100) * 1.4).toFixed(2);
-  const awayXG = +(0.9 + (awayWinProb / 100) * 1.1).toFixed(2);
+  if (lambda < 1.9) {
+    if (r < 0.12) return 0;
+    if (r < 0.36) return 1;
+    if (r < 0.66) return 2;
+    if (r < 0.86) return 3;
+    if (r < 0.96) return 4;
+    return 5;
+  }
 
-  const homeScore =
-    sport === "koripallo"
-      ? 90 + Math.round(homeWinProb / 5)
-      : sport === "jaakiekko"
-        ? Math.max(1, Math.round(homeXG + 1))
-        : Math.max(0, Math.round(homeXG));
+  if (r < 0.08) return 0;
+  if (r < 0.24) return 1;
+  if (r < 0.48) return 2;
+  if (r < 0.72) return 3;
+  if (r < 0.88) return 4;
+  if (r < 0.96) return 5;
+  return 6;
+}
 
-  const awayScore =
-    sport === "koripallo"
-      ? 86 + Math.round(awayWinProb / 6)
-      : sport === "jaakiekko"
-        ? Math.max(1, Math.round(awayXG + 1))
-        : Math.max(0, Math.round(awayXG));
+function makePrediction(game, sport, selectedFactors) {
+  const seed = hashString(`${game.home}-${game.away}-${sport}`);
+  const factorBoost = Math.min(selectedFactors.length * 1.2, 5);
+
+  const oddsMap = getBestOdds(game);
+  const homeOdds = oddsMap[game.home];
+  const drawOdds = oddsMap["Draw"];
+  const awayOdds = oddsMap[game.away];
+
+  let homeWinProb;
+  let awayWinProb;
+  let drawProb = 0;
+
+  if (homeOdds && awayOdds) {
+    const homeImp = impliedProbFromOdds(homeOdds) || 33;
+    const awayImp = impliedProbFromOdds(awayOdds) || 33;
+    const drawImp = sport === "jalkapallo" ? (impliedProbFromOdds(drawOdds) || 26) : 0;
+
+    homeWinProb = homeImp + 4 + factorBoost - ((seed % 5) * 0.6);
+    awayWinProb = awayImp - 2 + (((seed >> 1) % 4) * 0.5);
+    drawProb = drawImp;
+
+    if (sport === "jalkapallo") {
+      const total = homeWinProb + awayWinProb + drawProb;
+      homeWinProb = (homeWinProb / total) * 100;
+      awayWinProb = (awayWinProb / total) * 100;
+      drawProb = (drawProb / total) * 100;
+    } else {
+      const total = homeWinProb + awayWinProb;
+      homeWinProb = (homeWinProb / total) * 100;
+      awayWinProb = (awayWinProb / total) * 100;
+    }
+  } else {
+    homeWinProb = 47 + (seed % 12) + factorBoost;
+    awayWinProb = 53 - (seed % 12);
+
+    if (sport === "jalkapallo") {
+      drawProb = 22 + (seed % 7);
+      const total = homeWinProb + awayWinProb + drawProb;
+      homeWinProb = (homeWinProb / total) * 100;
+      awayWinProb = (awayWinProb / total) * 100;
+      drawProb = (drawProb / total) * 100;
+    } else {
+      const total = homeWinProb + awayWinProb;
+      homeWinProb = (homeWinProb / total) * 100;
+      awayWinProb = (awayWinProb / total) * 100;
+    }
+  }
+
+  homeWinProb = +clamp(homeWinProb, 5, 85).toFixed(1);
+  awayWinProb = +clamp(awayWinProb, 5, 85).toFixed(1);
+  drawProb = sport === "jalkapallo" ? +clamp(drawProb, 8, 35).toFixed(1) : 0;
+
+  if (sport === "jalkapallo") {
+    const total = homeWinProb + awayWinProb + drawProb;
+    homeWinProb = +(homeWinProb / total * 100).toFixed(1);
+    awayWinProb = +(awayWinProb / total * 100).toFixed(1);
+    drawProb = +(drawProb / total * 100).toFixed(1);
+  }
+
+  const homeStrength = clamp(Math.round(homeWinProb / 10), 3, 9);
+  const awayStrength = clamp(Math.round(awayWinProb / 10), 3, 9);
+
+  let homeScore = 0;
+  let awayScore = 0;
+  let homeXG = 0;
+  let awayXG = 0;
+  let xgLabel = "";
+
+  if (sport === "jalkapallo") {
+    homeXG = +(0.55 + (homeWinProb / 100) * 2.05 + factorBoost * 0.04).toFixed(2);
+    awayXG = +(0.45 + (awayWinProb / 100) * 1.85).toFixed(2);
+
+    homeScore = poissonApprox(homeXG, seed % 13);
+    awayScore = poissonApprox(awayXG, seed % 17);
+
+    if (Math.abs(homeWinProb - awayWinProb) < 7 && drawProb > 24) {
+      if ((seed % 3) === 0) {
+        homeScore = 1;
+        awayScore = 1;
+      } else if ((seed % 5) === 0) {
+        homeScore = 0;
+        awayScore = 0;
+      }
+    }
+
+    if (homeWinProb > awayWinProb + 12 && homeScore <= awayScore) {
+      homeScore = awayScore + 1;
+    }
+    if (awayWinProb > homeWinProb + 12 && awayScore <= homeScore) {
+      awayScore = homeScore + 1;
+    }
+
+    xgLabel = `${homeXG} - ${awayXG}`;
+  }
+
+  if (sport === "jaakiekko") {
+    homeXG = +(1.6 + (homeWinProb / 100) * 2.1 + factorBoost * 0.05).toFixed(2);
+    awayXG = +(1.4 + (awayWinProb / 100) * 2.0).toFixed(2);
+
+    homeScore = clamp(poissonApprox(homeXG, seed % 19) + 1, 1, 7);
+    awayScore = clamp(poissonApprox(awayXG, seed % 23) + 1, 1, 7);
+
+    if (homeWinProb > awayWinProb + 10 && homeScore <= awayScore) {
+      homeScore = awayScore + 1;
+    }
+    if (awayWinProb > homeWinProb + 10 && awayScore <= homeScore) {
+      awayScore = homeScore + 1;
+    }
+
+    xgLabel = `${homeXG} - ${awayXG}`;
+  }
+
+  if (sport === "koripallo") {
+    const paceBase = 84 + (seed % 18);
+    const attackSpread = Math.round((homeWinProb - awayWinProb) / 2.5);
+
+    homeScore = clamp(paceBase + 6 + attackSpread + (seed % 7), 78, 128);
+    awayScore = clamp(paceBase + 2 - attackSpread + ((seed >> 2) % 8), 74, 124);
+
+    if (homeWinProb > awayWinProb && homeScore <= awayScore) {
+      homeScore = awayScore + (1 + (seed % 6));
+    }
+    if (awayWinProb > homeWinProb && awayScore <= homeScore) {
+      awayScore = homeScore + (1 + (seed % 6));
+    }
+
+    homeXG = +(homeScore / 50).toFixed(2);
+    awayXG = +(awayScore / 50).toFixed(2);
+    xgLabel = `${homeScore + awayScore} pts`;
+  }
 
   const confidence =
-    homeWinProb >= 60 || awayWinProb >= 60
+    Math.abs(homeWinProb - awayWinProb) >= 18
       ? "KORKEA"
-      : homeWinProb >= 52 || awayWinProb >= 52
+      : Math.abs(homeWinProb - awayWinProb) >= 8
         ? "KOHTALAINEN"
         : "MATALA";
 
@@ -123,19 +260,19 @@ function makePrediction(game, sport, selectedFactors) {
   const bestBet = valueBets[0] || null;
 
   const analysis = [
-    `${game.home} ja ${game.away} näyttävät ennakkoon melko tasaisilta, mutta mallin mukaan kotijoukkueella on pieni etu ottelun rakenteessa, tempossa ja todennäköisessä pelinkulussa.`,
-    `Viimeisimmän muodon ja valittujen tekijöiden perusteella tärkein yksittäinen vaikutus tulee kohdasta: ${keyFactor}. Tämä nostaa varsinkin ${game.home}:n perusennustetta hieman.`,
+    `${game.home} ja ${game.away} muodostavat ennakkoon kiinnostavan kohteen, jossa markkina, kotietu ja ottelun todennäköinen pelinkuva vaikuttavat lopputulokseen enemmän kuin yksittäinen narratiivi.`,
+    `Valituista tekijöistä suurin vaikutus tulee kohdasta: ${keyFactor}. Tämä näkyy mallissa erityisesti voittotodennäköisyyksien painotuksessa ja arvioidussa piste- tai maalimäärässä.`,
     bestBet
       ? `PRO MODE löytää parhaaksi pelattavaksi vaihtoehdoksi kohteen "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) on markkinan implisiittistä arviota (${bestBet.marketProb}%) korkeampi.`
-      : `Markkina ja malli ovat melko lähellä toisiaan, joten selkeää ylikerrointa ei synny kovin vahvasti tässä kohteessa.`
+      : `Tässä kohteessa markkina ja malli ovat melko lähellä toisiaan, joten hyvin vahvaa ylikerrointa ei muodostu.`
   ].join("\n\n");
 
   return {
     homeScore,
     awayScore,
-    homeWinProb: +homeWinProb.toFixed(1),
-    drawProb: sport === "jalkapallo" ? +drawProb.toFixed(1) : 0,
-    awayWinProb: +awayWinProb.toFixed(1),
+    homeWinProb,
+    drawProb: sport === "jalkapallo" ? drawProb : 0,
+    awayWinProb,
     confidence,
     keyFactor,
     homeStrength,
@@ -143,17 +280,19 @@ function makePrediction(game, sport, selectedFactors) {
     expectedGoals:
       sport === "koripallo"
         ? "korkea"
-        : homeXG + awayXG > 3
+        : homeXG + awayXG > 3.5
           ? "kohtalainen-korkea"
-          : "maltillinen",
-    xgLabel: `${homeXG} - ${awayXG}`,
+          : homeXG + awayXG < 2.2
+            ? "matala"
+            : "maltillinen",
+    xgLabel,
     homeXG,
     awayXG,
     valueBets,
     bestBet,
     stats: {
-      homeLast5: pickForm(seed, 5),
-      awayLast5: pickForm(seed + 7, 5),
+      homeLast5: pickForm(seed % 13, 5),
+      awayLast5: pickForm((seed % 13) + 7, 5),
       h2h: `${game.home} 2W · 1D · 2L ${game.away}`
     },
     analysis
