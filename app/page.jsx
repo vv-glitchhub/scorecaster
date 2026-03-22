@@ -302,7 +302,39 @@ const t = TEXT[lang];
         </div>
 
         <div style={{ textAlign: "right" }}>
-          <div
+          <div. 
+            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
+  <button
+    onClick={() => setLang("fi")}
+    style={{
+      padding: "6px 10px",
+      border: "1px solid #00e5ff",
+      background: lang === "fi" ? "#00e5ff" : "transparent",
+      color: lang === "fi" ? "#07070f" : "#00e5ff",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontSize: 12,
+      marginRight: 6
+    }}
+  >
+    FI
+  </button>
+
+  <button
+    onClick={() => setLang("en")}
+    style={{
+      padding: "6px 10px",
+      border: "1px solid #00e5ff",
+      background: lang === "en" ? "#00e5ff" : "transparent",
+      color: lang === "en" ? "#07070f" : "#00e5ff",
+      borderRadius: 6,
+      cursor: "pointer",
+      fontSize: 12
+    }}
+  >
+    EN
+  </button>
+</div>
             style={{
               fontFamily: mono,
               fontSize: 9,
