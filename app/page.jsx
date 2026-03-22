@@ -62,6 +62,7 @@ const C = {
   bg: "#07070f",
   s1: "#0f0f1c",
   s2: "#161625",
+  s3: "#111122",
   bd: "#222238",
   ac: "#00e5ff",
   ac2: "#ff3d6e",
@@ -94,6 +95,41 @@ function getBestOdds(game) {
   }
 
   return Object.values(best);
+}
+
+function labelOutcome(name) {
+  return name === "Draw" ? "Tasapeli" : name;
+}
+
+function groupGamesByDateAndLeague(games) {
+  const grouped = {};
+
+  for (const game of games) {
+    const dateKey = new Date(game.commence_time || new Date()).toLocaleDateString("fi-FI", {
+      timeZone: "Europe/Helsinki",
+      weekday: "long",
+      day: "numeric",
+      month: "numeric"
+    });
+
+    if (!grouped[dateKey]) grouped[dateKey] = {};
+    if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
+    grouped[dateKey][game.league].push(game);
+  }
+
+  return grouped;
+}
+
+function recommendationMeta(text = "") {
+  if (text.includes("STRONG")) return { color: C.gr, bg: "#0f1f18", border: C.gr };
+  if (text.includes("SMALL")) return { color: C.ac3, bg: "#1f1b0f", border: C.ac3 };
+  return { color: C.ac2, bg: "#1f1018", border: C.ac2 };
+}
+
+function edgeColor(edge) {
+  if (edge >= 6) return C.gr;
+  if (edge >= 3) return C.ac3;
+  return C.ac;
 }
 
 export default function App() {
@@ -154,9 +190,9 @@ export default function App() {
     setErrMsg("");
 
     const msgs = [
-      "Analysoidaan muotoa…",
-      "Haetaan tilastoja…",
-      "Lasketaan todennäköisyyksiä…",
+      "Analysoidaan markkinaa…",
+      "Haetaan formia…",
+      "Lasketaan xG:tä…",
       "Etsitään value bettejä…"
     ];
 
@@ -187,27 +223,8 @@ export default function App() {
   const sc = (v) => (v >= 7 ? C.gr : v >= 5 ? C.ac3 : C.ac2);
   const cf = (c) => ({ KORKEA: C.gr, KOHTALAINEN: C.ac3, MATALA: C.ac2 }[c] || C.ac);
 
-  const groupGamesByDateAndLeague = (games) => {
-    const grouped = {};
-
-    for (const game of games) {
-      const dateKey = new Date(game.commence_time || new Date()).toLocaleDateString("fi-FI", {
-        timeZone: "Europe/Helsinki",
-        weekday: "long",
-        day: "numeric",
-        month: "numeric"
-      });
-
-      if (!grouped[dateKey]) grouped[dateKey] = {};
-      if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
-
-      grouped[dateKey][game.league].push(game);
-    }
-
-    return grouped;
-  };
-
   const groupedGames = groupGamesByDateAndLeague(games);
+  const recMeta = recommendationMeta(result?.recommendation || "NO BET");
 
   return (
     <div
@@ -220,7 +237,7 @@ export default function App() {
       }}
     >
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600&family=JetBrains+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
         @keyframes bar { to { width: 100% } }
         * { box-sizing: border-box; margin: 0; padding: 0 }
       `}</style>
@@ -536,8 +553,7 @@ export default function App() {
                                         padding: "4px 6px"
                                       }}
                                     >
-                                      {o.name === "Draw" ? "Tasapeli" : o.name}:{" "}
-                                      <span style={{ color: C.ac3 }}>{o.price}</span>
+                                      {labelOutcome(o.name)}: <span style={{ color: C.ac3 }}>{o.price}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -626,8 +642,7 @@ export default function App() {
                       padding: "4px 6px"
                     }}
                   >
-                    {o.name === "Draw" ? "Tasapeli" : o.name}:{" "}
-                    <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
+                    {labelOutcome(o.name)}: <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
                   </div>
                 ))}
               </div>
@@ -766,24 +781,10 @@ export default function App() {
                 }}
               >
                 <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontFamily: disp,
-                      fontSize: 15,
-                      letterSpacing: 2,
-                      marginBottom: 3
-                    }}
-                  >
+                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>
                     {sel.home}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: disp,
-                      fontSize: 50,
-                      lineHeight: 1,
-                      color: C.ac
-                    }}
-                  >
+                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>
                     {result.homeScore}
                   </div>
                 </div>
@@ -791,38 +792,57 @@ export default function App() {
                 <div style={{ fontFamily: disp, fontSize: 15, color: C.mu }}>VS</div>
 
                 <div style={{ flex: 1 }}>
-                  <div
-                    style={{
-                      fontFamily: disp,
-                      fontSize: 15,
-                      letterSpacing: 2,
-                      marginBottom: 3
-                    }}
-                  >
+                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>
                     {sel.away}
                   </div>
-                  <div
-                    style={{
-                      fontFamily: disp,
-                      fontSize: 50,
-                      lineHeight: 1,
-                      color: C.ac
-                    }}
-                  >
+                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>
                     {result.awayScore}
                   </div>
                 </div>
               </div>
 
+              <div style={{ fontFamily: mono, fontSize: 8, color: C.mu, letterSpacing: 2 }}>
+                LUOTTAMUS: {result.confidence} · {result.keyFactor}
+              </div>
+            </div>
+
+            <div
+              style={{
+                background: recMeta.bg,
+                border: `1px solid ${recMeta.border}`,
+                boxShadow: `0 0 14px ${recMeta.border}22`,
+                borderRadius: 8,
+                padding: "13px 15px",
+                marginBottom: 10
+              }}
+            >
               <div
                 style={{
                   fontFamily: mono,
                   fontSize: 8,
-                  color: C.mu,
-                  letterSpacing: 2
+                  letterSpacing: 3,
+                  color: recMeta.color,
+                  marginBottom: 7
                 }}
               >
-                LUOTTAMUS: {result.confidence} · {result.keyFactor}
+                AI SUOSITUS
+              </div>
+
+              <div
+                style={{
+                  fontFamily: disp,
+                  fontSize: 20,
+                  letterSpacing: 3,
+                  color: recMeta.color
+                }}
+              >
+                {result.recommendation || "NO BET"}
+              </div>
+
+              <div style={{ fontSize: 12, color: C.tx, marginTop: 6 }}>
+                {result.bestBet
+                  ? `Paras löydetty etu: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
+                  : "Selkeää pelattavaa etua ei löytynyt tällä hetkellä."}
               </div>
             </div>
 
@@ -850,7 +870,7 @@ export default function App() {
 
               {[
                 { l: sel.home, p: result.homeWinProb, c: C.ac },
-                ...(SPORTS[sport].drawPossible ? [{ l: "Tasapeli", p: result.drawProb || 0, c: C.mu }] : []),
+                ...(SPORTS[sport].drawPossible ? [{ l: "Tasapeli", p: result.drawProb || 0, c: "#6e6e96" }] : []),
                 { l: sel.away, p: result.awayWinProb, c: C.ac2 }
               ].map(({ l, p, c }) => (
                 <div key={l} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -858,7 +878,7 @@ export default function App() {
                     style={{
                       fontFamily: mono,
                       fontSize: 10,
-                      width: 85,
+                      width: 110,
                       flexShrink: 0,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
@@ -934,45 +954,48 @@ export default function App() {
             {result.bestBet && (
               <div
                 style={{
-                  background: C.s1,
+                  background: "#0f1a14",
                   border: `1px solid ${C.gr}`,
                   boxShadow: `0 0 14px ${C.gr}22`,
-                  borderRadius: 8,
-                  padding: "13px 15px",
-                  marginBottom: 10
+                  borderRadius: 10,
+                  padding: 14,
+                  marginBottom: 12
                 }}
               >
                 <div
                   style={{
-                    fontFamily: disp,
-                    fontSize: 14,
-                    letterSpacing: 3,
+                    fontFamily: mono,
+                    fontSize: 10,
+                    letterSpacing: 2,
                     color: C.gr,
-                    marginBottom: 10
+                    marginBottom: 8
                   }}
                 >
-                  🔥 PRO MODE · PARAS VETO
+                  🔥 PARAS VETO
                 </div>
 
-                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
                   {result.bestBet.outcome}
                 </div>
-                <div style={{ fontFamily: mono, fontSize: 9, color: C.tx }}>
-                  Malli: {result.bestBet.modelProb}% · Markkina: {result.bestBet.marketProb}% · Edge:{" "}
-                  <span style={{ color: C.gr }}>{result.bestBet.edge}%</span> · Kerroin:{" "}
-                  <span style={{ color: C.ac }}>{result.bestBet.odds}</span>
+
+                <div style={{ fontSize: 12, color: "#b8c0d0", marginBottom: 4 }}>
+                  Kerroin: {result.bestBet.odds} ({result.bestBet.bookmaker || "market"})
+                </div>
+
+                <div style={{ fontSize: 12, color: C.ac }}>
+                  Malli {result.bestBet.modelProb}% · Markkina {result.bestBet.marketProb}% · Edge +{result.bestBet.edge}%
                 </div>
               </div>
             )}
 
-            {result.valueBets?.length > 0 && (
+            {result.valueBets && result.valueBets.length > 0 && (
               <div
                 style={{
                   background: C.s1,
                   border: `1px solid ${C.bd}`,
-                  borderRadius: 8,
-                  padding: "13px 15px",
-                  marginBottom: 10
+                  borderRadius: 10,
+                  padding: 14,
+                  marginBottom: 14
                 }}
               >
                 <div
@@ -993,22 +1016,85 @@ export default function App() {
                       key={i}
                       style={{
                         background: C.s2,
-                        border: `1px solid ${bet.edge >= 5 ? C.gr : C.ac3}`,
+                        border: `1px solid ${edgeColor(bet.edge)}`,
                         borderRadius: 8,
                         padding: "10px 12px"
                       }}
                     >
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{bet.outcome}</div>
-                      <div style={{ fontFamily: mono, fontSize: 9, color: C.tx }}>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
+                        {bet.outcome}
+                      </div>
+
+                      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 3 }}>
+                        Kerroin: {bet.odds} ({bet.bookmaker || "market"})
+                      </div>
+
+                      <div style={{ fontSize: 11, color: C.tx }}>
                         Malli: {bet.modelProb}% · Markkina: {bet.marketProb}% · Edge:{" "}
-                        <span style={{ color: bet.edge >= 5 ? C.gr : C.ac3 }}>{bet.edge}%</span> · Kerroin:{" "}
-                        <span style={{ color: C.ac }}>{bet.odds}</span>
+                        <span style={{ color: edgeColor(bet.edge) }}>+{bet.edge}%</span>
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             )}
+
+            <div
+              style={{
+                background: C.s1,
+                border: `1px solid ${C.bd}`,
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 14
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: disp,
+                  fontSize: 14,
+                  letterSpacing: 3,
+                  color: C.ac,
+                  marginBottom: 10
+                }}
+              >
+                🎯 CONFIDENCE METER
+              </div>
+
+              <div style={{ marginBottom: 8 }}>
+                <div
+                  style={{
+                    width: "100%",
+                    height: 16,
+                    background: C.s2,
+                    borderRadius: 6,
+                    overflow: "hidden",
+                    border: `1px solid ${C.bd}`
+                  }}
+                >
+                  <div
+                    style={{
+                      width:
+                        result.confidence === "KORKEA"
+                          ? "85%"
+                          : result.confidence === "KOHTALAINEN"
+                            ? "60%"
+                            : "35%",
+                      height: "100%",
+                      background:
+                        result.confidence === "KORKEA"
+                          ? C.gr
+                          : result.confidence === "KOHTALAINEN"
+                            ? C.ac3
+                            : C.ac2
+                    }}
+                  />
+                </div>
+              </div>
+
+              <div style={{ fontSize: 12, color: C.mu }}>
+                Luottamus perustuu markkinaeroon, formiin, valittuihin tekijöihin ja ottelun tasaisuuteen.
+              </div>
+            </div>
 
             {result.stats && (
               <div
@@ -1035,14 +1121,22 @@ export default function App() {
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 13 }}>
                     <strong>{sel.home}</strong> viimeiset 5:{" "}
-                    <span style={{ fontFamily: mono }}>{result.stats.homeLast5.join(" ")}</span>
+                    <span style={{ fontFamily: mono }}>
+                      {Array.isArray(result.stats.homeLast5) && result.stats.homeLast5.length > 0
+                        ? result.stats.homeLast5.join(" ")
+                        : "N/A"}
+                    </span>
                   </div>
                   <div style={{ fontSize: 13 }}>
                     <strong>{sel.away}</strong> viimeiset 5:{" "}
-                    <span style={{ fontFamily: mono }}>{result.stats.awayLast5.join(" ")}</span>
+                    <span style={{ fontFamily: mono }}>
+                      {Array.isArray(result.stats.awayLast5) && result.stats.awayLast5.length > 0
+                        ? result.stats.awayLast5.join(" ")
+                        : "N/A"}
+                    </span>
                   </div>
                   <div style={{ fontSize: 13 }}>
-                    <strong>Head-to-head:</strong> <span style={{ fontFamily: mono }}>{result.stats.h2h}</span>
+                    <strong>Head-to-head:</strong> <span style={{ fontFamily: mono }}>{result.stats.h2h || "Ei dataa"}</span>
                   </div>
                 </div>
               </div>
