@@ -1,23 +1,30 @@
 import { NextResponse } from "next/server";
 
 const SPORT_KEYS = {
-  jaakiekko: ["icehockey_nhl"],
-  koripallo: ["basketball_nba"],
   jalkapallo: [
     "soccer_epl",
     "soccer_spain_la_liga",
     "soccer_italy_serie_a",
     "soccer_germany_bundesliga",
     "soccer_uefa_champs_league"
-  ]
+  ],
+  jaakiekko: ["icehockey_nhl"],
+  koripallo: ["basketball_nba"]
 };
+
+function cleanLeagueName(name) {
+  return name
+    .replace(/^Soccer - /i, "")
+    .replace(/^Ice Hockey - /i, "")
+    .replace(/^Basketball - /i, "");
+}
 
 function formatGame(g) {
   return {
     id: g.id,
     home: g.home_team,
     away: g.away_team,
-    league: g.sport_title,
+    league: cleanLeagueName(g.sport_title),
     time: new Date(g.commence_time).toLocaleTimeString("fi-FI", {
       timeZone: "Europe/Helsinki",
       hour: "2-digit",
@@ -70,10 +77,7 @@ export async function GET(req) {
     const keys = SPORT_KEYS[sport];
 
     if (!keys) {
-      return NextResponse.json(
-        { error: "Tuntematon laji" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Tuntematon laji" }, { status: 400 });
     }
 
     let allGames = [];
@@ -95,20 +99,17 @@ export async function GET(req) {
       return true;
     });
 
-    const filtered = uniqueGames.filter((g) =>
-      isTodayOrTomorrowInFinland(g.commence_time)
-    );
-
+    const filtered = uniqueGames.filter((g) => isTodayOrTomorrowInFinland(g.commence_time));
     const source = filtered.length > 0 ? filtered : uniqueGames;
 
-  const games = source
-  .sort((a, b) => {
-    const timeDiff = new Date(a.commence_time) - new Date(b.commence_time);
-    if (timeDiff !== 0) return timeDiff;
-    return a.sport_title.localeCompare(b.sport_title);
-  })
-  .slice(0, 30)
-  .map(formatGame);
+    const games = source
+      .sort((a, b) => {
+        const timeDiff = new Date(a.commence_time) - new Date(b.commence_time);
+        if (timeDiff !== 0) return timeDiff;
+        return a.sport_title.localeCompare(b.sport_title);
+      })
+      .slice(0, 30)
+      .map(formatGame);
 
     return NextResponse.json({ games });
   } catch (e) {
