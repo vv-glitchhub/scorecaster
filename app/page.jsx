@@ -4,7 +4,7 @@ import { useState } from "react";
 const TEXT = {
   fi: {
     analyze: "⚡ ANALYSOI JA ENNUSTA",
-    results: "📊 ENNUSTUSTULOS",
+    results: "📊  {t.results},
     recommendation: "AI SUOSITUS",
     noBet: "NO BET",
     bestBet: "🔥 PARAS VETO",
