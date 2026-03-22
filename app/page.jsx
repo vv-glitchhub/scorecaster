@@ -123,6 +123,7 @@ function groupGamesByDateAndLeague(games) {
 function recommendationMeta(text = "") {
   if (text.includes("STRONG")) return { color: C.gr, bg: "#0f1f18", border: C.gr };
   if (text.includes("SMALL")) return { color: C.ac3, bg: "#1f1b0f", border: C.ac3 };
+  if (text.includes("LEAN")) return { color: C.ac, bg: "#0f1722", border: C.ac };
   return { color: C.ac2, bg: "#1f1018", border: C.ac2 };
 }
 
@@ -840,9 +841,11 @@ export default function App() {
               </div>
 
               <div style={{ fontSize: 12, color: C.tx, marginTop: 6 }}>
-                {result.bestBet
-                  ? `Paras löydetty etu: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
-                  : "Selkeää pelattavaa etua ei löytynyt tällä hetkellä."}
+                {result.recommendation === "NO BET"
+                  ? "Pientä etua voi löytyä, mutta ei tarpeeksi varsinaiseen pelisuositukseen."
+                  : result.bestBet
+                    ? `Paras löydetty etu: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
+                    : "Selkeää pelattavaa etua ei löytynyt tällä hetkellä."}
               </div>
             </div>
 
@@ -951,7 +954,7 @@ export default function App() {
               ))}
             </div>
 
-            {result.bestBet && (
+            {result.bestBet && result.bestBet.edge >= 1 && (
               <div
                 style={{
                   background: "#0f1a14",
@@ -1136,7 +1139,8 @@ export default function App() {
                     </span>
                   </div>
                   <div style={{ fontSize: 13 }}>
-                    <strong>Head-to-head:</strong> <span style={{ fontFamily: mono }}>{result.stats.h2h || "Ei dataa"}</span>
+                    <strong>Head-to-head:</strong>{" "}
+                    <span style={{ fontFamily: mono }}>{result.stats.h2h || "Ei dataa"}</span>
                   </div>
                 </div>
               </div>
