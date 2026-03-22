@@ -373,6 +373,8 @@ function makePrediction({ game, sport, selectedFactors = [], formData }) {
     const homeGA = formData?.homeStats?.avgGoalsAgainst ?? 1.2;
     const awayGA = formData?.awayStats?.avgGoalsAgainst ?? 1.3;
 
+homeXG = 0.35 + homeGF * 0.35 + awayGA * 0.25 + homeP * 0.8;
+awayXG = 0.3 + awayGF * 0.35 + homeGA * 0.25 + awayP * 0.8;
 homeXG = round1(clamp(homeXG, 0.3, 2.8));
 awayXG = round1(clamp(awayXG, 0.3, 2.5));
 
