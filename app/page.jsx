@@ -3,7 +3,7 @@
 import { useState } from "react";
 const TEXT = {
   fi: {
-    analyze: "⚡ ANALYSOI JA ENNUSTA",
+    analyze: "⚡ {t.analyze},
     results: "📊  {t.results},
     recommendation: {t.recommendation},
     noBet: "NO BET",
@@ -13,6 +13,7 @@ const TEXT = {
     stats: "📊 TILASTOT"
   },
   en: {
+    tagline: "AI-POWERED SPORTS ANALYTICS"
     analyze: "⚡ ANALYZE & PREDICT",
     results: "📊 PREDICTION RESULT",
     recommendation: "AI RECOMMENDATION",
@@ -813,7 +814,7 @@ const t = TEXT[lang];
                 marginBottom: 12
               }}
             >
-              📊 ENNUSTUSTULOS
+              📊 {t.results}
             </div>
 
             <div
@@ -880,7 +881,7 @@ const t = TEXT[lang];
                   marginBottom: 7
                 }}
               >
-                AI SUOSITUS
+                {t.recommendation}
               </div>
 
               <div
@@ -1028,7 +1029,7 @@ const t = TEXT[lang];
                     marginBottom: 8
                   }}
                 >
-                  🔥 PARAS VETO
+                  🔥 {t.BestBet}
                 </div>
 
                 <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
