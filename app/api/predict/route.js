@@ -40,9 +40,11 @@ function buildValueBets(game, sport, probs) {
   const oddsMap = getBestOdds(game);
   const out = [];
 
+  const drawLabel = "Draw";
+
   const candidates = [
     { outcome: game.home, modelProb: probs.homeWinProb },
-    ...(sport === "jalkapallo" ? [{ outcome: "Draw", modelProb: probs.drawProb }] : []),
+    ...(sport === "jalkapallo" ? [{ outcome: drawLabel, modelProb: probs.drawProb }] : []),
     { outcome: game.away, modelProb: probs.awayWinProb }
   ];
 
@@ -56,7 +58,8 @@ function buildValueBets(game, sport, probs) {
 
     if (edge >= 2) {
       out.push({
-        outcome: c.outcome,
+        outcome: c.outcome === "Draw" ? "Tasapeli" : c.outcome,
+        rawOutcome: c.outcome,
         modelProb: c.modelProb,
         marketProb,
         edge,
@@ -89,29 +92,41 @@ function makePrediction(game, sport, selectedFactors) {
   const awayXG = +(0.9 + (awayWinProb / 100) * 1.1).toFixed(2);
 
   const homeScore =
-    sport === "koripallo" ? 90 + Math.round(homeWinProb / 5) :
-    sport === "jaakiekko" ? Math.max(1, Math.round(homeXG + 1)) :
-    Math.max(0, Math.round(homeXG));
+    sport === "koripallo"
+      ? 90 + Math.round(homeWinProb / 5)
+      : sport === "jaakiekko"
+        ? Math.max(1, Math.round(homeXG + 1))
+        : Math.max(0, Math.round(homeXG));
 
   const awayScore =
-    sport === "koripallo" ? 86 + Math.round(awayWinProb / 6) :
-    sport === "jaakiekko" ? Math.max(1, Math.round(awayXG + 1)) :
-    Math.max(0, Math.round(awayXG));
+    sport === "koripallo"
+      ? 86 + Math.round(awayWinProb / 6)
+      : sport === "jaakiekko"
+        ? Math.max(1, Math.round(awayXG + 1))
+        : Math.max(0, Math.round(awayXG));
 
   const confidence =
-    homeWinProb >= 60 || awayWinProb >= 60 ? "KORKEA" :
-    homeWinProb >= 52 || awayWinProb >= 52 ? "KOHTALAINEN" :
-    "MATALA";
+    homeWinProb >= 60 || awayWinProb >= 60
+      ? "KORKEA"
+      : homeWinProb >= 52 || awayWinProb >= 52
+        ? "KOHTALAINEN"
+        : "MATALA";
 
   const keyFactor = selectedFactors?.[0] || "Markkina ja kotietu";
 
-  const valueBets = buildValueBets(game, sport, { homeWinProb, drawProb, awayWinProb });
+  const valueBets = buildValueBets(game, sport, {
+    homeWinProb,
+    drawProb,
+    awayWinProb
+  });
+
+  const bestBet = valueBets[0] || null;
 
   const analysis = [
     `${game.home} ja ${game.away} näyttävät ennakkoon melko tasaisilta, mutta mallin mukaan kotijoukkueella on pieni etu ottelun rakenteessa, tempossa ja todennäköisessä pelinkulussa.`,
     `Viimeisimmän muodon ja valittujen tekijöiden perusteella tärkein yksittäinen vaikutus tulee kohdasta: ${keyFactor}. Tämä nostaa varsinkin ${game.home}:n perusennustetta hieman.`,
-    valueBets.length > 0
-      ? `Markkinaan verrattuna paras mahdollinen value löytyy kohteesta "${valueBets[0].outcome}", koska mallin todennäköisyys on markkinaa korkeampi.`
+    bestBet
+      ? `PRO MODE löytää parhaaksi pelattavaksi vaihtoehdoksi kohteen "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) on markkinan implisiittistä arviota (${bestBet.marketProb}%) korkeampi.`
       : `Markkina ja malli ovat melko lähellä toisiaan, joten selkeää ylikerrointa ei synny kovin vahvasti tässä kohteessa.`
   ].join("\n\n");
 
@@ -125,11 +140,17 @@ function makePrediction(game, sport, selectedFactors) {
     keyFactor,
     homeStrength,
     awayStrength,
-    expectedGoals: sport === "koripallo" ? "korkea" : homeXG + awayXG > 3 ? "kohtalainen-korkea" : "maltillinen",
+    expectedGoals:
+      sport === "koripallo"
+        ? "korkea"
+        : homeXG + awayXG > 3
+          ? "kohtalainen-korkea"
+          : "maltillinen",
     xgLabel: `${homeXG} - ${awayXG}`,
     homeXG,
     awayXG,
     valueBets,
+    bestBet,
     stats: {
       homeLast5: pickForm(seed, 5),
       awayLast5: pickForm(seed + 7, 5),
