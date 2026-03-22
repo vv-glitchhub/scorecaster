@@ -1,7 +1,28 @@
 "use client";
 
 import { useState } from "react";
-
+const TEXT = {
+  fi: {
+    analyze: "⚡ ANALYSOI JA ENNUSTA",
+    results: "📊 ENNUSTUSTULOS",
+    recommendation: "AI SUOSITUS",
+    noBet: "NO BET",
+    bestBet: "🔥 PARAS VETO",
+    valueBets: "💰 VALUE BETS",
+    confidence: "🎯 LUOTTAMUS",
+    stats: "📊 TILASTOT"
+  },
+  en: {
+    analyze: "⚡ ANALYZE & PREDICT",
+    results: "📊 PREDICTION RESULT",
+    recommendation: "AI RECOMMENDATION",
+    noBet: "NO BET",
+    bestBet: "🔥 BEST BET",
+    valueBets: "💰 VALUE BETS",
+    confidence: "🎯 CONFIDENCE",
+    stats: "📊 STATS"
+  }
+};
 const SPORTS = {
   jalkapallo: {
     label: "⚽ Jalkapallo",
