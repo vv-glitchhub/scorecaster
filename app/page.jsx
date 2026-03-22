@@ -1,90 +1,175 @@
 "use client";
 
 import { useState } from "react";
+
 const TEXT = {
   fi: {
-    analyze: "⚡ {t.analyze},
-    results: "📊  {t.results},
-    recommendation: {t.recommendation},
-    noBet: "NO BET",
+    tagline: "AI-POWERED SPORTS ANALYTICS",
+    live: "LIVE",
+    todayGames: "TÄMÄN PÄIVÄN PELIT",
+    fetchGames: "🔍 HAE PÄIVÄN PELIT",
+    loadingGames: "⟳ HAETAAN…",
+    pressToFetch: "Paina nappia hakiaksesi pelit",
+    noGames: "Ei otteluita. Kokeile toista lajia.",
+    selectedMatch: "✓ VALITTU OTTELU",
+    factors: "VAIKUTTAVAT TEKIJÄT",
+    analyze: "⚡ ANALYSOI JA ENNUSTA",
+    prediction: "📊 ENNUSTUSTULOS",
+    recommendation: "AI SUOSITUS",
+    probabilities: "VOITTOTODENNÄKÖISYYDET",
+    homeStrength: "KOTIVOIMA",
+    awayStrength: "VIERASVOIMA",
+    confidence: "LUOTTAMUS",
+    xg: "XG",
     bestBet: "🔥 PARAS VETO",
     valueBets: "💰 VALUE BETS",
-    confidence: "🎯 LUOTTAMUS",
-    stats: "📊 TILASTOT"
+    confidenceMeter: "🎯 CONFIDENCE METER",
+    stats: "📊 TILASTOT",
+    aiAnalysis: "AI-ANALYYSI",
+    disclaimer: "⚠️ VIIHDEKÄYTTÖÖN — EI VEDONLYÖNTISUOSITUS",
+    noEdge: "Selkeää pelattavaa etua ei löytynyt tällä hetkellä.",
+    smallEdge: "Pientä etua voi löytyä, mutta ei tarpeeksi varsinaiseen pelisuositukseen.",
+    confidenceExplanation:
+      "Luottamus perustuu markkinaeroon, formiin, valittuihin tekijöihin ja ottelun tasaisuuteen.",
+    certainty: "varmuus",
+    goalModel: "maalimalli",
+    marketHomeEdge: "Markkina ja kotietu",
+    last5: "viimeiset 5",
+    headToHead: "Head-to-head",
+    noData: "Ei dataa",
+    aboutTitle: "MITEN SOVELLUS TOIMII",
+    aboutText:
+      "Scorecaster yhdistää markkinakertoimet, formidatan, valitut tekijät ja kevyen xG-logiikan yhdeksi helposti luettavaksi ennustenäkymäksi.",
+    demoText:
+      "Sovellus on rakennettu näyttämään ottelut, value betit, todennäköisyydet ja AI-analyysin modernissa käyttöliittymässä."
   },
   en: {
-    tagline: "AI-POWERED SPORTS ANALYTICS"
+    tagline: "AI-POWERED SPORTS ANALYTICS",
+    live: "LIVE",
+    todayGames: "TODAY'S MATCHES",
+    fetchGames: "🔍 FETCH TODAY'S MATCHES",
+    loadingGames: "⟳ LOADING…",
+    pressToFetch: "Press the button to load matches",
+    noGames: "No matches found. Try another sport.",
+    selectedMatch: "✓ SELECTED MATCH",
+    factors: "KEY FACTORS",
     analyze: "⚡ ANALYZE & PREDICT",
-    results: "📊 PREDICTION RESULT",
+    prediction: "📊 PREDICTION RESULT",
     recommendation: "AI RECOMMENDATION",
-    noBet: "NO BET",
+    probabilities: "WIN PROBABILITIES",
+    homeStrength: "HOME STRENGTH",
+    awayStrength: "AWAY STRENGTH",
+    confidence: "CONFIDENCE",
+    xg: "XG",
     bestBet: "🔥 BEST BET",
     valueBets: "💰 VALUE BETS",
-    confidence: "🎯 CONFIDENCE",
-    stats: "📊 STATS"
-  }
-};
-const SPORTS = {
-  jalkapallo: {
-    label: "⚽ Jalkapallo",
-    leagues: "Veikkausliiga, Champions League, Premier League, Bundesliga, La Liga, Serie A",
-    factors: [
-      "Kotikenttäetu",
-      "Avainpelaaja loukkaantunut",
-      "Derby-ottelu",
-      "Eurooppa rasittaa",
-      "Maalivahti vireessä",
-      "Uusi valmentaja",
-      "Sarjakärki vastaan",
-      "Puolustus tiukka"
-    ],
-    drawPossible: true
-  },
-  jaakiekko: {
-    label: "🏒 Jääkiekko",
-    leagues: "Liiga, NHL, KHL",
-    factors: [
-      "Kotijää etu",
-      "Maalivahti poissa",
-      "Back-to-back",
-      "Ylivoima korkea",
-      "Playoff-paine",
-      "Pitkä matka",
-      "Viime 3 voitettu",
-      "Nopeat hyökkääjät"
-    ],
-    drawPossible: false
-  },
-  koripallo: {
-    label: "🏀 Koripallo",
-    leagues: "NBA, Euroleague, Korisliiga",
-    factors: [
-      "Kotisali tukee",
-      "Tähti loukkaantunut",
-      "3-pisteet uppoaa",
-      "Puolustus heikko",
-      "Nopea tempo",
-      "Väsynyt penkki",
-      "Huikea vaihtopelaaja",
-      "Yliajalle viimeksi"
-    ],
-    drawPossible: false
+    confidenceMeter: "🎯 CONFIDENCE METER",
+    stats: "📊 STATS",
+    aiAnalysis: "AI ANALYSIS",
+    disclaimer: "⚠️ FOR ENTERTAINMENT ONLY — NOT BETTING ADVICE",
+    noEdge: "No clear betting edge found at the moment.",
+    smallEdge: "A small edge may exist, but not enough for a strong recommendation.",
+    confidenceExplanation:
+      "Confidence is based on market gap, team form, selected factors and match balance.",
+    certainty: "certainty",
+    goalModel: "goal model",
+    marketHomeEdge: "Market and home edge",
+    last5: "last 5",
+    headToHead: "Head-to-head",
+    noData: "No data",
+    aboutTitle: "HOW IT WORKS",
+    aboutText:
+      "Scorecaster combines market odds, form data, selected factors and lightweight xG logic into one clear prediction view.",
+    demoText:
+      "The app is built to present matches, value bets, probabilities and AI analysis in a modern UI."
   }
 };
 
-const today = new Date();
-const dateLong = today.toLocaleDateString("fi-FI", {
-  weekday: "long",
-  day: "numeric",
-  month: "long",
-  year: "numeric"
-});
+const SPORTS = {
+  jalkapallo: {
+    label: { fi: "⚽ Jalkapallo", en: "⚽ Football" },
+    factors: {
+      fi: [
+        "Kotikenttäetu",
+        "Avainpelaaja loukkaantunut",
+        "Derby-ottelu",
+        "Eurooppa rasittaa",
+        "Maalivahti vireessä",
+        "Uusi valmentaja",
+        "Sarjakärki vastaan",
+        "Puolustus tiukka"
+      ],
+      en: [
+        "Home advantage",
+        "Key player injured",
+        "Derby match",
+        "European fatigue",
+        "Goalkeeper in form",
+        "New coach",
+        "Facing league leader",
+        "Strong defense"
+      ]
+    },
+    drawPossible: true
+  },
+  jaakiekko: {
+    label: { fi: "🏒 Jääkiekko", en: "🏒 Ice Hockey" },
+    factors: {
+      fi: [
+        "Kotijää etu",
+        "Maalivahti poissa",
+        "Back-to-back",
+        "Ylivoima korkea",
+        "Playoff-paine",
+        "Pitkä matka",
+        "Viime 3 voitettu",
+        "Nopeat hyökkääjät"
+      ],
+      en: [
+        "Home ice advantage",
+        "Goalie out",
+        "Back-to-back",
+        "Strong power play",
+        "Playoff pressure",
+        "Long travel",
+        "Won last 3",
+        "Fast forwards"
+      ]
+    },
+    drawPossible: false
+  },
+  koripallo: {
+    label: { fi: "🏀 Koripallo", en: "🏀 Basketball" },
+    factors: {
+      fi: [
+        "Kotisali tukee",
+        "Tähti loukkaantunut",
+        "3-pisteet uppoaa",
+        "Puolustus heikko",
+        "Nopea tempo",
+        "Väsynyt penkki",
+        "Huikea vaihtopelaaja",
+        "Yliajalle viimeksi"
+      ],
+      en: [
+        "Home court boost",
+        "Star player injured",
+        "3-pointers falling",
+        "Weak defense",
+        "Fast pace",
+        "Tired bench",
+        "Elite bench player",
+        "Went to overtime last game"
+      ]
+    },
+    drawPossible: false
+  }
+};
 
 const C = {
   bg: "#07070f",
   s1: "#0f0f1c",
   s2: "#161625",
-  s3: "#111122",
   bd: "#222238",
   ac: "#00e5ff",
   ac2: "#ff3d6e",
@@ -96,6 +181,11 @@ const C = {
 
 const mono = "'JetBrains Mono', monospace";
 const disp = "'Bebas Neue', Impact, sans-serif";
+
+function labelOutcome(name, lang) {
+  if (name === "Draw") return lang === "fi" ? "Tasapeli" : "Draw";
+  return name;
+}
 
 function getBestOdds(game) {
   const best = {};
@@ -117,10 +207,6 @@ function getBestOdds(game) {
   }
 
   return Object.values(best);
-}
-
-function labelOutcome(name) {
-  return name === "Draw" ? "Tasapeli" : name;
 }
 
 function groupGamesByDateAndLeague(games) {
@@ -156,6 +242,9 @@ function edgeColor(edge) {
 }
 
 export default function App() {
+  const [lang, setLang] = useState("fi");
+  const t = TEXT[lang];
+
   const [sport, setSport] = useState("jalkapallo");
   const [games, setGames] = useState([]);
   const [sel, setSel] = useState(null);
@@ -165,8 +254,15 @@ export default function App() {
   const [result, setResult] = useState(null);
   const [loadMsg, setLoadMsg] = useState("");
   const [errMsg, setErrMsg] = useState("");
-const [lang, setLang] = useState("fi");
-const t = TEXT[lang];
+
+  const today = new Date();
+  const dateLong = today.toLocaleDateString(lang === "fi" ? "fi-FI" : "en-GB", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
   const changeSport = (s) => {
     setSport(s);
     setGames([]);
@@ -213,12 +309,20 @@ const t = TEXT[lang];
     setResult(null);
     setErrMsg("");
 
-    const msgs = [
-      "Analysoidaan markkinaa…",
-      "Haetaan formia…",
-      "Lasketaan xG:tä…",
-      "Etsitään value bettejä…"
-    ];
+    const msgs =
+      lang === "fi"
+        ? [
+            "Analysoidaan markkinaa…",
+            "Haetaan formia…",
+            "Lasketaan xG:tä…",
+            "Etsitään value bettejä…"
+          ]
+        : [
+            "Analyzing market…",
+            "Fetching form…",
+            "Calculating xG…",
+            "Finding value bets…"
+          ];
 
     let mi = 0;
     setLoadMsg(msgs[0]);
@@ -264,6 +368,7 @@ const t = TEXT[lang];
         @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
         @keyframes bar { to { width: 100% } }
         * { box-sizing: border-box; margin: 0; padding: 0 }
+        button { outline: none; }
       `}</style>
 
       <div
@@ -285,8 +390,9 @@ const t = TEXT[lang];
               marginBottom: 2
             }}
           >
-            {t.tagline || "AI-POWERED SPORTS ANALYTICS"}
+            {t.tagline}
           </div>
+
           <div
             style={{
               fontFamily: disp,
@@ -303,39 +409,41 @@ const t = TEXT[lang];
         </div>
 
         <div style={{ textAlign: "right" }}>
-          <div. 
-            <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 8 }}>
-  <button
-    onClick={() => setLang("fi")}
-    style={{
-      padding: "6px 10px",
-      border: "1px solid #00e5ff",
-      background: lang === "fi" ? "#00e5ff" : "transparent",
-      color: lang === "fi" ? "#07070f" : "#00e5ff",
-      borderRadius: 6,
-      cursor: "pointer",
-      fontSize: 12,
-      marginRight: 6
-    }}
-  >
-    FI
-  </button>
+          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 8 }}>
+            <button
+              onClick={() => setLang("fi")}
+              style={{
+                padding: "5px 10px",
+                border: `1px solid ${C.ac}`,
+                background: lang === "fi" ? C.ac : "transparent",
+                color: lang === "fi" ? C.bg : C.ac,
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: mono
+              }}
+            >
+              FI 🇫🇮
+            </button>
 
-  <button
-    onClick={() => setLang("en")}
-    style={{
-      padding: "6px 10px",
-      border: "1px solid #00e5ff",
-      background: lang === "en" ? "#00e5ff" : "transparent",
-      color: lang === "en" ? "#07070f" : "#00e5ff",
-      borderRadius: 6,
-      cursor: "pointer",
-      fontSize: 12
-    }}
-  >
-    EN
-  </button>
-</div>
+            <button
+              onClick={() => setLang("en")}
+              style={{
+                padding: "5px 10px",
+                border: `1px solid ${C.ac}`,
+                background: lang === "en" ? C.ac : "transparent",
+                color: lang === "en" ? C.bg : C.ac,
+                borderRadius: 6,
+                cursor: "pointer",
+                fontSize: 11,
+                fontFamily: mono
+              }}
+            >
+              EN 🇬🇧
+            </button>
+          </div>
+
+          <div
             style={{
               fontFamily: mono,
               fontSize: 9,
@@ -347,6 +455,7 @@ const t = TEXT[lang];
           >
             {dateLong}
           </div>
+
           <div
             style={{
               display: "flex",
@@ -367,7 +476,7 @@ const t = TEXT[lang];
                 boxShadow: `0 0 8px ${C.gr}`
               }}
             />
-            LIVE
+            {t.live}
           </div>
         </div>
       </div>
@@ -392,7 +501,7 @@ const t = TEXT[lang];
                 fontWeight: sport === k ? 700 : 400
               }}
             >
-              {sp.label}
+              {sp.label[lang]}
             </button>
           ))}
         </div>
@@ -414,7 +523,7 @@ const t = TEXT[lang];
                 color: C.ac3
               }}
             >
-              TÄMÄN PÄIVÄN PELIT
+              {t.todayGames}
             </div>
 
             <button
@@ -433,7 +542,7 @@ const t = TEXT[lang];
                 opacity: fetchSt === "loading" ? 0.5 : 1
               }}
             >
-              {fetchSt === "loading" ? "⟳ HAETAAN…" : "🔍 HAE PÄIVÄN PELIT"}
+              {fetchSt === "loading" ? t.loadingGames : t.fetchGames}
             </button>
           </div>
 
@@ -449,7 +558,7 @@ const t = TEXT[lang];
                 borderRadius: 8
               }}
             >
-              Paina nappia hakiaksesi pelit
+              {t.pressToFetch}
             </div>
           )}
 
@@ -463,7 +572,7 @@ const t = TEXT[lang];
                 color: C.mu
               }}
             >
-              Haetaan otteluita…
+              {lang === "fi" ? "Haetaan otteluita…" : "Loading matches…"}
               <div
                 style={{
                   width: "100%",
@@ -514,7 +623,7 @@ const t = TEXT[lang];
                 borderRadius: 8
               }}
             >
-              Ei otteluita. Kokeile toista lajia.
+              {t.noGames}
             </div>
           )}
 
@@ -577,7 +686,9 @@ const t = TEXT[lang];
                                 }}
                               >
                                 <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
-                                <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>vs</div>
+                                <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>
+                                  {lang === "fi" ? "vs" : "vs"}
+                                </div>
                                 <div
                                   style={{
                                     fontSize: 13,
@@ -598,7 +709,7 @@ const t = TEXT[lang];
                                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                                   {bestOdds.map((o) => (
                                     <div
-                                      key={`${g.id}-${o.name}`}
+                                      key={`${g.id || i}-${o.name}`}
                                       style={{
                                         fontFamily: mono,
                                         fontSize: 8,
@@ -609,7 +720,8 @@ const t = TEXT[lang];
                                         padding: "4px 6px"
                                       }}
                                     >
-                                      {labelOutcome(o.name)}: <span style={{ color: C.ac3 }}>{o.price}</span>
+                                      {labelOutcome(o.name, lang)}:{" "}
+                                      <span style={{ color: C.ac3 }}>{o.price}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -667,8 +779,9 @@ const t = TEXT[lang];
                 marginBottom: 4
               }}
             >
-              ✓ VALITTU OTTELU
+              {t.selectedMatch}
             </div>
+
             <div
               style={{
                 fontFamily: disp,
@@ -679,6 +792,7 @@ const t = TEXT[lang];
             >
               {sel.home} — {sel.away}
             </div>
+
             <div style={{ fontSize: 11, color: C.mu, marginBottom: 8 }}>
               {sel.league} · {sel.time || "TBA"}
             </div>
@@ -698,7 +812,8 @@ const t = TEXT[lang];
                       padding: "4px 6px"
                     }}
                   >
-                    {labelOutcome(o.name)}: <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
+                    {labelOutcome(o.name, lang)}:{" "}
+                    <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
                   </div>
                 ))}
               </div>
@@ -724,11 +839,11 @@ const t = TEXT[lang];
               marginBottom: 9
             }}
           >
-            VAIKUTTAVAT TEKIJÄT
+            {t.factors}
           </div>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 6 }}>
-            {SPORTS[sport].factors.map((f) => (
+            {SPORTS[sport].factors[lang].map((f) => (
               <div
                 key={f}
                 onClick={() => toggleF(f)}
@@ -784,7 +899,7 @@ const t = TEXT[lang];
             marginBottom: 16
           }}
         >
-          {predSt === "loading" ? `⟳ ${loadMsg}` : "{t.analyze}}
+          {predSt === "loading" ? `⟳ ${loadMsg}` : t.analyze}
         </button>
 
         {predSt === "error" && (
@@ -814,7 +929,7 @@ const t = TEXT[lang];
                 marginBottom: 12
               }}
             >
-              📊 {t.results}
+              {t.prediction}
             </div>
 
             <div
@@ -858,7 +973,7 @@ const t = TEXT[lang];
               </div>
 
               <div style={{ fontFamily: mono, fontSize: 8, color: C.mu, letterSpacing: 2 }}>
-                LUOTTAMUS: {result.confidence} · {result.keyFactor}
+                {t.confidence}: {result.confidence} · {result.keyFactor || t.marketHomeEdge}
               </div>
             </div>
 
@@ -897,10 +1012,10 @@ const t = TEXT[lang];
 
               <div style={{ fontSize: 12, color: C.tx, marginTop: 6 }}>
                 {result.recommendation === "NO BET"
-                  ? "Pientä etua voi löytyä, mutta ei tarpeeksi varsinaiseen pelisuositukseen."
+                  ? t.smallEdge
                   : result.bestBet
-                    ? `Paras löydetty etu: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
-                    : "Selkeää pelattavaa etua ei löytynyt tällä hetkellä."}
+                    ? `${lang === "fi" ? "Paras löydetty etu" : "Best edge found"}: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
+                    : t.noEdge}
               </div>
             </div>
 
@@ -923,12 +1038,12 @@ const t = TEXT[lang];
                   marginBottom: 9
                 }}
               >
-                VOITTOTODENNÄKÖISYYDET
+                {t.probabilities}
               </div>
 
               {[
                 { l: sel.home, p: result.homeWinProb, c: C.ac },
-                ...(SPORTS[sport].drawPossible ? [{ l: "Tasapeli", p: result.drawProb || 0, c: "#6e6e96" }] : []),
+                ...(SPORTS[sport].drawPossible ? [{ l: lang === "fi" ? "Tasapeli" : "Draw", p: result.drawProb || 0, c: "#6e6e96" }] : []),
                 { l: sel.away, p: result.awayWinProb, c: C.ac2 }
               ].map(({ l, p, c }) => (
                 <div key={l} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
@@ -977,10 +1092,10 @@ const t = TEXT[lang];
               }}
             >
               {[
-                { l: "KOTIVOIMA", v: `${result.homeStrength}/10`, s: sel.home, c: sc(result.homeStrength) },
-                { l: "VIERASVOIMA", v: `${result.awayStrength}/10`, s: sel.away, c: sc(result.awayStrength) },
-                { l: "LUOTTAMUS", v: result.confidence, s: "varmuus", c: cf(result.confidence) },
-                { l: "XG", v: result.xgLabel || `${result.homeXG ?? "-"} - ${result.awayXG ?? "-"}`, s: "maalimalli", c: C.ac }
+                { l: t.homeStrength, v: `${result.homeStrength}/10`, s: sel.home, c: sc(result.homeStrength) },
+                { l: t.awayStrength, v: `${result.awayStrength}/10`, s: sel.away, c: sc(result.awayStrength) },
+                { l: t.confidence, v: result.confidence, s: t.certainty, c: cf(result.confidence) },
+                { l: t.xg, v: result.xgLabel || `${result.homeXG ?? "-"} - ${result.awayXG ?? "-"}`, s: t.goalModel, c: C.ac }
               ].map(({ l, v, s, c }) => (
                 <div
                   key={l}
@@ -1029,7 +1144,7 @@ const t = TEXT[lang];
                     marginBottom: 8
                   }}
                 >
-                  🔥 {t.BestBet}
+                  {t.bestBet}
                 </div>
 
                 <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
@@ -1037,11 +1152,11 @@ const t = TEXT[lang];
                 </div>
 
                 <div style={{ fontSize: 12, color: "#b8c0d0", marginBottom: 4 }}>
-                  Kerroin: {result.bestBet.odds} ({result.bestBet.bookmaker || "market"})
+                  {lang === "fi" ? "Kerroin" : "Odds"}: {result.bestBet.odds} ({result.bestBet.bookmaker || "market"})
                 </div>
 
                 <div style={{ fontSize: 12, color: C.ac }}>
-                  Malli {result.bestBet.modelProb}% · Markkina {result.bestBet.marketProb}% · Edge +{result.bestBet.edge}%
+                  {lang === "fi" ? "Malli" : "Model"} {result.bestBet.modelProb}% · {lang === "fi" ? "Markkina" : "Market"} {result.bestBet.marketProb}% · Edge +{result.bestBet.edge}%
                 </div>
               </div>
             )}
@@ -1065,7 +1180,7 @@ const t = TEXT[lang];
                     marginBottom: 10
                   }}
                 >
-                  💰 VALUE BETS
+                  {t.valueBets}
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
@@ -1079,16 +1194,14 @@ const t = TEXT[lang];
                         padding: "10px 12px"
                       }}
                     >
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>
-                        {bet.outcome}
-                      </div>
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{bet.outcome}</div>
 
                       <div style={{ fontSize: 11, color: "#aaa", marginBottom: 3 }}>
-                        Kerroin: {bet.odds} ({bet.bookmaker || "market"})
+                        {lang === "fi" ? "Kerroin" : "Odds"}: {bet.odds} ({bet.bookmaker || "market"})
                       </div>
 
                       <div style={{ fontSize: 11, color: C.tx }}>
-                        Malli: {bet.modelProb}% · Markkina: {bet.marketProb}% · Edge:{" "}
+                        {lang === "fi" ? "Malli" : "Model"}: {bet.modelProb}% · {lang === "fi" ? "Markkina" : "Market"}: {bet.marketProb}% · Edge:{" "}
                         <span style={{ color: edgeColor(bet.edge) }}>+{bet.edge}%</span>
                       </div>
                     </div>
@@ -1115,7 +1228,7 @@ const t = TEXT[lang];
                   marginBottom: 10
                 }}
               >
-                🎯 CONFIDENCE METER
+                {t.confidenceMeter}
               </div>
 
               <div style={{ marginBottom: 8 }}>
@@ -1149,9 +1262,7 @@ const t = TEXT[lang];
                 </div>
               </div>
 
-              <div style={{ fontSize: 12, color: C.mu }}>
-                Luottamus perustuu markkinaeroon, formiin, valittuihin tekijöihin ja ottelun tasaisuuteen.
-              </div>
+              <div style={{ fontSize: 12, color: C.mu }}>{t.confidenceExplanation}</div>
             </div>
 
             {result.stats && (
@@ -1173,29 +1284,31 @@ const t = TEXT[lang];
                     marginBottom: 10
                   }}
                 >
-                  📊 TILASTOT
+                  {t.stats}
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
                   <div style={{ fontSize: 13 }}>
-                    <strong>{sel.home}</strong> viimeiset 5:{" "}
+                    <strong>{sel.home}</strong> {t.last5}:{" "}
                     <span style={{ fontFamily: mono }}>
                       {Array.isArray(result.stats.homeLast5) && result.stats.homeLast5.length > 0
                         ? result.stats.homeLast5.join(" ")
                         : "N/A"}
                     </span>
                   </div>
+
                   <div style={{ fontSize: 13 }}>
-                    <strong>{sel.away}</strong> viimeiset 5:{" "}
+                    <strong>{sel.away}</strong> {t.last5}:{" "}
                     <span style={{ fontFamily: mono }}>
                       {Array.isArray(result.stats.awayLast5) && result.stats.awayLast5.length > 0
                         ? result.stats.awayLast5.join(" ")
                         : "N/A"}
                     </span>
                   </div>
+
                   <div style={{ fontSize: 13 }}>
-                    <strong>Head-to-head:</strong>{" "}
-                    <span style={{ fontFamily: mono }}>{result.stats.h2h || "Ei dataa"}</span>
+                    <strong>{t.headToHead}:</strong>{" "}
+                    <span style={{ fontFamily: mono }}>{result.stats.h2h || t.noData}</span>
                   </div>
                 </div>
               </div>
@@ -1212,16 +1325,47 @@ const t = TEXT[lang];
               }}
             >
               <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 3, color: C.mu, marginBottom: 7 }}>
-                AI-ANALYYSI
+                {t.aiAnalysis}
               </div>
-              {result.analysis
-                ?.split(/\n\n|\n/)
+
+              {(result.analysis || "")
+                .split(/\n\n|\n/)
                 .filter((p) => p.trim())
                 .map((p, i) => (
                   <p key={i} style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8", marginBottom: 6 }}>
                     {p}
                   </p>
                 ))}
+            </div>
+
+            <div
+              style={{
+                background: C.s1,
+                border: `1px solid ${C.bd}`,
+                borderRadius: 10,
+                padding: 14,
+                marginBottom: 14
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: disp,
+                  fontSize: 14,
+                  letterSpacing: 3,
+                  color: C.ac3,
+                  marginBottom: 10
+                }}
+              >
+                {t.aboutTitle}
+              </div>
+
+              <p style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8", marginBottom: 8 }}>
+                {t.aboutText}
+              </p>
+
+              <p style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8" }}>
+                {t.demoText}
+              </p>
             </div>
 
             <div
@@ -1234,7 +1378,7 @@ const t = TEXT[lang];
                 borderTop: `1px solid ${C.bd}`
               }}
             >
-              ⚠️ VIIHDEKÄYTTÖÖN — EI VEDONLYÖNTISUOSITUS
+              {t.disclaimer}
             </div>
           </div>
         )}
