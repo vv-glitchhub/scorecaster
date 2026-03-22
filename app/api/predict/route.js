@@ -1,18 +1,5 @@
 import { NextResponse } from "next/server";
 
-function hashString(str) {
-  return str.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
-}
-
-function pickForm(seed, len = 5) {
-  const chars = ["V", "H", "T"];
-  const arr = [];
-  for (let i = 0; i < len; i++) {
-    arr.push(chars[(seed + i) % chars.length]);
-  }
-  return arr;
-}
-
 function getBestOdds(game) {
   const best = {};
 
@@ -22,7 +9,10 @@ function getBestOdds(game) {
       for (const outcome of market.outcomes || []) {
         const current = best[outcome.name];
         if (!current || outcome.price > current.price) {
-          best[outcome.name] = outcome.price;
+          best[outcome.name] = {
+            price: outcome.price,
+            bookmaker: bookmaker.title
+          };
         }
       }
     }
@@ -31,72 +21,152 @@ function getBestOdds(game) {
   return best;
 }
 
-function impliedProbFromOdds(decimalOdds) {
-  if (!decimalOdds || decimalOdds <= 1) return null;
-  return +(100 / decimalOdds).toFixed(1);
+function clamp(n, min, max) {
+  return Math.max(min, Math.min(max, n));
 }
 
-function buildValueBets(game, sport, probs) {
-  const oddsMap = getBestOdds(game);
-  const out = [];
+function round1(n) {
+  return +n.toFixed(1);
+}
 
-  const candidates = [
-    { outcome: game.home, modelProb: probs.homeWinProb },
-    ...(sport === "jalkapallo" ? [{ outcome: "Draw", modelProb: probs.drawProb }] : []),
-    { outcome: game.away, modelProb: probs.awayWinProb }
-  ];
+function impliedProb(decimalOdds) {
+  if (!decimalOdds || decimalOdds <= 1) return null;
+  return 1 / decimalOdds;
+}
 
-  for (const c of candidates) {
-    const odds = oddsMap[c.outcome];
-    const marketProb = impliedProbFromOdds(odds);
+function normalize3(a, b, c) {
+  const s = a + b + c;
+  return [a / s, b / s, c / s];
+}
 
-    if (!odds || marketProb == null) continue;
+function normalize2(a, b) {
+  const s = a + b;
+  return [a / s, b / s];
+}
 
-    const edge = +(c.modelProb - marketProb).toFixed(1);
+function hashString(str) {
+  return str.split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
+}
 
-    if (edge >= 2) {
-      out.push({
-        outcome: c.outcome === "Draw" ? "Tasapeli" : c.outcome,
-        rawOutcome: c.outcome,
-        modelProb: c.modelProb,
-        marketProb,
-        edge,
-        odds
-      });
+function pickForm(seed, len = 5) {
+  const chars = ["V", "H", "T"];
+  const arr = [];
+  for (let i = 0; i < len; i++) arr.push(chars[(seed + i) % chars.length]);
+  return arr;
+}
+
+function getFactorAdjustments(sport, selectedFactors = []) {
+  let home = 0;
+  let away = 0;
+  let draw = 0;
+  let totalGoals = 0;
+
+  for (const f of selectedFactors) {
+    switch (f) {
+      case "Kotikenttäetu":
+      case "Kotijää etu":
+      case "Kotisali tukee":
+        home += 0.035;
+        break;
+
+      case "Avainpelaaja loukkaantunut":
+      case "Maalivahti poissa":
+      case "Tähti loukkaantunut":
+        away += 0.02;
+        home -= 0.01;
+        totalGoals -= 0.08;
+        break;
+
+      case "Derby-ottelu":
+        draw += 0.02;
+        totalGoals -= 0.05;
+        break;
+
+      case "Eurooppa rasittaa":
+      case "Back-to-back":
+      case "Väsynyt penkki":
+      case "Pitkä matka":
+        away += 0.02;
+        home -= 0.005;
+        totalGoals -= 0.03;
+        break;
+
+      case "Maalivahti vireessä":
+      case "Puolustus tiukka":
+        home += 0.01;
+        draw += 0.01;
+        totalGoals -= 0.18;
+        break;
+
+      case "Uusi valmentaja":
+        home += 0.015;
+        draw += 0.005;
+        break;
+
+      case "Sarjakärki vastaan":
+        away += 0.025;
+        break;
+
+      case "Ylivoima korkea":
+      case "3-pisteet uppoaa":
+      case "Nopea tempo":
+      case "Nopeat hyökkääjät":
+      case "Huikea vaihtopelaaja":
+        home += 0.015;
+        totalGoals += 0.15;
+        break;
+
+      case "Playoff-paine":
+        draw += sport === "jalkapallo" ? 0.015 : 0;
+        totalGoals -= 0.08;
+        break;
+
+      case "Viime 3 voitettu":
+        home += 0.02;
+        break;
+
+      case "Puolustus heikko":
+        away += 0.015;
+        totalGoals += 0.2;
+        break;
+
+      case "Yliajalle viimeksi":
+        totalGoals += 0.1;
+        away += 0.005;
+        break;
+
+      default:
+        break;
     }
   }
 
-  return out.sort((a, b) => b.edge - a.edge);
-}
-
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
+  return { home, away, draw, totalGoals };
 }
 
 function poissonApprox(lambda, seedShift = 0) {
   const seed = Math.abs(Math.sin(lambda * 12.9898 + seedShift * 78.233));
   const r = seed - Math.floor(seed);
 
-  if (lambda < 0.8) {
-    if (r < 0.45) return 0;
-    if (r < 0.82) return 1;
-    if (r < 0.95) return 2;
+  if (lambda < 0.75) {
+    if (r < 0.5) return 0;
+    if (r < 0.85) return 1;
+    if (r < 0.96) return 2;
     return 3;
   }
 
-  if (lambda < 1.3) {
-    if (r < 0.22) return 0;
-    if (r < 0.58) return 1;
-    if (r < 0.84) return 2;
-    if (r < 0.95) return 3;
+  if (lambda < 1.2) {
+    if (r < 0.28) return 0;
+    if (r < 0.63) return 1;
+    if (r < 0.86) return 2;
+    if (r < 0.96) return 3;
     return 4;
   }
 
-  if (lambda < 1.9) {
-    if (r < 0.12) return 0;
-    if (r < 0.36) return 1;
-    if (r < 0.66) return 2;
-    if (r < 0.86) return 3;
+  if (lambda < 1.8) {
+    if (r < 0.14) return 0;
+    if (r < 0.4) return 1;
+    if (r < 0.68) return 2;
+    if (r < 0.87) return 3;
     if (r < 0.96) return 4;
     return 5;
   }
@@ -104,71 +174,98 @@ function poissonApprox(lambda, seedShift = 0) {
   if (r < 0.08) return 0;
   if (r < 0.24) return 1;
   if (r < 0.48) return 2;
-  if (r < 0.72) return 3;
-  if (r < 0.88) return 4;
-  if (r < 0.96) return 5;
+  if (r < 0.7) return 3;
+  if (r < 0.86) return 4;
+  if (r < 0.95) return 5;
   return 6;
 }
 
-function makePrediction(game, sport, selectedFactors) {
-  const seed = hashString(`${game.home}-${game.away}-${sport}`);
-  const factorBoost = Math.min(selectedFactors.length * 1.2, 5);
-
+function buildValueBets(game, sport, probs) {
   const oddsMap = getBestOdds(game);
-  const homeOdds = oddsMap[game.home];
-  const drawOdds = oddsMap["Draw"];
-  const awayOdds = oddsMap[game.away];
+  const candidates = [
+    { label: game.home, raw: game.home, modelProb: probs.homeWinProb / 100 },
+    ...(sport === "jalkapallo"
+      ? [{ label: "Tasapeli", raw: "Draw", modelProb: probs.drawProb / 100 }]
+      : []),
+    { label: game.away, raw: game.away, modelProb: probs.awayWinProb / 100 }
+  ];
 
-  let homeWinProb;
-  let awayWinProb;
-  let drawProb = 0;
+  const out = [];
 
-  if (homeOdds && awayOdds) {
-    const homeImp = impliedProbFromOdds(homeOdds) || 33;
-    const awayImp = impliedProbFromOdds(awayOdds) || 33;
-    const drawImp = sport === "jalkapallo" ? (impliedProbFromOdds(drawOdds) || 26) : 0;
+  for (const c of candidates) {
+    const oddsObj = oddsMap[c.raw];
+    if (!oddsObj?.price) continue;
 
-    homeWinProb = homeImp + 4 + factorBoost - ((seed % 5) * 0.6);
-    awayWinProb = awayImp - 2 + (((seed >> 1) % 4) * 0.5);
-    drawProb = drawImp;
+    const marketProb = impliedProb(oddsObj.price);
+    const edge = (c.modelProb - marketProb) * 100;
 
-    if (sport === "jalkapallo") {
-      const total = homeWinProb + awayWinProb + drawProb;
-      homeWinProb = (homeWinProb / total) * 100;
-      awayWinProb = (awayWinProb / total) * 100;
-      drawProb = (drawProb / total) * 100;
-    } else {
-      const total = homeWinProb + awayWinProb;
-      homeWinProb = (homeWinProb / total) * 100;
-      awayWinProb = (awayWinProb / total) * 100;
-    }
-  } else {
-    homeWinProb = 47 + (seed % 12) + factorBoost;
-    awayWinProb = 53 - (seed % 12);
-
-    if (sport === "jalkapallo") {
-      drawProb = 22 + (seed % 7);
-      const total = homeWinProb + awayWinProb + drawProb;
-      homeWinProb = (homeWinProb / total) * 100;
-      awayWinProb = (awayWinProb / total) * 100;
-      drawProb = (drawProb / total) * 100;
-    } else {
-      const total = homeWinProb + awayWinProb;
-      homeWinProb = (homeWinProb / total) * 100;
-      awayWinProb = (awayWinProb / total) * 100;
+    if (edge >= 1.5) {
+      out.push({
+        outcome: c.label,
+        odds: oddsObj.price,
+        bookmaker: oddsObj.bookmaker,
+        modelProb: round1(c.modelProb * 100),
+        marketProb: round1(marketProb * 100),
+        edge: round1(edge)
+      });
     }
   }
 
-  homeWinProb = +clamp(homeWinProb, 5, 85).toFixed(1);
-  awayWinProb = +clamp(awayWinProb, 5, 85).toFixed(1);
-  drawProb = sport === "jalkapallo" ? +clamp(drawProb, 8, 35).toFixed(1) : 0;
+  return out.sort((a, b) => b.edge - a.edge);
+}
+
+function makePrediction(game, sport, selectedFactors = []) {
+  const oddsMap = getBestOdds(game);
+  const seed = hashString(`${game.home}-${game.away}-${sport}`);
+
+  const homeOdds = oddsMap[game.home]?.price;
+  const awayOdds = oddsMap[game.away]?.price;
+  const drawOdds = oddsMap["Draw"]?.price;
+
+  let homeP;
+  let awayP;
+  let drawP = 0;
+
+  if (sport === "jalkapallo" && homeOdds && awayOdds && drawOdds) {
+    [homeP, drawP, awayP] = normalize3(
+      impliedProb(homeOdds),
+      impliedProb(drawOdds),
+      impliedProb(awayOdds)
+    );
+  } else if (homeOdds && awayOdds) {
+    [homeP, awayP] = normalize2(impliedProb(homeOdds), impliedProb(awayOdds));
+  } else {
+    homeP = 0.5;
+    awayP = 0.5;
+    drawP = sport === "jalkapallo" ? 0.24 : 0;
+    if (sport === "jalkapallo") {
+      [homeP, drawP, awayP] = normalize3(homeP, drawP, awayP);
+    }
+  }
+
+  const adj = getFactorAdjustments(sport, selectedFactors);
 
   if (sport === "jalkapallo") {
-    const total = homeWinProb + awayWinProb + drawProb;
-    homeWinProb = +(homeWinProb / total * 100).toFixed(1);
-    awayWinProb = +(awayWinProb / total * 100).toFixed(1);
-    drawProb = +(drawProb / total * 100).toFixed(1);
+    homeP += adj.home;
+    awayP += adj.away;
+    drawP += adj.draw;
+    [homeP, drawP, awayP] = normalize3(
+      clamp(homeP, 0.05, 0.85),
+      clamp(drawP, 0.08, 0.35),
+      clamp(awayP, 0.05, 0.85)
+    );
+  } else {
+    homeP += adj.home;
+    awayP += adj.away;
+    [homeP, awayP] = normalize2(
+      clamp(homeP, 0.08, 0.92),
+      clamp(awayP, 0.08, 0.92)
+    );
   }
+
+  const homeWinProb = round1(homeP * 100);
+  const awayWinProb = round1(awayP * 100);
+  const drawProb = sport === "jalkapallo" ? round1(drawP * 100) : 0;
 
   const homeStrength = clamp(Math.round(homeWinProb / 10), 3, 9);
   const awayStrength = clamp(Math.round(awayWinProb / 10), 3, 9);
@@ -180,65 +277,64 @@ function makePrediction(game, sport, selectedFactors) {
   let xgLabel = "";
 
   if (sport === "jalkapallo") {
-    homeXG = +(0.55 + (homeWinProb / 100) * 2.05 + factorBoost * 0.04).toFixed(2);
-    awayXG = +(0.45 + (awayWinProb / 100) * 1.85).toFixed(2);
+    const baseTotalGoals = 2.45 + adj.totalGoals;
+    const decisiveShare = 1 - drawP;
+    const homeShare = homeP / (homeP + awayP);
 
-    homeScore = poissonApprox(homeXG, seed % 13);
-    awayScore = poissonApprox(awayXG, seed % 17);
+    homeXG = clamp(baseTotalGoals * decisiveShare * (0.75 + homeShare * 0.9), 0.3, 3.8);
+    awayXG = clamp(baseTotalGoals * decisiveShare * (0.75 + (1 - homeShare) * 0.9), 0.25, 3.2);
 
-    if (Math.abs(homeWinProb - awayWinProb) < 7 && drawProb > 24) {
-      if ((seed % 3) === 0) {
-        homeScore = 1;
-        awayScore = 1;
-      } else if ((seed % 5) === 0) {
-        homeScore = 0;
-        awayScore = 0;
-      }
+    homeXG = round1(homeXG + ((seed % 7) - 3) * 0.03);
+    awayXG = round1(awayXG + (((seed >> 2) % 7) - 3) * 0.03);
+
+    homeScore = poissonApprox(homeXG, seed % 17);
+    awayScore = poissonApprox(awayXG, seed % 23);
+
+    if (drawP >= 0.28 && Math.abs(homeP - awayP) < 0.08) {
+      const drawModes = [
+        [0, 0],
+        [1, 1],
+        [2, 2]
+      ];
+      const pick = drawModes[seed % drawModes.length];
+      homeScore = pick[0];
+      awayScore = pick[1];
     }
 
-    if (homeWinProb > awayWinProb + 12 && homeScore <= awayScore) {
-      homeScore = awayScore + 1;
-    }
-    if (awayWinProb > homeWinProb + 12 && awayScore <= homeScore) {
-      awayScore = homeScore + 1;
-    }
+    if (homeP > awayP + 0.14 && homeScore <= awayScore) homeScore = awayScore + 1;
+    if (awayP > homeP + 0.14 && awayScore <= homeScore) awayScore = homeScore + 1;
 
     xgLabel = `${homeXG} - ${awayXG}`;
   }
 
   if (sport === "jaakiekko") {
-    homeXG = +(1.6 + (homeWinProb / 100) * 2.1 + factorBoost * 0.05).toFixed(2);
-    awayXG = +(1.4 + (awayWinProb / 100) * 2.0).toFixed(2);
+    const baseGoals = 5.3 + adj.totalGoals;
+    const homeShare = homeP;
 
-    homeScore = clamp(poissonApprox(homeXG, seed % 19) + 1, 1, 7);
-    awayScore = clamp(poissonApprox(awayXG, seed % 23) + 1, 1, 7);
+    homeXG = round1(clamp(baseGoals * (0.42 + homeShare * 0.38), 1.2, 4.8));
+    awayXG = round1(clamp(baseGoals * (0.42 + awayP * 0.38), 1.1, 4.6));
 
-    if (homeWinProb > awayWinProb + 10 && homeScore <= awayScore) {
-      homeScore = awayScore + 1;
-    }
-    if (awayWinProb > homeWinProb + 10 && awayScore <= homeScore) {
-      awayScore = homeScore + 1;
-    }
+    homeScore = clamp(poissonApprox(homeXG, seed % 19), 1, 7);
+    awayScore = clamp(poissonApprox(awayXG, seed % 29), 1, 7);
+
+    if (homeP > awayP + 0.12 && homeScore <= awayScore) homeScore = awayScore + 1;
+    if (awayP > homeP + 0.12 && awayScore <= homeScore) awayScore = homeScore + 1;
 
     xgLabel = `${homeXG} - ${awayXG}`;
   }
 
   if (sport === "koripallo") {
-    const paceBase = 84 + (seed % 18);
-    const attackSpread = Math.round((homeWinProb - awayWinProb) / 2.5);
+    const totalPoints = 178 + (seed % 25) + Math.round(adj.totalGoals * 12);
+    const margin = Math.round((homeP - awayP) * 18);
 
-    homeScore = clamp(paceBase + 6 + attackSpread + (seed % 7), 78, 128);
-    awayScore = clamp(paceBase + 2 - attackSpread + ((seed >> 2) % 8), 74, 124);
+    homeScore = clamp(Math.round(totalPoints / 2 + margin / 2 + (seed % 6)), 78, 132);
+    awayScore = clamp(Math.round(totalPoints / 2 - margin / 2 - (seed % 5)), 74, 128);
 
-    if (homeWinProb > awayWinProb && homeScore <= awayScore) {
-      homeScore = awayScore + (1 + (seed % 6));
-    }
-    if (awayWinProb > homeWinProb && awayScore <= homeScore) {
-      awayScore = homeScore + (1 + (seed % 6));
-    }
+    if (homeP > awayP && homeScore <= awayScore) homeScore = awayScore + 2;
+    if (awayP > homeP && awayScore <= homeScore) awayScore = homeScore + 2;
 
-    homeXG = +(homeScore / 50).toFixed(2);
-    awayXG = +(awayScore / 50).toFixed(2);
+    homeXG = round1(homeScore / 50);
+    awayXG = round1(awayScore / 50);
     xgLabel = `${homeScore + awayScore} pts`;
   }
 
@@ -260,18 +356,18 @@ function makePrediction(game, sport, selectedFactors) {
   const bestBet = valueBets[0] || null;
 
   const analysis = [
-    `${game.home} ja ${game.away} muodostavat ennakkoon kiinnostavan kohteen, jossa markkina, kotietu ja ottelun todennäköinen pelinkuva vaikuttavat lopputulokseen enemmän kuin yksittäinen narratiivi.`,
-    `Valituista tekijöistä suurin vaikutus tulee kohdasta: ${keyFactor}. Tämä näkyy mallissa erityisesti voittotodennäköisyyksien painotuksessa ja arvioidussa piste- tai maalimäärässä.`,
+    `Perusennuste on johdettu suoraan markkinakertoimista, joten voittotodennäköisyydet seuraavat ensin markkinan näkemystä ja sen jälkeen valitut tekijät siirtävät mallia hieman suuntaan tai toiseen.`,
+    `Tärkein valittu tekijä tässä kohteessa on "${keyFactor}". Se vaikuttaa erityisesti voittotodennäköisyyksiin ja arvioituun maali- tai pistemäärään.`,
     bestBet
-      ? `PRO MODE löytää parhaaksi pelattavaksi vaihtoehdoksi kohteen "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) on markkinan implisiittistä arviota (${bestBet.marketProb}%) korkeampi.`
-      : `Tässä kohteessa markkina ja malli ovat melko lähellä toisiaan, joten hyvin vahvaa ylikerrointa ei muodostu.`
+      ? `Paras value löytyy kohteesta "${bestBet.outcome}", koska mallin arvio (${bestBet.modelProb}%) ylittää markkinan implisiittisen arvion (${bestBet.marketProb}%).`
+      : `Selkeää value bet -ylikerrointa ei synny vahvasti, joten tämä kohde näyttää enemmänkin markkinan mukaiselta.`
   ].join("\n\n");
 
   return {
     homeScore,
     awayScore,
     homeWinProb,
-    drawProb: sport === "jalkapallo" ? drawProb : 0,
+    drawProb,
     awayWinProb,
     confidence,
     keyFactor,
