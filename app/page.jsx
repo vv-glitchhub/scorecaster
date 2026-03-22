@@ -20,7 +20,7 @@ const SPORTS = {
   },
   jaakiekko: {
     label: "🏒 Jääkiekko",
-    leagues: "SM-liiga, KHL, NHL",
+    leagues: "Liiga, NHL, KHL",
     factors: [
       "Kotijää etu",
       "Maalivahti poissa",
@@ -35,7 +35,7 @@ const SPORTS = {
   },
   koripallo: {
     label: "🏀 Koripallo",
-    leagues: "Korisliiga, NBA, Euroleague",
+    leagues: "NBA, Euroleague, Korisliiga",
     factors: [
       "Kotisali tukee",
       "Tähti loukkaantunut",
@@ -73,6 +73,48 @@ const C = {
 
 const mono = "'JetBrains Mono', monospace";
 const disp = "'Bebas Neue', Impact, sans-serif";
+
+function getTopBookmakerLine(game) {
+  const market = game?.bookmakers?.[0]?.markets?.find((m) => m.key === "h2h");
+  if (!market?.outcomes) return [];
+  return market.outcomes;
+}
+
+function getBestOdds(game) {
+  const best = {};
+
+  for (const bookmaker of game.bookmakers || []) {
+    for (const market of bookmaker.markets || []) {
+      if (market.key !== "h2h") continue;
+      for (const outcome of market.outcomes || []) {
+        const current = best[outcome.name];
+        if (!current || outcome.price > current.price) {
+          best[outcome.name] = {
+            name: outcome.name,
+            price: outcome.price,
+            bookmaker: bookmaker.title
+          };
+        }
+      }
+    }
+  }
+
+  return Object.values(best);
+}
+
+function getOutcomeNameForTeam(game, teamName) {
+  return teamName;
+}
+
+function getBestPriceForOutcome(game, outcomeName) {
+  const bestOdds = getBestOdds(game);
+  return bestOdds.find((o) => o.name === outcomeName)?.price ?? null;
+}
+
+function impliedProbFromOdds(decimalOdds) {
+  if (!decimalOdds || decimalOdds <= 1) return null;
+  return 100 / decimalOdds;
+}
 
 export default function App() {
   const [sport, setSport] = useState("jalkapallo");
@@ -135,7 +177,7 @@ export default function App() {
       "Analysoidaan muotoa…",
       "Haetaan tilastoja…",
       "Lasketaan todennäköisyyksiä…",
-      "Rakennetaan ennustetta…"
+      "Etsitään value bettejä…"
     ];
 
     let mi = 0;
@@ -178,7 +220,6 @@ export default function App() {
 
       if (!grouped[dateKey]) grouped[dateKey] = {};
       if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
-
       grouped[dateKey][game.league].push(game);
     }
 
@@ -354,7 +395,7 @@ export default function App() {
                 borderRadius: 8
               }}
             >
-              Paina nappia hakiaksesi tämän päivän ottelut
+              Paina nappia hakiaksesi pelit
             </div>
           )}
 
@@ -419,7 +460,7 @@ export default function App() {
                 borderRadius: 8
               }}
             >
-              Ei otteluita tänään. Kokeile toista lajia.
+              Ei otteluita. Kokeile toista lajia.
             </div>
           )}
 
@@ -455,69 +496,95 @@ export default function App() {
                       </div>
 
                       <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-                        {leagueGames.map((g, i) => (
-                          <div
-                            key={`${league}-${i}`}
-                            onClick={() => setSel(g)}
-                            style={{
-                              background: sel === g ? `${C.ac}0f` : C.s1,
-                              border: `1px solid ${sel === g ? C.ac : C.bd}`,
-                              borderLeft: `3px solid ${sel === g ? C.ac : C.bd}`,
-                              borderRadius: 8,
-                              padding: "11px 13px",
-                              cursor: "pointer",
-                              position: "relative"
-                            }}
-                          >
+                        {leagueGames.map((g, i) => {
+                          const bestOdds = getBestOdds(g);
+                          const isSelected = sel?.id ? sel.id === g.id : sel === g;
+
+                          return (
                             <div
+                              key={`${league}-${i}-${g.id || `${g.home}-${g.away}-${g.time}`}`}
+                              onClick={() => setSel(g)}
                               style={{
-                                display: "flex",
-                                alignItems: "center",
-                                gap: 5,
-                                marginBottom: 5
+                                background: isSelected ? `${C.ac}12` : C.s1,
+                                border: `1px solid ${isSelected ? C.ac : C.bd}`,
+                                borderLeft: `3px solid ${isSelected ? C.ac : C.bd}`,
+                                borderRadius: 8,
+                                padding: "11px 13px",
+                                cursor: "pointer",
+                                position: "relative"
                               }}
                             >
-                              <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
-                              <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>vs</div>
                               <div
                                 style={{
-                                  fontSize: 13,
-                                  fontWeight: 600,
-                                  flex: 1,
-                                  textAlign: "right"
-                                }}
-                              >
-                                {g.away}
-                              </div>
-                            </div>
-
-                            <div style={{ fontFamily: mono, fontSize: 8, color: C.ac }}>
-                              {g.time || "TBA"} {g.context ? `· ${g.context}` : ""}
-                            </div>
-
-                            {sel === g && (
-                              <div
-                                style={{
-                                  position: "absolute",
-                                  top: 7,
-                                  right: 7,
-                                  width: 15,
-                                  height: 15,
-                                  background: C.ac,
-                                  borderRadius: "50%",
                                   display: "flex",
                                   alignItems: "center",
-                                  justifyContent: "center",
-                                  fontSize: 8,
-                                  color: C.bg,
-                                  fontWeight: 700
+                                  gap: 5,
+                                  marginBottom: 5
                                 }}
                               >
-                                ✓
+                                <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
+                                <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>vs</div>
+                                <div
+                                  style={{
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    flex: 1,
+                                    textAlign: "right"
+                                  }}
+                                >
+                                  {g.away}
+                                </div>
                               </div>
-                            )}
-                          </div>
-                        ))}
+
+                              <div style={{ fontFamily: mono, fontSize: 8, color: C.ac, marginBottom: 6 }}>
+                                {g.time || "TBA"} {g.context ? `· ${g.context}` : ""}
+                              </div>
+
+                              {bestOdds.length > 0 && (
+                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                                  {bestOdds.map((o) => (
+                                    <div
+                                      key={`${g.id}-${o.name}`}
+                                      style={{
+                                        fontFamily: mono,
+                                        fontSize: 8,
+                                        color: C.tx,
+                                        background: C.s2,
+                                        border: `1px solid ${C.bd}`,
+                                        borderRadius: 4,
+                                        padding: "4px 6px"
+                                      }}
+                                    >
+                                      {o.name}: <span style={{ color: C.ac3 }}>{o.price}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+
+                              {isSelected && (
+                                <div
+                                  style={{
+                                    position: "absolute",
+                                    top: 7,
+                                    right: 7,
+                                    width: 15,
+                                    height: 15,
+                                    background: C.ac,
+                                    borderRadius: "50%",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 8,
+                                    color: C.bg,
+                                    fontWeight: 700
+                                  }}
+                                >
+                                  ✓
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   ))}
@@ -558,9 +625,30 @@ export default function App() {
             >
               {sel.home} — {sel.away}
             </div>
-            <div style={{ fontSize: 11, color: C.mu }}>
+            <div style={{ fontSize: 11, color: C.mu, marginBottom: 8 }}>
               {sel.league} · {sel.time || "TBA"}
             </div>
+
+            {getBestOdds(sel).length > 0 && (
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {getBestOdds(sel).map((o) => (
+                  <div
+                    key={`selected-${o.name}`}
+                    style={{
+                      fontFamily: mono,
+                      fontSize: 8,
+                      color: C.tx,
+                      background: C.s2,
+                      border: `1px solid ${C.bd}`,
+                      borderRadius: 4,
+                      padding: "4px 6px"
+                    }}
+                  >
+                    {o.name}: <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
@@ -831,7 +919,7 @@ export default function App() {
                 { l: "KOTIVOIMA", v: `${result.homeStrength}/10`, s: sel.home, c: sc(result.homeStrength) },
                 { l: "VIERASVOIMA", v: `${result.awayStrength}/10`, s: sel.away, c: sc(result.awayStrength) },
                 { l: "LUOTTAMUS", v: result.confidence, s: "varmuus", c: cf(result.confidence) },
-                { l: "MAALIODOTTAMA", v: result.homeScore + result.awayScore, s: result.expectedGoals, c: C.ac }
+                { l: "XG", v: result.xgLabel || `${result.homeXG ?? "-"} - ${result.awayXG ?? "-"}`, s: "maalimalli", c: C.ac }
               ].map(({ l, v, s, c }) => (
                 <div
                   key={l}
@@ -859,6 +947,89 @@ export default function App() {
                 </div>
               ))}
             </div>
+
+            {result.valueBets?.length > 0 && (
+              <div
+                style={{
+                  background: C.s1,
+                  border: `1px solid ${C.bd}`,
+                  borderRadius: 8,
+                  padding: "13px 15px",
+                  marginBottom: 10
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: disp,
+                    fontSize: 14,
+                    letterSpacing: 3,
+                    color: C.gr,
+                    marginBottom: 10
+                  }}
+                >
+                  🔥 PRO MODE · VALUE BETS
+                </div>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  {result.valueBets.map((bet, i) => (
+                    <div
+                      key={i}
+                      style={{
+                        background: C.s2,
+                        border: `1px solid ${bet.edge >= 5 ? C.gr : C.ac3}`,
+                        borderRadius: 8,
+                        padding: "10px 12px"
+                      }}
+                    >
+                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{bet.outcome}</div>
+                      <div style={{ fontFamily: mono, fontSize: 9, color: C.tx }}>
+                        Malli: {bet.modelProb}% · Markkina: {bet.marketProb}% · Edge:{" "}
+                        <span style={{ color: bet.edge >= 5 ? C.gr : C.ac3 }}>{bet.edge}%</span> · Kerroin:{" "}
+                        <span style={{ color: C.ac }}>{bet.odds}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {result.stats && (
+              <div
+                style={{
+                  background: C.s1,
+                  border: `1px solid ${C.bd}`,
+                  borderRadius: 8,
+                  padding: "13px 15px",
+                  marginBottom: 10
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: disp,
+                    fontSize: 14,
+                    letterSpacing: 3,
+                    color: C.ac3,
+                    marginBottom: 10
+                  }}
+                >
+                  📊 TILASTOT
+                </div>
+
+                <div style={{ display: "grid", gap: 8 }}>
+                  <div style={{ fontSize: 13 }}>
+                    <strong>{sel.home}</strong> viimeiset 5:{" "}
+                    <span style={{ fontFamily: mono }}>{result.stats.homeLast5.join(" ")}</span>
+                  </div>
+                  <div style={{ fontSize: 13 }}>
+                    <strong>{sel.away}</strong> viimeiset 5:{" "}
+                    <span style={{ fontFamily: mono }}>{result.stats.awayLast5.join(" ")}</span>
+                  </div>
+                  <div style={{ fontSize: 13 }}>
+                    <strong>Head-to-head:</strong> <span style={{ fontFamily: mono }}>{result.stats.h2h}</span>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div
               style={{
