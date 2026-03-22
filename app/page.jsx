@@ -5,7 +5,7 @@ const TEXT = {
   fi: {
     analyze: "⚡ ANALYSOI JA ENNUSTA",
     results: "📊  {t.results},
-    recommendation: "AI SUOSITUS",
+    recommendation: {t.recommendation},
     noBet: "NO BET",
     bestBet: "🔥 PARAS VETO",
     valueBets: "💰 VALUE BETS",
