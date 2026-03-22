@@ -74,12 +74,6 @@ const C = {
 const mono = "'JetBrains Mono', monospace";
 const disp = "'Bebas Neue', Impact, sans-serif";
 
-function getTopBookmakerLine(game) {
-  const market = game?.bookmakers?.[0]?.markets?.find((m) => m.key === "h2h");
-  if (!market?.outcomes) return [];
-  return market.outcomes;
-}
-
 function getBestOdds(game) {
   const best = {};
 
@@ -100,20 +94,6 @@ function getBestOdds(game) {
   }
 
   return Object.values(best);
-}
-
-function getOutcomeNameForTeam(game, teamName) {
-  return teamName;
-}
-
-function getBestPriceForOutcome(game, outcomeName) {
-  const bestOdds = getBestOdds(game);
-  return bestOdds.find((o) => o.name === outcomeName)?.price ?? null;
-}
-
-function impliedProbFromOdds(decimalOdds) {
-  if (!decimalOdds || decimalOdds <= 1) return null;
-  return 100 / decimalOdds;
 }
 
 export default function App() {
@@ -220,6 +200,7 @@ export default function App() {
 
       if (!grouped[dateKey]) grouped[dateKey] = {};
       if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
+
       grouped[dateKey][game.league].push(game);
     }
 
@@ -555,7 +536,8 @@ export default function App() {
                                         padding: "4px 6px"
                                       }}
                                     >
-                                      {o.name}: <span style={{ color: C.ac3 }}>{o.price}</span>
+                                      {o.name === "Draw" ? "Tasapeli" : o.name}:{" "}
+                                      <span style={{ color: C.ac3 }}>{o.price}</span>
                                     </div>
                                   ))}
                                 </div>
@@ -644,7 +626,8 @@ export default function App() {
                       padding: "4px 6px"
                     }}
                   >
-                    {o.name}: <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
+                    {o.name === "Draw" ? "Tasapeli" : o.name}:{" "}
+                    <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
                   </div>
                 ))}
               </div>
@@ -948,6 +931,40 @@ export default function App() {
               ))}
             </div>
 
+            {result.bestBet && (
+              <div
+                style={{
+                  background: C.s1,
+                  border: `1px solid ${C.gr}`,
+                  boxShadow: `0 0 14px ${C.gr}22`,
+                  borderRadius: 8,
+                  padding: "13px 15px",
+                  marginBottom: 10
+                }}
+              >
+                <div
+                  style={{
+                    fontFamily: disp,
+                    fontSize: 14,
+                    letterSpacing: 3,
+                    color: C.gr,
+                    marginBottom: 10
+                  }}
+                >
+                  🔥 PRO MODE · PARAS VETO
+                </div>
+
+                <div style={{ fontSize: 16, fontWeight: 700, marginBottom: 6 }}>
+                  {result.bestBet.outcome}
+                </div>
+                <div style={{ fontFamily: mono, fontSize: 9, color: C.tx }}>
+                  Malli: {result.bestBet.modelProb}% · Markkina: {result.bestBet.marketProb}% · Edge:{" "}
+                  <span style={{ color: C.gr }}>{result.bestBet.edge}%</span> · Kerroin:{" "}
+                  <span style={{ color: C.ac }}>{result.bestBet.odds}</span>
+                </div>
+              </div>
+            )}
+
             {result.valueBets?.length > 0 && (
               <div
                 style={{
@@ -963,11 +980,11 @@ export default function App() {
                     fontFamily: disp,
                     fontSize: 14,
                     letterSpacing: 3,
-                    color: C.gr,
+                    color: C.ac3,
                     marginBottom: 10
                   }}
                 >
-                  🔥 PRO MODE · VALUE BETS
+                  💰 VALUE BETS
                 </div>
 
                 <div style={{ display: "grid", gap: 8 }}>
