@@ -51,24 +51,31 @@ const SPORT_KEYS = {
   ]
 };
 
-function isTodayInFinland(isoString) {
-  const gameDate = new Date(isoString).toLocaleDateString("fi-FI", {
-    timeZone: "Europe/Helsinki"
-  });
-
-  const todayDate = new Date().toLocaleDateString("fi-FI", {
-    timeZone: "Europe/Helsinki"
-  });
-
-  return gameDate === todayDate;
-}
-
 function formatTimeInFinland(isoString) {
   return new Date(isoString).toLocaleTimeString("fi-FI", {
     timeZone: "Europe/Helsinki",
     hour: "2-digit",
     minute: "2-digit"
   });
+}
+
+function isWithinNextDaysInFinland(isoString, daysAhead = 3) {
+  const game = new Date(isoString);
+
+  const now = new Date();
+  const fiNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  const fiEnd = new Date(fiNow);
+  fiEnd.setHours(23, 59, 59, 999);
+  fiEnd.setDate(fiEnd.getDate() + daysAhead);
+
+  const fiGame = new Date(
+    game.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  return fiGame >= fiNow && fiGame <= fiEnd;
 }
 
 async function fetchSportOdds(sportKey) {
@@ -104,8 +111,6 @@ export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport") || "jalkapallo";
-    const mode = searchParams.get("mode") || "today"; // today | all
-
     const sportKeys = SPORT_KEYS[sport];
 
     if (!sportKeys) {
@@ -128,9 +133,10 @@ export async function GET(req) {
 
     let finalGames = Array.from(uniqueGamesMap.values());
 
-    if (mode === "today") {
-      finalGames = finalGames.filter((g) => isTodayInFinland(g.commence_time));
-    }
+    // Tänään + seuraavat 3 päivää
+    finalGames = finalGames.filter((g) =>
+      isWithinNextDaysInFinland(g.commence_time, 3)
+    );
 
     finalGames.sort(
       (a, b) =>
