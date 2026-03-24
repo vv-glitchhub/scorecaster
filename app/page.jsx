@@ -112,32 +112,34 @@ const SPORTS = {
     },
     drawPossible: true
   },
+
   jaakiekko: {
     label: { fi: "🏒 Jääkiekko", en: "🏒 Ice Hockey" },
     factors: {
       fi: [
-        "Kotijää etu",
-        "Maalivahti poissa",
-        "Back-to-back",
-        "Ylivoima korkea",
-        "Playoff-paine",
-        "Pitkä matka",
-        "Viime 3 voitettu",
-        "Nopeat hyökkääjät"
+        "Kotietu",
+        "Maalivahti vireessä",
+        "Back-to-back peli",
+        "Puolustus tiivis",
+        "Ylivoima tehokas",
+        "Loukkaantumiset",
+        "Motivaatio",
+        "Derby-ottelu"
       ],
       en: [
-        "Home ice advantage",
-        "Goalie out",
-        "Back-to-back",
+        "Home advantage",
+        "Goalie in form",
+        "Back-to-back game",
+        "Tight defense",
         "Strong power play",
-        "Playoff pressure",
-        "Long travel",
-        "Won last 3",
-        "Fast forwards"
+        "Injuries",
+        "Motivation",
+        "Derby game"
       ]
     },
     drawPossible: false
   },
+
   koripallo: {
     label: { fi: "🏀 Koripallo", en: "🏀 Basketball" },
     factors: {
