@@ -10,7 +10,7 @@ const SPORT_KEYS = {
     "soccer_germany_bundesliga"
   ],
   jaakiekko: [
-    "icehockey_finland_liiga",
+    "icehockey_liiga",
     "icehockey_nhl"
   ],
   koripallo: [
@@ -20,16 +20,23 @@ const SPORT_KEYS = {
 };
 
 function isTodayInFinland(isoString) {
-  const d = new Date(isoString);
-  const fiDate = d.toLocaleDateString("fi-FI", {
+  const gameDate = new Date(isoString).toLocaleDateString("fi-FI", {
     timeZone: "Europe/Helsinki"
   });
 
-  const todayFi = new Date().toLocaleDateString("fi-FI", {
+  const todayDate = new Date().toLocaleDateString("fi-FI", {
     timeZone: "Europe/Helsinki"
   });
 
-  return fiDate === todayFi;
+  return gameDate === todayDate;
+}
+
+function formatTimeInFinland(isoString) {
+  return new Date(isoString).toLocaleTimeString("fi-FI", {
+    timeZone: "Europe/Helsinki",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 export async function GET(req) {
@@ -63,7 +70,7 @@ export async function GET(req) {
 
       const data = await res.json();
 
-      const games = (data || [])
+      const mappedGames = (data || [])
         .filter((g) => isTodayInFinland(g.commence_time))
         .map((g) => ({
           id: g.id,
@@ -71,20 +78,18 @@ export async function GET(req) {
           away: g.away_team,
           league: g.sport_title,
           commence_time: g.commence_time,
-          time: new Date(g.commence_time).toLocaleTimeString("fi-FI", {
-            timeZone: "Europe/Helsinki",
-            hour: "2-digit",
-            minute: "2-digit"
-          }),
+          time: formatTimeInFinland(g.commence_time),
           context: "Live odds data",
           bookmakers: g.bookmakers ?? []
         }));
 
-      allGames.push(...games);
+      allGames.push(...mappedGames);
     }
 
     allGames.sort(
-      (a, b) => new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+      (a, b) =>
+        new Date(a.commence_time).getTime() -
+        new Date(b.commence_time).getTime()
     );
 
     return NextResponse.json({ games: allGames });
