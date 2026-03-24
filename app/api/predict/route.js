@@ -488,6 +488,20 @@ if (drawP >= 0.30) {
 if (bestBet) {
   aiPick = bestBet.outcome;
 }
+  const suggestedFactors = getSuggestedFactors({
+  sport,
+  game,
+  homeWinProb,
+  awayWinProb,
+  drawProb,
+  bestBet,
+  homeXG,
+  awayXG
+});
+
+const lastUpdated = new Date().toLocaleString("fi-FI", {
+  timeZone: "Europe/Helsinki"
+});
   return {
     homeScore,
     awayScore,
