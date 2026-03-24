@@ -2,14 +2,21 @@ import { NextResponse } from "next/server";
 
 const SPORT_KEYS = {
   jalkapallo: [
+    "soccer_finland_veikkausliiga",
+    "soccer_uefa_champs_league",
     "soccer_epl",
     "soccer_spain_la_liga",
     "soccer_italy_serie_a",
-    "soccer_germany_bundesliga",
-    "soccer_uefa_champs_league"
+    "soccer_germany_bundesliga"
   ],
-  jaakiekko: ["icehockey_nhl"],
-  koripallo: ["basketball_nba"]
+  jaakiekko: [
+    "icehockey_finland_liiga",
+    "icehockey_nhl"
+  ],
+  koripallo: [
+    "basketball_nba",
+    "basketball_euroleague"
+  ]
 };
 
 function cleanLeagueName(name) {
