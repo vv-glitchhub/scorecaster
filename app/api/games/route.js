@@ -1,5 +1,17 @@
 import { NextResponse } from "next/server";
 
+const SPORT_KEYS = {
+  jaakiekko: ["icehockey_nhl"],
+  koripallo: ["basketball_nba"],
+  jalkapallo: [
+    "soccer_epl",
+    "soccer_spain_la_liga",
+    "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_uefa_champs_league"
+  ]
+};
+
 function isoAtToday(hour, minute = 0) {
   const now = new Date();
   const d = new Date(
@@ -55,74 +67,6 @@ function footballGames() {
             { name: "KuPS", price: 3.25 }
           ],
           "Coolbet"
-        ),
-        makeH2HMarket(
-          [
-            { name: "HJK", price: 2.18 },
-            { name: "Draw", price: 3.4 },
-            { name: "KuPS", price: 3.15 }
-          ],
-          "Unibet"
-        )
-      ]
-    },
-    {
-      id: "fb-2",
-      league: "Premier League",
-      home: "Arsenal",
-      away: "Chelsea",
-      time: "20:30",
-      context: "Lontoon derby",
-      commence_time: isoAtToday(20, 30),
-      homeForm: ["W", "W", "W", "D", "W"],
-      awayForm: ["L", "W", "D", "L", "W"],
-      h2h: "Arsenal unbeaten in last 3",
-      bookmakers: [
-        makeH2HMarket(
-          [
-            { name: "Arsenal", price: 1.95 },
-            { name: "Draw", price: 3.7 },
-            { name: "Chelsea", price: 4.0 }
-          ],
-          "Bet365"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Arsenal", price: 2.0 },
-            { name: "Draw", price: 3.65 },
-            { name: "Chelsea", price: 3.95 }
-          ],
-          "Pinnacle"
-        )
-      ]
-    },
-    {
-      id: "fb-3",
-      league: "La Liga",
-      home: "Real Sociedad",
-      away: "Sevilla",
-      time: "22:00",
-      context: "Tärkeät pisteet",
-      commence_time: isoAtToday(22, 0),
-      homeForm: ["D", "W", "L", "W", "W"],
-      awayForm: ["L", "D", "W", "L", "D"],
-      h2h: "Low-scoring meetings recently",
-      bookmakers: [
-        makeH2HMarket(
-          [
-            { name: "Real Sociedad", price: 2.05 },
-            { name: "Draw", price: 3.1 },
-            { name: "Sevilla", price: 3.9 }
-          ],
-          "Unibet"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Real Sociedad", price: 2.1 },
-            { name: "Draw", price: 3.05 },
-            { name: "Sevilla", price: 3.85 }
-          ],
-          "Coolbet"
         )
       ]
     }
@@ -156,69 +100,6 @@ function hockeyGames() {
             { name: "Ilves", price: 1.9 }
           ],
           "Coolbet"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Tappara", price: 2.08 },
-            { name: "Ilves", price: 1.91 }
-          ],
-          "Unibet"
-        )
-      ]
-    },
-    {
-      id: "hk-2",
-      league: "Liiga",
-      home: "Lukko",
-      away: "Karpat",
-      time: "18:30",
-      context: "Kärkikamppailu",
-      commence_time: isoAtToday(18, 30),
-      homeForm: ["W", "W", "W", "L", "W"],
-      awayForm: ["W", "L", "W", "W", "L"],
-      h2h: "Lukko slightly better in recent meetings",
-      bookmakers: [
-        makeH2HMarket(
-          [
-            { name: "Lukko", price: 1.92 },
-            { name: "Karpat", price: 2.02 }
-          ],
-          "Veikkaus"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Lukko", price: 1.95 },
-            { name: "Karpat", price: 2.0 }
-          ],
-          "Pinnacle"
-        )
-      ]
-    },
-    {
-      id: "hk-3",
-      league: "NHL",
-      home: "Toronto Maple Leafs",
-      away: "Boston Bruins",
-      time: "02:00",
-      context: "Original Six clash",
-      commence_time: isoAtToday(2, 0),
-      homeForm: ["W", "L", "W", "W", "L"],
-      awayForm: ["W", "W", "L", "W", "D"],
-      h2h: "Boston has won 3 of last 5",
-      bookmakers: [
-        makeH2HMarket(
-          [
-            { name: "Toronto Maple Leafs", price: 2.25 },
-            { name: "Boston Bruins", price: 1.72 }
-          ],
-          "Bet365"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Toronto Maple Leafs", price: 2.28 },
-            { name: "Boston Bruins", price: 1.75 }
-          ],
-          "Pinnacle"
         )
       ]
     }
@@ -245,48 +126,13 @@ function basketballGames() {
             { name: "Miami Heat", price: 2.35 }
           ],
           "Bet365"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Boston Celtics", price: 1.65 },
-            { name: "Miami Heat", price: 2.32 }
-          ],
-          "Pinnacle"
-        )
-      ]
-    },
-    {
-      id: "bk-2",
-      league: "Korisliiga",
-      home: "Kataja",
-      away: "Seagulls",
-      time: "18:00",
-      context: "Kotimainen huippupeli",
-      commence_time: isoAtToday(18, 0),
-      homeForm: ["W", "L", "W", "W", "W"],
-      awayForm: ["W", "W", "L", "D", "W"],
-      h2h: "Seagulls slight edge recently",
-      bookmakers: [
-        makeH2HMarket(
-          [
-            { name: "Kataja", price: 2.4 },
-            { name: "Seagulls", price: 1.58 }
-          ],
-          "Veikkaus"
-        ),
-        makeH2HMarket(
-          [
-            { name: "Kataja", price: 2.45 },
-            { name: "Seagulls", price: 1.6 }
-          ],
-          "Coolbet"
         )
       ]
     }
   ];
 }
 
-function getGamesBySport(sport) {
+function getMockGamesBySport(sport) {
   switch (sport) {
     case "jalkapallo":
       return footballGames();
@@ -297,6 +143,72 @@ function getGamesBySport(sport) {
     default:
       return [];
   }
+}
+
+function cleanLeagueName(name = "") {
+  return name
+    .replace(/^Soccer - /i, "")
+    .replace(/^Ice Hockey - /i, "")
+    .replace(/^Basketball - /i, "");
+}
+
+function formatApiGame(g) {
+  return {
+    id: g.id,
+    home: g.home_team,
+    away: g.away_team,
+    league: cleanLeagueName(g.sport_title),
+    time: new Date(g.commence_time).toLocaleTimeString("fi-FI", {
+      timeZone: "Europe/Helsinki",
+      hour: "2-digit",
+      minute: "2-digit"
+    }),
+    commence_time: g.commence_time,
+    bookmakers: g.bookmakers || [],
+    context: ""
+  };
+}
+
+function isTodayOrTomorrowInFinland(iso) {
+  const gameDate = new Date(iso);
+
+  const now = new Date();
+  const finlandNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  const todayStart = new Date(finlandNow);
+  todayStart.setHours(0, 0, 0, 0);
+
+  const dayAfterTomorrowStart = new Date(todayStart);
+  dayAfterTomorrowStart.setDate(dayAfterTomorrowStart.getDate() + 2);
+
+  const gameInFinland = new Date(
+    gameDate.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  return gameInFinland >= todayStart && gameInFinland < dayAfterTomorrowStart;
+}
+
+async function fetchSportGames(sportKey) {
+  const apiKey = process.env.ODDS_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("ODDS_API_KEY puuttuu .env.local-tiedostosta");
+  }
+
+  const url =
+    `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
+    `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
+
+  const res = await fetch(url, { cache: "no-store" });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Odds API virhe (${sportKey}): ${text}`);
+  }
+
+  return res.json();
 }
 
 export async function GET(req) {
@@ -311,18 +223,69 @@ export async function GET(req) {
       );
     }
 
-    const games = getGamesBySport(sport);
+    const keys = SPORT_KEYS[sport];
+    if (!keys) {
+      return NextResponse.json(
+        { error: "Tuntematon laji" },
+        { status: 400 }
+      );
+    }
+
+    let allGames = [];
+
+    for (const key of keys) {
+      try {
+        const data = await fetchSportGames(key);
+        allGames = allGames.concat(data);
+      } catch (err) {
+        console.error(`Virhe haettaessa ${key}:`, err.message);
+      }
+    }
+
+    const uniqueGames = allGames.filter((game, index, arr) => {
+      return index === arr.findIndex((g) => g.id === game.id);
+    });
+
+    const filtered = uniqueGames.filter((g) =>
+      isTodayOrTomorrowInFinland(g.commence_time)
+    );
+
+    const source = filtered.length > 0 ? filtered : uniqueGames;
+
+    const games = source
+      .sort((a, b) => {
+        const timeDiff =
+          new Date(a.commence_time).getTime() -
+          new Date(b.commence_time).getTime();
+
+        if (timeDiff !== 0) return timeDiff;
+        return (a.sport_title || "").localeCompare(b.sport_title || "");
+      })
+      .slice(0, 30)
+      .map(formatApiGame);
+
+    // jos API ei palauttanut mitään → fallback mock-dataan
+    if (!games.length) {
+      return NextResponse.json({
+        sport,
+        games: getMockGamesBySport(sport),
+        source: "mock"
+      });
+    }
 
     return NextResponse.json({
       sport,
-      games
+      games,
+      source: "api"
     });
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error?.message || "Failed to fetch games"
-      },
-      { status: 500 }
-    );
+    console.error("games route error:", error);
+
+    return NextResponse.json({
+      sport: null,
+      games: [],
+      source: "error",
+      error: error?.message || "Failed to fetch games"
+    });
   }
 }
