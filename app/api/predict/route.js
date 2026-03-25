@@ -85,7 +85,6 @@ function getMarketProbMap(game, bestOdds) {
 }
 
 function applyFactorAdjustments({
-  game,
   selectedFactors,
   homeProb,
   drawProb,
@@ -98,30 +97,17 @@ function applyFactorAdjustments({
   for (const factor of selectedFactors || []) {
     const f = String(f).toLowerCase();
 
-    // Home advantage / kotietu
-    if (
-      f.includes("koti") ||
-      f.includes("home advantage") ||
-      f.includes("home court") ||
-      f.includes("home")
-    ) {
+    if (f.includes("koti") || f.includes("home")) {
       h += 3;
       a -= 2;
       d -= 1;
     }
 
-    // Injuries
-    if (
-      f.includes("loukka") ||
-      f.includes("injured") ||
-      f.includes("avainpelaaja") ||
-      f.includes("key player")
-    ) {
+    if (f.includes("loukka") || f.includes("injured") || f.includes("key player")) {
       h -= 2;
       a += 2;
     }
 
-    // Derby / rivalry -> more variance, a bit less confidence, slightly more draw in football
     if (f.includes("derby")) {
       if (drawProb > 0) {
         d += 2;
@@ -130,33 +116,17 @@ function applyFactorAdjustments({
       }
     }
 
-    // Goalkeeper form / goalie form
-    if (
-      f.includes("maalivahti vireessä") ||
-      f.includes("goalkeeper in form") ||
-      f.includes("goalie in form")
-    ) {
+    if (f.includes("goalkeeper") || f.includes("goalie") || f.includes("maalivahti")) {
       h += 2;
       a -= 1;
     }
 
-    // Back-to-back / fatigue
-    if (
-      f.includes("back-to-back") ||
-      f.includes("eurooppa rasittaa") ||
-      f.includes("fatigue") ||
-      f.includes("väsynyt")
-    ) {
+    if (f.includes("back-to-back") || f.includes("fatigue") || f.includes("väs")) {
       h -= 1.5;
       a += 1.5;
     }
 
-    // Strong defense / tight defense
-    if (
-      f.includes("puolustus") ||
-      f.includes("strong defense") ||
-      f.includes("tight defense")
-    ) {
+    if (f.includes("puolustus") || f.includes("defense")) {
       if (drawProb > 0) {
         d += 1.5;
         h -= 0.75;
@@ -164,13 +134,12 @@ function applyFactorAdjustments({
       }
     }
 
-    // Motivation / new coach / power play / strong attack
     if (
       f.includes("motivaatio") ||
       f.includes("new coach") ||
       f.includes("uusi valmentaja") ||
-      f.includes("ylivoima tehokas") ||
-      f.includes("3-pisteet uppoaa")
+      f.includes("ylivoima") ||
+      f.includes("3-pisteet")
     ) {
       h += 1.5;
       a -= 1;
@@ -230,11 +199,9 @@ function confidenceFromContext(bestEdge, selectedFactorsCount, hasDraw) {
 
 function makeRecommendation(bestBet, game) {
   if (!bestBet) return "NO BET";
-
   if (bestBet.outcome === game.home) return "LEAN HOME";
   if (bestBet.outcome === game.away) return "LEAN AWAY";
   if (bestBet.outcome === "Draw") return "LEAN DRAW";
-
   return "NO BET";
 }
 
@@ -276,9 +243,7 @@ function buildAnalysis({
   }
 
   if (selectedFactors?.length) {
-    parts.push(
-      `Selected factors affecting the view: ${selectedFactors.join(", ")}.`
-    );
+    parts.push(`Selected factors affecting the view: ${selectedFactors.join(", ")}.`);
   }
 
   return parts.join("\n\n");
@@ -287,13 +252,10 @@ function buildAnalysis({
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { sport, game, selectedFactors = [] } = body || {};
+    const { game, selectedFactors = [], sport } = body || {};
 
     if (!game || !game.home || !game.away) {
-      return NextResponse.json(
-        { error: "Missing game data" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "Missing game data" }, { status: 400 });
     }
 
     const bestOdds = getBestOdds(game);
@@ -306,14 +268,12 @@ export async function POST(req) {
     }
 
     const marketProbMap = getMarketProbMap(game, bestOdds);
-
     const hasDraw = marketProbMap["Draw"] != null;
 
     let baseHomeProb = marketProbMap[game.home] ?? 50;
     let baseDrawProb = marketProbMap["Draw"] ?? 0;
     let baseAwayProb = marketProbMap[game.away] ?? 50;
 
-    // fallback if only two-way market exists
     if (!hasDraw) {
       const normalizedTwoWay = normalizeProbs([baseHomeProb, baseAwayProb]);
       baseHomeProb = normalizedTwoWay[0];
@@ -322,7 +282,6 @@ export async function POST(req) {
     }
 
     const adjusted = applyFactorAdjustments({
-      game,
       selectedFactors,
       homeProb: baseHomeProb,
       drawProb: baseDrawProb,
@@ -338,9 +297,7 @@ export async function POST(req) {
       [game.away]: awayWinProb
     };
 
-    if (hasDraw) {
-      modelProbMap["Draw"] = drawProb;
-    }
+    if (hasDraw) modelProbMap["Draw"] = drawProb;
 
     const valueBets = buildValueBets(bestOdds, modelProbMap, marketProbMap);
     const bestBet = valueBets.length ? valueBets[0] : null;
@@ -361,36 +318,24 @@ export async function POST(req) {
     const response = {
       homeScore: Math.max(0, Math.round(homeXG)),
       awayScore: Math.max(0, Math.round(awayXG)),
-
       homeWinProb,
       awayWinProb,
       drawProb,
-
       recommendation: makeRecommendation(bestBet, game),
       confidence,
-
       bestBet,
       valueBets,
-
       homeStrength,
       awayStrength,
-
       xgLabel: `${homeXG} - ${awayXG}`,
       homeXG,
       awayXG,
-
-      keyFactor:
-        selectedFactors[0] ||
-        (sport === "jaakiekko"
-          ? "Markkina ja kotietu"
-          : "Market and home edge"),
-
+      keyFactor: selectedFactors[0] || (sport || "Market and home edge"),
       stats: {
         homeLast5: game.homeForm || ["W", "W", "L", "D", "W"],
         awayLast5: game.awayForm || ["L", "W", "L", "W", "D"],
         h2h: game.h2h || "Balanced recent meetings"
       },
-
       analysis: buildAnalysis({
         game,
         confidence,
@@ -405,9 +350,7 @@ export async function POST(req) {
     return NextResponse.json(response);
   } catch (error) {
     return NextResponse.json(
-      {
-        error: error?.message || "Prediction failed"
-      },
+      { error: error?.message || "Prediction failed" },
       { status: 500 }
     );
   }
