@@ -21,7 +21,8 @@ const TEXT = {
     confidence: "Luottamus",
     bestBet: "Paras veto",
     analysis: "Analyysi",
-    stats: "Tilastot"
+    stats: "Tilastot",
+    draw: "Tasapeli"
   },
   en: {
     title: "SCORECASTER",
@@ -41,7 +42,8 @@ const TEXT = {
     confidence: "Confidence",
     bestBet: "Best bet",
     analysis: "Analysis",
-    stats: "Stats"
+    stats: "Stats",
+    draw: "Draw"
   }
 };
 
@@ -102,8 +104,8 @@ function getBestOdds(game) {
   return Object.values(best);
 }
 
-function labelOutcome(name, lang) {
-  if (name === "Draw") return lang === "fi" ? "Tasapeli" : "Draw";
+function labelOutcome(name, lang, t) {
+  if (name === "Draw") return t.draw;
   return name;
 }
 
@@ -114,7 +116,7 @@ export default function Page() {
   const [sports, setSports] = useState([]);
   const [loadingSports, setLoadingSports] = useState(true);
 
-  const [selectedCategory, setSelectedCategory] = useState("jalkapallo");
+  const [selectedCategory, setSelectedCategory] = useState("jaakiekko");
   const [selectedSportKey, setSelectedSportKey] = useState("all");
 
   const [games, setGames] = useState([]);
@@ -421,7 +423,7 @@ export default function Page() {
                         fontSize: 12
                       }}
                     >
-                      {labelOutcome(o.name, lang)} {o.price}
+                      {labelOutcome(o.name, lang, t)} {o.price}
                     </span>
                   ))}
                 </div>
@@ -524,9 +526,7 @@ export default function Page() {
               {t.probabilities}
             </div>
             <div>{selectedGame.home}: {result.homeWinProb}%</div>
-            {result.drawProb > 0 && (
-              <div>{lang === "fi" ? "Tasapeli" : "Draw"}: {result.drawProb}%</div>
-            )}
+            {result.drawProb > 0 && <div>{t.draw}: {result.drawProb}%</div>}
             <div>{selectedGame.away}: {result.awayWinProb}%</div>
           </div>
 
