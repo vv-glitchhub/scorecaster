@@ -83,7 +83,6 @@ export async function GET(req) {
     const data = await res.json();
 
     const filtered = data.filter((g) => isTodayOrTomorrowInFinland(g.commence_time));
-
     const source = filtered.length > 0 ? filtered : data;
 
     const games = source
