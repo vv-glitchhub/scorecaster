@@ -25,14 +25,14 @@ export async function GET() {
 
     if (!apiKey) {
       return NextResponse.json(
-        { error: "ODDS_API_KEY puuttuu .env.local-tiedostosta" },
+        { error: "ODDS_API_KEY puuttuu" },
         { status: 500 }
       );
     }
 
     const res = await fetch(
       `https://api.the-odds-api.com/v4/sports?apiKey=${apiKey}`,
-      { cache: "no-store" }
+      { next: { revalidate: 3600 } }
     );
 
     if (!res.ok) {
@@ -49,10 +49,9 @@ export async function GET() {
         group: s.group,
         title: cleanTitle(s.title),
         description: s.description,
-        hasOutrights: s.has_outrights,
         category: inferCategory(s.key, s.group)
       }))
-      .sort((a, b) => a.group.localeCompare(b.group) || a.title.localeCompare(b.title));
+      .sort((a, b) => a.title.localeCompare(b.title));
 
     return NextResponse.json({ sports });
   } catch (error) {
