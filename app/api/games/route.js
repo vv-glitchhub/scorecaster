@@ -16,13 +16,21 @@ function formatGame(g) {
     home: g.home_team,
     away: g.away_team,
     league: cleanLeagueName(g.sport_title),
+
     time: new Date(g.commence_time).toLocaleTimeString("fi-FI", {
       timeZone: "Europe/Helsinki",
       hour: "2-digit",
       minute: "2-digit"
     }),
+
     commence_time: g.commence_time,
-    bookmakers: g.bookmakers || [],
+
+    // 🔥 TÄRKEIN FIX: suodatetaan h2h itse
+    bookmakers: (g.bookmakers || []).map((b) => ({
+      ...b,
+      markets: (b.markets || []).filter((m) => m.key === "h2h")
+    })),
+
     context: ""
   };
 }
@@ -69,9 +77,10 @@ export async function GET(req) {
       );
     }
 
+    // 🔥 FIX: EI markets=h2h parametriä
     const url =
       `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
-      `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
+      `?apiKey=${apiKey}&regions=eu&oddsFormat=decimal`;
 
     const res = await fetch(url, { cache: "no-store" });
 
@@ -82,9 +91,14 @@ export async function GET(req) {
 
     const data = await res.json();
 
-    const filtered = data.filter((g) => isTodayOrTomorrowInFinland(g.commence_time));
+    // 📅 Suodata Suomi-aika (tänään + huomenna)
+    const filtered = data.filter((g) =>
+      isTodayOrTomorrowInFinland(g.commence_time)
+    );
+
     const source = filtered.length > 0 ? filtered : data;
 
+    // 🔄 Järjestä + rajoita
     const games = source
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
       .slice(0, 50)
@@ -93,7 +107,9 @@ export async function GET(req) {
     return NextResponse.json({ games });
   } catch (error) {
     return NextResponse.json(
-      { error: error.message || "Pelien haku epäonnistui" },
+      {
+        error: error.message || "Pelien haku epäonnistui"
+      },
       { status: 500 }
     );
   }
