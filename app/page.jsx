@@ -135,7 +135,6 @@ export default function Page() {
         const data = await res.json();
 
         if (!res.ok) throw new Error(data.error || "Sports fetch failed");
-
         setSports(data.sports || []);
       } catch (e) {
         setError(e.message);
@@ -168,6 +167,8 @@ export default function Page() {
   }
 
   async function fetchGames() {
+    if (loadingGames) return;
+
     setLoadingGames(true);
     setError("");
     setGames([]);
@@ -221,7 +222,7 @@ export default function Page() {
   }
 
   async function predict() {
-    if (!selectedGame) return;
+    if (!selectedGame || loadingPredict) return;
 
     setLoadingPredict(true);
     setError("");
@@ -286,7 +287,9 @@ export default function Page() {
             marginBottom: 16,
             padding: 12,
             border: "1px solid #ff5c7a",
-            borderRadius: 8
+            borderRadius: 8,
+            whiteSpace: "pre-wrap",
+            wordBreak: "break-word"
           }}
         >
           {error}
@@ -397,7 +400,7 @@ export default function Page() {
                 </div>
 
                 <div style={{ fontSize: 14, opacity: 0.8 }}>
-                  {game.league} · {game.time}
+                  {game.dayLabel} · {game.league} · {game.time}
                 </div>
 
                 <div
@@ -445,7 +448,7 @@ export default function Page() {
               {selectedGame.home} vs {selectedGame.away}
             </div>
             <div style={{ fontSize: 14, opacity: 0.8 }}>
-              {selectedGame.league} · {selectedGame.time}
+              {selectedGame.dayLabel} · {selectedGame.league} · {selectedGame.time}
             </div>
           </section>
 
@@ -521,7 +524,9 @@ export default function Page() {
               {t.probabilities}
             </div>
             <div>{selectedGame.home}: {result.homeWinProb}%</div>
-            {result.drawProb > 0 && <div>{lang === "fi" ? "Tasapeli" : "Draw"}: {result.drawProb}%</div>}
+            {result.drawProb > 0 && (
+              <div>{lang === "fi" ? "Tasapeli" : "Draw"}: {result.drawProb}%</div>
+            )}
             <div>{selectedGame.away}: {result.awayWinProb}%</div>
           </div>
 
