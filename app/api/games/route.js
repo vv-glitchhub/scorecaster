@@ -1,8 +1,8 @@
 import { NextResponse } from "next/server";
 
-// 🔥 SIMPLE CACHE
+// 🔥 CACHE (estää rate limit)
 let CACHE = {};
-let LAST_FETCH = 0;
+let LAST_FETCH = {};
 const CACHE_TIME = 60 * 1000; // 60 sek
 
 function cleanLeagueName(name = "") {
@@ -28,7 +28,6 @@ function formatGame(g) {
 
     commence_time: g.commence_time,
 
-    // 🔥 suodata h2h
     bookmakers: (g.bookmakers || []).map((b) => ({
       ...b,
       markets: (b.markets || []).filter((m) => m.key === "h2h")
@@ -38,43 +37,26 @@ function formatGame(g) {
   };
 }
 
-function isTodayOrTomorrow(iso) {
-  const now = new Date();
-  const today = new Date(now);
-  today.setHours(0, 0, 0, 0);
-
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 2);
-
+// 🔥 3 PÄIVÄN FILTER (Suomen aika)
+function isWithin3DaysInFinland(iso) {
   const gameDate = new Date(iso);
 
-  return gameDate >= today && gameDate < tomorrow;
-}
+  const now = new Date();
+  const finNow = new Date(
+    now.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
 
-// 🔥 FALLBACK DATA (aina jotain näkyy)
-function fallbackGames() {
-  return [
-    {
-      id: "demo-1",
-      home: "Tappara",
-      away: "Ilves",
-      league: "Liiga",
-      time: "18:30",
-      commence_time: new Date().toISOString(),
-      bookmakers: [],
-      context: "Fallback demo"
-    },
-    {
-      id: "demo-2",
-      home: "Arsenal",
-      away: "Chelsea",
-      league: "Premier League",
-      time: "20:30",
-      commence_time: new Date().toISOString(),
-      bookmakers: [],
-      context: "Fallback demo"
-    }
-  ];
+  const start = new Date(finNow);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
+  end.setDate(end.getDate() + 3); // 🔥 3 päivää
+
+  const gameFin = new Date(
+    gameDate.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
+  );
+
+  return gameFin >= start && gameFin < end;
 }
 
 export async function GET(req) {
@@ -92,7 +74,8 @@ export async function GET(req) {
     // 🔥 CACHE HIT
     if (
       CACHE[sportKey] &&
-      Date.now() - LAST_FETCH < CACHE_TIME
+      LAST_FETCH[sportKey] &&
+      Date.now() - LAST_FETCH[sportKey] < CACHE_TIME
     ) {
       return NextResponse.json({ games: CACHE[sportKey] });
     }
@@ -114,29 +97,42 @@ export async function GET(req) {
 
     const data = await res.json();
 
+    // 🔥 FILTER 3 PÄIVÄÄ
     const filtered = data.filter((g) =>
-      isTodayOrTomorrow(g.commence_time)
+      isWithin3DaysInFinland(g.commence_time)
     );
 
-    const source = filtered.length ? filtered : data;
+    console.log("ALL:", data.length);
+    console.log("3 DAYS:", filtered.length);
 
-    const games = source
+    // ❗ EI fallback sekoilua
+    if (filtered.length === 0) {
+      return NextResponse.json({
+        games: [],
+        message: "Ei pelejä seuraavan 3 päivän aikana"
+      });
+    }
+
+    const games = filtered
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-      .slice(0, 40)
+      .slice(0, 50)
       .map(formatGame);
 
     // 🔥 SAVE CACHE
     CACHE[sportKey] = games;
-    LAST_FETCH = Date.now();
+    LAST_FETCH[sportKey] = Date.now();
 
     return NextResponse.json({ games });
 
   } catch (error) {
-    console.log("API FAIL → fallback");
+    console.log("API ERROR:", error.message);
 
-    return NextResponse.json({
-      games: fallbackGames(),
-      error: error.message
-    });
+    return NextResponse.json(
+      {
+        games: [],
+        error: error.message
+      },
+      { status: 500 }
+    );
   }
 }
