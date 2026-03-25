@@ -1,188 +1,96 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 const TEXT = {
   fi: {
-    tagline: "AI-POWERED SPORTS ANALYTICS",
-    live: "LIVE",
-    todayGames: "TÄMÄN PÄIVÄN PELIT",
-    fetchGames: "🔍 HAE PÄIVÄN PELIT",
-    loadingGames: "⟳ HAETAAN…",
-    pressToFetch: "Paina nappia hakiaksesi pelit",
-    noGames: "Ei otteluita. Kokeile toista lajia.",
-    selectedMatch: "✓ VALITTU OTTELU",
+    title: "SCORECASTER",
+    subtitle: "AI-POWERED SPORTS ANALYTICS",
+    selectLeague: "VALITSE LIIGA",
+    fetchGames: "HAE PELIT",
+    loading: "Ladataan...",
+    noGames: "Ei otteluita löytynyt.",
+    selectedMatch: "VALITTU OTTELU",
     factors: "VAIKUTTAVAT TEKIJÄT",
-    analyze: "⚡ ANALYSOI JA ENNUSTA",
-    prediction: "📊 ENNUSTUSTULOS",
-    recommendation: "AI SUOSITUS",
+    analyze: "ANALYSOI JA ENNUSTA",
     probabilities: "VOITTOTODENNÄKÖISYYDET",
-    homeStrength: "KOTIVOIMA",
-    awayStrength: "VIERASVOIMA",
+    recommendation: "SUOSITUS",
     confidence: "LUOTTAMUS",
-    xg: "XG",
-    bestBet: "🔥 PARAS VETO",
-    valueBets: "💰 VALUE BETS",
-    confidenceMeter: "🎯 CONFIDENCE METER",
-    stats: "📊 TILASTOT",
     aiAnalysis: "AI-ANALYYSI",
-    disclaimer: "⚠️ VIIHDEKÄYTTÖÖN — EI VEDONLYÖNTISUOSITUS",
-    noEdge: "Selkeää pelattavaa etua ei löytynyt tällä hetkellä.",
-    smallEdge: "Pientä etua voi löytyä, mutta ei tarpeeksi varsinaiseen pelisuositukseen.",
-    confidenceExplanation:
-      "Luottamus perustuu markkinaeroon, formiin, valittuihin tekijöihin ja ottelun tasaisuuteen.",
-    certainty: "varmuus",
-    goalModel: "maalimalli",
-    marketHomeEdge: "Markkina ja kotietu",
-    last5: "viimeiset 5",
-    headToHead: "Head-to-head",
-    noData: "Ei dataa",
-    aboutTitle: "MITEN SOVELLUS TOIMII",
-    aboutText:
-      "Scorecaster yhdistää markkinakertoimet, formidatan, valitut tekijät ja kevyen xG-logiikan yhdeksi helposti luettavaksi ennustenäkymäksi.",
-    demoText:
-      "Sovellus on rakennettu näyttämään ottelut, value betit, todennäköisyydet ja AI-analyysin modernissa käyttöliittymässä."
+    stats: "TILASTOT"
   },
   en: {
-    tagline: "AI-POWERED SPORTS ANALYTICS",
-    live: "LIVE",
-    todayGames: "TODAY'S MATCHES",
-    fetchGames: "🔍 FETCH TODAY'S MATCHES",
-    loadingGames: "⟳ LOADING…",
-    pressToFetch: "Press the button to load matches",
-    noGames: "No matches found. Try another sport.",
-    selectedMatch: "✓ SELECTED MATCH",
+    title: "SCORECASTER",
+    subtitle: "AI-POWERED SPORTS ANALYTICS",
+    selectLeague: "SELECT LEAGUE",
+    fetchGames: "FETCH GAMES",
+    loading: "Loading...",
+    noGames: "No matches found.",
+    selectedMatch: "SELECTED MATCH",
     factors: "KEY FACTORS",
-    analyze: "⚡ ANALYZE & PREDICT",
-    prediction: "📊 PREDICTION RESULT",
-    recommendation: "AI RECOMMENDATION",
+    analyze: "ANALYZE & PREDICT",
     probabilities: "WIN PROBABILITIES",
-    homeStrength: "HOME STRENGTH",
-    awayStrength: "AWAY STRENGTH",
+    recommendation: "RECOMMENDATION",
     confidence: "CONFIDENCE",
-    xg: "XG",
-    bestBet: "🔥 BEST BET",
-    valueBets: "💰 VALUE BETS",
-    confidenceMeter: "🎯 CONFIDENCE METER",
-    stats: "📊 STATS",
     aiAnalysis: "AI ANALYSIS",
-    disclaimer: "⚠️ FOR ENTERTAINMENT ONLY — NOT BETTING ADVICE",
-    noEdge: "No clear betting edge found at the moment.",
-    smallEdge: "A small edge may exist, but not enough for a strong recommendation.",
-    confidenceExplanation:
-      "Confidence is based on market gap, team form, selected factors and match balance.",
-    certainty: "certainty",
-    goalModel: "goal model",
-    marketHomeEdge: "Market and home edge",
-    last5: "last 5",
-    headToHead: "Head-to-head",
-    noData: "No data",
-    aboutTitle: "HOW IT WORKS",
-    aboutText:
-      "Scorecaster combines market odds, form data, selected factors and lightweight xG logic into one clear prediction view.",
-    demoText:
-      "The app is built to present matches, value bets, probabilities and AI analysis in a modern UI."
+    stats: "STATS"
   }
 };
 
-const SPORTS = {
+const FACTORS = {
   jalkapallo: {
-    label: { fi: "⚽ Jalkapallo", en: "⚽ Football" },
-    factors: {
-      fi: [
-        "Kotikenttäetu",
-        "Avainpelaaja loukkaantunut",
-        "Derby-ottelu",
-        "Eurooppa rasittaa",
-        "Maalivahti vireessä",
-        "Uusi valmentaja",
-        "Sarjakärki vastaan",
-        "Puolustus tiukka"
-      ],
-      en: [
-        "Home advantage",
-        "Key player injured",
-        "Derby match",
-        "European fatigue",
-        "Goalkeeper in form",
-        "New coach",
-        "Facing league leader",
-        "Strong defense"
-      ]
-    },
-    drawPossible: true
+    fi: [
+      "Kotikenttäetu",
+      "Avainpelaaja loukkaantunut",
+      "Derby-ottelu",
+      "Eurooppa rasittaa",
+      "Puolustus tiukka"
+    ],
+    en: [
+      "Home advantage",
+      "Key player injured",
+      "Derby match",
+      "European fatigue",
+      "Strong defense"
+    ]
   },
-
   jaakiekko: {
-    label: { fi: "🏒 Jääkiekko", en: "🏒 Ice Hockey" },
-    factors: {
-      fi: [
-        "Kotietu",
-        "Maalivahti vireessä",
-        "Back-to-back peli",
-        "Puolustus tiivis",
-        "Ylivoima tehokas",
-        "Loukkaantumiset",
-        "Motivaatio",
-        "Derby-ottelu"
-      ],
-      en: [
-        "Home advantage",
-        "Goalie in form",
-        "Back-to-back game",
-        "Tight defense",
-        "Strong power play",
-        "Injuries",
-        "Motivation",
-        "Derby game"
-      ]
-    },
-    drawPossible: false
+    fi: [
+      "Kotietu",
+      "Maalivahti vireessä",
+      "Back-to-back peli",
+      "Puolustus tiivis",
+      "Loukkaantumiset"
+    ],
+    en: [
+      "Home advantage",
+      "Goalie in form",
+      "Back-to-back game",
+      "Tight defense",
+      "Injuries"
+    ]
   },
-
   koripallo: {
-    label: { fi: "🏀 Koripallo", en: "🏀 Basketball" },
-    factors: {
-      fi: [
-        "Kotisali tukee",
-        "Tähti loukkaantunut",
-        "3-pisteet uppoaa",
-        "Puolustus heikko",
-        "Nopea tempo",
-        "Väsynyt penkki",
-        "Huikea vaihtopelaaja",
-        "Yliajalle viimeksi"
-      ],
-      en: [
-        "Home court boost",
-        "Star player injured",
-        "3-pointers falling",
-        "Weak defense",
-        "Fast pace",
-        "Tired bench",
-        "Elite bench player",
-        "Went to overtime last game"
-      ]
-    },
-    drawPossible: false
+    fi: [
+      "Kotisali tukee",
+      "Tähti loukkaantunut",
+      "3-pisteet uppoaa",
+      "Nopea tempo",
+      "Väsynyt penkki"
+    ],
+    en: [
+      "Home court boost",
+      "Star player injured",
+      "3-pointers falling",
+      "Fast pace",
+      "Tired bench"
+    ]
+  },
+  other: {
+    fi: ["Kotietu", "Loukkaantumiset", "Motivaatio"],
+    en: ["Home advantage", "Injuries", "Motivation"]
   }
 };
-
-const C = {
-  bg: "#07070f",
-  s1: "#0f0f1c",
-  s2: "#161625",
-  bd: "#222238",
-  ac: "#00e5ff",
-  ac2: "#ff3d6e",
-  ac3: "#ffe600",
-  gr: "#00ff88",
-  mu: "#4a4a6a",
-  tx: "#e0e0f0"
-};
-
-const mono = "'JetBrains Mono', monospace";
-const disp = "'Bebas Neue', Impact, sans-serif";
 
 function labelOutcome(name, lang) {
   if (name === "Draw") return lang === "fi" ? "Tasapeli" : "Draw";
@@ -211,1180 +119,303 @@ function getBestOdds(game) {
   return Object.values(best);
 }
 
-function groupGamesByDateAndLeague(games) {
-  const grouped = {};
-
-  for (const game of games) {
-    const dateKey = new Date(game.commence_time || new Date()).toLocaleDateString("fi-FI", {
-      timeZone: "Europe/Helsinki",
-      weekday: "long",
-      day: "numeric",
-      month: "numeric"
-    });
-
-    if (!grouped[dateKey]) grouped[dateKey] = {};
-    if (!grouped[dateKey][game.league]) grouped[dateKey][game.league] = [];
-    grouped[dateKey][game.league].push(game);
-  }
-
-  return grouped;
-}
-
-function recommendationMeta(text = "") {
-  if (text.includes("STRONG")) return { color: C.gr, bg: "#0f1f18", border: C.gr };
-  if (text.includes("SMALL")) return { color: C.ac3, bg: "#1f1b0f", border: C.ac3 };
-  if (text.includes("LEAN")) return { color: C.ac, bg: "#0f1722", border: C.ac };
-  return { color: C.ac2, bg: "#1f1018", border: C.ac2 };
-}
-
-function edgeColor(edge) {
-  if (edge >= 6) return C.gr;
-  if (edge >= 3) return C.ac3;
-  return C.ac;
-}
-
-export default function App() {
+export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
 
-  const [sport, setSport] = useState("jalkapallo");
+  const [sports, setSports] = useState([]);
+  const [sportsLoading, setSportsLoading] = useState(true);
+
+  const [selectedSportKey, setSelectedSportKey] = useState("");
+  const [selectedSportCategory, setSelectedSportCategory] = useState("other");
+
   const [games, setGames] = useState([]);
-  const [sel, setSel] = useState(null);
+  const [gamesLoading, setGamesLoading] = useState(false);
+
+  const [selectedGame, setSelectedGame] = useState(null);
   const [factors, setFactors] = useState(new Set());
-  const [fetchSt, setFetchSt] = useState("idle");
-  const [predSt, setPredSt] = useState("idle");
+
   const [result, setResult] = useState(null);
-  const [loadMsg, setLoadMsg] = useState("");
-  const [errMsg, setErrMsg] = useState("");
+  const [predictLoading, setPredictLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const today = new Date();
-  const dateLong = today.toLocaleDateString(lang === "fi" ? "fi-FI" : "en-GB", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
+  useEffect(() => {
+    async function loadSports() {
+      try {
+        const res = await fetch("/api/sports", { cache: "no-store" });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Sports fetch failed");
 
-  const changeSport = (s) => {
-    setSport(s);
+        setSports(data.sports || []);
+
+        const defaultSport =
+          (data.sports || []).find((s) => s.category === "jalkapallo") ||
+          data.sports?.[0];
+
+        if (defaultSport) {
+          setSelectedSportKey(defaultSport.key);
+          setSelectedSportCategory(defaultSport.category || "other");
+        }
+      } catch (e) {
+        setError(e.message);
+      } finally {
+        setSportsLoading(false);
+      }
+    }
+
+    loadSports();
+  }, []);
+
+  async function fetchGames() {
+    if (!selectedSportKey) return;
+
+    setGamesLoading(true);
+    setError("");
     setGames([]);
-    setSel(null);
-    setFactors(new Set());
-    setFetchSt("idle");
-    setPredSt("idle");
+    setSelectedGame(null);
     setResult(null);
-    setErrMsg("");
-  };
-
-  const toggleF = (f) =>
-    setFactors((p) => {
-      const n = new Set(p);
-      n.has(f) ? n.delete(f) : n.add(f);
-      return n;
-    });
-
-  const fetchGames = async () => {
-    setFetchSt("loading");
-    setGames([]);
-    setSel(null);
-    setResult(null);
-    setErrMsg("");
 
     try {
-      const res = await fetch(`/api/games?sport=${sport}`, { cache: "no-store" });
+      const selectedSport = sports.find((s) => s.key === selectedSportKey);
+      if (selectedSport) {
+        setSelectedSportCategory(selectedSport.category || "other");
+      }
+
+      const res = await fetch(`/api/games?sportKey=${selectedSportKey}`, {
+        cache: "no-store"
+      });
       const data = await res.json();
 
-      if (!res.ok) throw new Error(data.error || "Pelien haku epäonnistui");
+      if (!res.ok) throw new Error(data.error || "Games fetch failed");
 
       setGames(data.games || []);
-      setFetchSt("done");
     } catch (e) {
-      setErrMsg(e.message);
-      setFetchSt("error");
+      setError(e.message);
+    } finally {
+      setGamesLoading(false);
     }
-  };
+  }
 
-  const predict = async () => {
-    if (!sel) return;
+  async function predict() {
+    if (!selectedGame) return;
 
-    setPredSt("loading");
+    setPredictLoading(true);
+    setError("");
     setResult(null);
-    setErrMsg("");
-
-    const msgs =
-      lang === "fi"
-        ? [
-            "Analysoidaan markkinaa…",
-            "Haetaan formia…",
-            "Lasketaan xG:tä…",
-            "Etsitään value bettejä…"
-          ]
-        : [
-            "Analyzing market…",
-            "Fetching form…",
-            "Calculating xG…",
-            "Finding value bets…"
-          ];
-
-    let mi = 0;
-    setLoadMsg(msgs[0]);
-    const iv = setInterval(() => setLoadMsg(msgs[++mi % msgs.length]), 900);
 
     try {
       const res = await fetch("/api/predict", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sport, game: sel, selectedFactors: Array.from(factors) })
+        body: JSON.stringify({
+          sport: selectedSportCategory,
+          game: selectedGame,
+          selectedFactors: Array.from(factors)
+        })
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Ennustus epäonnistui");
+      if (!res.ok) throw new Error(data.error || "Prediction failed");
 
       setResult(data);
-      setPredSt("done");
     } catch (e) {
-      setErrMsg(e.message);
-      setPredSt("error");
+      setError(e.message);
     } finally {
-      clearInterval(iv);
+      setPredictLoading(false);
     }
-  };
+  }
 
-  const sc = (v) => (v >= 7 ? C.gr : v >= 5 ? C.ac3 : C.ac2);
-  const cf = (c) => ({ KORKEA: C.gr, KOHTALAINEN: C.ac3, MATALA: C.ac2 }[c] || C.ac);
+  const selectedSport = useMemo(
+    () => sports.find((s) => s.key === selectedSportKey),
+    [sports, selectedSportKey]
+  );
 
-  const groupedGames = groupGamesByDateAndLeague(games);
-  const recMeta = recommendationMeta(result?.recommendation || "NO BET");
+  const availableFactors =
+    FACTORS[selectedSportCategory]?.[lang] || FACTORS.other[lang];
+
+  function toggleFactor(f) {
+    setFactors((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+  }
 
   return (
-    <div
-      style={{
-        background: C.bg,
-        minHeight: "100vh",
-        color: C.tx,
-        fontFamily: "'DM Sans', sans-serif",
-        overflowY: "auto"
-      }}
-    >
-      <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@400;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
-        @keyframes bar { to { width: 100% } }
-        * { box-sizing: border-box; margin: 0; padding: 0 }
-        button { outline: none; }
-      `}</style>
-
-      <div
-        style={{
-          padding: "18px 20px 12px",
-          borderBottom: `1px solid ${C.bd}`,
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end"
-        }}
-      >
+    <main style={{ maxWidth: 900, margin: "0 auto", padding: 24, color: "#eaeaea", background: "#0b0b12", minHeight: "100vh" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <div>
-          <div
-            style={{
-              fontFamily: mono,
-              fontSize: 8,
-              letterSpacing: 3,
-              color: C.mu,
-              marginBottom: 2
-            }}
-          >
-            {t.tagline}
-          </div>
-
-          <div
-            style={{
-              fontFamily: disp,
-              fontSize: 38,
-              letterSpacing: 4,
-              background: `linear-gradient(135deg,${C.ac},${C.ac2})`,
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              lineHeight: 1
-            }}
-          >
-            SCORECASTER
-          </div>
+          <div style={{ fontSize: 12, opacity: 0.7 }}>{t.subtitle}</div>
+          <h1 style={{ margin: 0 }}>{t.title}</h1>
         </div>
-
-        <div style={{ textAlign: "right" }}>
-          <div style={{ display: "flex", justifyContent: "flex-end", gap: 6, marginBottom: 8 }}>
-            <button
-              onClick={() => setLang("fi")}
-              style={{
-                padding: "5px 10px",
-                border: `1px solid ${C.ac}`,
-                background: lang === "fi" ? C.ac : "transparent",
-                color: lang === "fi" ? C.bg : C.ac,
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily: mono
-              }}
-            >
-              FI 🇫🇮
-            </button>
-
-            <button
-              onClick={() => setLang("en")}
-              style={{
-                padding: "5px 10px",
-                border: `1px solid ${C.ac}`,
-                background: lang === "en" ? C.ac : "transparent",
-                color: lang === "en" ? C.bg : C.ac,
-                borderRadius: 6,
-                cursor: "pointer",
-                fontSize: 11,
-                fontFamily: mono
-              }}
-            >
-              EN 🇬🇧
-            </button>
-          </div>
-
-          <div
-            style={{
-              fontFamily: mono,
-              fontSize: 9,
-              color: C.ac,
-              letterSpacing: 1,
-              marginBottom: 3,
-              textTransform: "uppercase"
-            }}
-          >
-            {dateLong}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 5,
-              justifyContent: "flex-end",
-              fontFamily: mono,
-              fontSize: 8,
-              color: C.gr
-            }}
-          >
-            <div
-              style={{
-                width: 6,
-                height: 6,
-                background: C.gr,
-                borderRadius: "50%",
-                boxShadow: `0 0 8px ${C.gr}`
-              }}
-            />
-            {t.live}
-          </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={() => setLang("fi")}>FI</button>
+          <button onClick={() => setLang("en")}>EN</button>
         </div>
       </div>
 
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "18px 14px 60px" }}>
-        <div style={{ display: "flex", gap: 6, marginBottom: 18, flexWrap: "wrap" }}>
-          {Object.entries(SPORTS).map(([k, sp]) => (
-            <button
-              key={k}
-              onClick={() => changeSport(k)}
-              style={{
-                padding: "8px 15px",
-                border: `1px solid ${sport === k ? C.ac : C.bd}`,
-                background: sport === k ? C.ac : C.s1,
-                color: sport === k ? C.bg : C.mu,
-                borderRadius: 4,
-                cursor: "pointer",
-                fontFamily: mono,
-                fontSize: 10,
-                letterSpacing: 2,
-                textTransform: "uppercase",
-                fontWeight: sport === k ? 700 : 400
-              }}
-            >
-              {sp.label[lang]}
-            </button>
-          ))}
+      {error && (
+        <div style={{ marginBottom: 16, padding: 12, border: "1px solid #ff4d6d", borderRadius: 8 }}>
+          {error}
         </div>
+      )}
 
-        <div style={{ marginBottom: 18 }}>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              marginBottom: 10
-            }}
-          >
-            <div
-              style={{
-                fontFamily: disp,
-                fontSize: 16,
-                letterSpacing: 3,
-                color: C.ac3
+      <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+        <div style={{ marginBottom: 10, fontWeight: 700 }}>{t.selectLeague}</div>
+
+        {sportsLoading ? (
+          <div>{t.loading}</div>
+        ) : (
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
+            <select
+              value={selectedSportKey}
+              onChange={(e) => {
+                const key = e.target.value;
+                setSelectedSportKey(key);
+                const found = sports.find((s) => s.key === key);
+                setSelectedSportCategory(found?.category || "other");
+                setFactors(new Set());
+                setGames([]);
+                setSelectedGame(null);
+                setResult(null);
               }}
+              style={{ minWidth: 320, padding: 10 }}
             >
-              {t.todayGames}
-            </div>
-
-            <button
-              onClick={fetchGames}
-              disabled={fetchSt === "loading"}
-              style={{
-                padding: "7px 14px",
-                background: "transparent",
-                border: `1px solid ${C.ac3}`,
-                color: C.ac3,
-                borderRadius: 4,
-                fontFamily: mono,
-                fontSize: 9,
-                letterSpacing: 2,
-                cursor: fetchSt === "loading" ? "not-allowed" : "pointer",
-                opacity: fetchSt === "loading" ? 0.5 : 1
-              }}
-            >
-              {fetchSt === "loading" ? t.loadingGames : t.fetchGames}
-            </button>
-          </div>
-
-          {fetchSt === "idle" && (
-            <div
-              style={{
-                padding: 18,
-                textAlign: "center",
-                color: C.mu,
-                fontFamily: mono,
-                fontSize: 9,
-                border: `1px dashed ${C.bd}`,
-                borderRadius: 8
-              }}
-            >
-              {t.pressToFetch}
-            </div>
-          )}
-
-          {fetchSt === "loading" && (
-            <div
-              style={{
-                padding: 18,
-                textAlign: "center",
-                fontFamily: mono,
-                fontSize: 9,
-                color: C.mu
-              }}
-            >
-              {lang === "fi" ? "Haetaan otteluita…" : "Loading matches…"}
-              <div
-                style={{
-                  width: "100%",
-                  height: 2,
-                  background: C.bd,
-                  borderRadius: 2,
-                  overflow: "hidden",
-                  margin: "10px 0"
-                }}
-              >
-                <div
-                  style={{
-                    height: "100%",
-                    background: `linear-gradient(90deg,${C.ac},${C.ac2})`,
-                    animation: "bar 3s ease forwards",
-                    width: "0%"
-                  }}
-                />
-              </div>
-            </div>
-          )}
-
-          {fetchSt === "error" && (
-            <div
-              style={{
-                padding: 14,
-                color: C.ac2,
-                fontFamily: mono,
-                fontSize: 9,
-                border: `1px dashed ${C.ac2}55`,
-                borderRadius: 8,
-                textAlign: "center"
-              }}
-            >
-              Virhe: {errMsg}
-            </div>
-          )}
-
-          {fetchSt === "done" && games.length === 0 && (
-            <div
-              style={{
-                padding: 18,
-                textAlign: "center",
-                color: C.mu,
-                fontFamily: mono,
-                fontSize: 9,
-                border: `1px dashed ${C.bd}`,
-                borderRadius: 8
-              }}
-            >
-              {t.noGames}
-            </div>
-          )}
-
-          {fetchSt === "done" && games.length > 0 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {Object.entries(groupedGames).map(([date, leagues]) => (
-                <div key={date}>
-                  <div
-                    style={{
-                      fontFamily: disp,
-                      fontSize: 15,
-                      letterSpacing: 2,
-                      color: C.ac,
-                      marginBottom: 10
-                    }}
-                  >
-                    {date.toUpperCase()}
-                  </div>
-
-                  {Object.entries(leagues).map(([league, leagueGames]) => (
-                    <div key={league} style={{ marginBottom: 14 }}>
-                      <div
-                        style={{
-                          fontFamily: mono,
-                          fontSize: 9,
-                          color: C.ac3,
-                          letterSpacing: 2,
-                          marginBottom: 8,
-                          textTransform: "uppercase"
-                        }}
-                      >
-                        {league}
-                      </div>
-
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: 8 }}>
-                        {leagueGames.map((g, i) => {
-                          const bestOdds = getBestOdds(g);
-                          const isSelected = sel?.id ? sel.id === g.id : sel === g;
-
-                          return (
-                            <div
-                              key={`${league}-${i}-${g.id || `${g.home}-${g.away}-${g.time}`}`}
-                              onClick={() => setSel(g)}
-                              style={{
-                                background: isSelected ? `${C.ac}12` : C.s1,
-                                border: `1px solid ${isSelected ? C.ac : C.bd}`,
-                                borderLeft: `3px solid ${isSelected ? C.ac : C.bd}`,
-                                borderRadius: 8,
-                                padding: "11px 13px",
-                                cursor: "pointer",
-                                position: "relative"
-                              }}
-                            >
-                              <div
-                                style={{
-                                  display: "flex",
-                                  alignItems: "center",
-                                  gap: 5,
-                                  marginBottom: 5
-                                }}
-                              >
-                                <div style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>{g.home}</div>
-                                <div style={{ fontFamily: mono, fontSize: 9, color: C.mu }}>
-                                  {lang === "fi" ? "vs" : "vs"}
-                                </div>
-                                <div
-                                  style={{
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    flex: 1,
-                                    textAlign: "right"
-                                  }}
-                                >
-                                  {g.away}
-                                </div>
-                              </div>
-
-                              <div style={{ fontFamily: mono, fontSize: 8, color: C.ac, marginBottom: 6 }}>
-                                {g.time || "TBA"} {g.context ? `· ${g.context}` : ""}
-                              </div>
-
-                              {bestOdds.length > 0 && (
-                                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                                  {bestOdds.map((o) => (
-                                    <div
-                                      key={`${g.id || i}-${o.name}`}
-                                      style={{
-                                        fontFamily: mono,
-                                        fontSize: 8,
-                                        color: C.tx,
-                                        background: C.s2,
-                                        border: `1px solid ${C.bd}`,
-                                        borderRadius: 4,
-                                        padding: "4px 6px"
-                                      }}
-                                    >
-                                      {labelOutcome(o.name, lang)}:{" "}
-                                      <span style={{ color: C.ac3 }}>{o.price}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-
-                              {isSelected && (
-                                <div
-                                  style={{
-                                    position: "absolute",
-                                    top: 7,
-                                    right: 7,
-                                    width: 15,
-                                    height: 15,
-                                    background: C.ac,
-                                    borderRadius: "50%",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    fontSize: 8,
-                                    color: C.bg,
-                                    fontWeight: 700
-                                  }}
-                                >
-                                  ✓
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              {sports.map((s) => (
+                <option key={s.key} value={s.key}>
+                  {s.title} ({s.group})
+                </option>
               ))}
-            </div>
-          )}
-        </div>
+            </select>
 
-        {sel && (
-          <div
-            style={{
-              background: C.s1,
-              border: `1px solid ${C.ac}`,
-              borderRadius: 8,
-              padding: "12px 15px",
-              marginBottom: 14
-            }}
-          >
-            <div
-              style={{
-                fontFamily: mono,
-                fontSize: 8,
-                color: C.ac,
-                letterSpacing: 3,
-                marginBottom: 4
-              }}
-            >
-              {t.selectedMatch}
-            </div>
-
-            <div
-              style={{
-                fontFamily: disp,
-                fontSize: 20,
-                letterSpacing: 2,
-                marginBottom: 2
-              }}
-            >
-              {sel.home} — {sel.away}
-            </div>
-
-            <div style={{ fontSize: 11, color: C.mu, marginBottom: 8 }}>
-              {sel.league} · {sel.time || "TBA"}
-            </div>
-
-            {getBestOdds(sel).length > 0 && (
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {getBestOdds(sel).map((o) => (
-                  <div
-                    key={`selected-${o.name}`}
-                    style={{
-                      fontFamily: mono,
-                      fontSize: 8,
-                      color: C.tx,
-                      background: C.s2,
-                      border: `1px solid ${C.bd}`,
-                      borderRadius: 4,
-                      padding: "4px 6px"
-                    }}
-                  >
-                    {labelOutcome(o.name, lang)}:{" "}
-                    <span style={{ color: C.ac3 }}>{o.price}</span> · {o.bookmaker}
-                  </div>
-                ))}
-              </div>
-            )}
+            <button onClick={fetchGames} disabled={!selectedSportKey || gamesLoading}>
+              {gamesLoading ? t.loading : t.fetchGames}
+            </button>
           </div>
         )}
+      </section>
 
-        <div
-          style={{
-            background: C.s1,
-            border: `1px solid ${C.bd}`,
-            borderRadius: 8,
-            padding: "13px 15px",
-            marginBottom: 14
-          }}
-        >
-          <div
-            style={{
-              fontFamily: disp,
-              fontSize: 13,
-              letterSpacing: 3,
-              color: C.ac3,
-              marginBottom: 9
-            }}
-          >
-            {t.factors}
-          </div>
+      <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+        <div style={{ marginBottom: 12, fontWeight: 700 }}>
+          {selectedSport ? `${selectedSport.title}` : "Matches"}
+        </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(140px,1fr))", gap: 6 }}>
-            {SPORTS[sport].factors[lang].map((f) => (
+        {gamesLoading ? (
+          <div>{t.loading}</div>
+        ) : games.length === 0 ? (
+          <div>{t.noGames}</div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {games.map((g) => (
               <div
-                key={f}
-                onClick={() => toggleF(f)}
+                key={g.id}
+                onClick={() => {
+                  setSelectedGame(g);
+                  setResult(null);
+                }}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 7,
-                  padding: "6px 9px",
-                  border: `1px solid ${factors.has(f) ? C.ac3 : C.bd}`,
-                  background: factors.has(f) ? `${C.ac3}08` : C.s2,
-                  borderRadius: 5,
+                  border: selectedGame?.id === g.id ? "1px solid #00d4ff" : "1px solid #333",
+                  borderRadius: 8,
+                  padding: 12,
                   cursor: "pointer"
                 }}
               >
-                <div
-                  style={{
-                    width: 12,
-                    height: 12,
-                    border: `2px solid ${factors.has(f) ? C.ac3 : C.bd}`,
-                    borderRadius: 2,
-                    flexShrink: 0,
-                    background: factors.has(f) ? C.ac3 : "transparent",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontSize: 8,
-                    color: C.bg,
-                    fontWeight: 700
-                  }}
-                >
-                  {factors.has(f) ? "✓" : ""}
+                <div style={{ fontWeight: 700 }}>
+                  {g.home} vs {g.away}
                 </div>
-                <div style={{ fontSize: 11 }}>{f}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <button
-          onClick={predict}
-          disabled={!sel || predSt === "loading"}
-          style={{
-            width: "100%",
-            padding: 13,
-            background: !sel || predSt === "loading" ? C.s1 : `linear-gradient(135deg,${C.ac},#0080ff)`,
-            color: !sel || predSt === "loading" ? C.mu : C.bg,
-            border: `1px solid ${!sel || predSt === "loading" ? C.bd : "transparent"}`,
-            borderRadius: 8,
-            fontFamily: disp,
-            fontSize: 18,
-            letterSpacing: 4,
-            cursor: !sel || predSt === "loading" ? "not-allowed" : "pointer",
-            marginBottom: 16
-          }}
-        >
-          {predSt === "loading" ? `⟳ ${loadMsg}` : t.analyze}
-        </button>
-
-        {predSt === "error" && (
-          <div
-            style={{
-              padding: 12,
-              color: C.ac2,
-              fontFamily: mono,
-              fontSize: 9,
-              marginBottom: 14,
-              border: `1px dashed ${C.ac2}55`,
-              borderRadius: 8
-            }}
-          >
-            Virhe: {errMsg}
-          </div>
-        )}
-
-        {result && predSt === "done" && (
-          <div>
-            <div
-              style={{
-                fontFamily: disp,
-                fontSize: 19,
-                letterSpacing: 4,
-                color: C.ac3,
-                marginBottom: 12
-              }}
-            >
-              {t.prediction}
-            </div>
-
-            <div
-              style={{
-                background: C.s1,
-                border: `1px solid ${C.bd}`,
-                borderRadius: 8,
-                padding: "20px 14px",
-                textAlign: "center",
-                marginBottom: 10
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 14,
-                  marginBottom: 8
-                }}
-              >
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>
-                    {sel.home}
-                  </div>
-                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>
-                    {result.homeScore}
-                  </div>
+                <div style={{ opacity: 0.8, fontSize: 14 }}>
+                  {g.league} · {g.time}
                 </div>
 
-                <div style={{ fontFamily: disp, fontSize: 15, color: C.mu }}>VS</div>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontFamily: disp, fontSize: 15, letterSpacing: 2, marginBottom: 3 }}>
-                    {sel.away}
-                  </div>
-                  <div style={{ fontFamily: disp, fontSize: 50, lineHeight: 1, color: C.ac }}>
-                    {result.awayScore}
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ fontFamily: mono, fontSize: 8, color: C.mu, letterSpacing: 2 }}>
-                {t.confidence}: {result.confidence} · {result.keyFactor || t.marketHomeEdge}
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: recMeta.bg,
-                border: `1px solid ${recMeta.border}`,
-                boxShadow: `0 0 14px ${recMeta.border}22`,
-                borderRadius: 8,
-                padding: "13px 15px",
-                marginBottom: 10
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: mono,
-                  fontSize: 8,
-                  letterSpacing: 3,
-                  color: recMeta.color,
-                  marginBottom: 7
-                }}
-              >
-                {t.recommendation}
-              </div>
-
-              <div
-                style={{
-                  fontFamily: disp,
-                  fontSize: 20,
-                  letterSpacing: 3,
-                  color: recMeta.color
-                }}
-              >
-                {result.recommendation || "NO BET"}
-              </div>
-
-              <div style={{ fontSize: 12, color: C.tx, marginTop: 6 }}>
-                {result.recommendation === "NO BET"
-                  ? t.smallEdge
-                  : result.bestBet
-                    ? `${lang === "fi" ? "Paras löydetty etu" : "Best edge found"}: ${result.bestBet.outcome} @ ${result.bestBet.odds}`
-                    : t.noEdge}
-              </div>
-            </div>
-
-            <div
-              style={{
-                background: C.s1,
-                border: `1px solid ${C.bd}`,
-                borderRadius: 8,
-                padding: "13px 15px",
-                marginBottom: 10
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: mono,
-                  fontSize: 8,
-                  letterSpacing: 3,
-                  color: C.mu,
-                  textTransform: "uppercase",
-                  marginBottom: 9
-                }}
-              >
-                {t.probabilities}
-              </div>
-
-              {[
-                { l: sel.home, p: result.homeWinProb, c: C.ac },
-                ...(SPORTS[sport].drawPossible ? [{ l: lang === "fi" ? "Tasapeli" : "Draw", p: result.drawProb || 0, c: "#6e6e96" }] : []),
-                { l: sel.away, p: result.awayWinProb, c: C.ac2 }
-              ].map(({ l, p, c }) => (
-                <div key={l} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
-                  <div
-                    style={{
-                      fontFamily: mono,
-                      fontSize: 10,
-                      width: 110,
-                      flexShrink: 0,
-                      overflow: "hidden",
-                      textOverflow: "ellipsis",
-                      whiteSpace: "nowrap"
-                    }}
-                  >
-                    {l}
-                  </div>
-
-                  <div style={{ flex: 1, height: 20, background: C.s2, borderRadius: 3, overflow: "hidden" }}>
-                    <div
-                      style={{
-                        height: "100%",
-                        width: `${Math.max(p, 3)}%`,
-                        background: c,
-                        display: "flex",
-                        alignItems: "center",
-                        padding: "0 6px",
-                        fontFamily: mono,
-                        fontSize: 9,
-                        fontWeight: 700,
-                        color: C.bg
-                      }}
-                    >
-                      {p}%
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(auto-fill,minmax(155px,1fr))",
-                gap: 8,
-                marginBottom: 10
-              }}
-            >
-              {[
-                { l: t.homeStrength, v: `${result.homeStrength}/10`, s: sel.home, c: sc(result.homeStrength) },
-                { l: t.awayStrength, v: `${result.awayStrength}/10`, s: sel.away, c: sc(result.awayStrength) },
-                { l: t.confidence, v: result.confidence, s: t.certainty, c: cf(result.confidence) },
-                { l: t.xg, v: result.xgLabel || `${result.homeXG ?? "-"} - ${result.awayXG ?? "-"}`, s: t.goalModel, c: C.ac }
-              ].map(({ l, v, s, c }) => (
-                <div
-                  key={l}
-                  style={{
-                    background: C.s1,
-                    border: `1px solid ${C.bd}`,
-                    borderRadius: 8,
-                    padding: 11
-                  }}
-                >
-                  <div
-                    style={{
-                      fontFamily: mono,
-                      fontSize: 7,
-                      letterSpacing: 2,
-                      color: C.mu,
-                      textTransform: "uppercase",
-                      marginBottom: 4
-                    }}
-                  >
-                    {l}
-                  </div>
-                  <div style={{ fontFamily: disp, fontSize: 19, color: c }}>{v}</div>
-                  <div style={{ fontSize: 10, color: C.mu, marginTop: 2 }}>{s}</div>
-                </div>
-              ))}
-            </div>
-
-            {result.bestBet && result.bestBet.edge >= 1 && (
-              <div
-                style={{
-                  background: "#0f1a14",
-                  border: `1px solid ${C.gr}`,
-                  boxShadow: `0 0 14px ${C.gr}22`,
-                  borderRadius: 10,
-                  padding: 14,
-                  marginBottom: 12
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: mono,
-                    fontSize: 10,
-                    letterSpacing: 2,
-                    color: C.gr,
-                    marginBottom: 8
-                  }}
-                >
-                  {t.bestBet}
-                </div>
-
-                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>
-                  {result.bestBet.outcome}
-                </div>
-
-                <div style={{ fontSize: 12, color: "#b8c0d0", marginBottom: 4 }}>
-                  {lang === "fi" ? "Kerroin" : "Odds"}: {result.bestBet.odds} ({result.bestBet.bookmaker || "market"})
-                </div>
-
-                <div style={{ fontSize: 12, color: C.ac }}>
-                  {lang === "fi" ? "Malli" : "Model"} {result.bestBet.modelProb}% · {lang === "fi" ? "Markkina" : "Market"} {result.bestBet.marketProb}% · Edge +{result.bestBet.edge}%
-                </div>
-              </div>
-            )}
-
-            {result.valueBets && result.valueBets.length > 0 && (
-              <div
-                style={{
-                  background: C.s1,
-                  border: `1px solid ${C.bd}`,
-                  borderRadius: 10,
-                  padding: 14,
-                  marginBottom: 14
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: disp,
-                    fontSize: 14,
-                    letterSpacing: 3,
-                    color: C.ac3,
-                    marginBottom: 10
-                  }}
-                >
-                  {t.valueBets}
-                </div>
-
-                <div style={{ display: "grid", gap: 8 }}>
-                  {result.valueBets.map((bet, i) => (
-                    <div
-                      key={i}
-                      style={{
-                        background: C.s2,
-                        border: `1px solid ${edgeColor(bet.edge)}`,
-                        borderRadius: 8,
-                        padding: "10px 12px"
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, marginBottom: 4 }}>{bet.outcome}</div>
-
-                      <div style={{ fontSize: 11, color: "#aaa", marginBottom: 3 }}>
-                        {lang === "fi" ? "Kerroin" : "Odds"}: {bet.odds} ({bet.bookmaker || "market"})
-                      </div>
-
-                      <div style={{ fontSize: 11, color: C.tx }}>
-                        {lang === "fi" ? "Malli" : "Model"}: {bet.modelProb}% · {lang === "fi" ? "Markkina" : "Market"}: {bet.marketProb}% · Edge:{" "}
-                        <span style={{ color: edgeColor(bet.edge) }}>+{bet.edge}%</span>
-                      </div>
-                    </div>
+                <div style={{ marginTop: 8, display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {getBestOdds(g).map((o) => (
+                    <span key={o.name} style={{ fontSize: 12, border: "1px solid #333", padding: "4px 8px", borderRadius: 6 }}>
+                      {labelOutcome(o.name, lang)} {o.price}
+                    </span>
                   ))}
                 </div>
               </div>
-            )}
-
-            <div
-              style={{
-                background: C.s1,
-                border: `1px solid ${C.bd}`,
-                borderRadius: 10,
-                padding: 14,
-                marginBottom: 14
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: disp,
-                  fontSize: 14,
-                  letterSpacing: 3,
-                  color: C.ac,
-                  marginBottom: 10
-                }}
-              >
-                {t.confidenceMeter}
-              </div>
-
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    width: "100%",
-                    height: 16,
-                    background: C.s2,
-                    borderRadius: 6,
-                    overflow: "hidden",
-                    border: `1px solid ${C.bd}`
-                  }}
-                >
-                  <div
-                    style={{
-                      width:
-                        result.confidence === "KORKEA"
-                          ? "85%"
-                          : result.confidence === "KOHTALAINEN"
-                            ? "60%"
-                            : "35%",
-                      height: "100%",
-                      background:
-                        result.confidence === "KORKEA"
-                          ? C.gr
-                          : result.confidence === "KOHTALAINEN"
-                            ? C.ac3
-                            : C.ac2
-                    }}
-                  />
-                </div>
-              </div>
-
-              <div style={{ fontSize: 12, color: C.mu }}>{t.confidenceExplanation}</div>
-            </div>
-
-            {result.stats && (
-              <div
-                style={{
-                  background: C.s1,
-                  border: `1px solid ${C.bd}`,
-                  borderRadius: 8,
-                  padding: "13px 15px",
-                  marginBottom: 10
-                }}
-              >
-                <div
-                  style={{
-                    fontFamily: disp,
-                    fontSize: 14,
-                    letterSpacing: 3,
-                    color: C.ac3,
-                    marginBottom: 10
-                  }}
-                >
-                  {t.stats}
-                </div>
-
-                <div style={{ display: "grid", gap: 8 }}>
-                  <div style={{ fontSize: 13 }}>
-                    <strong>{sel.home}</strong> {t.last5}:{" "}
-                    <span style={{ fontFamily: mono }}>
-                      {Array.isArray(result.stats.homeLast5) && result.stats.homeLast5.length > 0
-                        ? result.stats.homeLast5.join(" ")
-                        : "N/A"}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: 13 }}>
-                    <strong>{sel.away}</strong> {t.last5}:{" "}
-                    <span style={{ fontFamily: mono }}>
-                      {Array.isArray(result.stats.awayLast5) && result.stats.awayLast5.length > 0
-                        ? result.stats.awayLast5.join(" ")
-                        : "N/A"}
-                    </span>
-                  </div>
-
-                  <div style={{ fontSize: 13 }}>
-                    <strong>{t.headToHead}:</strong>{" "}
-                    <span style={{ fontFamily: mono }}>{result.stats.h2h || t.noData}</span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div
-              style={{
-                background: C.s1,
-                borderLeft: `3px solid ${C.ac}`,
-                border: `1px solid ${C.bd}`,
-                borderRadius: 8,
-                padding: "13px 15px",
-                marginBottom: 10
-              }}
-            >
-              <div style={{ fontFamily: mono, fontSize: 8, letterSpacing: 3, color: C.mu, marginBottom: 7 }}>
-                {t.aiAnalysis}
-              </div>
-
-              {(result.analysis || "")
-                .split(/\n\n|\n/)
-                .filter((p) => p.trim())
-                .map((p, i) => (
-                  <p key={i} style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8", marginBottom: 6 }}>
-                    {p}
-                  </p>
-                ))}
-            </div>
-
-            <div
-              style={{
-                background: C.s1,
-                border: `1px solid ${C.bd}`,
-                borderRadius: 10,
-                padding: 14,
-                marginBottom: 14
-              }}
-            >
-              <div
-                style={{
-                  fontFamily: disp,
-                  fontSize: 14,
-                  letterSpacing: 3,
-                  color: C.ac3,
-                  marginBottom: 10
-                }}
-              >
-                {t.aboutTitle}
-              </div>
-
-              <p style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8", marginBottom: 8 }}>
-                {t.aboutText}
-              </p>
-
-              <p style={{ fontSize: 13, lineHeight: 1.8, color: "#aaaac8" }}>
-                {t.demoText}
-              </p>
-            </div>
-
-            <div
-              style={{
-                fontFamily: mono,
-                fontSize: 8,
-                color: C.mu,
-                textAlign: "center",
-                paddingTop: 12,
-                borderTop: `1px solid ${C.bd}`
-              }}
-            >
-              {t.disclaimer}
-            </div>
+            ))}
           </div>
         )}
-      </div>
-    </div>
+      </section>
+
+      {selectedGame && (
+        <>
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.selectedMatch}</div>
+            <div>{selectedGame.home} vs {selectedGame.away}</div>
+            <div style={{ opacity: 0.8, fontSize: 14 }}>{selectedGame.league} · {selectedGame.time}</div>
+          </section>
+
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.factors}</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {availableFactors.map((f) => (
+                <button
+                  key={f}
+                  onClick={() => toggleFactor(f)}
+                  style={{
+                    padding: "8px 10px",
+                    border: factors.has(f) ? "1px solid #00d4ff" : "1px solid #333",
+                    background: factors.has(f) ? "#10222b" : "transparent",
+                    color: "#fff",
+                    borderRadius: 6
+                  }}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <button onClick={predict} disabled={predictLoading} style={{ marginBottom: 24, padding: "12px 16px" }}>
+            {predictLoading ? t.loading : t.analyze}
+          </button>
+        </>
+      )}
+
+      {result && (
+        <>
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.recommendation}</div>
+            <div style={{ fontSize: 24, marginBottom: 8 }}>{result.recommendation}</div>
+            <div>{t.confidence}: {result.confidence}</div>
+          </section>
+
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.probabilities}</div>
+            <div>{selectedGame.home}: {result.homeWinProb}%</div>
+            {result.drawProb > 0 && <div>Draw: {result.drawProb}%</div>}
+            <div>{selectedGame.away}: {result.awayWinProb}%</div>
+          </section>
+
+          {result.bestBet && (
+            <section style={{ marginBottom: 24, padding: 16, border: "1px solid #1f8f5f", borderRadius: 8 }}>
+              <div style={{ fontWeight: 700, marginBottom: 10 }}>Best Bet</div>
+              <div>{result.bestBet.outcome}</div>
+              <div>Odds: {result.bestBet.odds}</div>
+              <div>Bookmaker: {result.bestBet.bookmaker}</div>
+              <div>Model: {result.bestBet.modelProb}%</div>
+              <div>Market: {result.bestBet.marketProb}%</div>
+              <div>Edge: +{result.bestBet.edge}%</div>
+            </section>
+          )}
+
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.stats}</div>
+            <div>{selectedGame.home}: {Array.isArray(result.stats?.homeLast5) ? result.stats.homeLast5.join(" ") : "N/A"}</div>
+            <div>{selectedGame.away}: {Array.isArray(result.stats?.awayLast5) ? result.stats.awayLast5.join(" ") : "N/A"}</div>
+            <div>H2H: {result.stats?.h2h || "N/A"}</div>
+          </section>
+
+          <section style={{ marginBottom: 24, padding: 16, border: "1px solid #222", borderRadius: 8 }}>
+            <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.aiAnalysis}</div>
+            <div style={{ whiteSpace: "pre-wrap", lineHeight: 1.7 }}>{result.analysis}</div>
+          </section>
+        </>
+      )}
+    </main>
   );
 }
