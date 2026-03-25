@@ -1,13 +1,16 @@
 import { NextResponse } from "next/server";
 
+// 🔥 SIMPLE CACHE
+let CACHE = {};
+let LAST_FETCH = 0;
+const CACHE_TIME = 60 * 1000; // 60 sek
+
 function cleanLeagueName(name = "") {
   return name
     .replace(/^Soccer - /i, "")
     .replace(/^Ice Hockey - /i, "")
     .replace(/^Basketball - /i, "")
-    .replace(/^American Football - /i, "")
-    .replace(/^Baseball - /i, "")
-    .replace(/^Mixed Martial Arts - /i, "");
+    .replace(/^American Football - /i, "");
 }
 
 function formatGame(g) {
@@ -25,7 +28,7 @@ function formatGame(g) {
 
     commence_time: g.commence_time,
 
-    // 🔥 TÄRKEIN FIX: suodatetaan h2h itse
+    // 🔥 suodata h2h
     bookmakers: (g.bookmakers || []).map((b) => ({
       ...b,
       markets: (b.markets || []).filter((m) => m.key === "h2h")
@@ -35,25 +38,43 @@ function formatGame(g) {
   };
 }
 
-function isTodayOrTomorrowInFinland(iso) {
+function isTodayOrTomorrow(iso) {
+  const now = new Date();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(today.getDate() + 2);
+
   const gameDate = new Date(iso);
 
-  const now = new Date();
-  const finlandNow = new Date(
-    now.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-  );
+  return gameDate >= today && gameDate < tomorrow;
+}
 
-  const todayStart = new Date(finlandNow);
-  todayStart.setHours(0, 0, 0, 0);
-
-  const dayAfterTomorrowStart = new Date(todayStart);
-  dayAfterTomorrowStart.setDate(dayAfterTomorrowStart.getDate() + 2);
-
-  const gameInFinland = new Date(
-    gameDate.toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-  );
-
-  return gameInFinland >= todayStart && gameInFinland < dayAfterTomorrowStart;
+// 🔥 FALLBACK DATA (aina jotain näkyy)
+function fallbackGames() {
+  return [
+    {
+      id: "demo-1",
+      home: "Tappara",
+      away: "Ilves",
+      league: "Liiga",
+      time: "18:30",
+      commence_time: new Date().toISOString(),
+      bookmakers: [],
+      context: "Fallback demo"
+    },
+    {
+      id: "demo-2",
+      home: "Arsenal",
+      away: "Chelsea",
+      league: "Premier League",
+      time: "20:30",
+      commence_time: new Date().toISOString(),
+      bookmakers: [],
+      context: "Fallback demo"
+    }
+  ];
 }
 
 export async function GET(req) {
@@ -63,54 +84,59 @@ export async function GET(req) {
 
     if (!sportKey) {
       return NextResponse.json(
-        { error: "Missing sportKey parameter" },
+        { error: "Missing sportKey" },
         { status: 400 }
       );
     }
 
-    const apiKey = process.env.ODDS_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "ODDS_API_KEY puuttuu .env.local-tiedostosta" },
-        { status: 500 }
-      );
+    // 🔥 CACHE HIT
+    if (
+      CACHE[sportKey] &&
+      Date.now() - LAST_FETCH < CACHE_TIME
+    ) {
+      return NextResponse.json({ games: CACHE[sportKey] });
     }
 
-    // 🔥 FIX: EI markets=h2h parametriä
+    const apiKey = process.env.ODDS_API_KEY;
+
     const url =
       `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
       `?apiKey=${apiKey}&regions=eu&oddsFormat=decimal`;
 
-    const res = await fetch(url, { cache: "no-store" });
+    const res = await fetch(url, {
+      next: { revalidate: 60 }
+    });
 
     if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Odds API virhe: ${text}`);
+      const txt = await res.text();
+      throw new Error(txt);
     }
 
     const data = await res.json();
 
-    // 📅 Suodata Suomi-aika (tänään + huomenna)
     const filtered = data.filter((g) =>
-      isTodayOrTomorrowInFinland(g.commence_time)
+      isTodayOrTomorrow(g.commence_time)
     );
 
-    const source = filtered.length > 0 ? filtered : data;
+    const source = filtered.length ? filtered : data;
 
-    // 🔄 Järjestä + rajoita
     const games = source
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-      .slice(0, 50)
+      .slice(0, 40)
       .map(formatGame);
 
+    // 🔥 SAVE CACHE
+    CACHE[sportKey] = games;
+    LAST_FETCH = Date.now();
+
     return NextResponse.json({ games });
+
   } catch (error) {
-    return NextResponse.json(
-      {
-        error: error.message || "Pelien haku epäonnistui"
-      },
-      { status: 500 }
-    );
+    console.log("API FAIL → fallback");
+
+    return NextResponse.json({
+      games: fallbackGames(),
+      error: error.message
+    });
   }
 }
