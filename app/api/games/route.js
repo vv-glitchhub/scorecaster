@@ -1,34 +1,49 @@
 import { NextResponse } from "next/server";
 
-let CACHE = {};
-let LAST_FETCH = {};
-const CACHE_TIME = 60 * 1000; // 60 sek
+const CACHE = new Map();
+const CACHE_MS = 5 * 60 * 1000; // 5 min
 
 function cleanLeagueName(name = "") {
   return name
     .replace(/^Soccer - /i, "")
     .replace(/^Ice Hockey - /i, "")
     .replace(/^Basketball - /i, "")
-    .replace(/^American Football - /i, "");
+    .replace(/^American Football - /i, "")
+    .replace(/^Baseball - /i, "")
+    .replace(/^Mixed Martial Arts - /i, "");
+}
+
+function toFinlandDate(dateLike) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Helsinki",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false
+  })
+    .formatToParts(new Date(dateLike))
+    .reduce((acc, p) => {
+      if (p.type !== "literal") acc[p.type] = p.value;
+      return acc;
+    }, {});
+
+  return new Date(
+    `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`
+  );
 }
 
 function getFinlandNow() {
-  return new Date(
-    new Date().toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-  );
+  return toFinlandDate(new Date());
 }
 
-function getFinlandDate(dateLike) {
-  return new Date(
-    new Date(dateLike).toLocaleString("en-US", { timeZone: "Europe/Helsinki" })
-  );
-}
+function getDayLabel(commenceTime) {
+  const game = toFinlandDate(commenceTime);
+  const now = getFinlandNow();
 
-function getDayLabelInFinnish(commenceTime) {
-  const gameFin = getFinlandDate(commenceTime);
-  const nowFin = getFinlandNow();
-
-  const todayStart = new Date(nowFin);
+  const todayStart = new Date(now);
   todayStart.setHours(0, 0, 0, 0);
 
   const tomorrowStart = new Date(todayStart);
@@ -40,10 +55,29 @@ function getDayLabelInFinnish(commenceTime) {
   const thirdDayStart = new Date(todayStart);
   thirdDayStart.setDate(todayStart.getDate() + 3);
 
-  if (gameFin >= todayStart && gameFin < tomorrowStart) return "Tänään";
-  if (gameFin >= tomorrowStart && gameFin < dayAfterTomorrowStart) return "Huomenna";
-  if (gameFin >= dayAfterTomorrowStart && gameFin < thirdDayStart) return "Ylihuomenna";
+  if (game >= todayStart && game < tomorrowStart) return "Tänään";
+  if (game >= tomorrowStart && game < dayAfterTomorrowStart) return "Huomenna";
+  if (game >= dayAfterTomorrowStart && game < thirdDayStart) return "Ylihuomenna";
   return "Myöhemmin";
+}
+
+function isUpcomingWithin3DaysInFinland(commenceTime) {
+  const game = toFinlandDate(commenceTime);
+  const now = getFinlandNow();
+
+  const end = new Date(now);
+  end.setDate(end.getDate() + 3);
+
+  return game >= now && game < end;
+}
+
+function normalizeBookmakers(bookmakers = []) {
+  return bookmakers
+    .map((b) => ({
+      ...b,
+      markets: (b.markets || []).filter((m) => m.key === "h2h")
+    }))
+    .filter((b) => (b.markets || []).length > 0);
 }
 
 function formatGame(g) {
@@ -58,26 +92,10 @@ function formatGame(g) {
       minute: "2-digit"
     }),
     commence_time: g.commence_time,
-    dayLabel: getDayLabelInFinnish(g.commence_time),
-    bookmakers: (g.bookmakers || []).map((b) => ({
-      ...b,
-      markets: (b.markets || []).filter((m) => m.key === "h2h")
-    })),
+    dayLabel: getDayLabel(g.commence_time),
+    bookmakers: normalizeBookmakers(g.bookmakers || []),
     context: ""
   };
-}
-
-function isWithin3DaysInFinland(iso) {
-  const gameFin = getFinlandDate(iso);
-  const nowFin = getFinlandNow();
-
-  const start = new Date(nowFin);
-  start.setHours(0, 0, 0, 0);
-
-  const end = new Date(start);
-  end.setDate(end.getDate() + 3);
-
-  return gameFin >= start && gameFin < end;
 }
 
 export async function GET(req) {
@@ -87,24 +105,23 @@ export async function GET(req) {
 
     if (!sportKey) {
       return NextResponse.json(
-        { error: "Missing sportKey" },
+        { error: "Missing sportKey parameter" },
         { status: 400 }
       );
     }
 
-    if (
-      CACHE[sportKey] &&
-      LAST_FETCH[sportKey] &&
-      Date.now() - LAST_FETCH[sportKey] < CACHE_TIME
-    ) {
-      return NextResponse.json({ games: CACHE[sportKey] });
+    const cached = CACHE.get(sportKey);
+    if (cached && Date.now() - cached.timestamp < CACHE_MS) {
+      return NextResponse.json({
+        games: cached.games,
+        cached: true
+      });
     }
 
     const apiKey = process.env.ODDS_API_KEY;
-
     if (!apiKey) {
       return NextResponse.json(
-        { error: "ODDS_API_KEY puuttuu .env.local-tiedostosta" },
+        { error: "ODDS_API_KEY puuttuu" },
         { status: 500 }
       );
     }
@@ -114,41 +131,39 @@ export async function GET(req) {
       `?apiKey=${apiKey}&regions=eu&oddsFormat=decimal`;
 
     const res = await fetch(url, {
-      next: { revalidate: 60 }
+      next: { revalidate: 300 }
     });
 
     if (!res.ok) {
-      const txt = await res.text();
-      throw new Error(txt);
+      const text = await res.text();
+      throw new Error(`Odds API virhe: ${text}`);
     }
 
     const data = await res.json();
 
     const filtered = data.filter((g) =>
-      isWithin3DaysInFinland(g.commence_time)
+      isUpcomingWithin3DaysInFinland(g.commence_time)
     );
-
-    if (filtered.length === 0) {
-      return NextResponse.json({
-        games: [],
-        message: "Ei pelejä seuraavan 3 päivän aikana"
-      });
-    }
 
     const games = filtered
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
       .slice(0, 50)
       .map(formatGame);
 
-    CACHE[sportKey] = games;
-    LAST_FETCH[sportKey] = Date.now();
+    CACHE.set(sportKey, {
+      timestamp: Date.now(),
+      games
+    });
 
-    return NextResponse.json({ games });
+    return NextResponse.json({
+      games,
+      cached: false
+    });
   } catch (error) {
     return NextResponse.json(
       {
         games: [],
-        error: error.message
+        error: error.message || "Pelien haku epäonnistui"
       },
       { status: 500 }
     );
