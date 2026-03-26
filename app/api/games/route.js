@@ -8,13 +8,11 @@ const SPORT_KEYS = {
     "soccer_epl",
     "soccer_spain_la_liga",
     "soccer_italy_serie_a",
-    "soccer_germany_bundesliga",
-    "soccer_uefa_champs_league"
+    "soccer_germany_bundesliga"
   ],
   koripallo: ["basketball_nba"]
 };
 
-// 🔥 Suomen aika helper
 function toFinlandTime(date) {
   return new Date(
     new Date(date).toLocaleString("en-US", {
@@ -23,7 +21,6 @@ function toFinlandTime(date) {
   );
 }
 
-// 🔥 SUODATUS: vain tulevat + 3 päivää
 function isValidGame(time) {
   const now = toFinlandTime(new Date());
   const gameTime = toFinlandTime(time);
@@ -33,7 +30,6 @@ function isValidGame(time) {
   return gameTime >= now && gameTime <= new Date(now.getTime() + threeDays);
 }
 
-// 🔥 formatointi
 function formatGame(g) {
   const finTime = toFinlandTime(g.commence_time);
 
@@ -56,13 +52,9 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport");
 
-    if (!sport) {
-      return NextResponse.json({ error: "Missing sport" }, { status: 400 });
-    }
-
     const keys = SPORT_KEYS[sport];
     if (!keys) {
-      return NextResponse.json({ error: "Invalid sport" }, { status: 400 });
+      return NextResponse.json({ games: [] });
     }
 
     let allGames = [];
@@ -70,7 +62,7 @@ export async function GET(req) {
     for (const key of keys) {
       const res = await fetch(
         `https://api.the-odds-api.com/v4/sports/${key}/odds/?apiKey=${API_KEY}&regions=eu&markets=h2h`,
-        { next: { revalidate: 60 } } // 🔥 cache 60s → ei rate limit
+        { next: { revalidate: 60 } }
       );
 
       const data = await res.json();
@@ -80,15 +72,12 @@ export async function GET(req) {
       }
     }
 
-    // 🔥 poistetaan duplikaatit
     const unique = Object.values(
       Object.fromEntries(allGames.map(g => [g.id, g]))
     );
 
-    // 🔥 SUODATUS
     const filtered = unique.filter(g => isValidGame(g.commence_time));
 
-    // 🔥 SORT
     const games = filtered
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
       .slice(0, 30)
@@ -96,12 +85,10 @@ export async function GET(req) {
 
     return NextResponse.json({
       games,
-      lastUpdated: new Date().toISOString() // 🔥 TÄRKEÄ
+      lastUpdated: new Date().toISOString()
     });
 
   } catch (e) {
-    return NextResponse.json({
-      error: e.message || "Failed"
-    }, { status: 500 });
+    return NextResponse.json({ games: [] });
   }
 }
