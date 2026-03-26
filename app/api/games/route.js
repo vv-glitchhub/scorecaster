@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "../../../lib/supabase";
 
 const CACHE = new Map();
 const CACHE_MS = 5 * 60 * 1000;
