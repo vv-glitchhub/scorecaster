@@ -23,7 +23,8 @@ const TEXT = {
     bestBet: "Paras veto",
     analysis: "Analyysi",
     stats: "Tilastot",
-    draw: "Tasapeli"
+    draw: "Tasapeli",
+    selectedKey: "Valittu sportKey"
   },
   en: {
     title: "SCORECASTER",
@@ -45,7 +46,8 @@ const TEXT = {
     bestBet: "Best bet",
     analysis: "Analysis",
     stats: "Stats",
-    draw: "Draw"
+    draw: "Draw",
+    selectedKey: "Selected sportKey"
   }
 };
 
@@ -122,6 +124,36 @@ function formatVersionDate(date, lang) {
   });
 }
 
+function getDefaultSportKey(category, sports) {
+  if (!sports?.length) return "all";
+
+  if (category === "jaakiekko") {
+    return (
+      sports.find((s) => s.key === "icehockey_nhl")?.key ||
+      sports.find((s) => s.category === "jaakiekko")?.key ||
+      "all"
+    );
+  }
+
+  if (category === "jalkapallo") {
+    return (
+      sports.find((s) => s.key === "soccer_epl")?.key ||
+      sports.find((s) => s.category === "jalkapallo")?.key ||
+      "all"
+    );
+  }
+
+  if (category === "koripallo") {
+    return (
+      sports.find((s) => s.key === "basketball_nba")?.key ||
+      sports.find((s) => s.category === "koripallo")?.key ||
+      "all"
+    );
+  }
+
+  return "all";
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -176,6 +208,11 @@ export default function Page() {
     loadVersion();
   }, []);
 
+  useEffect(() => {
+    if (!sports.length) return;
+    setSelectedSportKey(getDefaultSportKey(selectedCategory, sports));
+  }, [sports, selectedCategory]);
+
   const filteredSports = useMemo(() => {
     if (selectedCategory === "all") return sports;
     return sports.filter((s) => s.category === selectedCategory);
@@ -225,14 +262,22 @@ export default function Page() {
           const res = await fetch(`/api/games?sportKey=${key}`, {
             cache: "no-store"
           });
+
           const data = await res.json();
 
-          if (!res.ok) throw new Error(data.error || "Games fetch failed");
-          return data.games || [];
+          if (!res.ok) {
+            throw new Error(data.error || `Games fetch failed for ${key}`);
+          }
+
+          return {
+            key,
+            games: data.games || [],
+            error: data.error || null
+          };
         })
       );
 
-      const mergedGames = responses.flat();
+      const mergedGames = responses.flatMap((r) => r.games);
 
       const uniqueGames = mergedGames.filter(
         (game, index, arr) =>
@@ -244,6 +289,12 @@ export default function Page() {
       );
 
       setGames(uniqueGames);
+
+      if (uniqueGames.length === 0) {
+        setError(
+          `Ei pelejä löytynyt valitulla liigalla. sportKey: ${sportKeys.join(", ")}`
+        );
+      }
     } catch (e) {
       setError(e.message);
     } finally {
@@ -353,11 +404,11 @@ export default function Page() {
                 value={selectedCategory}
                 onChange={(e) => {
                   setSelectedCategory(e.target.value);
-                  setSelectedSportKey("all");
                   setGames([]);
                   setSelectedGame(null);
                   setResult(null);
                   setFactors(new Set());
+                  setError("");
                 }}
                 style={{ width: "100%", padding: 10 }}
               >
@@ -380,6 +431,7 @@ export default function Page() {
                   setGames([]);
                   setSelectedGame(null);
                   setResult(null);
+                  setError("");
                 }}
                 style={{ width: "100%", padding: 10 }}
               >
@@ -391,6 +443,10 @@ export default function Page() {
                   </option>
                 ))}
               </select>
+
+              <div style={{ fontSize: 12, opacity: 0.65, marginTop: 8 }}>
+                {t.selectedKey}: {selectedSportKey}
+              </div>
             </div>
 
             <button onClick={fetchGames} disabled={loadingGames}>
