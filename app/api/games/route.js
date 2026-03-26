@@ -102,42 +102,61 @@ function formatGame(g) {
 }
 
 async function persistGames(sportKey, games) {
+  let savedMatches = 0;
+  let savedOdds = 0;
+
+  const matchRows = games.map((game) => ({
+    id: game.id,
+    sport_key: sportKey,
+    league: game.league,
+    home_team: game.home,
+    away_team: game.away,
+    commence_time: game.commence_time,
+    day_label: game.dayLabel,
+    updated_at: new Date().toISOString()
+  }));
+
+  const { error: matchError } = await supabase
+    .from("matches")
+    .upsert(matchRows, { onConflict: "id" });
+
+  if (matchError) {
+    throw new Error(`Supabase matches upsert error: ${matchError.message}`);
+  }
+
+  savedMatches = matchRows.length;
+
+  const oddsRows = [];
+
   for (const game of games) {
-    const { error: matchError } = await supabase.from("matches").upsert({
-      id: game.id,
-      sport_key: sportKey,
-      league: game.league,
-      home_team: game.home,
-      away_team: game.away,
-      commence_time: game.commence_time,
-      day_label: game.dayLabel,
-      updated_at: new Date().toISOString()
-    });
-
-    if (matchError) {
-      console.error("Supabase matches upsert error:", matchError.message);
-    }
-
     for (const bookmaker of game.bookmakers || []) {
       for (const market of bookmaker.markets || []) {
         for (const outcome of market.outcomes || []) {
-          const { error: oddsError } = await supabase
-            .from("odds_snapshots")
-            .insert({
-              match_id: game.id,
-              bookmaker: bookmaker.title,
-              market_key: market.key,
-              outcome_name: outcome.name,
-              odds: outcome.price
-            });
-
-          if (oddsError) {
-            console.error("Supabase odds insert error:", oddsError.message);
-          }
+          oddsRows.push({
+            match_id: game.id,
+            bookmaker: bookmaker.title,
+            market_key: market.key,
+            outcome_name: outcome.name,
+            odds: outcome.price
+          });
         }
       }
     }
   }
+
+  if (oddsRows.length > 0) {
+    const { error: oddsError } = await supabase
+      .from("odds_snapshots")
+      .insert(oddsRows);
+
+    if (oddsError) {
+      throw new Error(`Supabase odds insert error: ${oddsError.message}`);
+    }
+
+    savedOdds = oddsRows.length;
+  }
+
+  return { savedMatches, savedOdds };
 }
 
 export async function GET(req) {
@@ -157,7 +176,9 @@ export async function GET(req) {
       return NextResponse.json({
         games: cached.games,
         cached: true,
-        lastUpdate: cached.timestamp
+        lastUpdate: cached.timestamp,
+        savedMatches: 0,
+        savedOdds: 0
       });
     }
 
@@ -165,6 +186,20 @@ export async function GET(req) {
     if (!apiKey) {
       return NextResponse.json(
         { games: [], error: "ODDS_API_KEY puuttuu" },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return NextResponse.json(
+        { games: [], error: "NEXT_PUBLIC_SUPABASE_URL puuttuu" },
+        { status: 500 }
+      );
+    }
+
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        { games: [], error: "SUPABASE_SERVICE_ROLE_KEY puuttuu" },
         { status: 500 }
       );
     }
@@ -208,7 +243,7 @@ export async function GET(req) {
       .slice(0, 50)
       .map(formatGame);
 
-    await persistGames(sportKey, games);
+    const { savedMatches, savedOdds } = await persistGames(sportKey, games);
 
     const now = Date.now();
 
@@ -220,10 +255,13 @@ export async function GET(req) {
     return NextResponse.json({
       games,
       cached: false,
-      lastUpdate: now
+      lastUpdate: now,
+      savedMatches,
+      savedOdds
     });
   } catch (error) {
     console.error("games route error:", error);
+
     return NextResponse.json(
       {
         games: [],
