@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
+import { supabase } from "@/lib/supabase";
 
 const CACHE = new Map();
-const CACHE_MS = 5 * 60 * 1000; // 5 min
+const CACHE_MS = 5 * 60 * 1000;
 
 function cleanLeagueName(name = "") {
   return name
@@ -100,6 +101,45 @@ function formatGame(g) {
   };
 }
 
+async function persistGames(sportKey, games) {
+  for (const game of games) {
+    const { error: matchError } = await supabase.from("matches").upsert({
+      id: game.id,
+      sport_key: sportKey,
+      league: game.league,
+      home_team: game.home,
+      away_team: game.away,
+      commence_time: game.commence_time,
+      day_label: game.dayLabel,
+      updated_at: new Date().toISOString()
+    });
+
+    if (matchError) {
+      console.error("Supabase matches upsert error:", matchError.message);
+    }
+
+    for (const bookmaker of game.bookmakers || []) {
+      for (const market of bookmaker.markets || []) {
+        for (const outcome of market.outcomes || []) {
+          const { error: oddsError } = await supabase
+            .from("odds_snapshots")
+            .insert({
+              match_id: game.id,
+              bookmaker: bookmaker.title,
+              market_key: market.key,
+              outcome_name: outcome.name,
+              odds: outcome.price
+            });
+
+          if (oddsError) {
+            console.error("Supabase odds insert error:", oddsError.message);
+          }
+        }
+      }
+    }
+  }
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -131,7 +171,7 @@ export async function GET(req) {
 
     const url =
       `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
-      `?apiKey=${apiKey}&regions=eu&oddsFormat=decimal`;
+      `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
 
     const res = await fetch(url, {
       next: { revalidate: 300 }
@@ -150,10 +190,13 @@ export async function GET(req) {
     }
 
     if (!Array.isArray(data)) {
-      return NextResponse.json({
-        games: [],
-        error: `Unexpected API response for sportKey: ${sportKey}`
-      });
+      return NextResponse.json(
+        {
+          games: [],
+          error: `Unexpected API response for sportKey: ${sportKey}`
+        },
+        { status: 500 }
+      );
     }
 
     const filtered = data.filter((g) =>
@@ -164,6 +207,8 @@ export async function GET(req) {
       .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
       .slice(0, 50)
       .map(formatGame);
+
+    await persistGames(sportKey, games);
 
     const now = Date.now();
 
@@ -178,6 +223,7 @@ export async function GET(req) {
       lastUpdate: now
     });
   } catch (error) {
+    console.error("games route error:", error);
     return NextResponse.json(
       {
         games: [],
