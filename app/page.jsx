@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { APP_VERSION } from "@/lib/version";
 
 const TEXT = {
   fi: {
@@ -112,6 +111,17 @@ function labelOutcome(name, t) {
   return name;
 }
 
+function formatVersionDate(date, lang) {
+  if (!date) return "";
+  return new Date(date).toLocaleString(lang === "fi" ? "fi-FI" : "en-GB", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -132,6 +142,7 @@ export default function Page() {
   const [loadingPredict, setLoadingPredict] = useState(false);
 
   const [error, setError] = useState("");
+  const [version, setVersion] = useState(null);
 
   useEffect(() => {
     async function loadSports() {
@@ -148,7 +159,21 @@ export default function Page() {
       }
     }
 
+    async function loadVersion() {
+      try {
+        const res = await fetch("/api/version", { cache: "no-store" });
+        const data = await res.json();
+
+        if (res.ok && !data.error) {
+          setVersion(data);
+        }
+      } catch {
+        // jätetään hiljaiseksi, jos version haku epäonnistuu
+      }
+    }
+
     loadSports();
+    loadVersion();
   }, []);
 
   const filteredSports = useMemo(() => {
@@ -278,9 +303,12 @@ export default function Page() {
         <div>
           <div style={{ fontSize: 12, opacity: 0.7 }}>{t.subtitle}</div>
           <h1 style={{ margin: 0 }}>{t.title}</h1>
-          <div style={{ fontSize: 12, opacity: 0.65, marginTop: 6 }}>
-            {t.codeUpdated}: {APP_VERSION.updatedAt} · {APP_VERSION.version}
-          </div>
+
+          {version?.date && (
+            <div style={{ fontSize: 12, opacity: 0.65, marginTop: 6 }}>
+              {t.codeUpdated}: {formatVersionDate(version.date, lang)}
+            </div>
+          )}
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
