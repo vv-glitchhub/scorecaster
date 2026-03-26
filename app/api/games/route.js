@@ -61,14 +61,17 @@ function getDayLabel(commenceTime) {
   return "Myöhemmin";
 }
 
-function isUpcomingWithin3DaysInFinland(commenceTime) {
+function isWithin3DaysInFinland(commenceTime) {
   const game = toFinlandDate(commenceTime);
   const now = getFinlandNow();
 
-  const end = new Date(now);
+  const start = new Date(now);
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date(start);
   end.setDate(end.getDate() + 3);
 
-  return game >= now && game < end;
+  return game >= start && game < end;
 }
 
 function normalizeBookmakers(bookmakers = []) {
@@ -143,7 +146,7 @@ export async function GET(req) {
     const data = await res.json();
 
     const filtered = data.filter((g) =>
-      isUpcomingWithin3DaysInFinland(g.commence_time)
+      isWithin3DaysInFinland(g.commence_time)
     );
 
     const games = filtered
