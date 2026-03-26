@@ -114,7 +114,8 @@ export async function GET(req) {
     if (cached && Date.now() - cached.timestamp < CACHE_MS) {
       return NextResponse.json({
         games: cached.games,
-        cached: true
+        cached: true,
+        lastUpdate: cached.timestamp
       });
     }
 
@@ -150,14 +151,17 @@ export async function GET(req) {
       .slice(0, 50)
       .map(formatGame);
 
+    const now = Date.now();
+
     CACHE.set(sportKey, {
-      timestamp: Date.now(),
+      timestamp: now,
       games
     });
 
     return NextResponse.json({
       games,
-      cached: false
+      cached: false,
+      lastUpdate: now
     });
   } catch (error) {
     return NextResponse.json(
