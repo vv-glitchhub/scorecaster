@@ -23,7 +23,10 @@ const TEXT = {
     analysis: "Analyysi",
     stats: "Tilastot",
     draw: "Tasapeli",
-    updated: "Päivitetty"
+    updated: "Data päivitetty",
+    pageUpdated: "Sivu päivitetty",
+    cache: "cache",
+    live: "live"
   },
   en: {
     title: "SCORECASTER",
@@ -45,7 +48,10 @@ const TEXT = {
     analysis: "Analysis",
     stats: "Stats",
     draw: "Draw",
-    updated: "Updated"
+    updated: "Data updated",
+    pageUpdated: "Page updated",
+    cache: "cache",
+    live: "live"
   }
 };
 
@@ -106,9 +112,16 @@ function getBestOdds(game) {
   return Object.values(best);
 }
 
-function labelOutcome(name, lang, t) {
+function labelOutcome(name, t) {
   if (name === "Draw") return t.draw;
   return name;
+}
+
+function formatClock(timestamp, lang) {
+  return new Date(timestamp).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
 }
 
 export default function Page() {
@@ -133,6 +146,7 @@ export default function Page() {
   const [error, setError] = useState("");
   const [lastUpdate, setLastUpdate] = useState(null);
   const [isCached, setIsCached] = useState(false);
+  const [pageUpdatedAt, setPageUpdatedAt] = useState(Date.now());
 
   useEffect(() => {
     async function loadSports() {
@@ -142,6 +156,7 @@ export default function Page() {
 
         if (!res.ok) throw new Error(data.error || "Sports fetch failed");
         setSports(data.sports || []);
+        setPageUpdatedAt(Date.now());
       } catch (e) {
         setError(e.message);
       } finally {
@@ -196,6 +211,9 @@ export default function Page() {
             : [selectedSportKey];
       }
 
+      let latestUpdate = null;
+      let anyCached = false;
+
       const responses = await Promise.all(
         sportKeys.map(async (key) => {
           const res = await fetch(`/api/games?sportKey=${key}`, {
@@ -205,8 +223,15 @@ export default function Page() {
 
           if (!res.ok) throw new Error(data.error || "Games fetch failed");
 
-          if (data.lastUpdate) setLastUpdate(data.lastUpdate);
-          if (typeof data.cached === "boolean") setIsCached(data.cached);
+          if (data.lastUpdate) {
+            latestUpdate = !latestUpdate
+              ? data.lastUpdate
+              : Math.max(latestUpdate, data.lastUpdate);
+          }
+
+          if (typeof data.cached === "boolean" && data.cached) {
+            anyCached = true;
+          }
 
           return data.games || [];
         })
@@ -224,8 +249,12 @@ export default function Page() {
       );
 
       setGames(uniqueGames);
+      setLastUpdate(latestUpdate);
+      setIsCached(anyCached);
+      setPageUpdatedAt(Date.now());
     } catch (e) {
       setError(e.message);
+      setPageUpdatedAt(Date.now());
     } finally {
       setLoadingGames(false);
     }
@@ -253,8 +282,10 @@ export default function Page() {
       if (!res.ok) throw new Error(data.error || "Prediction failed");
 
       setResult(data);
+      setPageUpdatedAt(Date.now());
     } catch (e) {
       setError(e.message);
+      setPageUpdatedAt(Date.now());
     } finally {
       setLoadingPredict(false);
     }
@@ -374,14 +405,28 @@ export default function Page() {
         )}
       </section>
 
-      {lastUpdate && (
-        <div style={{ marginBottom: 12, fontSize: 12, opacity: 0.7 }}>
-          {t.updated}:{" "}
-          {new Date(lastUpdate).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
-            hour: "2-digit",
-            minute: "2-digit"
-          })}
-          {isCached ? " (cache)" : " (live)"}
+      {(lastUpdate || pageUpdatedAt) && (
+        <div
+          style={{
+            marginBottom: 12,
+            fontSize: 12,
+            opacity: 0.75,
+            display: "grid",
+            gap: 4
+          }}
+        >
+          {lastUpdate && (
+            <div>
+              {t.updated}: {formatClock(lastUpdate, lang)}{" "}
+              {isCached ? `(${t.cache})` : `(${t.live})`}
+            </div>
+          )}
+
+          {pageUpdatedAt && (
+            <div>
+              {t.pageUpdated}: {formatClock(pageUpdatedAt, lang)}
+            </div>
+          )}
         </div>
       )}
 
@@ -442,7 +487,7 @@ export default function Page() {
                         fontSize: 12
                       }}
                     >
-                      {labelOutcome(o.name, lang, t)} {o.price}
+                      {labelOutcome(o.name, t)} {o.price}
                     </span>
                   ))}
                 </div>
