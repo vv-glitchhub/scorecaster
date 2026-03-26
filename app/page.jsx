@@ -22,7 +22,8 @@ const TEXT = {
     bestBet: "Paras veto",
     analysis: "Analyysi",
     stats: "Tilastot",
-    draw: "Tasapeli"
+    draw: "Tasapeli",
+    updated: "Päivitetty"
   },
   en: {
     title: "SCORECASTER",
@@ -43,7 +44,8 @@ const TEXT = {
     bestBet: "Best bet",
     analysis: "Analysis",
     stats: "Stats",
-    draw: "Draw"
+    draw: "Draw",
+    updated: "Updated"
   }
 };
 
@@ -129,6 +131,8 @@ export default function Page() {
   const [loadingPredict, setLoadingPredict] = useState(false);
 
   const [error, setError] = useState("");
+  const [lastUpdate, setLastUpdate] = useState(null);
+  const [isCached, setIsCached] = useState(false);
 
   useEffect(() => {
     async function loadSports() {
@@ -200,6 +204,10 @@ export default function Page() {
           const data = await res.json();
 
           if (!res.ok) throw new Error(data.error || "Games fetch failed");
+
+          if (data.lastUpdate) setLastUpdate(data.lastUpdate);
+          if (typeof data.cached === "boolean") setIsCached(data.cached);
+
           return data.games || [];
         })
       );
@@ -365,6 +373,17 @@ export default function Page() {
           </div>
         )}
       </section>
+
+      {lastUpdate && (
+        <div style={{ marginBottom: 12, fontSize: 12, opacity: 0.7 }}>
+          {t.updated}:{" "}
+          {new Date(lastUpdate).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
+            hour: "2-digit",
+            minute: "2-digit"
+          })}
+          {isCached ? " (cache)" : " (live)"}
+        </div>
+      )}
 
       <section
         style={{
