@@ -107,7 +107,7 @@ export async function GET(req) {
 
     if (!sportKey) {
       return NextResponse.json(
-        { error: "Missing sportKey parameter" },
+        { games: [], error: "Missing sportKey parameter" },
         { status: 400 }
       );
     }
@@ -124,7 +124,7 @@ export async function GET(req) {
     const apiKey = process.env.ODDS_API_KEY;
     if (!apiKey) {
       return NextResponse.json(
-        { error: "ODDS_API_KEY puuttuu" },
+        { games: [], error: "ODDS_API_KEY puuttuu" },
         { status: 500 }
       );
     }
@@ -143,10 +143,17 @@ export async function GET(req) {
       return NextResponse.json(
         {
           games: [],
-          error: data?.message || "Odds API error"
+          error: data?.message || `Odds API error for sportKey: ${sportKey}`
         },
         { status: res.status }
       );
+    }
+
+    if (!Array.isArray(data)) {
+      return NextResponse.json({
+        games: [],
+        error: `Unexpected API response for sportKey: ${sportKey}`
+      });
     }
 
     const filtered = data.filter((g) =>
