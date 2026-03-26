@@ -168,7 +168,7 @@ export default function Page() {
           setVersion(data);
         }
       } catch {
-        // jätetään hiljaiseksi, jos version haku epäonnistuu
+        // ignore
       }
     }
 
