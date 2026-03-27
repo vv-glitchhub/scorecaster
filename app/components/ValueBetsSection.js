@@ -1,283 +1,108 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-function formatMatchTime(dateString) {
-  if (!dateString) return "-";
-
-  return new Date(dateString).toLocaleString("fi-FI", {
-    timeZone: "Europe/Helsinki",
-    day: "2-digit",
-    month: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit"
-  });
-}
-
-function getBestSide(bet) {
-  const homeValue = Number(bet.home_value || 0);
-  const drawValue = Number(bet.draw_value || 0);
-  const awayValue = Number(bet.away_value || 0);
-
-  if (homeValue >= drawValue && homeValue >= awayValue) {
-    return {
-      label: bet.home_team,
-      type: "HOME",
-      ev: homeValue,
-      odds: Number(bet.best_home_odds || 0)
-    };
-  }
-
-  if (drawValue >= homeValue && drawValue >= awayValue) {
-    return {
-      label: "Tasapeli",
-      type: "DRAW",
-      ev: drawValue,
-      odds: Number(bet.best_draw_odds || 0)
-    };
-  }
-
-  return {
-    label: bet.away_team,
-    type: "AWAY",
-    ev: awayValue,
-    odds: Number(bet.best_away_odds || 0)
-  };
-}
-
-function getEvLevel(ev) {
-  if (ev >= 1.15) {
-    return {
-      label: "ELITE EDGE",
-      className: "bg-emerald-500/20 text-emerald-300 border border-emerald-500/30"
-    };
-  }
-
-  if (ev >= 1.08) {
-    return {
-      label: "HIGH VALUE",
-      className: "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30"
-    };
-  }
-
-  if (ev >= 1.03) {
-    return {
-      label: "VALUE",
-      className: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30"
-    };
-  }
-
-  return {
-    label: "SMALL EDGE",
-    className: "bg-white/10 text-white/70 border border-white/10"
-  };
-}
-
-function getConfidenceLabel(confidence) {
-  const c = String(confidence || "").toUpperCase();
-
-  if (c === "HIGH") return "KORKEA";
-  if (c === "MEDIUM") return "KESKITASO";
-  if (c === "LOW") return "MATALA";
-  return confidence || "-";
-}
-
-function getRecommendationText(bestSide) {
-  return `Bet suggestion: ${bestSide.label}`;
-}
+import { useEffect, useState } from "react";
 
 export default function ValueBetsSection() {
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  async function fetchValueBets() {
-    try {
-      setLoading(true);
-      setError("");
-
-      const res = await fetch("/api/value-bets", {
-        cache: "no-store"
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || "Value bets fetch failed");
-      }
-
-      setBets(data.valueBets || []);
-    } catch (err) {
-      setError(err.message || "Virhe value bettien haussa");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   useEffect(() => {
-    fetchValueBets();
+    async function load() {
+      try {
+        const res = await fetch("/api/value-bets");
+        const data = await res.json();
+        setBets(data || []);
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
   }, []);
 
-  const topBets = useMemo(() => {
-    return bets.slice(0, 10);
-  }, [bets]);
+  function getColor(ev) {
+    if (ev > 1.1) return "#00ff9f";   // 🔥 strong value
+    if (ev > 1.05) return "#00d4ff";  // 👍 decent
+    if (ev > 1.0) return "#ffaa00";   // ⚠️ small edge
+    return "#666";                    // ❌ no value
+  }
+
+  function getLabel(ev) {
+    if (ev > 1.1) return "🔥 BEST BET";
+    if (ev > 1.05) return "VALUE";
+    if (ev > 1.0) return "MARGINAL";
+    return "NO EDGE";
+  }
+
+  if (loading) return <div>Loading value bets...</div>;
+  if (!bets.length) return <div>No value bets found</div>;
 
   return (
-    <section className="mt-8 rounded-[28px] border border-white/10 bg-gradient-to-b from-[#0a1020] to-[#060912] p-4 shadow-2xl shadow-black/30 md:p-6">
-      <div className="mb-5 flex items-start justify-between gap-4">
-        <div>
-          <div className="text-xs uppercase tracking-[0.22em] text-cyan-300/80">
-            Premium Betting Intelligence
-          </div>
-          <h2 className="mt-2 text-2xl font-black tracking-tight text-white md:text-3xl">
-            Value Bets
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-white/60">
-            Highest expected value opportunities ranked from your model probabilities
-            and best available odds.
-          </p>
-        </div>
+    <section style={{ marginTop: 32 }}>
+      <h2 style={{ marginBottom: 16 }}>💰 Value Bets</h2>
 
-        <button
-          onClick={fetchValueBets}
-          className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
-        >
-          Päivitä
-        </button>
-      </div>
+      <div style={{ display: "grid", gap: 12 }}>
+        {bets.map((bet) => {
+          const color = getColor(bet.best_ev);
 
-      {loading && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white/70">
-          Ladataan value bettejä...
-        </div>
-      )}
+          return (
+            <div
+              key={bet.id}
+              style={{
+                border: `1px solid ${color}`,
+                borderRadius: 12,
+                padding: 14,
+                background: "#0f172a",
+              }}
+            >
+              {/* HEADER */}
+              <div style={{ display: "flex", justifyContent: "space-between" }}>
+                <div style={{ fontWeight: 700 }}>
+                  {bet.home_team} vs {bet.away_team}
+                </div>
 
-      {!loading && error && (
-        <div className="rounded-2xl border border-red-500/30 bg-red-500/10 p-5 text-red-200">
-          {error}
-        </div>
-      )}
+                <div
+                  style={{
+                    color,
+                    fontWeight: 700,
+                    fontSize: 12,
+                  }}
+                >
+                  {getLabel(bet.best_ev)}
+                </div>
+              </div>
 
-      {!loading && !error && topBets.length === 0 && (
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-5 text-white/70">
-          Ei value bettejä juuri nyt.
-        </div>
-      )}
+              {/* MAIN */}
+              <div style={{ marginTop: 8, fontSize: 18 }}>
+                {bet.recommendation}
+              </div>
 
-      {!loading && !error && topBets.length > 0 && (
-        <div className="grid gap-4">
-          {topBets.map((bet) => {
-            const bestSide = getBestSide(bet);
-            const evLevel = getEvLevel(bestSide.ev);
-
-            return (
-              <article
-                key={bet.id}
-                className="overflow-hidden rounded-[24px] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02))] p-4 backdrop-blur-sm transition hover:border-cyan-400/30 hover:bg-white/[0.07] md:p-5"
+              {/* STATS */}
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  marginTop: 10,
+                  fontSize: 14,
+                  opacity: 0.8,
+                }}
               >
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className={`rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] ${evLevel.className}`}>
-                      {evLevel.label}
-                    </span>
-
-                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/70">
-                      {bet.league || "-"}
-                    </span>
-                  </div>
-
-                  <div className="text-xs text-white/45">
-                    {formatMatchTime(bet.commence_time)}
-                  </div>
+                <div>Odds: {bet.best_odds}</div>
+                <div style={{ color }}>
+                  EV: {bet.best_ev?.toFixed(2)}
                 </div>
+              </div>
 
-                <div className="mt-4">
-                  <h3 className="text-xl font-black leading-tight text-white md:text-2xl">
-                    {bet.home_team} <span className="text-white/40">vs</span> {bet.away_team}
-                  </h3>
-
-                  <p className="mt-3 text-sm font-medium text-cyan-300">
-                    {getRecommendationText(bestSide)}
-                  </p>
-                </div>
-
-                <div className="mt-5 grid grid-cols-2 gap-3 md:grid-cols-4">
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/45">
-                      Best Side
-                    </div>
-                    <div className="mt-2 text-sm font-bold text-white">
-                      {bestSide.type}
-                    </div>
-                    <div className="mt-1 text-sm text-white/70">
-                      {bestSide.label}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/45">
-                      EV
-                    </div>
-                    <div className="mt-2 text-2xl font-black text-emerald-300">
-                      {bestSide.ev.toFixed(3)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/45">
-                      Best Odds
-                    </div>
-                    <div className="mt-2 text-2xl font-black text-white">
-                      {bestSide.odds ? bestSide.odds.toFixed(2) : "-"}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-black/20 p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/45">
-                      Confidence
-                    </div>
-                    <div className="mt-2 text-sm font-bold text-white">
-                      {getConfidenceLabel(bet.confidence)}
-                    </div>
-                    <div className="mt-1 text-sm text-white/55">
-                      {bet.recommendation || "-"}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-4 grid grid-cols-3 gap-3">
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/40">
-                      Home EV
-                    </div>
-                    <div className="mt-2 text-lg font-bold text-white">
-                      {Number(bet.home_value || 0).toFixed(3)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/40">
-                      Draw EV
-                    </div>
-                    <div className="mt-2 text-lg font-bold text-white">
-                      {Number(bet.draw_value || 0).toFixed(3)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-3">
-                    <div className="text-[11px] uppercase tracking-[0.15em] text-white/40">
-                      Away EV
-                    </div>
-                    <div className="mt-2 text-lg font-bold text-white">
-                      {Number(bet.away_value || 0).toFixed(3)}
-                    </div>
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
+              {/* CONFIDENCE */}
+              <div style={{ marginTop: 6, fontSize: 13 }}>
+                Confidence: {bet.confidence}
+              </div>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
