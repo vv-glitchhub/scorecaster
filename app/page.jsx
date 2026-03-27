@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-
+import ValueBetsSection from "./components/ValueBetsSection";
 const TEXT = {
   fi: {
     title: "SCORECASTER",
