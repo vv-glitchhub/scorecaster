@@ -84,7 +84,7 @@ function normalizeBookmakers(bookmakers = []) {
     .filter((b) => (b.markets || []).length > 0);
 }
 
-function formatGame(g) {
+function formatApiGame(g) {
   return {
     id: g.id,
     home: g.home_team,
@@ -116,15 +116,17 @@ async function persistGames(sportKey, games) {
     updated_at: new Date().toISOString()
   }));
 
-  const { error: matchError } = await supabase
-    .from("matches")
-    .upsert(matchRows, { onConflict: "id" });
+  if (matchRows.length > 0) {
+    const { error: matchError } = await supabase
+      .from("matches")
+      .upsert(matchRows, { onConflict: "id" });
 
-  if (matchError) {
-    throw new Error(`Supabase matches upsert error: ${matchError.message}`);
+    if (matchError) {
+      throw new Error(`Supabase matches upsert error: ${matchError.message}`);
+    }
+
+    savedMatches = matchRows.length;
   }
-
-  savedMatches = matchRows.length;
 
   const oddsRows = [];
 
@@ -159,6 +161,111 @@ async function persistGames(sportKey, games) {
   return { savedMatches, savedOdds };
 }
 
+function buildBookmakersFromSnapshots(match, snapshots) {
+  const outcomes = [];
+  const seen = new Set();
+
+  for (const row of snapshots) {
+    const key = `${row.outcome_name}-${row.odds}`;
+
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    outcomes.push({
+      name: row.outcome_name,
+      price: Number(row.odds)
+    });
+  }
+
+  const sortedOutcomes = outcomes.sort((a, b) => {
+    const homeA = a.name === match.home_team ? 0 : a.name === "Draw" ? 1 : 2;
+    const homeB = b.name === match.home_team ? 0 : b.name === "Draw" ? 1 : 2;
+    return homeA - homeB;
+  });
+
+  return [
+    {
+      key: "cached_best_odds",
+      title: "Cached Best Odds",
+      last_update: new Date().toISOString(),
+      markets: [
+        {
+          key: "h2h",
+          last_update: new Date().toISOString(),
+          outcomes: sortedOutcomes
+        }
+      ]
+    }
+  ];
+}
+
+function formatDbGame(match, snapshots) {
+  return {
+    id: match.id,
+    home: match.home_team,
+    away: match.away_team,
+    league: cleanLeagueName(match.league || ""),
+    time: new Date(match.commence_time).toLocaleTimeString("fi-FI", {
+      timeZone: "Europe/Helsinki",
+      hour: "2-digit",
+      minute: "2-digit"
+    }),
+    commence_time: match.commence_time,
+    dayLabel: match.day_label || getDayLabel(match.commence_time),
+    bookmakers: buildBookmakersFromSnapshots(match, snapshots)
+  };
+}
+
+async function loadGamesFromSupabase(sportKey) {
+  let query = supabase
+    .from("matches")
+    .select("*")
+    .order("commence_time", { ascending: true })
+    .limit(50);
+
+  if (sportKey && sportKey !== "all") {
+    query = query.eq("sport_key", sportKey);
+  }
+
+  const { data: matches, error: matchError } = await query;
+
+  if (matchError) {
+    throw new Error(`Supabase matches fetch error: ${matchError.message}`);
+  }
+
+  const filteredMatches = (matches || []).filter((m) =>
+    isWithin3DaysInFinland(m.commence_time)
+  );
+
+  if (filteredMatches.length === 0) {
+    return [];
+  }
+
+  const matchIds = filteredMatches.map((m) => m.id);
+
+  const { data: snapshots, error: snapshotError } = await supabase
+    .from("odds_snapshots")
+    .select("match_id, bookmaker, market_key, outcome_name, odds")
+    .in("match_id", matchIds);
+
+  if (snapshotError) {
+    throw new Error(`Supabase odds fetch error: ${snapshotError.message}`);
+  }
+
+  const byMatchId = new Map();
+
+  for (const row of snapshots || []) {
+    if (!byMatchId.has(row.match_id)) {
+      byMatchId.set(row.match_id, []);
+    }
+    byMatchId.get(row.match_id).push(row);
+  }
+
+  return filteredMatches.map((match) =>
+    formatDbGame(match, byMatchId.get(match.id) || [])
+  );
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
@@ -177,87 +284,108 @@ export async function GET(req) {
         games: cached.games,
         cached: true,
         lastUpdate: cached.timestamp,
-        savedMatches: 0,
-        savedOdds: 0
+        source: cached.source || "cache"
       });
     }
 
     const apiKey = process.env.ODDS_API_KEY;
-    if (!apiKey) {
+    const hasSupabase =
+      !!process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !!process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!apiKey && !hasSupabase) {
       return NextResponse.json(
-        { games: [], error: "ODDS_API_KEY puuttuu" },
+        { games: [], error: "ODDS_API_KEY ja Supabase envit puuttuvat" },
         { status: 500 }
       );
     }
 
-    if (!process.env.NEXT_PUBLIC_SUPABASE_URL) {
-      return NextResponse.json(
-        { games: [], error: "NEXT_PUBLIC_SUPABASE_URL puuttuu" },
-        { status: 500 }
-      );
+    if (apiKey) {
+      try {
+        const url =
+          `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
+          `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
+
+        const res = await fetch(url, {
+          next: { revalidate: 300 }
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.message || `Odds API error for sportKey: ${sportKey}`);
+        }
+
+        if (!Array.isArray(data)) {
+          throw new Error(`Unexpected API response for sportKey: ${sportKey}`);
+        }
+
+        const filtered = data.filter((g) =>
+          isWithin3DaysInFinland(g.commence_time)
+        );
+
+        const games = filtered
+          .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
+          .slice(0, 50)
+          .map(formatApiGame);
+
+        let savedMatches = 0;
+        let savedOdds = 0;
+
+        if (hasSupabase) {
+          const persisted = await persistGames(sportKey, games);
+          savedMatches = persisted.savedMatches;
+          savedOdds = persisted.savedOdds;
+        }
+
+        const now = Date.now();
+
+        CACHE.set(sportKey, {
+          timestamp: now,
+          games,
+          source: "api"
+        });
+
+        return NextResponse.json({
+          games,
+          cached: false,
+          lastUpdate: now,
+          savedMatches,
+          savedOdds,
+          source: "api"
+        });
+      } catch (apiError) {
+        console.error("Primary Odds API failed, trying Supabase fallback:", apiError);
+      }
     }
 
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        { games: [], error: "SUPABASE_SERVICE_ROLE_KEY puuttuu" },
-        { status: 500 }
-      );
-    }
-
-    const url =
-      `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
-      `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
-
-    const res = await fetch(url, {
-      next: { revalidate: 300 }
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
+    if (!hasSupabase) {
       return NextResponse.json(
         {
           games: [],
-          error: data?.message || `Odds API error for sportKey: ${sportKey}`
-        },
-        { status: res.status }
-      );
-    }
-
-    if (!Array.isArray(data)) {
-      return NextResponse.json(
-        {
-          games: [],
-          error: `Unexpected API response for sportKey: ${sportKey}`
+          error: "Odds API epäonnistui eikä Supabase fallback ole käytössä"
         },
         { status: 500 }
       );
     }
 
-    const filtered = data.filter((g) =>
-      isWithin3DaysInFinland(g.commence_time)
-    );
-
-    const games = filtered
-      .sort((a, b) => new Date(a.commence_time) - new Date(b.commence_time))
-      .slice(0, 50)
-      .map(formatGame);
-
-    const { savedMatches, savedOdds } = await persistGames(sportKey, games);
-
+    const fallbackGames = await loadGamesFromSupabase(sportKey);
     const now = Date.now();
 
     CACHE.set(sportKey, {
       timestamp: now,
-      games
+      games: fallbackGames,
+      source: "supabase_fallback"
     });
 
     return NextResponse.json({
-      games,
+      games: fallbackGames,
       cached: false,
       lastUpdate: now,
-      savedMatches,
-      savedOdds
+      savedMatches: 0,
+      savedOdds: 0,
+      source: "supabase_fallback",
+      fallback: true
     });
   } catch (error) {
     console.error("games route error:", error);
