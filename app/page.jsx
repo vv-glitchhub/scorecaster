@@ -25,6 +25,9 @@ const TEXT = {
     stats: "Tilastot",
     draw: "Tasapeli",
     selectedKey: "Valittu sportKey",
+    bankrollTitle: "Bankroll Management",
+    bankroll: "Bankroll (€)",
+    kellyMode: "Kelly mode",
     feedbackTitle: "Palaute",
     feedbackPlaceholder: "Kirjoita palaute tai kehitysidea...",
     feedbackSend: "Lähetä palaute",
@@ -54,6 +57,9 @@ const TEXT = {
     stats: "Stats",
     draw: "Draw",
     selectedKey: "Selected sportKey",
+    bankrollTitle: "Bankroll Management",
+    bankroll: "Bankroll (€)",
+    kellyMode: "Kelly mode",
     feedbackTitle: "Feedback",
     feedbackPlaceholder: "Write feedback or an improvement idea...",
     feedbackSend: "Send feedback",
@@ -187,6 +193,9 @@ export default function Page() {
 
   const [error, setError] = useState("");
   const [version, setVersion] = useState(null);
+
+  const [bankroll, setBankroll] = useState(1000);
+  const [kellyMode, setKellyMode] = useState("Quarter Kelly");
 
   const [feedback, setFeedback] = useState("");
   const [sending, setSending] = useState(false);
@@ -333,7 +342,9 @@ export default function Page() {
         body: JSON.stringify({
           sport: selectedCategory === "all" ? "other" : selectedCategory,
           game: selectedGame,
-          selectedFactors: Array.from(factors)
+          selectedFactors: Array.from(factors),
+          bankroll,
+          kellyMode
         })
       });
 
@@ -430,6 +441,48 @@ export default function Page() {
           {error}
         </div>
       )}
+
+      <section
+        style={{
+          marginBottom: 20,
+          padding: 16,
+          border: "1px solid #222",
+          borderRadius: 8
+        }}
+      >
+        <div style={{ marginBottom: 8, fontWeight: 700 }}>
+          {t.bankrollTitle}
+        </div>
+
+        <div style={{ display: "grid", gap: 12 }}>
+          <div>
+            <div style={{ marginBottom: 8, fontWeight: 700 }}>
+              {t.bankroll}
+            </div>
+            <input
+              type="number"
+              value={bankroll}
+              onChange={(e) => setBankroll(Number(e.target.value) || 0)}
+              style={{ width: "100%", padding: 10 }}
+            />
+          </div>
+
+          <div>
+            <div style={{ marginBottom: 8, fontWeight: 700 }}>
+              {t.kellyMode}
+            </div>
+            <select
+              value={kellyMode}
+              onChange={(e) => setKellyMode(e.target.value)}
+              style={{ width: "100%", padding: 10 }}
+            >
+              <option value="Full Kelly">Full Kelly</option>
+              <option value="Half Kelly">Half Kelly</option>
+              <option value="Quarter Kelly">Quarter Kelly</option>
+            </select>
+          </div>
+        </div>
+      </section>
 
       <section
         style={{
