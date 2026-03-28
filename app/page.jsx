@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import ValueBetsSection from "./components/ValueBetsSection";
 
 const TEXT = {
   fi: {
@@ -26,18 +25,12 @@ const TEXT = {
     stats: "Tilastot",
     draw: "Tasapeli",
     selectedKey: "Valittu sportKey",
-    bankrollTitle: "Bankroll Management",
-    bankroll: "Bankroll (€)",
-    kellyMode: "Kelly mode",
-    stakeSuggestion: "Panossuositus",
-    tracker: "Bet result tracker",
-    betHistory: "Bet history",
-    totalStaked: "Yhteensä panostettu",
-    totalProfit: "Yhteensä voitto",
-    roi: "ROI",
-    markWin: "Merkitse win",
-    markLose: "Merkitse lose",
-    markVoid: "Merkitse void"
+    feedbackTitle: "Palaute",
+    feedbackPlaceholder: "Kirjoita palaute tai kehitysidea...",
+    feedbackSend: "Lähetä palaute",
+    feedbackSending: "Lähetetään...",
+    feedbackSuccess: "✅ Palaute lähetetty!",
+    feedbackError: "Palautteen lähetys epäonnistui"
   },
   en: {
     title: "SCORECASTER",
@@ -61,18 +54,12 @@ const TEXT = {
     stats: "Stats",
     draw: "Draw",
     selectedKey: "Selected sportKey",
-    bankrollTitle: "Bankroll Management",
-    bankroll: "Bankroll (€)",
-    kellyMode: "Kelly mode",
-    stakeSuggestion: "Stake suggestion",
-    tracker: "Bet result tracker",
-    betHistory: "Bet history",
-    totalStaked: "Total staked",
-    totalProfit: "Total profit",
-    roi: "ROI",
-    markWin: "Mark win",
-    markLose: "Mark lose",
-    markVoid: "Mark void"
+    feedbackTitle: "Feedback",
+    feedbackPlaceholder: "Write feedback or an improvement idea...",
+    feedbackSend: "Send feedback",
+    feedbackSending: "Sending...",
+    feedbackSuccess: "✅ Feedback sent!",
+    feedbackError: "Sending feedback failed"
   }
 };
 
@@ -179,81 +166,6 @@ function getDefaultSportKey(category, sports) {
   return "all";
 }
 
-function decimalProb(percent) {
-  return Number(percent || 0) / 100;
-}
-
-function kellyFraction(prob, odds) {
-  const p = Number(prob || 0);
-  const o = Number(odds || 0);
-
-  if (p <= 0 || o <= 1) return 0;
-
-  const b = o - 1;
-  const q = 1 - p;
-  const kelly = (b * p - q) / b;
-
-  return Math.max(0, kelly);
-}
-
-function getKellyMultiplier(riskMode) {
-  if (riskMode === "full") return 1;
-  if (riskMode === "half") return 0.5;
-  return 0.25;
-}
-
-function calculateStake(probPercent, odds, bankroll, riskMode = "quarter") {
-  const prob = decimalProb(probPercent);
-  const rawKelly = kellyFraction(prob, odds);
-  const adjustedKelly = rawKelly * getKellyMultiplier(riskMode);
-  const stake = bankroll * adjustedKelly;
-
-  return {
-    rawKelly,
-    adjustedKelly,
-    stake: Math.max(0, stake)
-  };
-}
-
-function getBestBetFromResult(result, selectedGame, t) {
-  if (!result || !selectedGame) return null;
-
-  const oddsList = getBestOdds(selectedGame);
-
-  const homeOdds = oddsList.find((o) => o.name === selectedGame.home)?.price || 0;
-  const awayOdds = oddsList.find((o) => o.name === selectedGame.away)?.price || 0;
-  const drawOdds = oddsList.find((o) => o.name === "Draw")?.price || 0;
-
-  const options = [
-    {
-      outcome: selectedGame.home,
-      probPercent: Number(result.homeWinProb || 0),
-      odds: Number(homeOdds || 0),
-      bookmaker: oddsList.find((o) => o.name === selectedGame.home)?.bookmaker || "-"
-    },
-    {
-      outcome: t.draw,
-      probPercent: Number(result.drawProb || 0),
-      odds: Number(drawOdds || 0),
-      bookmaker: oddsList.find((o) => o.name === "Draw")?.bookmaker || "-"
-    },
-    {
-      outcome: selectedGame.away,
-      probPercent: Number(result.awayWinProb || 0),
-      odds: Number(awayOdds || 0),
-      bookmaker: oddsList.find((o) => o.name === selectedGame.away)?.bookmaker || "-"
-    }
-  ]
-    .filter((o) => o.odds > 1)
-    .map((o) => ({
-      ...o,
-      ev: decimalProb(o.probPercent) * o.odds
-    }))
-    .sort((a, b) => b.ev - a.ev);
-
-  return options[0] || null;
-}
-
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -276,9 +188,10 @@ export default function Page() {
   const [error, setError] = useState("");
   const [version, setVersion] = useState(null);
 
-  const [bankroll, setBankroll] = useState(1000);
-  const [riskMode, setRiskMode] = useState("quarter");
-  const [betHistory, setBetHistory] = useState([]);
+  const [feedback, setFeedback] = useState("");
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [feedbackError, setFeedbackError] = useState("");
 
   useEffect(() => {
     async function loadSports() {
@@ -435,50 +348,36 @@ export default function Page() {
     }
   }
 
-  const bestCalculatedBet =
-    result && selectedGame
-      ? getBestBetFromResult(result, selectedGame, t)
-      : null;
+  async function sendFeedback() {
+    if (!feedback.trim()) return;
 
-  const stakeInfo = bestCalculatedBet
-    ? calculateStake(
-        bestCalculatedBet.probPercent,
-        bestCalculatedBet.odds,
-        bankroll,
-        riskMode
-      )
-    : null;
+    setSending(true);
+    setSent(false);
+    setFeedbackError("");
 
-  function addBetResult(status) {
-    if (!bestCalculatedBet || !stakeInfo) return;
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: feedback })
+      });
 
-    const stake = stakeInfo.stake;
-    let profit = 0;
+      const data = await res.json();
 
-    if (status === "win") {
-      profit = stake * (bestCalculatedBet.odds - 1);
-    } else if (status === "lose") {
-      profit = -stake;
-    } else {
-      profit = 0;
+      if (!res.ok) {
+        throw new Error(data.error || t.feedbackError);
+      }
+
+      setSent(true);
+      setFeedback("");
+    } catch (e) {
+      setFeedbackError(e.message || t.feedbackError);
+    } finally {
+      setSending(false);
     }
-
-    const record = {
-      id: Date.now(),
-      outcome: bestCalculatedBet.outcome,
-      odds: bestCalculatedBet.odds,
-      stake,
-      status,
-      profit
-    };
-
-    setBetHistory((prev) => [record, ...prev]);
-    setBankroll((prev) => Number((prev + profit).toFixed(2)));
   }
-
-  const totalStaked = betHistory.reduce((sum, b) => sum + b.stake, 0);
-  const totalProfit = betHistory.reduce((sum, b) => sum + b.profit, 0);
-  const roi = totalStaked > 0 ? (totalProfit / totalStaked) * 100 : 0;
 
   return (
     <main
@@ -531,48 +430,6 @@ export default function Page() {
           {error}
         </div>
       )}
-
-      <section
-        style={{
-          marginBottom: 20,
-          padding: 16,
-          border: "1px solid #222",
-          borderRadius: 8
-        }}
-      >
-        <div style={{ marginBottom: 12, fontWeight: 700 }}>
-          {t.bankrollTitle}
-        </div>
-
-        <div style={{ display: "grid", gap: 12 }}>
-          <div>
-            <div style={{ marginBottom: 8, fontWeight: 600 }}>
-              {t.bankroll}
-            </div>
-            <input
-              type="number"
-              value={bankroll}
-              onChange={(e) => setBankroll(Number(e.target.value || 0))}
-              style={{ width: "100%", padding: 10 }}
-            />
-          </div>
-
-          <div>
-            <div style={{ marginBottom: 8, fontWeight: 600 }}>
-              {t.kellyMode}
-            </div>
-            <select
-              value={riskMode}
-              onChange={(e) => setRiskMode(e.target.value)}
-              style={{ width: "100%", padding: 10 }}
-            >
-              <option value="quarter">Quarter Kelly</option>
-              <option value="half">Half Kelly</option>
-              <option value="full">Full Kelly</option>
-            </select>
-          </div>
-        </div>
-      </section>
 
       <section
         style={{
@@ -811,32 +668,6 @@ export default function Page() {
             <div>{selectedGame.away}: {result.awayWinProb}%</div>
           </div>
 
-          {bestCalculatedBet && stakeInfo && (
-            <div
-              style={{
-                border: "1px solid #1f8f5f",
-                borderRadius: 8,
-                padding: 14
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                {t.stakeSuggestion}
-              </div>
-
-              <div>Veto: {bestCalculatedBet.outcome}</div>
-              <div>Todennäköisyys: {bestCalculatedBet.probPercent}%</div>
-              <div>Kerroin: {bestCalculatedBet.odds}</div>
-              <div>Bookmaker: {bestCalculatedBet.bookmaker}</div>
-              <div>EV: {bestCalculatedBet.ev.toFixed(2)}</div>
-              <div>
-                Kelly fraction: {(stakeInfo.adjustedKelly * 100).toFixed(2)}%
-              </div>
-              <div>
-                Suositeltu panos: <strong>{stakeInfo.stake.toFixed(2)} €</strong>
-              </div>
-            </div>
-          )}
-
           {result.bestBet && (
             <div
               style={{
@@ -894,67 +725,65 @@ export default function Page() {
               {result.analysis}
             </div>
           </div>
-
-          {bestCalculatedBet && stakeInfo && (
-            <div
-              style={{
-                border: "1px solid #333",
-                borderRadius: 8,
-                padding: 14
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                {t.tracker}
-              </div>
-
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 12 }}>
-                <button onClick={() => addBetResult("win")}>{t.markWin}</button>
-                <button onClick={() => addBetResult("lose")}>{t.markLose}</button>
-                <button onClick={() => addBetResult("void")}>{t.markVoid}</button>
-              </div>
-
-              <div>{t.totalStaked}: {totalStaked.toFixed(2)} €</div>
-              <div>{t.totalProfit}: {totalProfit.toFixed(2)} €</div>
-              <div>{t.roi}: {roi.toFixed(2)}%</div>
-            </div>
-          )}
-
-          {betHistory.length > 0 && (
-            <div
-              style={{
-                border: "1px solid #333",
-                borderRadius: 8,
-                padding: 14
-              }}
-            >
-              <div style={{ fontWeight: 700, marginBottom: 8 }}>
-                {t.betHistory}
-              </div>
-
-              <div style={{ display: "grid", gap: 8 }}>
-                {betHistory.slice(0, 10).map((bet) => (
-                  <div
-                    key={bet.id}
-                    style={{
-                      border: "1px solid #333",
-                      borderRadius: 8,
-                      padding: 10
-                    }}
-                  >
-                    <div>{bet.outcome}</div>
-                    <div>Odds: {bet.odds}</div>
-                    <div>Stake: {bet.stake.toFixed(2)} €</div>
-                    <div>Status: {bet.status}</div>
-                    <div>Profit: {bet.profit.toFixed(2)} €</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </section>
       )}
 
-      <ValueBetsSection />
+      <section
+        style={{
+          marginTop: 40,
+          padding: 16,
+          border: "1px solid #222",
+          borderRadius: 8
+        }}
+      >
+        <div style={{ fontWeight: 700, marginBottom: 8 }}>
+          💬 {t.feedbackTitle}
+        </div>
+
+        <textarea
+          value={feedback}
+          onChange={(e) => setFeedback(e.target.value)}
+          placeholder={t.feedbackPlaceholder}
+          style={{
+            width: "100%",
+            minHeight: 90,
+            padding: 10,
+            marginBottom: 10,
+            background: "#111",
+            color: "#fff",
+            border: "1px solid #333",
+            borderRadius: 6
+          }}
+        />
+
+        <button
+          onClick={sendFeedback}
+          disabled={sending}
+          style={{
+            padding: "10px 14px",
+            borderRadius: 6,
+            background: "#00d4ff",
+            border: "none",
+            cursor: "pointer",
+            color: "#000",
+            fontWeight: 700
+          }}
+        >
+          {sending ? t.feedbackSending : t.feedbackSend}
+        </button>
+
+        {sent && (
+          <div style={{ marginTop: 10, color: "#00ff9d" }}>
+            {t.feedbackSuccess}
+          </div>
+        )}
+
+        {feedbackError && (
+          <div style={{ marginTop: 10, color: "#ff5c7a" }}>
+            ❌ {feedbackError}
+          </div>
+        )}
+      </section>
     </main>
   );
 }
