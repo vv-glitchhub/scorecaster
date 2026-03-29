@@ -48,6 +48,13 @@ const TEXT = {
     profit: "Voitto",
     stake: "Panos",
     parsedBankroll: "Tulkittu bankroll",
+    feedback: "Palaute",
+    feedbackPlaceholder: "Kirjoita palaute...",
+    feedbackEmail: "Sähköposti (valinnainen)",
+    sendFeedback: "Lähetä palaute",
+    sending: "Lähetetään...",
+    sent: "✅ Lähetetty",
+    sendFailed: "❌ Lähetys epäonnistui",
   },
   en: {
     title: "SCORECASTER",
@@ -94,6 +101,13 @@ const TEXT = {
     profit: "Profit",
     stake: "Stake",
     parsedBankroll: "Parsed bankroll",
+    feedback: "Feedback",
+    feedbackPlaceholder: "Write feedback...",
+    feedbackEmail: "Email (optional)",
+    sendFeedback: "Send feedback",
+    sending: "Sending...",
+    sent: "✅ Sent",
+    sendFailed: "❌ Failed to send",
   },
 };
 
@@ -317,6 +331,10 @@ export default function Page() {
   const [riskMode, setRiskMode] = useState("quarter");
   const [betHistory, setBetHistory] = useState([]);
 
+  const [feedback, setFeedback] = useState("");
+  const [feedbackEmail, setFeedbackEmail] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("");
+
   const bankroll = useMemo(() => {
     const normalized = bankrollInput.replace(",", ".").trim();
     const parsed = Number(normalized);
@@ -327,9 +345,7 @@ export default function Page() {
     async function loadSports() {
       try {
         const res = await fetch("/api/sports");
-        if (!res.ok) {
-          throw new Error("Failed to fetch sports");
-        }
+        if (!res.ok) throw new Error("Failed to fetch sports");
 
         const json = await res.json();
         const sportsData = Array.isArray(json.data) ? json.data : [];
@@ -338,11 +354,11 @@ export default function Page() {
         setSportsFallback(Boolean(json.fallback));
 
         const firstGroup = sportsData[0]?.group || "";
-        setSelectedGroup(firstGroup);
-
         const firstLeague = sportsData[0]?.key || "";
+
+        setSelectedGroup(firstGroup);
         setSelectedSportKey(firstLeague);
-      } catch (err) {
+      } catch {
         const fallbackSports = [
           { key: "icehockey_nhl", group: "Ice Hockey", title: "NHL" },
           { key: "icehockey_liiga", group: "Ice Hockey", title: "Liiga" },
@@ -391,9 +407,7 @@ export default function Page() {
         setError("");
 
         const res = await fetch(`/api/odds?sport=${selectedSportKey}`);
-        if (!res.ok) {
-          throw new Error("Failed to fetch odds");
-        }
+        if (!res.ok) throw new Error("Failed to fetch odds");
 
         const json = await res.json();
         const normalized = normalizeGames(json.data || []);
@@ -404,7 +418,7 @@ export default function Page() {
           const exists = normalized.some((g) => g.id === prev);
           return exists ? prev : normalized[0]?.id || "";
         });
-      } catch (err) {
+      } catch {
         setError(t.failedToLoad);
         setGames([]);
         setFallback(false);
@@ -453,6 +467,35 @@ export default function Page() {
     );
   }, [bestCalculatedBet, bankroll, riskMode]);
 
+  async function sendFeedback() {
+    try {
+      setFeedbackStatus(t.sending);
+
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: feedback,
+          email: feedbackEmail,
+          selectedSportKey,
+          selectedGroup,
+          selectedGame,
+          bankroll,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setFeedback("");
+      setFeedbackEmail("");
+      setFeedbackStatus(t.sent);
+    } catch {
+      setFeedbackStatus(t.sendFailed);
+    }
+  }
+
   function addBetResult(status) {
     if (!bestCalculatedBet || !stakeInfo) return;
 
@@ -486,57 +529,33 @@ export default function Page() {
   const roi = totalStaked > 0 ? (totalProfit / totalStaked) * 100 : 0;
 
   return (
-    <main
-      style={{
-        minHeight: "100vh",
-        background: "#0b1020",
-        color: "#f8fafc",
-        padding: 24,
-        fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-      }}
-    >
-      <div style={{ maxWidth: 1320, margin: "0 auto" }}>
-        <header
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: 16,
-            flexWrap: "wrap",
-            marginBottom: 24,
-          }}
-        >
+    <main style={styles.page}>
+      <div style={styles.container}>
+        <header style={styles.header}>
           <div>
-            <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: 1 }}>
-              {t.title}
-            </h1>
-            <div style={{ color: "#94a3b8", marginTop: 8 }}>{t.subtitle}</div>
+            <h1 style={styles.title}>{t.title}</h1>
+            <div style={styles.subtitle}>{t.subtitle}</div>
           </div>
 
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <div>
-              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-                {t.language}
-              </div>
+          <div style={styles.filters}>
+            <div style={styles.fieldWrap}>
+              <div style={styles.label}>{t.language}</div>
               <select
                 value={lang}
                 onChange={(e) => setLang(e.target.value)}
-                style={selectStyle}
+                style={styles.select}
               >
                 <option value="fi">Suomi</option>
                 <option value="en">English</option>
               </select>
             </div>
 
-            <div>
-              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-                {t.sportGroup}
-              </div>
+            <div style={styles.fieldWrap}>
+              <div style={styles.label}>{t.sportGroup}</div>
               <select
                 value={selectedGroup}
                 onChange={(e) => setSelectedGroup(e.target.value)}
-                style={selectStyle}
+                style={styles.select}
               >
                 {sportGroups.map((group) => (
                   <option key={group} value={group}>
@@ -546,14 +565,12 @@ export default function Page() {
               </select>
             </div>
 
-            <div>
-              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-                {t.league}
-              </div>
+            <div style={styles.fieldWrap}>
+              <div style={styles.label}>{t.league}</div>
               <select
                 value={selectedSportKey}
                 onChange={(e) => setSelectedSportKey(e.target.value)}
-                style={selectStyle}
+                style={styles.select}
               >
                 {leaguesForSelectedGroup.map((league) => (
                   <option key={league.key} value={league.key}>
@@ -565,67 +582,20 @@ export default function Page() {
           </div>
         </header>
 
-        {sportsFallback && (
-          <div
-            style={{
-              marginBottom: 12,
-              padding: 14,
-              border: "1px solid #334155",
-              background: "#1e293b",
-              color: "#cbd5e1",
-              borderRadius: 12,
-            }}
-          >
-            {t.sportsFallbackBanner}
-          </div>
-        )}
+        {sportsFallback && <div style={styles.infoBanner}>{t.sportsFallbackBanner}</div>}
+        {fallback && <div style={styles.warnBanner}>⚠ {t.fallbackBanner}</div>}
+        {error && <div style={styles.errorBanner}>{error}</div>}
 
-        {fallback && (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: 14,
-              border: "1px solid #7c5a10",
-              background: "#3a2a00",
-              color: "#f5c451",
-              borderRadius: 12,
-            }}
-          >
-            ⚠ {t.fallbackBanner}
-          </div>
-        )}
-
-        {error && (
-          <div
-            style={{
-              marginBottom: 20,
-              padding: 14,
-              border: "1px solid #7f1d1d",
-              background: "#3a1717",
-              color: "#fecaca",
-              borderRadius: 12,
-            }}
-          >
-            {error}
-          </div>
-        )}
-
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "1.5fr 0.95fr",
-            gap: 20,
-          }}
-        >
-          <section style={panelStyle}>
-            <div style={sectionTitleStyle}>{t.stats}</div>
+        <section style={styles.stack}>
+          <section style={styles.panel}>
+            <div style={styles.sectionTitle}>{t.stats}</div>
 
             {loading ? (
-              <div style={{ color: "#94a3b8" }}>{t.loading}</div>
+              <div style={styles.muted}>{t.loading}</div>
             ) : games.length === 0 ? (
-              <div style={{ color: "#94a3b8" }}>{t.noGames}</div>
+              <div style={styles.muted}>{t.noGames}</div>
             ) : (
-              <div style={{ display: "grid", gap: 14 }}>
+              <div style={styles.gamesList}>
                 {games.map((game) => {
                   const isSelected = game.id === selectedGameId;
                   const cardOdds = getBestOdds(game, t);
@@ -635,38 +605,21 @@ export default function Page() {
                       key={game.id}
                       onClick={() => setSelectedGameId(game.id)}
                       style={{
-                        ...gameCardStyle,
-                        border: isSelected ? "2px solid #22c55e" : "1px solid #3b82f6",
+                        ...styles.gameCard,
                         background: isSelected ? "#1d4ed8" : "#1e3a8a",
-                        textAlign: "left",
-                        cursor: "pointer",
+                        border: isSelected ? "2px solid #22c55e" : "1px solid #3b82f6",
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 800,
-                          marginBottom: 8,
-                          color: "#ffffff",
-                        }}
-                      >
+                      <div style={styles.gameTitle}>
                         {game.home} vs {game.away}
                       </div>
 
-                      <div
-                        style={{
-                          fontSize: 14,
-                          color: "#dbeafe",
-                          marginBottom: 12,
-                        }}
-                      >
-                        {formatDate(game.commenceTime)}
-                      </div>
+                      <div style={styles.gameDate}>{formatDate(game.commenceTime)}</div>
 
-                      <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                      <div style={styles.pills}>
                         {cardOdds.length > 0 ? (
                           cardOdds.map((odd) => (
-                            <div key={`${game.id}-${odd.name}`} style={pillStyle}>
+                            <div key={`${game.id}-${odd.name}`} style={styles.pill}>
                               <strong>{odd.name}</strong>: {odd.price}{" "}
                               <span style={{ color: "#334155" }}>({odd.bookmaker})</span>
                             </div>
@@ -682,317 +635,450 @@ export default function Page() {
             )}
           </section>
 
-          <aside style={{ display: "grid", gap: 20 }}>
-            <section style={panelStyle}>
-              <div style={sectionTitleStyle}>{t.bankrollTitle}</div>
+          <section style={styles.panel}>
+            <div style={styles.sectionTitle}>{t.bankrollTitle}</div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+            <div style={styles.fieldWrap}>
+              <div style={styles.label}>{t.bankroll}</div>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={bankrollInput}
+                onChange={(e) => setBankrollInput(e.target.value)}
+                style={styles.input}
+                placeholder="1000"
+              />
+            </div>
+
+            <div style={styles.muted}>
+              {t.parsedBankroll}: {bankroll.toFixed(2)} €
+            </div>
+
+            <div style={{ height: 12 }} />
+
+            <div style={styles.fieldWrap}>
+              <div style={styles.label}>{t.kellyMode}</div>
+              <select
+                value={riskMode}
+                onChange={(e) => setRiskMode(e.target.value)}
+                style={styles.select}
+              >
+                <option value="quarter">{t.quarterKelly}</option>
+                <option value="half">{t.halfKelly}</option>
+                <option value="full">{t.fullKelly}</option>
+              </select>
+            </div>
+          </section>
+
+          <section style={styles.panel}>
+            <div style={styles.sectionTitle}>{t.analysis}</div>
+
+            {!selectedGame ? (
+              <div style={styles.muted}>{t.pickGame}</div>
+            ) : (
+              <div style={styles.contentStack}>
                 <div>
-                  <div style={labelStyle}>{t.bankroll}</div>
-                  <input
-                    type="text"
-                    inputMode="decimal"
-                    value={bankrollInput}
-                    onChange={(e) => setBankrollInput(e.target.value)}
-                    style={inputStyle}
-                    placeholder="1000"
-                  />
+                  <div style={styles.analysisTitle}>
+                    {selectedGame.home} vs {selectedGame.away}
+                  </div>
+                  <div style={styles.muted}>{formatDate(selectedGame.commenceTime)}</div>
                 </div>
 
-                <div style={{ fontSize: 13, color: "#94a3b8" }}>
-                  {t.parsedBankroll}: {bankroll.toFixed(2)} €
+                <div>
+                  <div style={styles.subTitle}>{t.bestOdds}</div>
+                  <div style={styles.contentStack}>
+                    {bestOdds.length > 0 ? (
+                      bestOdds.map((odd) => (
+                        <div key={odd.name} style={styles.rowCard}>
+                          <div>{odd.name}</div>
+                          <div>
+                            <strong>{odd.price}</strong> · {odd.bookmaker}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div style={styles.muted}>{t.noBookmakerOdds}</div>
+                    )}
+                  </div>
                 </div>
 
-                <div>
-                  <div style={labelStyle}>{t.kellyMode}</div>
-                  <select
-                    value={riskMode}
-                    onChange={(e) => setRiskMode(e.target.value)}
-                    style={selectStyle}
-                  >
-                    <option value="quarter">{t.quarterKelly}</option>
-                    <option value="half">{t.halfKelly}</option>
-                    <option value="full">{t.fullKelly}</option>
-                  </select>
+                {derivedResult && (
+                  <div>
+                    <div style={styles.subTitle}>{t.stats}</div>
+                    <div style={styles.contentStack}>
+                      <div style={styles.rowCard}>
+                        <span>{t.homeWin}</span>
+                        <strong>{derivedResult.homeWinProb}%</strong>
+                      </div>
+                      <div style={styles.rowCard}>
+                        <span>{t.draw}</span>
+                        <strong>{derivedResult.drawProb}%</strong>
+                      </div>
+                      <div style={styles.rowCard}>
+                        <span>{t.awayWin}</span>
+                        <strong>{derivedResult.awayWinProb}%</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {bestCalculatedBet && stakeInfo && (
+                  <div style={styles.greenCard}>
+                    <div style={styles.subTitle}>{t.stakeSuggestion}</div>
+                    <div style={styles.contentStack}>
+                      <div>
+                        {t.outcome}: <strong>{bestCalculatedBet.outcome}</strong>
+                      </div>
+                      <div>
+                        {t.probability}: <strong>{bestCalculatedBet.probPercent}%</strong>
+                      </div>
+                      <div>
+                        {t.odds}: <strong>{bestCalculatedBet.odds}</strong>
+                      </div>
+                      <div>
+                        {t.bookmaker}: <strong>{bestCalculatedBet.bookmaker}</strong>
+                      </div>
+                      <div>
+                        {t.ev}: <strong>{bestCalculatedBet.ev.toFixed(2)}</strong>
+                      </div>
+                      <div>
+                        {t.kellyFraction}:{" "}
+                        <strong>{(stakeInfo.adjustedKelly * 100).toFixed(2)}%</strong>
+                      </div>
+                      <div>
+                        {t.suggestedStake}: <strong>{stakeInfo.stake.toFixed(2)} €</strong>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </section>
+
+          <section style={styles.panel}>
+            <div style={styles.sectionTitle}>{t.tracker}</div>
+
+            {bestCalculatedBet && stakeInfo ? (
+              <>
+                <div style={styles.buttonRow}>
+                  <button onClick={() => addBetResult("win")} style={styles.successButton}>
+                    {t.markWin}
+                  </button>
+                  <button onClick={() => addBetResult("lose")} style={styles.dangerButton}>
+                    {t.markLose}
+                  </button>
+                  <button onClick={() => addBetResult("void")} style={styles.neutralButton}>
+                    {t.markVoid}
+                  </button>
+                </div>
+
+                <div style={styles.contentStack}>
+                  <div style={styles.rowCard}>
+                    <span>{t.totalStaked}</span>
+                    <strong>{totalStaked.toFixed(2)} €</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.totalProfit}</span>
+                    <strong>{totalProfit.toFixed(2)} €</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.roi}</span>
+                    <strong>{roi.toFixed(2)}%</strong>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div style={styles.muted}>{t.pickGame}</div>
+            )}
+
+            {betHistory.length > 0 && (
+              <div style={{ marginTop: 16 }}>
+                <div style={styles.subTitle}>{t.betHistory}</div>
+                <div style={styles.contentStack}>
+                  {betHistory.slice(0, 10).map((bet) => (
+                    <div key={bet.id} style={styles.rowBlock}>
+                      <div style={{ fontWeight: 700 }}>{bet.outcome}</div>
+                      <div>{t.odds}: {bet.odds}</div>
+                      <div>{t.stake}: {bet.stake.toFixed(2)} €</div>
+                      <div>{t.status}: {bet.status}</div>
+                      <div>{t.profit}: {bet.profit.toFixed(2)} €</div>
+                    </div>
+                  ))}
                 </div>
               </div>
-            </section>
+            )}
+          </section>
 
-            <section style={panelStyle}>
-              <div style={sectionTitleStyle}>{t.analysis}</div>
+          <section style={styles.panel}>
+            <div style={styles.sectionTitle}>{t.feedback}</div>
 
-              {!selectedGame ? (
-                <div style={{ color: "#94a3b8" }}>{t.pickGame}</div>
-              ) : (
-                <div style={{ display: "grid", gap: 16 }}>
-                  <div>
-                    <div style={{ fontSize: 22, fontWeight: 700 }}>
-                      {selectedGame.home} vs {selectedGame.away}
-                    </div>
-                    <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                      {formatDate(selectedGame.commenceTime)}
-                    </div>
-                  </div>
+            <textarea
+              placeholder={t.feedbackPlaceholder}
+              value={feedback}
+              onChange={(e) => setFeedback(e.target.value)}
+              style={styles.textarea}
+            />
 
-                  <div>
-                    <div style={miniTitleStyle}>{t.bestOdds}</div>
-                    <div style={{ display: "grid", gap: 8 }}>
-                      {bestOdds.length > 0 ? (
-                        bestOdds.map((odd) => (
-                          <div
-                            key={odd.name}
-                            style={{
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 12,
-                              padding: 10,
-                              border: "1px solid #1f2937",
-                              borderRadius: 10,
-                              background: "#0f172a",
-                            }}
-                          >
-                            <div>{odd.name}</div>
-                            <div>
-                              <strong>{odd.price}</strong> · {odd.bookmaker}
-                            </div>
-                          </div>
-                        ))
-                      ) : (
-                        <div style={{ color: "#94a3b8" }}>{t.noBookmakerOdds}</div>
-                      )}
-                    </div>
-                  </div>
+            <div style={{ height: 12 }} />
 
-                  {derivedResult && (
-                    <div>
-                      <div style={miniTitleStyle}>{t.stats}</div>
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div style={statRowStyle}>
-                          <span>{t.homeWin}</span>
-                          <strong>{derivedResult.homeWinProb}%</strong>
-                        </div>
-                        <div style={statRowStyle}>
-                          <span>{t.draw}</span>
-                          <strong>{derivedResult.drawProb}%</strong>
-                        </div>
-                        <div style={statRowStyle}>
-                          <span>{t.awayWin}</span>
-                          <strong>{derivedResult.awayWinProb}%</strong>
-                        </div>
-                      </div>
-                    </div>
-                  )}
+            <input
+              placeholder={t.feedbackEmail}
+              value={feedbackEmail}
+              onChange={(e) => setFeedbackEmail(e.target.value)}
+              style={styles.input}
+            />
 
-                  {bestCalculatedBet && stakeInfo && (
-                    <div
-                      style={{
-                        border: "1px solid #1f8f5f",
-                        borderRadius: 12,
-                        padding: 14,
-                        background: "#0d1f18",
-                      }}
-                    >
-                      <div style={{ fontWeight: 700, marginBottom: 10 }}>
-                        {t.stakeSuggestion}
-                      </div>
+            <div style={{ height: 12 }} />
 
-                      <div style={{ display: "grid", gap: 8 }}>
-                        <div>
-                          {t.outcome}: <strong>{bestCalculatedBet.outcome}</strong>
-                        </div>
-                        <div>
-                          {t.probability}: <strong>{bestCalculatedBet.probPercent}%</strong>
-                        </div>
-                        <div>
-                          {t.odds}: <strong>{bestCalculatedBet.odds}</strong>
-                        </div>
-                        <div>
-                          {t.bookmaker}: <strong>{bestCalculatedBet.bookmaker}</strong>
-                        </div>
-                        <div>
-                          {t.ev}: <strong>{bestCalculatedBet.ev.toFixed(2)}</strong>
-                        </div>
-                        <div>
-                          {t.kellyFraction}:{" "}
-                          <strong>{(stakeInfo.adjustedKelly * 100).toFixed(2)}%</strong>
-                        </div>
-                        <div>
-                          {t.suggestedStake}:{" "}
-                          <strong>{stakeInfo.stake.toFixed(2)} €</strong>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </section>
+            <button onClick={sendFeedback} style={styles.primaryButton}>
+              {t.sendFeedback}
+            </button>
 
-            <section style={panelStyle}>
-              <div style={sectionTitleStyle}>{t.tracker}</div>
-
-              {bestCalculatedBet && stakeInfo ? (
-                <>
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
-                    <button onClick={() => addBetResult("win")} style={successButtonStyle}>
-                      {t.markWin}
-                    </button>
-                    <button onClick={() => addBetResult("lose")} style={dangerButtonStyle}>
-                      {t.markLose}
-                    </button>
-                    <button onClick={() => addBetResult("void")} style={neutralButtonStyle}>
-                      {t.markVoid}
-                    </button>
-                  </div>
-
-                  <div style={{ display: "grid", gap: 8 }}>
-                    <div style={statRowStyle}>
-                      <span>{t.totalStaked}</span>
-                      <strong>{totalStaked.toFixed(2)} €</strong>
-                    </div>
-                    <div style={statRowStyle}>
-                      <span>{t.totalProfit}</span>
-                      <strong>{totalProfit.toFixed(2)} €</strong>
-                    </div>
-                    <div style={statRowStyle}>
-                      <span>{t.roi}</span>
-                      <strong>{roi.toFixed(2)}%</strong>
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div style={{ color: "#94a3b8" }}>{t.pickGame}</div>
-              )}
-
-              {betHistory.length > 0 && (
-                <div style={{ marginTop: 16 }}>
-                  <div style={{ fontWeight: 700, marginBottom: 10 }}>{t.betHistory}</div>
-
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {betHistory.slice(0, 10).map((bet) => (
-                      <div
-                        key={bet.id}
-                        style={{
-                          border: "1px solid #1f2937",
-                          borderRadius: 10,
-                          padding: 12,
-                          background: "#0f172a",
-                        }}
-                      >
-                        <div style={{ fontWeight: 700, marginBottom: 6 }}>{bet.outcome}</div>
-                        <div>{t.odds}: {bet.odds}</div>
-                        <div>{t.stake}: {bet.stake.toFixed(2)} €</div>
-                        <div>{t.status}: {bet.status}</div>
-                        <div>{t.profit}: {bet.profit.toFixed(2)} €</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </section>
-          </aside>
-        </div>
+            {feedbackStatus && <div style={{ ...styles.muted, marginTop: 12 }}>{feedbackStatus}</div>}
+          </section>
+        </section>
       </div>
     </main>
   );
 }
 
-const panelStyle = {
-  background: "#111827",
-  border: "1px solid #1f2937",
-  borderRadius: 16,
-  padding: 18,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
-};
-
-const sectionTitleStyle = {
-  fontSize: 18,
-  fontWeight: 800,
-  marginBottom: 14,
-};
-
-const miniTitleStyle = {
-  fontSize: 15,
-  fontWeight: 700,
-  marginBottom: 8,
-};
-
-const labelStyle = {
-  marginBottom: 8,
-  fontWeight: 600,
-  color: "#cbd5e1",
-};
-
-const inputStyle = {
-  width: "100%",
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#f8fafc",
-  outline: "none",
-};
-
-const selectStyle = {
-  minWidth: 140,
-  padding: "10px 12px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#0f172a",
-  color: "#f8fafc",
-  outline: "none",
-};
-
-const gameCardStyle = {
-  width: "100%",
-  padding: 20,
-  borderRadius: 16,
-  color: "#f8fafc",
-  boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
-};
-
-const pillStyle = {
-  padding: "8px 12px",
-  borderRadius: 999,
-  background: "#eff6ff",
-  border: "1px solid #93c5fd",
-  color: "#0f172a",
-  fontSize: 14,
-  fontWeight: 600,
-};
-
-const statRowStyle = {
-  display: "flex",
-  justifyContent: "space-between",
-  gap: 12,
-  padding: "10px 12px",
-  border: "1px solid #1f2937",
-  borderRadius: 10,
-  background: "#0f172a",
-};
-
-const successButtonStyle = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #166534",
-  background: "#14532d",
-  color: "#dcfce7",
-  cursor: "pointer",
-};
-
-const dangerButtonStyle = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #991b1b",
-  background: "#7f1d1d",
-  color: "#fee2e2",
-  cursor: "pointer",
-};
-
-const neutralButtonStyle = {
-  padding: "10px 14px",
-  borderRadius: 10,
-  border: "1px solid #334155",
-  background: "#1e293b",
-  color: "#e2e8f0",
-  cursor: "pointer",
+const styles = {
+  page: {
+    minHeight: "100vh",
+    background: "#0b1020",
+    color: "#f8fafc",
+    padding: 16,
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+  container: {
+    maxWidth: 720,
+    margin: "0 auto",
+  },
+  header: {
+    display: "grid",
+    gap: 20,
+    marginBottom: 20,
+  },
+  title: {
+    margin: 0,
+    fontSize: 56,
+    lineHeight: 0.95,
+    fontWeight: 900,
+    letterSpacing: 1,
+  },
+  subtitle: {
+    color: "#94a3b8",
+    marginTop: 10,
+    fontSize: 16,
+  },
+  filters: {
+    display: "grid",
+    gap: 14,
+  },
+  fieldWrap: {
+    display: "grid",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    color: "#cbd5e1",
+    fontWeight: 600,
+  },
+  select: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "#f8fafc",
+    outline: "none",
+    fontSize: 16,
+  },
+  input: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "#f8fafc",
+    outline: "none",
+    fontSize: 16,
+    boxSizing: "border-box",
+  },
+  textarea: {
+    width: "100%",
+    minHeight: 120,
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid #334155",
+    background: "#0f172a",
+    color: "#f8fafc",
+    outline: "none",
+    fontSize: 16,
+    boxSizing: "border-box",
+    resize: "vertical",
+  },
+  stack: {
+    display: "grid",
+    gap: 16,
+  },
+  panel: {
+    background: "#111827",
+    border: "1px solid #1f2937",
+    borderRadius: 24,
+    padding: 18,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+    marginBottom: 14,
+  },
+  subTitle: {
+    fontSize: 16,
+    fontWeight: 700,
+    marginBottom: 10,
+  },
+  muted: {
+    color: "#94a3b8",
+    fontSize: 16,
+  },
+  gamesList: {
+    display: "grid",
+    gap: 14,
+  },
+  gameCard: {
+    width: "100%",
+    padding: 18,
+    borderRadius: 20,
+    color: "#f8fafc",
+    boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
+    textAlign: "left",
+  },
+  gameTitle: {
+    fontSize: 20,
+    fontWeight: 800,
+    marginBottom: 8,
+    color: "#ffffff",
+  },
+  gameDate: {
+    fontSize: 14,
+    color: "#dbeafe",
+    marginBottom: 12,
+  },
+  pills: {
+    display: "flex",
+    gap: 10,
+    flexWrap: "wrap",
+  },
+  pill: {
+    padding: "8px 12px",
+    borderRadius: 999,
+    background: "#eff6ff",
+    border: "1px solid #93c5fd",
+    color: "#0f172a",
+    fontSize: 14,
+    fontWeight: 600,
+  },
+  contentStack: {
+    display: "grid",
+    gap: 10,
+  },
+  rowCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 14px",
+    border: "1px solid #1f2937",
+    borderRadius: 14,
+    background: "#0f172a",
+  },
+  rowBlock: {
+    border: "1px solid #1f2937",
+    borderRadius: 14,
+    padding: 12,
+    background: "#0f172a",
+    display: "grid",
+    gap: 4,
+  },
+  greenCard: {
+    border: "1px solid #1f8f5f",
+    borderRadius: 16,
+    padding: 16,
+    background: "#0d1f18",
+  },
+  buttonRow: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    marginBottom: 14,
+  },
+  successButton: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid #166534",
+    background: "#14532d",
+    color: "#dcfce7",
+    cursor: "pointer",
+    fontSize: 16,
+  },
+  dangerButton: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid #991b1b",
+    background: "#7f1d1d",
+    color: "#fee2e2",
+    cursor: "pointer",
+    fontSize: 16,
+  },
+  neutralButton: {
+    padding: "12px 14px",
+    borderRadius: 14,
+    border: "1px solid #334155",
+    background: "#1e293b",
+    color: "#e2e8f0",
+    cursor: "pointer",
+    fontSize: 16,
+  },
+  primaryButton: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "none",
+    background: "#2563eb",
+    color: "white",
+    cursor: "pointer",
+    fontSize: 16,
+    fontWeight: 700,
+  },
+  infoBanner: {
+    marginBottom: 12,
+    padding: 14,
+    border: "1px solid #334155",
+    background: "#1e293b",
+    color: "#cbd5e1",
+    borderRadius: 14,
+  },
+  warnBanner: {
+    marginBottom: 12,
+    padding: 14,
+    border: "1px solid #7c5a10",
+    background: "#3a2a00",
+    color: "#f5c451",
+    borderRadius: 14,
+  },
+  errorBanner: {
+    marginBottom: 12,
+    padding: 14,
+    border: "1px solid #7f1d1d",
+    background: "#3a1717",
+    color: "#fecaca",
+    borderRadius: 14,
+  },
+  analysisTitle: {
+    fontSize: 24,
+    fontWeight: 800,
+    lineHeight: 1.2,
+  },
 };
