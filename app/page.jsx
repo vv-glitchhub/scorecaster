@@ -612,7 +612,7 @@ export default function Page() {
                       style={{
                         ...gameCardStyle,
                         border: isSelected ? "1px solid #22c55e" : "1px solid #1f2937",
-                        background: isSelected ? "#0f172a" : "#111827",
+                        background: isSelected ? "#1d4ed8" : "#1e3a8a",
                         textAlign: "left",
                         cursor: "pointer",
                       }}
