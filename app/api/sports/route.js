@@ -6,7 +6,15 @@ function getFallbackSports() {
       title: "NHL",
       description: "National Hockey League",
       active: true,
-      has_outrights: false
+      has_outrights: false,
+    },
+    {
+      key: "icehockey_liiga",
+      group: "Ice Hockey",
+      title: "Liiga",
+      description: "Finnish Liiga",
+      active: true,
+      has_outrights: false,
     },
     {
       key: "basketball_nba",
@@ -14,17 +22,29 @@ function getFallbackSports() {
       title: "NBA",
       description: "National Basketball Association",
       active: true,
-      has_outrights: false
+      has_outrights: false,
     },
     {
       key: "soccer_epl",
       group: "Soccer",
-      title: "EPL",
+      title: "Premier League",
       description: "English Premier League",
       active: true,
-      has_outrights: false
-    }
+      has_outrights: false,
+    },
   ];
+}
+
+function isAllowedSport(sport) {
+  if (!sport?.active) return false;
+
+  const blockedGroups = ["Politics", "Awards", "Entertainment"];
+  if (blockedGroups.includes(sport.group)) return false;
+
+  const allowedGroups = ["Ice Hockey", "Basketball", "Soccer"];
+  if (!allowedGroups.includes(sport.group)) return false;
+
+  return true;
 }
 
 export async function GET() {
@@ -32,7 +52,7 @@ export async function GET() {
     const res = await fetch(
       `https://api.the-odds-api.com/v4/sports/?apiKey=${process.env.ODDS_API_KEY}`,
       {
-        next: { revalidate: 3600 }
+        next: { revalidate: 60 * 60 * 24 * 3 },
       }
     );
 
@@ -42,23 +62,23 @@ export async function GET() {
       return Response.json({
         fallback: true,
         data: getFallbackSports(),
-        error: data?.message || "Failed to fetch sports"
+        error: data?.message || "Failed to fetch sports",
       });
     }
 
     const filtered = Array.isArray(data)
-      ? data.filter((sport) => sport.active)
+      ? data.filter(isAllowedSport)
       : [];
 
     return Response.json({
       fallback: false,
-      data: filtered
+      data: filtered,
     });
   } catch (error) {
     return Response.json({
       fallback: true,
       data: getFallbackSports(),
-      error: "Failed to fetch sports"
+      error: "Failed to fetch sports",
     });
   }
 }
