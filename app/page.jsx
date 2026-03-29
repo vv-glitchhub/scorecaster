@@ -268,6 +268,9 @@ function formatDate(dateString) {
 }
 
 export default function Page() {
+  const [sports, setSports] = useState([]);
+const [sportsFallback, setSportsFallback] = useState(false);
+  
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
 
