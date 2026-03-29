@@ -916,11 +916,13 @@ const gameCardStyle = {
 };
 
 const pillStyle = {
-  padding: "8px 10px",
+  padding: "8px 12px",
   borderRadius: 999,
-  background: "#0b1220",
-  border: "1px solid #243042",
-  fontSize: 13,
+  background: "#eff6ff",
+  border: "1px solid #93c5fd",
+  color: "#0f172a",
+  fontSize: 14,
+  fontWeight: 600,
 };
 
 const statRowStyle = {
