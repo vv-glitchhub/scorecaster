@@ -34,8 +34,9 @@ const TEXT = {
     whatIsThis: "Mikä tämä on?",
     infoTitle: "Mitä sovellus tekee?",
     infoBody:
-      "Scorecaster näyttää tulevia otteluita, vertailee kertoimia ja arvioi parhaan kohteen saatavilla olevan datan perusteella. Sovellus käyttää otteludataa, bookmaker-kertoimia ja niistä johdettuja todennäköisyyksiä. Osa näkymästä voi käyttää fallback-dataa, jos live-dataa ei ole saatavilla.",
+      "Scorecaster näyttää tulevia otteluita, vertailee kertoimia ja arvioi parhaan kohteen saatavilla olevan datan perusteella.",
     close: "Sulje",
+    debug: "Debug",
   },
   en: {
     title: "SCORECASTER",
@@ -68,8 +69,9 @@ const TEXT = {
     whatIsThis: "What is this?",
     infoTitle: "What does this app do?",
     infoBody:
-      "Scorecaster shows upcoming games, compares odds, and estimates the best available betting option based on available data. The app uses game data, bookmaker odds, and derived probabilities. Some views may use fallback data if live data is unavailable.",
+      "Scorecaster shows upcoming games, compares odds, and estimates the best available betting option based on available data.",
     close: "Close",
+    debug: "Debug",
   },
 };
 
@@ -141,6 +143,7 @@ function normalizeProbabilities(bestOdds, game) {
   ];
 
   const total = probs.reduce((a, b) => a + b, 0);
+
   if (total <= 0) {
     return { home: 50, draw: 0, away: 50 };
   }
@@ -217,6 +220,17 @@ export default function Page() {
   const [sessionId, setSessionId] = useState("");
   const [visitorId, setVisitorId] = useState("");
 
+  const [debugInfo, setDebugInfo] = useState({
+    selectedGroup: "icehockey",
+    selectedSportKey: "icehockey_nhl",
+    loading: true,
+    gamesCount: 0,
+    fallback: null,
+    reason: null,
+    error: null,
+    rawResponse: null,
+  });
+
   const bankroll = useMemo(() => {
     const parsed = Number(bankrollInput.replace(",", "."));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -279,27 +293,67 @@ export default function Page() {
       if (!selectedSportKey) {
         setGames([]);
         setLoading(false);
+        setDebugInfo((prev) => ({
+          ...prev,
+          selectedGroup,
+          selectedSportKey,
+          loading: false,
+          gamesCount: 0,
+          error: "No sport key selected",
+        }));
         return;
       }
 
       setLoading(true);
+      setDebugInfo((prev) => ({
+        ...prev,
+        selectedGroup,
+        selectedSportKey,
+        loading: true,
+        error: null,
+      }));
 
       try {
         const res = await fetch(`/api/odds?sport=${selectedSportKey}`);
         const data = await res.json();
+
+        console.log("ODDS RESPONSE:", data);
+
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
         setSelectedGameId(list[0]?.id || "");
-      } catch {
+
+        setDebugInfo({
+          selectedGroup,
+          selectedSportKey,
+          loading: false,
+          gamesCount: list.length,
+          fallback: data.fallback ?? null,
+          reason: data.reason ?? null,
+          error: null,
+          rawResponse: data,
+        });
+      } catch (error) {
         setGames([]);
         setSelectedGameId("");
+
+        setDebugInfo({
+          selectedGroup,
+          selectedSportKey,
+          loading: false,
+          gamesCount: 0,
+          fallback: null,
+          reason: null,
+          error: String(error),
+          rawResponse: null,
+        });
       } finally {
         setLoading(false);
       }
     }
 
     loadGames();
-  }, [selectedSportKey]);
+  }, [selectedSportKey, selectedGroup]);
 
   const selectedGame = useMemo(() => {
     return games.find((g) => g.id === selectedGameId) || null;
@@ -344,24 +398,6 @@ export default function Page() {
       setFeedback("");
       setFeedbackEmail("");
       setStatus(t.sent);
-
-      try {
-        await fetch("/api/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event_name: "feedback_sent",
-            page_path: "/",
-            session_id: sessionId,
-            visitor_id: visitorId,
-            selected_group: selectedGroup,
-            selected_sport_key: selectedSportKey,
-            selected_game: selectedGame
-              ? `${selectedGame.home_team} vs ${selectedGame.away_team}`
-              : null,
-          }),
-        });
-      } catch {}
     } catch {
       setStatus(t.failed);
     } finally {
@@ -588,6 +624,26 @@ export default function Page() {
           {status ? <div style={styles.status}>{status}</div> : null}
         </section>
 
+        <section style={styles.debugCard}>
+          <h2 style={styles.cardTitle}>{t.debug}</h2>
+          <div style={styles.debugGrid}>
+            <div><strong>selectedGroup:</strong> {debugInfo.selectedGroup}</div>
+            <div><strong>selectedSportKey:</strong> {debugInfo.selectedSportKey}</div>
+            <div><strong>loading:</strong> {String(debugInfo.loading)}</div>
+            <div><strong>gamesCount:</strong> {debugInfo.gamesCount}</div>
+            <div><strong>fallback:</strong> {String(debugInfo.fallback)}</div>
+            <div><strong>reason:</strong> {String(debugInfo.reason)}</div>
+            <div><strong>error:</strong> {String(debugInfo.error)}</div>
+          </div>
+
+          <div style={{ marginTop: 12 }}>
+            <strong>rawResponse:</strong>
+            <pre style={styles.pre}>
+              {JSON.stringify(debugInfo.rawResponse, null, 2)}
+            </pre>
+          </div>
+        </section>
+
         {infoOpen && (
           <div style={styles.modalOverlay} onClick={() => setInfoOpen(false)}>
             <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
@@ -655,6 +711,13 @@ const styles = {
   card: {
     background: "#0f172a",
     border: "1px solid #1e293b",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+  },
+  debugCard: {
+    background: "#111827",
+    border: "1px solid #f59e0b",
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
@@ -771,6 +834,23 @@ const styles = {
     borderRadius: 16,
     padding: 14,
     background: "#0d1f18",
+  },
+  debugGrid: {
+    display: "grid",
+    gap: 8,
+    color: "#e5e7eb",
+    fontSize: 14,
+  },
+  pre: {
+    whiteSpace: "pre-wrap",
+    wordBreak: "break-word",
+    background: "#020617",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: 12,
+    color: "#cbd5e1",
+    fontSize: 12,
+    marginTop: 8,
   },
   modalOverlay: {
     position: "fixed",
