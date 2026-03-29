@@ -34,10 +34,10 @@ export async function POST(req) {
       console.error("feedback insert error:", dbError);
     }
 
-    const emailResult = await resend.emails.send({
-      from: "Scorecaster <onboarding@resend.dev>",
+    const result = await resend.emails.send({
+      from: "onboarding@resend.dev",
       to: process.env.EMAIL_TO,
-      subject: `Scorecaster palaute - ${new Date().toLocaleString("fi-FI")}`,
+      subject: "Uusi palaute Scorecasterista",
       text: [
         `Viesti: ${message}`,
         `Laji: ${selectedGroup || "-"}`,
@@ -47,17 +47,18 @@ export async function POST(req) {
       ].join("\n"),
     });
 
-    if (emailResult?.error) {
-      console.error("resend error:", emailResult.error);
+    console.error("RESEND RESULT:", JSON.stringify(result, null, 2));
+
+    if (result?.error) {
       return Response.json(
-        { error: "Email send failed", details: emailResult.error },
+        { error: "Email send failed", details: result.error },
         { status: 500 }
       );
     }
 
     return Response.json({
       success: true,
-      emailId: emailResult?.data?.id || null,
+      emailId: result?.data?.id || null,
     });
   } catch (error) {
     console.error("feedback route error:", error);
