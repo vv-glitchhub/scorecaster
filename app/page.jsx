@@ -20,6 +20,7 @@ const TEXT = {
     parsedBankroll: "Tulkittu bankroll",
     feedback: "Palaute",
     feedbackPlaceholder: "Kirjoita palaute...",
+    feedbackEmail: "Sähköposti (valinnainen)",
     send: "Lähetä",
     sending: "Lähetetään...",
     sent: "✅ Lähetetty!",
@@ -53,6 +54,7 @@ const TEXT = {
     parsedBankroll: "Parsed bankroll",
     feedback: "Feedback",
     feedbackPlaceholder: "Write feedback...",
+    feedbackEmail: "Email (optional)",
     send: "Send",
     sending: "Sending...",
     sent: "✅ Sent!",
@@ -189,8 +191,8 @@ function calculateStake(bankroll, edge) {
   return Number((bankroll * Math.min(edge, 0.03)).toFixed(2));
 }
 
-function createSessionId() {
-  return `session_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+function createId(prefix) {
+  return `${prefix}_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 }
 
 export default function Page() {
@@ -207,11 +209,13 @@ export default function Page() {
   const [bankrollInput, setBankrollInput] = useState("1000");
 
   const [feedback, setFeedback] = useState("");
+  const [feedbackEmail, setFeedbackEmail] = useState("");
   const [sending, setSending] = useState(false);
   const [status, setStatus] = useState("");
 
   const [infoOpen, setInfoOpen] = useState(false);
   const [sessionId, setSessionId] = useState("");
+  const [visitorId, setVisitorId] = useState("");
 
   const bankroll = useMemo(() => {
     const parsed = Number(bankrollInput.replace(",", "."));
@@ -221,13 +225,23 @@ export default function Page() {
   const currentLeagues = LEAGUES[selectedGroup] || [];
 
   useEffect(() => {
-    const stored = localStorage.getItem("scorecaster_session_id");
-    if (stored) {
-      setSessionId(stored);
+    const storedSession = localStorage.getItem("scorecaster_session_id");
+    const storedVisitor = localStorage.getItem("scorecaster_visitor_id");
+
+    if (storedSession) {
+      setSessionId(storedSession);
     } else {
-      const id = createSessionId();
+      const id = createId("session");
       localStorage.setItem("scorecaster_session_id", id);
       setSessionId(id);
+    }
+
+    if (storedVisitor) {
+      setVisitorId(storedVisitor);
+    } else {
+      const id = createId("visitor");
+      localStorage.setItem("scorecaster_visitor_id", id);
+      setVisitorId(id);
     }
   }, []);
 
@@ -239,7 +253,8 @@ export default function Page() {
 
   useEffect(() => {
     async function trackPageView() {
-      if (!sessionId) return;
+      if (!sessionId || !visitorId) return;
+
       try {
         await fetch("/api/track", {
           method: "POST",
@@ -248,6 +263,7 @@ export default function Page() {
             event_name: "page_view",
             page_path: "/",
             session_id: sessionId,
+            visitor_id: visitorId,
             selected_group: selectedGroup,
             selected_sport_key: selectedSportKey,
           }),
@@ -256,7 +272,7 @@ export default function Page() {
     }
 
     trackPageView();
-  }, [sessionId, selectedGroup, selectedSportKey]);
+  }, [sessionId, visitorId, selectedGroup, selectedSportKey]);
 
   useEffect(() => {
     async function loadGames() {
@@ -313,17 +329,20 @@ export default function Page() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: feedback,
+          email: feedbackEmail,
           selectedSportKey,
           selectedGroup,
           bankroll,
           selectedGame,
           sessionId,
+          visitorId,
         }),
       });
 
       if (!res.ok) throw new Error("Failed");
 
       setFeedback("");
+      setFeedbackEmail("");
       setStatus(t.sent);
 
       try {
@@ -334,6 +353,7 @@ export default function Page() {
             event_name: "feedback_sent",
             page_path: "/",
             session_id: sessionId,
+            visitor_id: visitorId,
             selected_group: selectedGroup,
             selected_sport_key: selectedSportKey,
             selected_game: selectedGame
@@ -360,6 +380,7 @@ export default function Page() {
           event_name: "game_selected",
           page_path: "/",
           session_id: sessionId,
+          visitor_id: visitorId,
           selected_group: selectedGroup,
           selected_sport_key: selectedSportKey,
           selected_game: `${game.home_team} vs ${game.away_team}`,
@@ -545,6 +566,13 @@ export default function Page() {
 
         <section style={styles.card}>
           <h2 style={styles.cardTitle}>{t.feedback}</h2>
+
+          <input
+            value={feedbackEmail}
+            onChange={(e) => setFeedbackEmail(e.target.value)}
+            placeholder={t.feedbackEmail}
+            style={{ ...styles.input, marginBottom: 12 }}
+          />
 
           <textarea
             value={feedback}
