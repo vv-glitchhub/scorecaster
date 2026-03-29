@@ -41,7 +41,7 @@ function getFallbackGames(sport) {
         sport_key: "icehockey_nhl",
         home_team: "Edmonton Oilers",
         away_team: "Colorado Avalanche",
-        commence_time: new Date(now + 26 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 28 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Edmonton Oilers", "Colorado Avalanche", 1.95, 1.95),
           createBookmaker("DemoOdds", "Edmonton Oilers", "Colorado Avalanche", 2.0, 1.91),
@@ -52,7 +52,7 @@ function getFallbackGames(sport) {
         sport_key: "icehockey_nhl",
         home_team: "Toronto Maple Leafs",
         away_team: "Florida Panthers",
-        commence_time: new Date(now + 50 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 52 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Toronto Maple Leafs", "Florida Panthers", 2.05, 1.85),
           createBookmaker("DemoOdds", "Toronto Maple Leafs", "Florida Panthers", 2.1, 1.83),
@@ -88,7 +88,7 @@ function getFallbackGames(sport) {
         sport_key: "icehockey_liiga",
         home_team: "TPS",
         away_team: "Lukko",
-        commence_time: new Date(now + 52 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 50 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "TPS", "Lukko", 2.4, 1.62),
           createBookmaker("DemoOdds", "TPS", "Lukko", 2.35, 1.65),
@@ -113,7 +113,7 @@ function getFallbackGames(sport) {
         sport_key: "basketball_nba",
         home_team: "Denver Nuggets",
         away_team: "Phoenix Suns",
-        commence_time: new Date(now + 28 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 30 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Denver Nuggets", "Phoenix Suns", 1.87, 2.0),
           createBookmaker("DemoOdds", "Denver Nuggets", "Phoenix Suns", 1.9, 1.96),
@@ -172,6 +172,14 @@ export async function GET(req) {
     if (data?.error_code === "OUT_OF_USAGE_CREDITS") {
       return Response.json({
         error: "API quota exceeded",
+        fallback: true,
+        sport,
+        data: getFallbackGames(sport),
+      });
+    }
+
+    if (!Array.isArray(data) || data.length === 0) {
+      return Response.json({
         fallback: true,
         sport,
         data: getFallbackGames(sport),
