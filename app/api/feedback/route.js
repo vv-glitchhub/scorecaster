@@ -6,7 +6,6 @@ export async function POST(req) {
   try {
     const {
       message,
-      email,
       selectedSportKey,
       selectedGroup,
       selectedGame,
@@ -17,33 +16,32 @@ export async function POST(req) {
       return Response.json({ error: "Message required" }, { status: 400 });
     }
 
-    const result = await resend.emails.send({
-      from: "Scorecaster <onboarding@resend.dev>",
+    await resend.emails.send({
+      from: "onboarding@resend.dev", // 🔥 tärkeä
       to: process.env.EMAIL_TO,
-      subject: `📩 Scorecaster Feedback ${new Date().toLocaleString()}`,
+      subject: "Scorecaster palaute",
       html: `
-        <h2>New Scorecaster feedback</h2>
-
-        <p><strong>Message:</strong></p>
+        <h2>Uusi palaute</h2>
         <p>${message}</p>
 
         <hr />
 
-        <p><strong>Sender email:</strong> ${email || "Not provided"}</p>
-        <p><strong>Sport group:</strong> ${selectedGroup || "-"}</p>
-        <p><strong>League key:</strong> ${selectedSportKey || "-"}</p>
-        <p><strong>Bankroll:</strong> ${bankroll ?? "-"}</p>
-        <p><strong>Selected game:</strong> ${
-          selectedGame ? `${selectedGame.home} vs ${selectedGame.away}` : "-"
+        <p><b>Laji:</b> ${selectedGroup || "-"}</p>
+        <p><b>Liiga:</b> ${selectedSportKey || "-"}</p>
+        <p><b>Bankroll:</b> ${bankroll ?? "-"}</p>
+        <p><b>Ottelu:</b> ${
+          selectedGame
+            ? `${selectedGame.home_team} vs ${selectedGame.away_team}`
+            : "-"
         }</p>
       `,
     });
 
-    return Response.json({ success: true, result });
+    return Response.json({ success: true });
   } catch (error) {
-    console.error("Feedback email failed:", error);
+    console.error(error);
     return Response.json(
-      { error: "Failed to send email" },
+      { error: "Email failed" },
       { status: 500 }
     );
   }
