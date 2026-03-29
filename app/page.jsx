@@ -1,6 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import {
+  getBestOdds,
+  getValueBet,
+  getStakeFromKelly,
+} from "../lib/value-model";
 
 const TEXT = {
   fi: {
@@ -24,14 +29,17 @@ const TEXT = {
     noGames: "Otteluita ei löytynyt",
     bestOdds: "Parhaat kertoimet",
     bestBet: "Paras kohde",
-    probability: "Todennäköisyys",
+    probability: "Mallin todennäköisyys",
+    marketProbability: "Markkinan todennäköisyys",
     odds: "Kerroin",
     bookmaker: "Vedonvälittäjä",
     edge: "Edge",
+    expectedValue: "Odotusarvo",
+    quarterKelly: "Quarter Kelly",
     suggestedStake: "Suositeltu panos",
     info: "Info",
     infoText:
-      "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää yksinkertaisen best bet -näkymän. Jos live-dataa ei saada, API voi käyttää fallback-dataa.",
+      "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää value bet -näkymän markkinan ja mallin perusteella. Jos live-dataa ei saada, API voi käyttää fallback-dataa.",
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
@@ -57,14 +65,17 @@ const TEXT = {
     noGames: "No games found",
     bestOdds: "Best odds",
     bestBet: "Best bet",
-    probability: "Probability",
+    probability: "Model probability",
+    marketProbability: "Market probability",
     odds: "Odds",
     bookmaker: "Bookmaker",
     edge: "Edge",
+    expectedValue: "Expected value",
+    quarterKelly: "Quarter Kelly",
     suggestedStake: "Suggested stake",
     info: "Info",
     infoText:
-      "Scorecaster shows games, compares odds, and displays a simple best bet view. If live data is unavailable, the API may return fallback data.",
+      "Scorecaster shows games, compares odds, and displays a value bet view based on market odds and a simple model. If live data is unavailable, the API may return fallback data.",
     close: "Close",
     noOdds: "No odds available",
     outcome: "Outcome",
@@ -97,92 +108,6 @@ function getLeagueLabel(league, lang) {
   return lang === "fi" ? league.fi : league.en;
 }
 
-function getBestOdds(game) {
-  if (!game?.bookmakers || !Array.isArray(game.bookmakers)) return [];
-
-  const best = {};
-
-  for (const bookmaker of game.bookmakers) {
-    const market = bookmaker?.markets?.find((m) => m.key === "h2h");
-    if (!market?.outcomes) continue;
-
-    for (const outcome of market.outcomes) {
-      const price = Number(outcome.price || 0);
-      if (!price) continue;
-
-      if (!best[outcome.name] || price > best[outcome.name].price) {
-        best[outcome.name] = {
-          name: outcome.name,
-          price,
-          bookmaker: bookmaker.title || "-",
-        };
-      }
-    }
-  }
-
-  return Object.values(best);
-}
-
-function impliedProbability(odds) {
-  const value = Number(odds || 0);
-  if (value <= 1) return 0;
-  return 1 / value;
-}
-
-function getBestBet(game) {
-  if (!game) return null;
-
-  const bestOdds = getBestOdds(game);
-  if (!bestOdds.length) return null;
-
-  const home = bestOdds.find((o) => o.name === game.home_team);
-  const away = bestOdds.find((o) => o.name === game.away_team);
-  const draw = bestOdds.find((o) => o.name === "Draw");
-
-  const probs = [
-    impliedProbability(home?.price),
-    impliedProbability(draw?.price),
-    impliedProbability(away?.price),
-  ];
-
-  const total = probs.reduce((sum, p) => sum + p, 0);
-
-  const normalized = {
-    home: total > 0 ? (probs[0] / total) * 100 : 50,
-    draw: total > 0 ? (probs[1] / total) * 100 : 0,
-    away: total > 0 ? (probs[2] / total) * 100 : 50,
-  };
-
-  const options = [
-    {
-      outcome: game.home_team,
-      probability: normalized.home,
-      odds: home?.price || 0,
-      bookmaker: home?.bookmaker || "-",
-    },
-    {
-      outcome: "Draw",
-      probability: normalized.draw,
-      odds: draw?.price || 0,
-      bookmaker: draw?.bookmaker || "-",
-    },
-    {
-      outcome: game.away_team,
-      probability: normalized.away,
-      odds: away?.price || 0,
-      bookmaker: away?.bookmaker || "-",
-    },
-  ]
-    .filter((item) => item.odds > 1)
-    .map((item) => ({
-      ...item,
-      edge: (item.probability / 100) * item.odds - 1,
-    }))
-    .sort((a, b) => b.edge - a.edge);
-
-  return options[0] || null;
-}
-
 function formatDate(value) {
   if (!value) return "-";
   try {
@@ -190,11 +115,6 @@ function formatDate(value) {
   } catch {
     return value;
   }
-}
-
-function suggestedStake(bankroll, edge) {
-  if (!bankroll || edge <= 0) return 0;
-  return Number((bankroll * Math.min(edge, 0.03)).toFixed(2));
 }
 
 export default function Page() {
@@ -269,7 +189,7 @@ export default function Page() {
   }, [selectedGame]);
 
   const bestBet = useMemo(() => {
-    return selectedGame ? getBestBet(selectedGame) : null;
+    return selectedGame ? getValueBet(selectedGame) : null;
   }, [selectedGame]);
 
   async function sendFeedback() {
@@ -435,7 +355,11 @@ export default function Page() {
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.probability}</span>
-                        <strong>{bestBet.probability.toFixed(1)}%</strong>
+                        <strong>{(bestBet.modelProb * 100).toFixed(1)}%</strong>
+                      </div>
+                      <div style={styles.rowCard}>
+                        <span>{t.marketProbability}</span>
+                        <strong>{(bestBet.marketProb * 100).toFixed(1)}%</strong>
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.odds}</span>
@@ -447,11 +371,21 @@ export default function Page() {
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.edge}</span>
-                        <strong>{bestBet.edge.toFixed(3)}</strong>
+                        <strong>{(bestBet.edge * 100).toFixed(2)}%</strong>
+                      </div>
+                      <div style={styles.rowCard}>
+                        <span>{t.expectedValue}</span>
+                        <strong>{(bestBet.ev * 100).toFixed(2)}%</strong>
+                      </div>
+                      <div style={styles.rowCard}>
+                        <span>{t.quarterKelly}</span>
+                        <strong>{(bestBet.kelly * 0.25 * 100).toFixed(2)}%</strong>
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.suggestedStake}</span>
-                        <strong>{suggestedStake(bankroll, bestBet.edge).toFixed(2)} €</strong>
+                        <strong>
+                          {getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €
+                        </strong>
                       </div>
                     </div>
                   </div>
