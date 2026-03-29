@@ -1,184 +1,197 @@
-function createBookmaker(title, homeTeam, awayTeam, homePrice, awayPrice, drawPrice = null) {
+function futureIso(daysAhead = 0, hour = 18) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysAhead);
+  d.setHours(hour, 0, 0, 0);
+  return d.toISOString();
+}
+
+function createGame(id, sportKey, home, away, commenceTime, homeOdds, awayOdds, drawOdds = null) {
   const outcomes = [
-    { name: homeTeam, price: homePrice },
-    { name: awayTeam, price: awayPrice },
+    { name: home, price: homeOdds },
+    { name: away, price: awayOdds },
   ];
 
-  if (drawPrice) {
-    outcomes.splice(1, 0, { name: "Draw", price: drawPrice });
+  if (drawOdds !== null) {
+    outcomes.splice(1, 0, { name: "Draw", price: drawOdds });
   }
 
   return {
-    key: title.toLowerCase().replace(/\s+/g, "-"),
-    title,
-    markets: [
+    id,
+    sport_key: sportKey,
+    home_team: home,
+    away_team: away,
+    commence_time: commenceTime,
+    bookmakers: [
       {
-        key: "h2h",
-        outcomes,
+        key: "samplebook",
+        title: "SampleBook",
+        markets: [
+          {
+            key: "h2h",
+            outcomes,
+          },
+        ],
+      },
+      {
+        key: "demoodds",
+        title: "DemoOdds",
+        markets: [
+          {
+            key: "h2h",
+            outcomes: outcomes.map((o, index) => ({
+              ...o,
+              price:
+                index === 0
+                  ? Number((o.price + 0.05).toFixed(2))
+                  : Number((o.price - 0.02).toFixed(2)),
+            })),
+          },
+        ],
       },
     ],
   };
 }
 
 function getFallbackGames(sport) {
-  const now = Date.now();
-
-  const fallbackBySport = {
-    icehockey_nhl: [
-      {
-        id: "fallback-nhl-1",
-        sport_key: "icehockey_nhl",
-        home_team: "Boston Bruins",
-        away_team: "New York Rangers",
-        commence_time: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Boston Bruins", "New York Rangers", 2.15, 1.78),
-          createBookmaker("DemoOdds", "Boston Bruins", "New York Rangers", 2.2, 1.8),
-        ],
-      },
-      {
-        id: "fallback-nhl-2",
-        sport_key: "icehockey_nhl",
-        home_team: "Edmonton Oilers",
-        away_team: "Colorado Avalanche",
-        commence_time: new Date(now + 28 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Edmonton Oilers", "Colorado Avalanche", 1.95, 1.95),
-          createBookmaker("DemoOdds", "Edmonton Oilers", "Colorado Avalanche", 2.0, 1.91),
-        ],
-      },
-      {
-        id: "fallback-nhl-3",
-        sport_key: "icehockey_nhl",
-        home_team: "Toronto Maple Leafs",
-        away_team: "Florida Panthers",
-        commence_time: new Date(now + 52 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Toronto Maple Leafs", "Florida Panthers", 2.05, 1.85),
-          createBookmaker("DemoOdds", "Toronto Maple Leafs", "Florida Panthers", 2.1, 1.83),
-        ],
-      },
-    ],
-
+  const data = {
     icehockey_liiga: [
-      {
-        id: "fallback-liiga-1",
-        sport_key: "icehockey_liiga",
-        home_team: "Tappara",
-        away_team: "Ilves",
-        commence_time: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Tappara", "Ilves", 2.2, 1.78),
-          createBookmaker("DemoOdds", "Tappara", "Ilves", 2.15, 1.8),
-        ],
-      },
-      {
-        id: "fallback-liiga-2",
-        sport_key: "icehockey_liiga",
-        home_team: "HIFK",
-        away_team: "Kärpät",
-        commence_time: new Date(now + 27 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "HIFK", "Kärpät", 1.95, 1.95),
-          createBookmaker("DemoOdds", "HIFK", "Kärpät", 2.0, 1.91),
-        ],
-      },
-      {
-        id: "fallback-liiga-3",
-        sport_key: "icehockey_liiga",
-        home_team: "TPS",
-        away_team: "Lukko",
-        commence_time: new Date(now + 50 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "TPS", "Lukko", 2.4, 1.62),
-          createBookmaker("DemoOdds", "TPS", "Lukko", 2.35, 1.65),
-        ],
-      },
+      createGame("liiga-1", "icehockey_liiga", "Tappara", "Ilves", futureIso(0, 18), 2.15, 1.82),
+      createGame("liiga-2", "icehockey_liiga", "HIFK", "Kärpät", futureIso(1, 18), 2.05, 1.90),
+      createGame("liiga-3", "icehockey_liiga", "TPS", "Lukko", futureIso(2, 17), 2.30, 1.75),
     ],
-
+    icehockey_nhl: [
+      createGame("nhl-1", "icehockey_nhl", "Boston Bruins", "New York Rangers", futureIso(0, 20), 2.20, 1.80),
+      createGame("nhl-2", "icehockey_nhl", "Edmonton Oilers", "Colorado Avalanche", futureIso(1, 21), 2.00, 1.95),
+      createGame("nhl-3", "icehockey_nhl", "Toronto Maple Leafs", "Florida Panthers", futureIso(2, 21), 2.10, 1.85),
+    ],
+    icehockey_allsvenskan: [
+      createGame("allsvenskan-1", "icehockey_allsvenskan", "Björklöven", "MoDo", futureIso(0, 19), 2.10, 1.84),
+      createGame("allsvenskan-2", "icehockey_allsvenskan", "AIK", "Södertälje", futureIso(1, 19), 2.25, 1.78),
+    ],
+    icehockey_sweden_hockey_league: [
+      createGame("shl-1", "icehockey_sweden_hockey_league", "Frölunda", "Färjestad", futureIso(0, 19), 2.05, 1.90),
+      createGame("shl-2", "icehockey_sweden_hockey_league", "Skellefteå", "Luleå", futureIso(1, 19), 1.95, 2.00),
+    ],
+    icehockey_finland_mestis: [
+      createGame("mestis-1", "icehockey_finland_mestis", "Ketterä", "Jukurit Akatemia", futureIso(0, 18), 1.85, 2.10),
+      createGame("mestis-2", "icehockey_finland_mestis", "IPK", "Hermes", futureIso(1, 18), 2.05, 1.88),
+    ],
+    icehockey_germany_del: [
+      createGame("del-1", "icehockey_germany_del", "Eisbären Berlin", "Adler Mannheim", futureIso(0, 19), 2.00, 1.95),
+      createGame("del-2", "icehockey_germany_del", "Kölner Haie", "München", futureIso(1, 19), 2.30, 1.75),
+    ],
+    icehockey_switzerland_nla: [
+      createGame("nla-1", "icehockey_switzerland_nla", "ZSC Lions", "Bern", futureIso(0, 19), 1.90, 2.00),
+      createGame("nla-2", "icehockey_switzerland_nla", "Lugano", "Fribourg", futureIso(1, 19), 2.10, 1.84),
+    ],
+    icehockey_czech_extraliga: [
+      createGame("extra-1", "icehockey_czech_extraliga", "Sparta Praha", "Kometa Brno", futureIso(0, 19), 1.88, 2.05),
+      createGame("extra-2", "icehockey_czech_extraliga", "Pardubice", "Třinec", futureIso(1, 19), 2.00, 1.95),
+    ],
     basketball_nba: [
-      {
-        id: "fallback-nba-1",
-        sport_key: "basketball_nba",
-        home_team: "Los Angeles Lakers",
-        away_team: "Boston Celtics",
-        commence_time: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Los Angeles Lakers", "Boston Celtics", 2.3, 1.68),
-          createBookmaker("DemoOdds", "Los Angeles Lakers", "Boston Celtics", 2.25, 1.7),
-        ],
-      },
-      {
-        id: "fallback-nba-2",
-        sport_key: "basketball_nba",
-        home_team: "Denver Nuggets",
-        away_team: "Phoenix Suns",
-        commence_time: new Date(now + 30 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Denver Nuggets", "Phoenix Suns", 1.87, 2.0),
-          createBookmaker("DemoOdds", "Denver Nuggets", "Phoenix Suns", 1.9, 1.96),
-        ],
-      },
+      createGame("nba-1", "basketball_nba", "Boston Celtics", "Milwaukee Bucks", futureIso(0, 20), 1.85, 2.05),
+      createGame("nba-2", "basketball_nba", "Denver Nuggets", "Phoenix Suns", futureIso(1, 21), 1.95, 1.95),
+      createGame("nba-3", "basketball_nba", "Lakers", "Warriors", futureIso(2, 21), 2.10, 1.84),
     ],
-
+    basketball_euroleague: [
+      createGame("euroleague-1", "basketball_euroleague", "Real Madrid", "Barcelona", futureIso(0, 20), 1.92, 1.98),
+      createGame("euroleague-2", "basketball_euroleague", "Fenerbahce", "Olympiacos", futureIso(1, 20), 2.02, 1.90),
+    ],
+    basketball_ncaab: [
+      createGame("ncaab-1", "basketball_ncaab", "Duke", "Kansas", futureIso(0, 22), 1.90, 2.00),
+      createGame("ncaab-2", "basketball_ncaab", "UCLA", "Arizona", futureIso(1, 22), 2.05, 1.87),
+    ],
     soccer_epl: [
-      {
-        id: "fallback-epl-1",
-        sport_key: "soccer_epl",
-        home_team: "Arsenal",
-        away_team: "Liverpool",
-        commence_time: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Arsenal", "Liverpool", 2.45, 2.7, 3.4),
-          createBookmaker("DemoOdds", "Arsenal", "Liverpool", 2.5, 2.62, 3.3),
-        ],
-      },
-      {
-        id: "fallback-epl-2",
-        sport_key: "soccer_epl",
-        home_team: "Manchester City",
-        away_team: "Chelsea",
-        commence_time: new Date(now + 48 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Manchester City", "Chelsea", 1.72, 4.4, 3.8),
-          createBookmaker("DemoOdds", "Manchester City", "Chelsea", 1.75, 4.2, 3.75),
-        ],
-      },
+      createGame("epl-1", "soccer_epl", "Arsenal", "Liverpool", futureIso(0, 17), 2.40, 2.70, 3.40),
+      createGame("epl-2", "soccer_epl", "Chelsea", "Tottenham", futureIso(1, 17), 2.30, 2.95, 3.25),
+    ],
+    soccer_spain_la_liga: [
+      createGame("laliga-1", "soccer_spain_la_liga", "Barcelona", "Atletico Madrid", futureIso(0, 18), 2.10, 3.10, 3.30),
+      createGame("laliga-2", "soccer_spain_la_liga", "Sevilla", "Villarreal", futureIso(1, 18), 2.50, 2.75, 3.20),
+    ],
+    soccer_italy_serie_a: [
+      createGame("seriea-1", "soccer_italy_serie_a", "Inter", "Juventus", futureIso(0, 18), 2.15, 3.00, 3.10),
+      createGame("seriea-2", "soccer_italy_serie_a", "Milan", "Napoli", futureIso(1, 18), 2.35, 2.85, 3.15),
+    ],
+    soccer_germany_bundesliga: [
+      createGame("bundes-1", "soccer_germany_bundesliga", "Bayern", "Dortmund", futureIso(0, 18), 1.90, 3.60, 3.80),
+      createGame("bundes-2", "soccer_germany_bundesliga", "Leipzig", "Leverkusen", futureIso(1, 18), 2.45, 2.70, 3.35),
+    ],
+    soccer_france_ligue_one: [
+      createGame("ligue1-1", "soccer_france_ligue_one", "PSG", "Monaco", futureIso(0, 18), 1.75, 4.10, 3.90),
+      createGame("ligue1-2", "soccer_france_ligue_one", "Lyon", "Marseille", futureIso(1, 18), 2.55, 2.65, 3.25),
+    ],
+    soccer_finland_veikkausliiga: [
+      createGame("veikkaus-1", "soccer_finland_veikkausliiga", "HJK", "KuPS", futureIso(0, 18), 2.20, 2.95, 3.10),
+      createGame("veikkaus-2", "soccer_finland_veikkausliiga", "Ilves", "SJK", futureIso(1, 18), 2.35, 2.85, 3.05),
+    ],
+    soccer_uefa_champs_league: [
+      createGame("ucl-1", "soccer_uefa_champs_league", "Manchester City", "Real Madrid", futureIso(0, 21), 2.10, 3.15, 3.50),
+      createGame("ucl-2", "soccer_uefa_champs_league", "Bayern", "PSG", futureIso(1, 21), 2.20, 3.00, 3.45),
+    ],
+    americanfootball_nfl: [
+      createGame("nfl-1", "americanfootball_nfl", "Chiefs", "Bills", futureIso(0, 20), 1.88, 2.00),
+      createGame("nfl-2", "americanfootball_nfl", "49ers", "Eagles", futureIso(1, 20), 1.95, 1.95),
+    ],
+    americanfootball_ncaaf: [
+      createGame("ncaaf-1", "americanfootball_ncaaf", "Alabama", "Georgia", futureIso(0, 21), 2.05, 1.88),
+      createGame("ncaaf-2", "americanfootball_ncaaf", "Michigan", "Ohio State", futureIso(1, 21), 1.92, 1.98),
     ],
   };
 
-  return fallbackBySport[sport] || [];
+  return data[sport] || [];
+}
+
+function filterNextThreeDays(games) {
+  const now = Date.now();
+  const max = now + 3 * 24 * 60 * 60 * 1000;
+
+  return games.filter((game) => {
+    const ts = new Date(game.commence_time).getTime();
+    return Number.isFinite(ts) && ts >= now && ts <= max;
+  });
 }
 
 export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const sport = searchParams.get("sport") || "icehockey_nhl";
-
-  const now = new Date();
-  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
-
   try {
-    const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=eu&markets=h2h&commenceTimeFrom=${encodeURIComponent(
-        now.toISOString()
-      )}&commenceTimeTo=${encodeURIComponent(threeDaysFromNow.toISOString())}`,
-      {
-        next: { revalidate: 60 },
-      }
-    );
+    const { searchParams } = new URL(req.url);
+    const sport = searchParams.get("sport") || "icehockey_liiga";
 
-    const data = await res.json();
-
-    if (data?.error_code === "OUT_OF_USAGE_CREDITS") {
+    if (!process.env.ODDS_API_KEY) {
       return Response.json({
         fallback: true,
-        reason: "quota_exceeded",
+        reason: "missing_api_key",
         sport,
         data: getFallbackGames(sport),
       });
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
+    const url =
+      `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
+      `?apiKey=${process.env.ODDS_API_KEY}` +
+      `&regions=eu,us` +
+      `&markets=h2h` +
+      `&oddsFormat=decimal` +
+      `&dateFormat=iso`;
+
+    const res = await fetch(url, {
+      next: { revalidate: 300 },
+    });
+
+    const data = await res.json();
+
+    if (!res.ok || !Array.isArray(data)) {
+      return Response.json({
+        fallback: true,
+        reason: "api_error",
+        sport,
+        data: getFallbackGames(sport),
+      });
+    }
+
+    const filtered = filterNextThreeDays(data);
+
+    if (!filtered.length) {
       return Response.json({
         fallback: true,
         reason: "empty_live_data",
@@ -189,15 +202,17 @@ export async function GET(req) {
 
     return Response.json({
       fallback: false,
+      reason: null,
       sport,
-      data,
+      data: filtered,
     });
   } catch (error) {
     return Response.json({
       fallback: true,
-      reason: "fetch_failed",
-      sport,
-      data: getFallbackGames(sport),
+      reason: "server_error",
+      sport: null,
+      data: [],
+      error: String(error),
     });
   }
 }
