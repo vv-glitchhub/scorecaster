@@ -1,35 +1,78 @@
 import { Resend } from "resend";
+import { supabaseAdmin } from "../../../lib/supabase-admin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req) {
   try {
-    const body = await req.json();
+    const {
+      message,
+      selectedSportKey,
+      selectedGroup,
+      selectedGame,
+      bankroll,
+    } = await req.json();
 
-    console.log("📨 Sending email...");
-    console.log("TO:", process.env.EMAIL_TO);
+    if (!message || !message.trim()) {
+      return Response.json({ error: "Message required" }, { status: 400 });
+    }
 
-    const response = await resend.emails.send({
-      from: "onboarding@resend.dev", // 🔥 PAKOLLINEN
-      to: process.env.EMAIL_TO,
-      subject: "Uusi palaute Scorecasterista",
-      text: `
-Palaute: ${body.message}
+    const selectedGameLabel = selectedGame
+      ? `${selectedGame.home_team || "-"} vs ${selectedGame.away_team || "-"}`
+      : "-";
 
-Liiga: ${body.league}
-Ottelu: ${body.game}
-Bankroll: ${body.bankroll}
-      `,
+    const cleanMessage = message.trim();
+
+    const { error: dbError } = await supabaseAdmin.from("feedback_messages").insert({
+      message: cleanMessage,
+      selected_group: selectedGroup || null,
+      selected_sport_key: selectedSportKey || null,
+      selected_game: selectedGameLabel,
+      bankroll: bankroll ?? null,
+      metadata: {},
     });
 
-    console.log("✅ Email sent:", response);
+    if (dbError) {
+      console.error("feedback insert error:", dbError);
+    }
 
-    return Response.json({ ok: true });
-  } catch (err) {
-    console.error("❌ Email error:", err);
+    const resendResponse = await resend.emails.send({
+      from: "onboarding@resend.dev",
+      to: process.env.EMAIL_TO,
+      subject: "Uusi palaute Scorecasterista",
+      text: [
+        `Palaute: ${cleanMessage}`,
+        `Laji: ${selectedGroup || "-"}`,
+        `Liiga: ${selectedSportKey || "-"}`,
+        `Ottelu: ${selectedGameLabel}`,
+        `Bankroll: ${bankroll ?? "-"}`,
+      ].join("\n"),
+    });
 
+    console.log("RESEND RESPONSE:", JSON.stringify(resendResponse, null, 2));
+
+    if (resendResponse?.error) {
+      console.error("RESEND ERROR:", resendResponse.error);
+      return Response.json(
+        {
+          error: "Email send failed",
+          details: resendResponse.error,
+        },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      emailId: resendResponse?.data?.id || null,
+    });
+  } catch (error) {
+    console.error("feedback route error:", error);
     return Response.json(
-      { error: err.message },
+      {
+        error: "Failed to send feedback",
+        details: String(error),
+      },
       { status: 500 }
     );
   }
