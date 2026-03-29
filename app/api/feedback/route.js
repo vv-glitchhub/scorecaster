@@ -17,11 +17,11 @@ export async function POST(req) {
       return Response.json({ error: "Message required" }, { status: 400 });
     }
 
+    const cleanMessage = message.trim();
+
     const selectedGameLabel = selectedGame
       ? `${selectedGame.home_team || "-"} vs ${selectedGame.away_team || "-"}`
       : "-";
-
-    const cleanMessage = message.trim();
 
     const { error: dbError } = await supabaseAdmin.from("feedback_messages").insert({
       message: cleanMessage,
@@ -37,8 +37,8 @@ export async function POST(req) {
     }
 
     const resendResponse = await resend.emails.send({
-      from: "onboarding@resend.dev",
-      to: process.env.EMAIL_TO,
+      from: "Scorecaster <onboarding@resend.dev>",
+      to: ["vikke.vuorio99@outlook.com"],
       subject: "Uusi palaute Scorecasterista",
       text: [
         `Palaute: ${cleanMessage}`,
@@ -53,6 +53,7 @@ export async function POST(req) {
 
     if (resendResponse?.error) {
       console.error("RESEND ERROR:", resendResponse.error);
+
       return Response.json(
         {
           error: "Email send failed",
@@ -68,6 +69,7 @@ export async function POST(req) {
     });
   } catch (error) {
     console.error("feedback route error:", error);
+
     return Response.json(
       {
         error: "Failed to send feedback",
