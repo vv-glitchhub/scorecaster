@@ -908,8 +908,11 @@ const selectStyle = {
 
 const gameCardStyle = {
   width: "100%",
-  padding: 16,
+  padding: 20,
   borderRadius: 16,
+  background: "#172554",
+  color: "#f8fafc",
+  boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
 };
 
 const pillStyle = {
