@@ -7,13 +7,10 @@ export async function POST(req) {
   try {
     const {
       message,
-      email,
       selectedSportKey,
       selectedGroup,
       selectedGame,
       bankroll,
-      sessionId,
-      visitorId,
     } = await req.json();
 
     if (!message || !message.trim()) {
@@ -26,15 +23,11 @@ export async function POST(req) {
 
     const { error: dbError } = await supabaseAdmin.from("feedback_messages").insert({
       message: message.trim(),
-      email: email || null,
       selected_group: selectedGroup || null,
       selected_sport_key: selectedSportKey || null,
       selected_game: selectedGameLabel,
       bankroll: bankroll ?? null,
-      metadata: {
-        sessionId: sessionId || null,
-        visitorId: visitorId || null,
-      },
+      metadata: {},
     });
 
     if (dbError) {
@@ -45,22 +38,32 @@ export async function POST(req) {
       from: "Scorecaster <onboarding@resend.dev>",
       to: process.env.EMAIL_TO,
       subject: `Scorecaster palaute - ${new Date().toLocaleString("fi-FI")}`,
-      html: `
-        <h2>Uusi palaute Scorecasterista</h2>
-        <p><strong>Viesti:</strong></p>
-        <p>${message}</p>
-        <hr />
-        <p><strong>Email:</strong> ${email || "-"}</p>
-        <p><strong>Laji:</strong> ${selectedGroup || "-"}</p>
-        <p><strong>Liiga:</strong> ${selectedSportKey || "-"}</p>
-        <p><strong>Ottelu:</strong> ${selectedGameLabel || "-"}</p>
-        <p><strong>Bankroll:</strong> ${bankroll ?? "-"}</p>
-      `,
+      text: [
+        `Viesti: ${message}`,
+        `Laji: ${selectedGroup || "-"}`,
+        `Liiga: ${selectedSportKey || "-"}`,
+        `Ottelu: ${selectedGameLabel || "-"}`,
+        `Bankroll: ${bankroll ?? "-"}`,
+      ].join("\n"),
     });
 
-    return Response.json({ success: true, emailResult });
+    if (emailResult?.error) {
+      console.error("resend error:", emailResult.error);
+      return Response.json(
+        { error: "Email send failed", details: emailResult.error },
+        { status: 500 }
+      );
+    }
+
+    return Response.json({
+      success: true,
+      emailId: emailResult?.data?.id || null,
+    });
   } catch (error) {
     console.error("feedback route error:", error);
-    return Response.json({ error: "Failed to send feedback" }, { status: 500 });
+    return Response.json(
+      { error: "Failed to send feedback", details: String(error) },
+      { status: 500 }
+    );
   }
 }
