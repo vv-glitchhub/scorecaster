@@ -47,6 +47,7 @@ const TEXT = {
     status: "Status",
     profit: "Voitto",
     stake: "Panos",
+    parsedBankroll: "Tulkittu bankroll",
   },
   en: {
     title: "SCORECASTER",
@@ -92,8 +93,48 @@ const TEXT = {
     status: "Status",
     profit: "Profit",
     stake: "Stake",
+    parsedBankroll: "Parsed bankroll",
   },
 };
+
+const GROUP_LABELS = {
+  fi: {
+    "Ice Hockey": "Jääkiekko",
+    Basketball: "Koripallo",
+    Soccer: "Jalkapallo",
+    Baseball: "Baseball",
+    "American Football": "Jenkkifutis",
+    AmericanFootball: "Jenkkifutis",
+    MMA: "Vapaaottelu",
+  },
+  en: {},
+};
+
+const LEAGUE_LABELS = {
+  fi: {
+    NHL: "NHL",
+    NBA: "NBA",
+    "Premier League": "Valioliiga",
+    EPL: "Valioliiga",
+    Allsvenskan: "Allsvenskan",
+    Liiga: "Liiga",
+    Veikkausliiga: "Veikkausliiga",
+    LaLiga: "La Liga",
+    "La Liga": "La Liga",
+    Bundesliga: "Bundesliiga",
+    SerieA: "Serie A",
+    "Serie A": "Serie A",
+  },
+  en: {},
+};
+
+function translateGroupLabel(group, lang) {
+  return GROUP_LABELS[lang]?.[group] || group;
+}
+
+function translateLeagueLabel(title, lang) {
+  return LEAGUE_LABELS[lang]?.[title] || title;
+}
 
 function decimalProb(percent) {
   return Number(percent || 0) / 100;
@@ -303,26 +344,10 @@ export default function Page() {
         setSelectedSportKey(firstLeague);
       } catch (err) {
         const fallbackSports = [
-          {
-            key: "icehockey_nhl",
-            group: "Ice Hockey",
-            title: "NHL",
-          },
-          {
-            key: "icehockey_sweden_allsvenskan",
-            group: "Ice Hockey",
-            title: "Allsvenskan",
-          },
-          {
-            key: "basketball_nba",
-            group: "Basketball",
-            title: "NBA",
-          },
-          {
-            key: "soccer_epl",
-            group: "Soccer",
-            title: "Premier League",
-          },
+          { key: "icehockey_nhl", group: "Ice Hockey", title: "NHL" },
+          { key: "icehockey_liiga", group: "Ice Hockey", title: "Liiga" },
+          { key: "basketball_nba", group: "Basketball", title: "NBA" },
+          { key: "soccer_epl", group: "Soccer", title: "Premier League" },
         ];
 
         setSports(fallbackSports);
@@ -515,7 +540,7 @@ export default function Page() {
               >
                 {sportGroups.map((group) => (
                   <option key={group} value={group}>
-                    {group}
+                    {translateGroupLabel(group, lang)}
                   </option>
                 ))}
               </select>
@@ -532,7 +557,7 @@ export default function Page() {
               >
                 {leaguesForSelectedGroup.map((league) => (
                   <option key={league.key} value={league.key}>
-                    {league.title || league.key}
+                    {translateLeagueLabel(league.title || league.key, lang)}
                   </option>
                 ))}
               </select>
@@ -600,7 +625,7 @@ export default function Page() {
             ) : games.length === 0 ? (
               <div style={{ color: "#94a3b8" }}>{t.noGames}</div>
             ) : (
-              <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 14 }}>
                 {games.map((game) => {
                   const isSelected = game.id === selectedGameId;
                   const cardOdds = getBestOdds(game, t);
@@ -611,17 +636,30 @@ export default function Page() {
                       onClick={() => setSelectedGameId(game.id)}
                       style={{
                         ...gameCardStyle,
-                        border: isSelected ? "1px solid #22c55e" : "1px solid #1f2937",
+                        border: isSelected ? "2px solid #22c55e" : "1px solid #3b82f6",
                         background: isSelected ? "#1d4ed8" : "#1e3a8a",
                         textAlign: "left",
                         cursor: "pointer",
                       }}
                     >
-                      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
+                      <div
+                        style={{
+                          fontSize: 20,
+                          fontWeight: 800,
+                          marginBottom: 8,
+                          color: "#ffffff",
+                        }}
+                      >
                         {game.home} vs {game.away}
                       </div>
 
-                      <div style={{ fontSize: 14, color: "#dbeafe", marginBottom: 12 }}>
+                      <div
+                        style={{
+                          fontSize: 14,
+                          color: "#dbeafe",
+                          marginBottom: 12,
+                        }}
+                      >
                         {formatDate(game.commenceTime)}
                       </div>
 
@@ -630,11 +668,11 @@ export default function Page() {
                           cardOdds.map((odd) => (
                             <div key={`${game.id}-${odd.name}`} style={pillStyle}>
                               <strong>{odd.name}</strong>: {odd.price}{" "}
-                              <span style={{ color: "#94a3b8" }}>({odd.bookmaker})</span>
+                              <span style={{ color: "#334155" }}>({odd.bookmaker})</span>
                             </div>
                           ))
                         ) : (
-                          <div style={{ color: "#94a3b8" }}>{t.noBookmakerOdds}</div>
+                          <div style={{ color: "#dbeafe" }}>{t.noBookmakerOdds}</div>
                         )}
                       </div>
                     </button>
@@ -661,10 +699,8 @@ export default function Page() {
                   />
                 </div>
 
-                <div>
-                  <div style={{ fontSize: 13, color: "#94a3b8" }}>
-                    Parsed bankroll: {bankroll.toFixed(2)} €
-                  </div>
+                <div style={{ fontSize: 13, color: "#94a3b8" }}>
+                  {t.parsedBankroll}: {bankroll.toFixed(2)} €
                 </div>
 
                 <div>
@@ -910,7 +946,6 @@ const gameCardStyle = {
   width: "100%",
   padding: 20,
   borderRadius: 16,
-  background: "#172554",
   color: "#f8fafc",
   boxShadow: "0 8px 24px rgba(0,0,0,0.25)",
 };
