@@ -29,12 +29,12 @@ const TEXT = {
     bookmaker: "Vedonvälittäjä",
     edge: "Edge",
     suggestedStake: "Suositeltu panos",
-    debug: "Debug",
     info: "Info",
     infoText:
       "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää yksinkertaisen best bet -näkymän. Jos live-dataa ei saada, API voi käyttää fallback-dataa.",
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
+    outcome: "Kohde",
   },
   en: {
     title: "SCORECASTER",
@@ -62,12 +62,12 @@ const TEXT = {
     bookmaker: "Bookmaker",
     edge: "Edge",
     suggestedStake: "Suggested stake",
-    debug: "Debug",
     info: "Info",
     infoText:
       "Scorecaster shows games, compares odds, and displays a simple best bet view. If live data is unavailable, the API may return fallback data.",
     close: "Close",
     noOdds: "No odds available",
+    outcome: "Outcome",
   },
 };
 
@@ -216,17 +216,6 @@ export default function Page() {
 
   const [infoOpen, setInfoOpen] = useState(false);
 
-  const [debugInfo, setDebugInfo] = useState({
-    selectedGroup: "icehockey",
-    selectedLeague: "icehockey_nhl",
-    loading: true,
-    gamesCount: 0,
-    fallback: null,
-    reason: null,
-    error: null,
-    raw: null,
-  });
-
   const bankroll = useMemo(() => {
     const parsed = Number(String(bankrollInput).replace(",", "."));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -246,16 +235,6 @@ export default function Page() {
       if (!selectedLeague) {
         setGames([]);
         setLoading(false);
-        setDebugInfo({
-          selectedGroup,
-          selectedLeague,
-          loading: false,
-          gamesCount: 0,
-          fallback: null,
-          reason: null,
-          error: "No selected league",
-          raw: null,
-        });
         return;
       }
 
@@ -267,31 +246,12 @@ export default function Page() {
 
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
-        setSelectedGameId(list[0]?.id || "");
-
-        setDebugInfo({
-          selectedGroup,
-          selectedLeague,
-          loading: false,
-          gamesCount: list.length,
-          fallback: data?.fallback ?? null,
-          reason: data?.reason ?? null,
-          error: null,
-          raw: data,
-        });
-      } catch (error) {
+        setSelectedGameId((prev) =>
+          list.some((g) => g.id === prev) ? prev : list[0]?.id || ""
+        );
+      } catch {
         setGames([]);
         setSelectedGameId("");
-        setDebugInfo({
-          selectedGroup,
-          selectedLeague,
-          loading: false,
-          gamesCount: 0,
-          fallback: null,
-          reason: null,
-          error: String(error),
-          raw: null,
-        });
       } finally {
         setLoading(false);
       }
@@ -337,7 +297,7 @@ export default function Page() {
 
       setFeedback("");
       setFeedbackStatus(t.sent);
-    } catch (error) {
+    } catch {
       setFeedbackStatus(t.failed);
     } finally {
       setSendingFeedback(false);
@@ -470,7 +430,7 @@ export default function Page() {
                   <div style={styles.greenCard}>
                     <div style={styles.stack}>
                       <div style={styles.rowCard}>
-                        <span>Kohde</span>
+                        <span>{t.outcome}</span>
                         <strong>{bestBet.outcome}</strong>
                       </div>
                       <div style={styles.rowCard}>
@@ -539,22 +499,6 @@ export default function Page() {
           </button>
 
           {feedbackStatus ? <div style={styles.status}>{feedbackStatus}</div> : null}
-        </section>
-
-        <section style={styles.debugCard}>
-          <h2 style={styles.cardTitle}>{t.debug}</h2>
-
-          <div style={styles.debugGrid}>
-            <div><strong>selectedGroup:</strong> {debugInfo.selectedGroup}</div>
-            <div><strong>selectedLeague:</strong> {debugInfo.selectedLeague}</div>
-            <div><strong>loading:</strong> {String(debugInfo.loading)}</div>
-            <div><strong>gamesCount:</strong> {debugInfo.gamesCount}</div>
-            <div><strong>fallback:</strong> {String(debugInfo.fallback)}</div>
-            <div><strong>reason:</strong> {String(debugInfo.reason)}</div>
-            <div><strong>error:</strong> {String(debugInfo.error)}</div>
-          </div>
-
-          <pre style={styles.pre}>{JSON.stringify(debugInfo.raw, null, 2)}</pre>
         </section>
 
         {infoOpen && (
@@ -642,13 +586,6 @@ const styles = {
   card: {
     background: "#0f172a",
     border: "1px solid #1e293b",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
-  },
-  debugCard: {
-    background: "#111827",
-    border: "1px solid #f59e0b",
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
@@ -751,23 +688,6 @@ const styles = {
     marginTop: 12,
     color: "#cbd5e1",
     fontSize: 15,
-  },
-  debugGrid: {
-    display: "grid",
-    gap: 8,
-    color: "#e5e7eb",
-    fontSize: 14,
-  },
-  pre: {
-    whiteSpace: "pre-wrap",
-    wordBreak: "break-word",
-    background: "#020617",
-    border: "1px solid #334155",
-    borderRadius: 12,
-    padding: 12,
-    color: "#cbd5e1",
-    fontSize: 12,
-    marginTop: 12,
   },
   modalOverlay: {
     position: "fixed",
