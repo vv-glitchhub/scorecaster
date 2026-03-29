@@ -1,222 +1,157 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-
-const TEXT = {
-  fi: {
-    title: "SCORECASTER",
-    subtitle: "Vedonlyönnin analyysi- ja oddsinäkymä",
-    language: "Kieli",
-    sportGroup: "Laji",
-    league: "Sarja",
-    loading: "Ladataan...",
-    noGames: "Otteluita ei löytynyt",
-    bankrollTitle: "Bankroll",
-    bankroll: "€",
-    kellyMode: "Kelly",
-    stakeSuggestion: "Panos",
-    tracker: "Seuranta",
-    markWin: "Win",
-    markLose: "Lose",
-    markVoid: "Void",
-    feedback: "Palaute",
-    send: "Lähetä",
-  },
-};
-
-const GROUP_LABELS = {
-  "Ice Hockey": "Jääkiekko",
-  Basketball: "Koripallo",
-  Soccer: "Jalkapallo",
-  AmericanFootball: "Jenkkifutis",
-};
-
-const LEAGUE_LABELS = {
-  icehockey_nhl: "NHL",
-  icehockey_liiga: "Liiga",
-  basketball_nba: "NBA",
-  soccer_epl: "EPL",
-};
+import { useEffect, useState } from "react";
 
 export default function Page() {
-  const [sports, setSports] = useState([]);
-  const [group, setGroup] = useState("");
-  const [league, setLeague] = useState("");
   const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const [bankrollInput, setBankrollInput] = useState("1000");
-  const bankroll = parseFloat(bankrollInput) || 0;
+  const [loading, setLoading] = useState(true);
 
   const [feedback, setFeedback] = useState("");
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState("");
 
-  // 🔹 LOAD SPORTS
+  const [bankroll, setBankroll] = useState(1000);
+
   useEffect(() => {
-    fetch("/api/sports")
-      .then((res) => res.json())
-      .then((data) => {
-        setSports(data.data);
-      });
+    async function load() {
+      try {
+        const res = await fetch("/api/odds?sport=icehockey_nhl");
+        const data = await res.json();
+        setGames(data.data || []);
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    load();
   }, []);
 
-  // 🔹 FILTER GROUPS
-  const groups = useMemo(() => {
-    return [...new Set(sports.map((s) => s.group))];
-  }, [sports]);
-
-  // 🔹 FILTER LEAGUES
-  const leagues = useMemo(() => {
-    return sports.filter((s) => s.group === group);
-  }, [group, sports]);
-
-  // 🔹 LOAD GAMES
-  useEffect(() => {
-    if (!league) return;
-
-    setLoading(true);
-
-    fetch(`/api/odds?sport=${league}`)
-      .then((res) => res.json())
-      .then((data) => {
-        setGames(data.data || []);
-      })
-      .finally(() => setLoading(false));
-  }, [league]);
-
-  // 🔹 FEEDBACK SEND
   async function sendFeedback() {
-    await fetch("/api/feedback", {
-      method: "POST",
-      body: JSON.stringify({
-        message: feedback,
-        selectedSportKey: league,
-        selectedGroup: group,
-        bankroll,
-      }),
-    });
+    if (!feedback.trim()) return;
 
-    setFeedback("");
-    alert("Lähetetty ✅");
+    setSending(true);
+    setStatus("");
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        body: JSON.stringify({
+          message: feedback,
+          bankroll,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+
+      setFeedback("");
+      setStatus("✅ Lähetetty!");
+    } catch {
+      setStatus("❌ Virhe");
+    } finally {
+      setSending(false);
+    }
   }
 
   return (
-    <main style={styles.main}>
-      <h1 style={styles.title}>SCORECASTER</h1>
-
-      {/* FILTERS */}
-      <div style={styles.filters}>
-        <select style={styles.select} onChange={(e) => setGroup(e.target.value)}>
-          <option>Laji</option>
-          {groups.map((g) => (
-            <option key={g} value={g}>
-              {GROUP_LABELS[g] || g}
-            </option>
-          ))}
-        </select>
-
-        <select style={styles.select} onChange={(e) => setLeague(e.target.value)}>
-          <option>Liiga</option>
-          {leagues.map((l) => (
-            <option key={l.key} value={l.key}>
-              {LEAGUE_LABELS[l.key] || l.title}
-            </option>
-          ))}
-        </select>
-      </div>
+    <main
+      style={{
+        padding: 16,
+        maxWidth: 600,
+        margin: "0 auto",
+        color: "white",
+      }}
+    >
+      <h1>SCORECASTER</h1>
 
       {/* GAMES */}
-      <div style={styles.card}>
+      <section>
         <h2>Ottelut</h2>
 
         {loading && <p>Ladataan...</p>}
 
+        {!loading && games.length === 0 && (
+          <p>Ei otteluita</p>
+        )}
+
         {games.map((g) => (
-          <div key={g.id} style={styles.game}>
-            {g.home_team} vs {g.away_team}
+          <div
+            key={g.id}
+            style={{
+              padding: 12,
+              marginTop: 10,
+              border: "1px solid #333",
+              borderRadius: 8,
+              background: "#111827",
+            }}
+          >
+            <b>
+              {g.home_team} vs {g.away_team}
+            </b>
           </div>
         ))}
-      </div>
+      </section>
 
       {/* BANKROLL */}
-      <div style={styles.card}>
+      <section style={{ marginTop: 20 }}>
         <h2>Bankroll</h2>
+
         <input
-          style={styles.input}
-          value={bankrollInput}
-          onChange={(e) => setBankrollInput(e.target.value.replace(",", "."))}
+          type="number"
+          value={bankroll}
+          onChange={(e) =>
+            setBankroll(Number(e.target.value || 0))
+          }
+          style={{
+            width: "100%",
+            padding: 10,
+            borderRadius: 6,
+            background: "#0f172a",
+            color: "white",
+          }}
         />
-        <div>Tulkittu: {bankroll.toFixed(2)} €</div>
-      </div>
+
+        <div style={{ marginTop: 6 }}>
+          Tulkittu: {bankroll.toFixed(2)} €
+        </div>
+      </section>
 
       {/* FEEDBACK */}
-      <div style={styles.card}>
+      <section style={{ marginTop: 20 }}>
         <h2>Palaute</h2>
+
         <textarea
-          style={styles.textarea}
           value={feedback}
           onChange={(e) => setFeedback(e.target.value)}
+          placeholder="Kirjoita palaute..."
+          style={{
+            width: "100%",
+            minHeight: 100,
+            padding: 10,
+            borderRadius: 6,
+            background: "#0f172a",
+            color: "white",
+          }}
         />
-        <button style={styles.button} onClick={sendFeedback}>
-          Lähetä
+
+        <button
+          onClick={sendFeedback}
+          disabled={sending}
+          style={{
+            marginTop: 10,
+            padding: "10px 16px",
+            background: "#16a34a",
+            borderRadius: 6,
+            color: "white",
+            border: "none",
+          }}
+        >
+          {sending ? "Lähetetään..." : "Lähetä"}
         </button>
-      </div>
+
+        {status && <div>{status}</div>}
+      </section>
     </main>
   );
 }
-
-const styles = {
-  main: {
-    padding: 16,
-    background: "#020617",
-    color: "white",
-    minHeight: "100vh",
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: 900,
-  },
-  filters: {
-    display: "grid",
-    gap: 10,
-    marginBottom: 20,
-  },
-  select: {
-    padding: 12,
-    borderRadius: 12,
-    background: "#0f172a",
-    color: "white",
-  },
-  card: {
-    background: "#0f172a",
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 20,
-  },
-  game: {
-    padding: 10,
-    background: "#1e293b",
-    borderRadius: 10,
-    marginTop: 8,
-  },
-  input: {
-    width: "100%",
-    padding: 10,
-    borderRadius: 10,
-    background: "#020617",
-    color: "white",
-  },
-  textarea: {
-    width: "100%",
-    height: 100,
-    background: "#020617",
-    color: "white",
-    borderRadius: 10,
-  },
-  button: {
-    marginTop: 10,
-    padding: 10,
-    background: "#22c55e",
-    borderRadius: 10,
-    border: "none",
-  },
-};
