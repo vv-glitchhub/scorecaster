@@ -43,6 +43,7 @@ const TEXT = {
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
+    fallbackBanner: "Näytetään fallback-dataa, koska live-otteluita ei saatu haettua",
   },
   en: {
     title: "SCORECASTER",
@@ -79,6 +80,7 @@ const TEXT = {
     close: "Close",
     noOdds: "No odds available",
     outcome: "Outcome",
+    fallbackBanner: "Showing fallback data because live games were not available",
   },
 };
 
@@ -87,21 +89,45 @@ const SPORT_GROUPS = {
     icehockey: "Jääkiekko",
     basketball: "Koripallo",
     soccer: "Jalkapallo",
+    americanfootball: "Jenkkifutis",
   },
   en: {
     icehockey: "Ice Hockey",
     basketball: "Basketball",
     soccer: "Soccer",
+    americanfootball: "American Football",
   },
 };
 
 const LEAGUES = {
   icehockey: [
-    { key: "icehockey_nhl", fi: "NHL", en: "NHL" },
     { key: "icehockey_liiga", fi: "Liiga", en: "Liiga" },
+    { key: "icehockey_nhl", fi: "NHL", en: "NHL" },
+    { key: "icehockey_allsvenskan", fi: "Allsvenskan", en: "Allsvenskan" },
+    { key: "icehockey_sweden_hockey_league", fi: "SHL", en: "SHL" },
+    { key: "icehockey_finland_mestis", fi: "Mestis", en: "Mestis" },
+    { key: "icehockey_germany_del", fi: "DEL", en: "DEL" },
+    { key: "icehockey_switzerland_nla", fi: "National League", en: "National League" },
+    { key: "icehockey_czech_extraliga", fi: "Extraliga", en: "Extraliga" },
   ],
-  basketball: [{ key: "basketball_nba", fi: "NBA", en: "NBA" }],
-  soccer: [{ key: "soccer_epl", fi: "Valioliiga", en: "Premier League" }],
+  basketball: [
+    { key: "basketball_nba", fi: "NBA", en: "NBA" },
+    { key: "basketball_euroleague", fi: "EuroLeague", en: "EuroLeague" },
+    { key: "basketball_ncaab", fi: "NCAA", en: "NCAA" },
+  ],
+  soccer: [
+    { key: "soccer_epl", fi: "Valioliiga", en: "Premier League" },
+    { key: "soccer_spain_la_liga", fi: "La Liga", en: "La Liga" },
+    { key: "soccer_italy_serie_a", fi: "Serie A", en: "Serie A" },
+    { key: "soccer_germany_bundesliga", fi: "Bundesliiga", en: "Bundesliga" },
+    { key: "soccer_france_ligue_one", fi: "Ligue 1", en: "Ligue 1" },
+    { key: "soccer_finland_veikkausliiga", fi: "Veikkausliiga", en: "Veikkausliiga" },
+    { key: "soccer_uefa_champs_league", fi: "Mestarien liiga", en: "Champions League" },
+  ],
+  americanfootball: [
+    { key: "americanfootball_nfl", fi: "NFL", en: "NFL" },
+    { key: "americanfootball_ncaaf", fi: "NCAA", en: "NCAA Football" },
+  ],
 };
 
 function getLeagueLabel(league, lang) {
@@ -111,7 +137,7 @@ function getLeagueLabel(league, lang) {
 function formatDate(value) {
   if (!value) return "-";
   try {
-    return new Date(value).toLocaleString();
+    return new Date(value).toLocaleString("fi-FI");
   } catch {
     return value;
   }
@@ -122,11 +148,12 @@ export default function Page() {
   const t = TEXT[lang];
 
   const [selectedGroup, setSelectedGroup] = useState("icehockey");
-  const [selectedLeague, setSelectedLeague] = useState("icehockey_nhl");
+  const [selectedLeague, setSelectedLeague] = useState("icehockey_liiga");
 
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [fallback, setFallback] = useState(false);
 
   const [bankrollInput, setBankrollInput] = useState("1000");
 
@@ -159,6 +186,7 @@ export default function Page() {
       }
 
       setLoading(true);
+      setFallback(false);
 
       try {
         const res = await fetch(`/api/odds?sport=${selectedLeague}`);
@@ -166,12 +194,14 @@ export default function Page() {
 
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
+        setFallback(Boolean(data.fallback));
         setSelectedGameId((prev) =>
           list.some((g) => g.id === prev) ? prev : list[0]?.id || ""
         );
       } catch {
         setGames([]);
         setSelectedGameId("");
+        setFallback(true);
       } finally {
         setLoading(false);
       }
@@ -213,7 +243,9 @@ export default function Page() {
         }),
       });
 
-      if (!res.ok) throw new Error("Feedback failed");
+      if (!res.ok) {
+        throw new Error("Feedback failed");
+      }
 
       setFeedback("");
       setFeedbackStatus(t.sent);
@@ -261,6 +293,7 @@ export default function Page() {
               <option value="icehockey">{SPORT_GROUPS[lang].icehockey}</option>
               <option value="basketball">{SPORT_GROUPS[lang].basketball}</option>
               <option value="soccer">{SPORT_GROUPS[lang].soccer}</option>
+              <option value="americanfootball">{SPORT_GROUPS[lang].americanfootball}</option>
             </select>
           </div>
 
@@ -279,6 +312,12 @@ export default function Page() {
             </select>
           </div>
         </section>
+
+        {fallback && (
+          <div style={styles.banner}>
+            {t.fallbackBanner}
+          </div>
+        )}
 
         <section style={styles.card}>
           <h2 style={styles.cardTitle}>{t.games}</h2>
@@ -516,6 +555,15 @@ const styles = {
     color: "#ffffff",
     fontSize: 16,
     boxSizing: "border-box",
+  },
+  banner: {
+    background: "#3b2a00",
+    border: "1px solid #8b5e00",
+    color: "#facc15",
+    padding: "12px 14px",
+    borderRadius: 14,
+    marginBottom: 20,
+    fontWeight: 700,
   },
   card: {
     background: "#0f172a",
