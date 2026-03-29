@@ -7,7 +7,8 @@ const TEXT = {
     title: "SCORECASTER",
     subtitle: "Vedonlyönnin analyysi- ja oddsinäkymä",
     language: "Kieli",
-    sport: "Laji",
+    sportGroup: "Laji",
+    league: "Liiga",
     loading: "Ladataan otteluita...",
     failedToLoad: "Otteluiden lataus epäonnistui",
     fallbackBanner: "Näytetään fallback-dataa, koska API-quota on ylittynyt",
@@ -51,7 +52,8 @@ const TEXT = {
     title: "SCORECASTER",
     subtitle: "Betting analysis and odds dashboard",
     language: "Language",
-    sport: "Sport",
+    sportGroup: "Sport",
+    league: "League",
     loading: "Loading games...",
     failedToLoad: "Failed to load games",
     fallbackBanner: "Showing fallback data because API quota is exceeded",
@@ -261,54 +263,101 @@ export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
 
-  const [selectedSportKey, setSelectedSportKey] = useState("icehockey_nhl");
+  const [selectedGroup, setSelectedGroup] = useState("");
+  const [selectedSportKey, setSelectedSportKey] = useState("");
+
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [fallback, setFallback] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const [bankroll, setBankroll] = useState(1000);
+  const [bankrollInput, setBankrollInput] = useState("1000");
   const [riskMode, setRiskMode] = useState("quarter");
   const [betHistory, setBetHistory] = useState([]);
+
+  const bankroll = useMemo(() => {
+    const normalized = bankrollInput.replace(",", ".").trim();
+    const parsed = Number(normalized);
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [bankrollInput]);
 
   useEffect(() => {
     async function loadSports() {
       try {
         const res = await fetch("/api/sports");
-
         if (!res.ok) {
           throw new Error("Failed to fetch sports");
         }
 
         const json = await res.json();
+        const sportsData = Array.isArray(json.data) ? json.data : [];
 
-        const sportOptions = (json.data || []).map((sport) => ({
-          key: sport.key,
-          label: sport.title || sport.key,
-        }));
-
-        setSports(sportOptions);
+        setSports(sportsData);
         setSportsFallback(Boolean(json.fallback));
 
-        if (sportOptions.length > 0) {
-          setSelectedSportKey((prev) => {
-            const exists = sportOptions.some((s) => s.key === prev);
-            return exists ? prev : sportOptions[0].key;
-          });
-        }
+        const firstGroup = sportsData[0]?.group || "";
+        setSelectedGroup(firstGroup);
+
+        const firstLeague = sportsData[0]?.key || "";
+        setSelectedSportKey(firstLeague);
       } catch (err) {
-        setSports([
-          { key: "icehockey_nhl", label: "NHL" },
-          { key: "basketball_nba", label: "NBA" },
-          { key: "soccer_epl", label: "EPL" },
-        ]);
+        const fallbackSports = [
+          {
+            key: "icehockey_nhl",
+            group: "Ice Hockey",
+            title: "NHL",
+          },
+          {
+            key: "icehockey_sweden_allsvenskan",
+            group: "Ice Hockey",
+            title: "Allsvenskan",
+          },
+          {
+            key: "basketball_nba",
+            group: "Basketball",
+            title: "NBA",
+          },
+          {
+            key: "soccer_epl",
+            group: "Soccer",
+            title: "Premier League",
+          },
+        ];
+
+        setSports(fallbackSports);
         setSportsFallback(true);
+        setSelectedGroup(fallbackSports[0].group);
+        setSelectedSportKey(fallbackSports[0].key);
       }
     }
 
     loadSports();
   }, []);
+
+  const sportGroups = useMemo(() => {
+    return [...new Set(sports.map((sport) => sport.group).filter(Boolean))];
+  }, [sports]);
+
+  const leaguesForSelectedGroup = useMemo(() => {
+    return sports.filter((sport) => sport.group === selectedGroup);
+  }, [sports, selectedGroup]);
+
+  useEffect(() => {
+    if (!selectedGroup && sportGroups.length > 0) {
+      setSelectedGroup(sportGroups[0]);
+      return;
+    }
+
+    if (leaguesForSelectedGroup.length > 0) {
+      const exists = leaguesForSelectedGroup.some((league) => league.key === selectedSportKey);
+      if (!exists) {
+        setSelectedSportKey(leaguesForSelectedGroup[0].key);
+      }
+    } else {
+      setSelectedSportKey("");
+    }
+  }, [selectedGroup, leaguesForSelectedGroup, selectedSportKey, sportGroups]);
 
   useEffect(() => {
     async function loadOdds() {
@@ -341,6 +390,10 @@ export default function Page() {
 
     if (selectedSportKey) {
       loadOdds();
+    } else {
+      setGames([]);
+      setSelectedGameId("");
+      setLoading(false);
     }
   }, [selectedSportKey, t.failedToLoad]);
 
@@ -385,8 +438,6 @@ export default function Page() {
       profit = stake * (bestCalculatedBet.odds - 1);
     } else if (status === "lose") {
       profit = -stake;
-    } else {
-      profit = 0;
     }
 
     const record = {
@@ -399,7 +450,10 @@ export default function Page() {
     };
 
     setBetHistory((prev) => [record, ...prev]);
-    setBankroll((prev) => Number((Number(prev) + profit).toFixed(2)));
+    setBankrollInput((prev) => {
+      const current = Number(prev.replace(",", ".")) || 0;
+      return String(Number((current + profit).toFixed(2)));
+    });
   }
 
   const totalStaked = betHistory.reduce((sum, bet) => sum + bet.stake, 0);
@@ -417,7 +471,7 @@ export default function Page() {
           'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+      <div style={{ maxWidth: 1320, margin: "0 auto" }}>
         <header
           style={{
             display: "flex",
@@ -429,14 +483,7 @@ export default function Page() {
           }}
         >
           <div>
-            <h1
-              style={{
-                margin: 0,
-                fontSize: 40,
-                fontWeight: 800,
-                letterSpacing: 1,
-              }}
-            >
+            <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, letterSpacing: 1 }}>
               {t.title}
             </h1>
             <div style={{ color: "#94a3b8", marginTop: 8 }}>{t.subtitle}</div>
@@ -459,16 +506,33 @@ export default function Page() {
 
             <div>
               <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
-                {t.sport}
+                {t.sportGroup}
+              </div>
+              <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                style={selectStyle}
+              >
+                {sportGroups.map((group) => (
+                  <option key={group} value={group}>
+                    {group}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 6 }}>
+                {t.league}
               </div>
               <select
                 value={selectedSportKey}
                 onChange={(e) => setSelectedSportKey(e.target.value)}
                 style={selectStyle}
               >
-                {sports.map((sport) => (
-                  <option key={sport.key} value={sport.key}>
-                    {sport.label}
+                {leaguesForSelectedGroup.map((league) => (
+                  <option key={league.key} value={league.key}>
+                    {league.title || league.key}
                   </option>
                 ))}
               </select>
@@ -524,7 +588,7 @@ export default function Page() {
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "1.2fr 0.8fr",
+            gridTemplateColumns: "1.5fr 0.95fr",
             gap: 20,
           }}
         >
@@ -547,32 +611,17 @@ export default function Page() {
                       onClick={() => setSelectedGameId(game.id)}
                       style={{
                         ...gameCardStyle,
-                        border: isSelected
-                          ? "1px solid #22c55e"
-                          : "1px solid #1f2937",
+                        border: isSelected ? "1px solid #22c55e" : "1px solid #1f2937",
                         background: isSelected ? "#0f172a" : "#111827",
                         textAlign: "left",
                         cursor: "pointer",
                       }}
                     >
-                      <div
-                        style={{
-                          fontSize: 20,
-                          fontWeight: 700,
-                          marginBottom: 8,
-                          color: "#f8fafc",
-                        }}
-                      >
+                      <div style={{ fontSize: 20, fontWeight: 700, marginBottom: 8 }}>
                         {game.home} vs {game.away}
                       </div>
 
-                      <div
-                        style={{
-                          fontSize: 13,
-                          color: "#94a3b8",
-                          marginBottom: 12,
-                        }}
-                      >
+                      <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
                         {formatDate(game.commenceTime)}
                       </div>
 
@@ -603,11 +652,19 @@ export default function Page() {
                 <div>
                   <div style={labelStyle}>{t.bankroll}</div>
                   <input
-                    type="number"
-                    value={bankroll}
-                    onChange={(e) => setBankroll(Number(e.target.value || 0))}
+                    type="text"
+                    inputMode="decimal"
+                    value={bankrollInput}
+                    onChange={(e) => setBankrollInput(e.target.value)}
                     style={inputStyle}
+                    placeholder="1000"
                   />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 13, color: "#94a3b8" }}>
+                    Parsed bankroll: {bankroll.toFixed(2)} €
+                  </div>
                 </div>
 
                 <div>
@@ -739,14 +796,7 @@ export default function Page() {
 
               {bestCalculatedBet && stakeInfo ? (
                 <>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                      marginBottom: 14,
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 14 }}>
                     <button onClick={() => addBetResult("win")} style={successButtonStyle}>
                       {t.markWin}
                     </button>
@@ -847,7 +897,7 @@ const inputStyle = {
 };
 
 const selectStyle = {
-  width: "100%",
+  minWidth: 140,
   padding: "10px 12px",
   borderRadius: 10,
   border: "1px solid #334155",
