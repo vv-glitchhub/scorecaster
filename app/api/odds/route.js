@@ -41,7 +41,7 @@ function getFallbackGames(sport) {
         sport_key: "icehockey_nhl",
         home_team: "Edmonton Oilers",
         away_team: "Colorado Avalanche",
-        commence_time: new Date(now + 5 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 26 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Edmonton Oilers", "Colorado Avalanche", 1.95, 1.95),
           createBookmaker("DemoOdds", "Edmonton Oilers", "Colorado Avalanche", 2.0, 1.91),
@@ -52,10 +52,46 @@ function getFallbackGames(sport) {
         sport_key: "icehockey_nhl",
         home_team: "Toronto Maple Leafs",
         away_team: "Florida Panthers",
-        commence_time: new Date(now + 8 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 50 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Toronto Maple Leafs", "Florida Panthers", 2.05, 1.85),
           createBookmaker("DemoOdds", "Toronto Maple Leafs", "Florida Panthers", 2.1, 1.83),
+        ],
+      },
+    ],
+
+    icehockey_liiga: [
+      {
+        id: "fallback-liiga-1",
+        sport_key: "icehockey_liiga",
+        home_team: "Tappara",
+        away_team: "Ilves",
+        commence_time: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Tappara", "Ilves", 2.2, 1.78),
+          createBookmaker("DemoOdds", "Tappara", "Ilves", 2.15, 1.8),
+        ],
+      },
+      {
+        id: "fallback-liiga-2",
+        sport_key: "icehockey_liiga",
+        home_team: "HIFK",
+        away_team: "Kärpät",
+        commence_time: new Date(now + 27 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "HIFK", "Kärpät", 1.95, 1.95),
+          createBookmaker("DemoOdds", "HIFK", "Kärpät", 2.0, 1.91),
+        ],
+      },
+      {
+        id: "fallback-liiga-3",
+        sport_key: "icehockey_liiga",
+        home_team: "TPS",
+        away_team: "Lukko",
+        commence_time: new Date(now + 52 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "TPS", "Lukko", 2.4, 1.62),
+          createBookmaker("DemoOdds", "TPS", "Lukko", 2.35, 1.65),
         ],
       },
     ],
@@ -66,7 +102,7 @@ function getFallbackGames(sport) {
         sport_key: "basketball_nba",
         home_team: "Los Angeles Lakers",
         away_team: "Boston Celtics",
-        commence_time: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Los Angeles Lakers", "Boston Celtics", 2.3, 1.68),
           createBookmaker("DemoOdds", "Los Angeles Lakers", "Boston Celtics", 2.25, 1.7),
@@ -77,7 +113,7 @@ function getFallbackGames(sport) {
         sport_key: "basketball_nba",
         home_team: "Denver Nuggets",
         away_team: "Phoenix Suns",
-        commence_time: new Date(now + 6 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 28 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Denver Nuggets", "Phoenix Suns", 1.87, 2.0),
           createBookmaker("DemoOdds", "Denver Nuggets", "Phoenix Suns", 1.9, 1.96),
@@ -102,7 +138,7 @@ function getFallbackGames(sport) {
         sport_key: "soccer_epl",
         home_team: "Manchester City",
         away_team: "Chelsea",
-        commence_time: new Date(now + 30 * 60 * 60 * 1000).toISOString(),
+        commence_time: new Date(now + 48 * 60 * 60 * 1000).toISOString(),
         bookmakers: [
           createBookmaker("SampleBook", "Manchester City", "Chelsea", 1.72, 4.4, 3.8),
           createBookmaker("DemoOdds", "Manchester City", "Chelsea", 1.75, 4.2, 3.75),
@@ -118,9 +154,14 @@ export async function GET(req) {
   const { searchParams } = new URL(req.url);
   const sport = searchParams.get("sport") || "icehockey_nhl";
 
+  const now = new Date();
+  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+
   try {
     const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=eu&markets=h2h`,
+      `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=eu&markets=h2h&commenceTimeFrom=${encodeURIComponent(
+        now.toISOString()
+      )}&commenceTimeTo=${encodeURIComponent(threeDaysFromNow.toISOString())}`,
       {
         next: { revalidate: 60 },
       }
