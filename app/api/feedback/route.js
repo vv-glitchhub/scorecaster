@@ -38,7 +38,7 @@ export async function POST(req) {
 
     const resendResponse = await resend.emails.send({
       from: "Scorecaster <onboarding@resend.dev>",
-      to: ["vikke.vuorio99@outlook.com"],
+      to: ["delivered@resend.dev"],
       subject: "Uusi palaute Scorecasterista",
       text: [
         `Palaute: ${cleanMessage}`,
@@ -53,7 +53,6 @@ export async function POST(req) {
 
     if (resendResponse?.error) {
       console.error("RESEND ERROR:", resendResponse.error);
-
       return Response.json(
         {
           error: "Email send failed",
