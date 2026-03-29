@@ -621,7 +621,7 @@ export default function Page() {
                         {game.home} vs {game.away}
                       </div>
 
-                      <div style={{ fontSize: 13, color: "#94a3b8", marginBottom: 12 }}>
+                      <div style={{ fontSize: 14, color: "#dbeafe", marginBottom: 12 }}>
                         {formatDate(game.commenceTime)}
                       </div>
 
