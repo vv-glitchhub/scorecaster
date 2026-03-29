@@ -1,202 +1,388 @@
-function createBookmaker(title, homeTeam, awayTeam, homePrice, awayPrice, drawPrice = null) {
-  const outcomes = [
-    { name: homeTeam, price: homePrice },
-    { name: awayTeam, price: awayPrice },
-  ];
+"use client";
 
-  if (drawPrice) {
-    outcomes.splice(1, 0, { name: "Draw", price: drawPrice });
-  }
+import { useEffect, useMemo, useState } from "react";
 
-  return {
-    key: title.toLowerCase().replace(/\s+/g, "-"),
-    title,
-    markets: [
-      {
-        key: "h2h",
-        outcomes,
-      },
-    ],
-  };
+const TEXT = {
+  fi: {
+    title: "SCORECASTER",
+    subtitle: "Vedonlyönnin analyysi- ja oddsinäkymä",
+    language: "Kieli",
+    sportGroup: "Laji",
+    league: "Liiga",
+    games: "Ottelut",
+    loading: "Ladataan...",
+    noGames: "Otteluita ei löytynyt",
+    bankrollTitle: "Bankroll",
+    bankroll: "Bankroll (€)",
+    parsedBankroll: "Tulkittu",
+    feedback: "Palaute",
+    feedbackPlaceholder: "Kirjoita palaute...",
+    send: "Lähetä",
+    sending: "Lähetetään...",
+    sent: "✅ Lähetetty!",
+    failed: "❌ Lähetys epäonnistui",
+  },
+  en: {
+    title: "SCORECASTER",
+    subtitle: "Betting analysis and odds dashboard",
+    language: "Language",
+    sportGroup: "Sport",
+    league: "League",
+    games: "Games",
+    loading: "Loading...",
+    noGames: "No games found",
+    bankrollTitle: "Bankroll",
+    bankroll: "Bankroll (€)",
+    parsedBankroll: "Parsed",
+    feedback: "Feedback",
+    feedbackPlaceholder: "Write feedback...",
+    send: "Send",
+    sending: "Sending...",
+    sent: "✅ Sent!",
+    failed: "❌ Failed to send",
+  },
+};
+
+const GROUP_LABELS = {
+  fi: {
+    icehockey: "Jääkiekko",
+    basketball: "Koripallo",
+    soccer: "Jalkapallo",
+  },
+  en: {
+    icehockey: "Ice Hockey",
+    basketball: "Basketball",
+    soccer: "Soccer",
+  },
+};
+
+const LEAGUES = {
+  icehockey: [
+    { key: "icehockey_nhl", fi: "NHL", en: "NHL" },
+    { key: "icehockey_liiga", fi: "Liiga", en: "Liiga" },
+  ],
+  basketball: [
+    { key: "basketball_nba", fi: "NBA", en: "NBA" },
+  ],
+  soccer: [
+    { key: "soccer_epl", fi: "Valioliiga", en: "Premier League" },
+  ],
+};
+
+function getLeagueLabel(league, lang) {
+  if (!league) return "";
+  return lang === "fi" ? league.fi : league.en;
 }
 
-function getFallbackGames(sport) {
-  const now = Date.now();
+export default function Page() {
+  const [lang, setLang] = useState("fi");
+  const t = TEXT[lang];
 
-  const fallbackBySport = {
-    icehockey_nhl: [
-      {
-        id: "fallback-nhl-1",
-        sport_key: "icehockey_nhl",
-        home_team: "Boston Bruins",
-        away_team: "New York Rangers",
-        commence_time: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Boston Bruins", "New York Rangers", 2.15, 1.78),
-          createBookmaker("DemoOdds", "Boston Bruins", "New York Rangers", 2.2, 1.8),
-        ],
-      },
-      {
-        id: "fallback-nhl-2",
-        sport_key: "icehockey_nhl",
-        home_team: "Edmonton Oilers",
-        away_team: "Colorado Avalanche",
-        commence_time: new Date(now + 28 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Edmonton Oilers", "Colorado Avalanche", 1.95, 1.95),
-          createBookmaker("DemoOdds", "Edmonton Oilers", "Colorado Avalanche", 2.0, 1.91),
-        ],
-      },
-      {
-        id: "fallback-nhl-3",
-        sport_key: "icehockey_nhl",
-        home_team: "Toronto Maple Leafs",
-        away_team: "Florida Panthers",
-        commence_time: new Date(now + 52 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Toronto Maple Leafs", "Florida Panthers", 2.05, 1.85),
-          createBookmaker("DemoOdds", "Toronto Maple Leafs", "Florida Panthers", 2.1, 1.83),
-        ],
-      },
-    ],
+  const [selectedGroup, setSelectedGroup] = useState("icehockey");
+  const [selectedSportKey, setSelectedSportKey] = useState("icehockey_nhl");
 
-    icehockey_liiga: [
-      {
-        id: "fallback-liiga-1",
-        sport_key: "icehockey_liiga",
-        home_team: "Tappara",
-        away_team: "Ilves",
-        commence_time: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Tappara", "Ilves", 2.2, 1.78),
-          createBookmaker("DemoOdds", "Tappara", "Ilves", 2.15, 1.8),
-        ],
-      },
-      {
-        id: "fallback-liiga-2",
-        sport_key: "icehockey_liiga",
-        home_team: "HIFK",
-        away_team: "Kärpät",
-        commence_time: new Date(now + 27 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "HIFK", "Kärpät", 1.95, 1.95),
-          createBookmaker("DemoOdds", "HIFK", "Kärpät", 2.0, 1.91),
-        ],
-      },
-      {
-        id: "fallback-liiga-3",
-        sport_key: "icehockey_liiga",
-        home_team: "TPS",
-        away_team: "Lukko",
-        commence_time: new Date(now + 50 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "TPS", "Lukko", 2.4, 1.62),
-          createBookmaker("DemoOdds", "TPS", "Lukko", 2.35, 1.65),
-        ],
-      },
-    ],
+  const [games, setGames] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    basketball_nba: [
-      {
-        id: "fallback-nba-1",
-        sport_key: "basketball_nba",
-        home_team: "Los Angeles Lakers",
-        away_team: "Boston Celtics",
-        commence_time: new Date(now + 4 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Los Angeles Lakers", "Boston Celtics", 2.3, 1.68),
-          createBookmaker("DemoOdds", "Los Angeles Lakers", "Boston Celtics", 2.25, 1.7),
-        ],
-      },
-      {
-        id: "fallback-nba-2",
-        sport_key: "basketball_nba",
-        home_team: "Denver Nuggets",
-        away_team: "Phoenix Suns",
-        commence_time: new Date(now + 30 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Denver Nuggets", "Phoenix Suns", 1.87, 2.0),
-          createBookmaker("DemoOdds", "Denver Nuggets", "Phoenix Suns", 1.9, 1.96),
-        ],
-      },
-    ],
+  const [bankrollInput, setBankrollInput] = useState("1000");
 
-    soccer_epl: [
-      {
-        id: "fallback-epl-1",
-        sport_key: "soccer_epl",
-        home_team: "Arsenal",
-        away_team: "Liverpool",
-        commence_time: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Arsenal", "Liverpool", 2.45, 2.7, 3.4),
-          createBookmaker("DemoOdds", "Arsenal", "Liverpool", 2.5, 2.62, 3.3),
-        ],
-      },
-      {
-        id: "fallback-epl-2",
-        sport_key: "soccer_epl",
-        home_team: "Manchester City",
-        away_team: "Chelsea",
-        commence_time: new Date(now + 48 * 60 * 60 * 1000).toISOString(),
-        bookmakers: [
-          createBookmaker("SampleBook", "Manchester City", "Chelsea", 1.72, 4.4, 3.8),
-          createBookmaker("DemoOdds", "Manchester City", "Chelsea", 1.75, 4.2, 3.75),
-        ],
-      },
-    ],
-  };
+  const [feedback, setFeedback] = useState("");
+  const [sending, setSending] = useState(false);
+  const [status, setStatus] = useState("");
 
-  return fallbackBySport[sport] || [];
-}
+  const bankroll = useMemo(() => {
+    const parsed = Number(bankrollInput.replace(",", "."));
+    return Number.isFinite(parsed) ? parsed : 0;
+  }, [bankrollInput]);
 
-export async function GET(req) {
-  const { searchParams } = new URL(req.url);
-  const sport = searchParams.get("sport") || "icehockey_nhl";
+  const currentLeagues = LEAGUES[selectedGroup] || [];
 
-  const now = new Date();
-  const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+  useEffect(() => {
+    if (!currentLeagues.some((l) => l.key === selectedSportKey)) {
+      setSelectedSportKey(currentLeagues[0]?.key || "");
+    }
+  }, [selectedGroup, selectedSportKey, currentLeagues]);
 
-  try {
-    const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${process.env.ODDS_API_KEY}&regions=eu&markets=h2h&commenceTimeFrom=${encodeURIComponent(
-        now.toISOString()
-      )}&commenceTimeTo=${encodeURIComponent(threeDaysFromNow.toISOString())}`,
-      {
-        next: { revalidate: 60 },
+  useEffect(() => {
+    async function loadGames() {
+      if (!selectedSportKey) {
+        setGames([]);
+        setLoading(false);
+        return;
       }
-    );
 
-    const data = await res.json();
+      setLoading(true);
 
-    if (data?.error_code === "OUT_OF_USAGE_CREDITS") {
-      return Response.json({
-        error: "API quota exceeded",
-        fallback: true,
-        sport,
-        data: getFallbackGames(sport),
-      });
+      try {
+        const res = await fetch(`/api/odds?sport=${selectedSportKey}`);
+        const data = await res.json();
+        setGames(Array.isArray(data.data) ? data.data : []);
+      } catch (error) {
+        setGames([]);
+      } finally {
+        setLoading(false);
+      }
     }
 
-    if (!Array.isArray(data) || data.length === 0) {
-      return Response.json({
-        fallback: true,
-        sport,
-        data: getFallbackGames(sport),
-      });
-    }
+    loadGames();
+  }, [selectedSportKey]);
 
-    return Response.json({
-      fallback: false,
-      sport,
-      data,
-    });
-  } catch (error) {
-    return Response.json({
-      error: "Failed to fetch odds",
-      fallback: true,
-      sport,
-      data: getFallbackGames(sport),
-    });
+  async function sendFeedback() {
+    if (!feedback.trim()) return;
+
+    setSending(true);
+    setStatus("");
+
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: feedback,
+          selectedSportKey,
+          selectedGroup,
+          bankroll,
+          selectedGame: null,
+        }),
+      });
+
+      if (!res.ok) throw new Error("Failed");
+
+      setFeedback("");
+      setStatus(t.sent);
+    } catch (error) {
+      setStatus(t.failed);
+    } finally {
+      setSending(false);
+    }
   }
+
+  return (
+    <main style={styles.main}>
+      <div style={styles.container}>
+        <h1 style={styles.title}>{t.title}</h1>
+        <p style={styles.subtitle}>{t.subtitle}</p>
+
+        <section style={styles.section}>
+          <div style={styles.field}>
+            <label style={styles.label}>{t.language}</label>
+            <select
+              value={lang}
+              onChange={(e) => setLang(e.target.value)}
+              style={styles.input}
+            >
+              <option value="fi">Suomi</option>
+              <option value="en">English</option>
+            </select>
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>{t.sportGroup}</label>
+            <select
+              value={selectedGroup}
+              onChange={(e) => setSelectedGroup(e.target.value)}
+              style={styles.input}
+            >
+              <option value="icehockey">{GROUP_LABELS[lang].icehockey}</option>
+              <option value="basketball">{GROUP_LABELS[lang].basketball}</option>
+              <option value="soccer">{GROUP_LABELS[lang].soccer}</option>
+            </select>
+          </div>
+
+          <div style={styles.field}>
+            <label style={styles.label}>{t.league}</label>
+            <select
+              value={selectedSportKey}
+              onChange={(e) => setSelectedSportKey(e.target.value)}
+              style={styles.input}
+            >
+              {currentLeagues.map((league) => (
+                <option key={league.key} value={league.key}>
+                  {getLeagueLabel(league, lang)}
+                </option>
+              ))}
+            </select>
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.games}</h2>
+
+          {loading && <p style={styles.muted}>{t.loading}</p>}
+
+          {!loading && games.length === 0 && (
+            <p style={styles.muted}>{t.noGames}</p>
+          )}
+
+          <div style={styles.gamesList}>
+            {games.map((game) => (
+              <div key={game.id || `${game.home_team}-${game.away_team}`} style={styles.gameCard}>
+                <div style={styles.gameTitle}>
+                  {game.home_team} vs {game.away_team}
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.bankrollTitle}</h2>
+
+          <div style={styles.field}>
+            <label style={styles.label}>{t.bankroll}</label>
+            <input
+              type="text"
+              inputMode="decimal"
+              value={bankrollInput}
+              onChange={(e) => setBankrollInput(e.target.value)}
+              style={styles.input}
+            />
+          </div>
+
+          <div style={styles.parsedText}>
+            {t.parsedBankroll}: {bankroll.toFixed(2)} €
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.feedback}</h2>
+
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder={t.feedbackPlaceholder}
+            style={styles.textarea}
+          />
+
+          <button
+            onClick={sendFeedback}
+            disabled={sending}
+            style={styles.button}
+          >
+            {sending ? t.sending : t.send}
+          </button>
+
+          {status ? <div style={styles.status}>{status}</div> : null}
+        </section>
+      </div>
+    </main>
+  );
 }
+
+const styles = {
+  main: {
+    minHeight: "100vh",
+    background: "#020617",
+    color: "#ffffff",
+    padding: 16,
+    fontFamily:
+      'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  },
+  container: {
+    maxWidth: 720,
+    margin: "0 auto",
+  },
+  title: {
+    fontSize: 48,
+    lineHeight: 1,
+    fontWeight: 900,
+    margin: "0 0 12px 0",
+    letterSpacing: 0.5,
+  },
+  subtitle: {
+    margin: "0 0 24px 0",
+    color: "#94a3b8",
+    fontSize: 18,
+  },
+  section: {
+    display: "grid",
+    gap: 12,
+    marginBottom: 20,
+  },
+  card: {
+    background: "#0f172a",
+    border: "1px solid #1e293b",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+  },
+  cardTitle: {
+    margin: "0 0 16px 0",
+    fontSize: 24,
+    fontWeight: 800,
+  },
+  field: {
+    display: "grid",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#cbd5e1",
+  },
+  input: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 14,
+    border: "1px solid #334155",
+    background: "#0b1730",
+    color: "#ffffff",
+    fontSize: 16,
+    boxSizing: "border-box",
+  },
+  textarea: {
+    width: "100%",
+    minHeight: 140,
+    padding: "14px 16px",
+    borderRadius: 16,
+    border: "1px solid #334155",
+    background: "#0b1730",
+    color: "#ffffff",
+    fontSize: 16,
+    boxSizing: "border-box",
+    resize: "vertical",
+  },
+  button: {
+    marginTop: 14,
+    padding: "14px 20px",
+    borderRadius: 14,
+    background: "#16a34a",
+    color: "#ffffff",
+    border: "none",
+    fontSize: 18,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  status: {
+    marginTop: 12,
+    color: "#cbd5e1",
+    fontSize: 15,
+  },
+  muted: {
+    color: "#94a3b8",
+    fontSize: 16,
+    margin: 0,
+  },
+  gamesList: {
+    display: "grid",
+    gap: 12,
+  },
+  gameCard: {
+    padding: 16,
+    borderRadius: 16,
+    background: "#13203d",
+    border: "1px solid #334155",
+  },
+  gameTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+    lineHeight: 1.3,
+  },
+  parsedText: {
+    marginTop: 8,
+    color: "#cbd5e1",
+    fontSize: 16,
+  },
+};
