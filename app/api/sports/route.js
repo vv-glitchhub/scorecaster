@@ -1,63 +1,64 @@
-import { NextResponse } from "next/server";
-
-function cleanTitle(title = "") {
-  return title
-    .replace(/^Soccer - /i, "")
-    .replace(/^Ice Hockey - /i, "")
-    .replace(/^Basketball - /i, "")
-    .replace(/^American Football - /i, "")
-    .replace(/^Baseball - /i, "")
-    .replace(/^Mixed Martial Arts - /i, "");
-}
-
-function inferCategory(key = "", group = "") {
-  const g = `${key} ${group}`.toLowerCase();
-
-  if (g.includes("soccer")) return "jalkapallo";
-  if (g.includes("icehockey") || g.includes("ice hockey")) return "jaakiekko";
-  if (g.includes("basketball")) return "koripallo";
-  return "other";
+function getFallbackSports() {
+  return [
+    {
+      key: "icehockey_nhl",
+      group: "Ice Hockey",
+      title: "NHL",
+      description: "National Hockey League",
+      active: true,
+      has_outrights: false
+    },
+    {
+      key: "basketball_nba",
+      group: "Basketball",
+      title: "NBA",
+      description: "National Basketball Association",
+      active: true,
+      has_outrights: false
+    },
+    {
+      key: "soccer_epl",
+      group: "Soccer",
+      title: "EPL",
+      description: "English Premier League",
+      active: true,
+      has_outrights: false
+    }
+  ];
 }
 
 export async function GET() {
   try {
-    const apiKey = process.env.ODDS_API_KEY;
-
-    if (!apiKey) {
-      return NextResponse.json(
-        { error: "ODDS_API_KEY puuttuu" },
-        { status: 500 }
-      );
-    }
-
     const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports?apiKey=${apiKey}`,
-      { next: { revalidate: 3600 } }
+      `https://api.the-odds-api.com/v4/sports/?apiKey=${process.env.ODDS_API_KEY}`,
+      {
+        next: { revalidate: 3600 }
+      }
     );
-
-    if (!res.ok) {
-      const text = await res.text();
-      throw new Error(`Sports API virhe: ${text}`);
-    }
 
     const data = await res.json();
 
-    const sports = data
-      .filter((s) => s.active)
-      .map((s) => ({
-        key: s.key,
-        group: s.group,
-        title: cleanTitle(s.title),
-        description: s.description,
-        category: inferCategory(s.key, s.group)
-      }))
-      .sort((a, b) => a.title.localeCompare(b.title));
+    if (!res.ok) {
+      return Response.json({
+        fallback: true,
+        data: getFallbackSports(),
+        error: data?.message || "Failed to fetch sports"
+      });
+    }
 
-    return NextResponse.json({ sports });
+    const filtered = Array.isArray(data)
+      ? data.filter((sport) => sport.active)
+      : [];
+
+    return Response.json({
+      fallback: false,
+      data: filtered
+    });
   } catch (error) {
-    return NextResponse.json(
-      { error: error.message || "Sports haku epäonnistui" },
-      { status: 500 }
-    );
+    return Response.json({
+      fallback: true,
+      data: getFallbackSports(),
+      error: "Failed to fetch sports"
+    });
   }
 }
