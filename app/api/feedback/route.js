@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -6,43 +7,73 @@ export async function POST(req) {
   try {
     const {
       message,
+      email,
       selectedSportKey,
       selectedGroup,
       selectedGame,
       bankroll,
+      sessionId,
+      visitorId,
     } = await req.json();
 
     if (!message || !message.trim()) {
       return Response.json({ error: "Message required" }, { status: 400 });
     }
 
-    await resend.emails.send({
-      from: "onboarding@resend.dev", // 🔥 tärkeä
+    const selectedGameLabel = selectedGame
+      ? `${selectedGame.home_team || selectedGame.home || "-"} vs ${selectedGame.away_team || selectedGame.away || "-"}`
+      : null;
+
+    const { error: dbError } = await supabaseAdmin.from("feedback_messages").insert({
+      message: message.trim(),
+      email: email || null,
+      selected_group: selectedGroup || null,
+      selected_sport_key: selectedSportKey || null,
+      selected_game: selectedGameLabel,
+      bankroll: bankroll ?? null,
+      metadata: {
+        sessionId: sessionId || null,
+        visitorId: visitorId || null,
+      },
+    });
+
+    if (dbError) {
+      console.error("feedback insert error:", dbError);
+    }
+
+    const emailResult = await resend.emails.send({
+      from: "Scorecaster <onboarding@resend.dev>",
       to: process.env.EMAIL_TO,
-      subject: "Scorecaster palaute",
+      subject: `Scorecaster palaute - ${new Date().toLocaleString("fi-FI")}`,
       html: `
-        <h2>Uusi palaute</h2>
-        <p>${message}</p>
+        <h2>Uusi palaute Scorecasterista</h2>
+        <p><strong>Viesti:</strong></p>
+        <p>${escapeHtml(message)}</p>
 
         <hr />
 
-        <p><b>Laji:</b> ${selectedGroup || "-"}</p>
-        <p><b>Liiga:</b> ${selectedSportKey || "-"}</p>
-        <p><b>Bankroll:</b> ${bankroll ?? "-"}</p>
-        <p><b>Ottelu:</b> ${
-          selectedGame
-            ? `${selectedGame.home_team} vs ${selectedGame.away_team}`
-            : "-"
-        }</p>
+        <p><strong>Lähettäjän email:</strong> ${escapeHtml(email || "-")}</p>
+        <p><strong>Laji:</strong> ${escapeHtml(selectedGroup || "-")}</p>
+        <p><strong>Liiga:</strong> ${escapeHtml(selectedSportKey || "-")}</p>
+        <p><strong>Ottelu:</strong> ${escapeHtml(selectedGameLabel || "-")}</p>
+        <p><strong>Bankroll:</strong> ${bankroll ?? "-"}</p>
+        <p><strong>Session ID:</strong> ${escapeHtml(sessionId || "-")}</p>
+        <p><strong>Visitor ID:</strong> ${escapeHtml(visitorId || "-")}</p>
       `,
     });
 
-    return Response.json({ success: true });
+    return Response.json({ success: true, emailResult });
   } catch (error) {
-    console.error(error);
-    return Response.json(
-      { error: "Email failed" },
-      { status: 500 }
-    );
+    console.error("feedback route error:", error);
+    return Response.json({ error: "Failed to send feedback" }, { status: 500 });
   }
+}
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }
