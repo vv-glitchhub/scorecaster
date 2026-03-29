@@ -11,15 +11,14 @@ const TEXT = {
     loading: "Ladataan otteluita...",
     failedToLoad: "Otteluiden lataus epäonnistui",
     fallbackBanner: "Näytetään fallback-dataa, koska API-quota on ylittynyt",
+    sportsFallbackBanner: "Lajilista käyttää fallback-dataa",
     noGames: "Otteluita ei löytynyt",
     bestOdds: "Parhaat kertoimet",
     analysis: "Analyysi",
     stats: "Tilastot",
     draw: "Tasapeli",
-    selectedGame: "Valittu ottelu",
     homeWin: "Kotivoitto",
     awayWin: "Vierasvoitto",
-    impliedProb: "Implikoitu todennäköisyys",
     bookmaker: "Vedonvälittäjä",
     bankrollTitle: "Bankroll Management",
     bankroll: "Bankroll (€)",
@@ -36,14 +35,17 @@ const TEXT = {
     quarterKelly: "Quarter Kelly",
     halfKelly: "Half Kelly",
     fullKelly: "Full Kelly",
-    bestBet: "Paras veto",
     outcome: "Kohde",
     odds: "Kerroin",
     probability: "Todennäköisyys",
     ev: "EV",
     kellyFraction: "Kelly-osuus",
     suggestedStake: "Suositeltu panos",
-    pickGame: "Valitse ottelu nähdäksesi analyysin"
+    pickGame: "Valitse ottelu nähdäksesi analyysin",
+    noBookmakerOdds: "Bookmaker-kertoimia ei saatavilla",
+    status: "Status",
+    profit: "Voitto",
+    stake: "Panos",
   },
   en: {
     title: "SCORECASTER",
@@ -53,15 +55,14 @@ const TEXT = {
     loading: "Loading games...",
     failedToLoad: "Failed to load games",
     fallbackBanner: "Showing fallback data because API quota is exceeded",
+    sportsFallbackBanner: "Sports list is using fallback data",
     noGames: "No games found",
     bestOdds: "Best odds",
     analysis: "Analysis",
     stats: "Stats",
     draw: "Draw",
-    selectedGame: "Selected game",
     homeWin: "Home win",
     awayWin: "Away win",
-    impliedProb: "Implied probability",
     bookmaker: "Bookmaker",
     bankrollTitle: "Bankroll Management",
     bankroll: "Bankroll (€)",
@@ -78,22 +79,19 @@ const TEXT = {
     quarterKelly: "Quarter Kelly",
     halfKelly: "Half Kelly",
     fullKelly: "Full Kelly",
-    bestBet: "Best bet",
     outcome: "Outcome",
     odds: "Odds",
     probability: "Probability",
     ev: "EV",
     kellyFraction: "Kelly fraction",
     suggestedStake: "Suggested stake",
-    pickGame: "Select a game to see analysis"
-  }
+    pickGame: "Select a game to see analysis",
+    noBookmakerOdds: "No bookmaker odds available",
+    status: "Status",
+    profit: "Profit",
+    stake: "Stake",
+  },
 };
-
-const SPORT_OPTIONS = [
-  { key: "icehockey_nhl", label: "NHL" },
-  { key: "soccer_epl", label: "Premier League" },
-  { key: "basketball_nba", label: "NBA" }
-];
 
 function decimalProb(percent) {
   return Number(percent || 0) / 100;
@@ -127,7 +125,7 @@ function calculateStake(probPercent, odds, bankroll, riskMode = "quarter") {
   return {
     rawKelly,
     adjustedKelly,
-    stake: Math.max(0, stake)
+    stake: Math.max(0, stake),
   };
 }
 
@@ -142,7 +140,7 @@ function normalizeGames(apiGames) {
     away: game.away_team || "Away",
     sportKey: game.sport_key || "",
     commenceTime: game.commence_time || null,
-    bookmakers: Array.isArray(game.bookmakers) ? game.bookmakers : []
+    bookmakers: Array.isArray(game.bookmakers) ? game.bookmakers : [],
   }));
 }
 
@@ -163,35 +161,30 @@ function getBestOdds(game, t) {
         best[key] = {
           name: outcome.name,
           price,
-          bookmaker: bookmaker.title || "-"
+          bookmaker: bookmaker.title || "-",
         };
       }
     });
   });
 
-  const drawLabel = best.Draw ? "Draw" : t.draw;
-
   return [
     best[game.home],
-    best.Draw ? { ...best.Draw, name: drawLabel } : null,
-    best[game.away]
+    best.Draw ? { ...best.Draw, name: t.draw } : null,
+    best[game.away],
   ].filter(Boolean);
 }
 
-function getDefaultProbs(game) {
-  const bestOdds = getBestOdds(game, TEXT.en);
+function getDefaultProbs(game, t) {
+  const bestOdds = getBestOdds(game, t);
 
   const homeOdds = bestOdds.find((o) => o.name === game.home)?.price;
   const awayOdds = bestOdds.find((o) => o.name === game.away)?.price;
-  const drawOdds =
-    bestOdds.find((o) => o.name === "Draw")?.price ||
-    bestOdds.find((o) => o.name === TEXT.fi.draw)?.price ||
-    bestOdds.find((o) => o.name === TEXT.en.draw)?.price;
+  const drawOdds = bestOdds.find((o) => o.name === t.draw)?.price;
 
   const probs = [
     homeOdds ? 1 / homeOdds : 0,
     drawOdds ? 1 / drawOdds : 0,
-    awayOdds ? 1 / awayOdds : 0
+    awayOdds ? 1 / awayOdds : 0,
   ];
 
   const total = probs.reduce((sum, p) => sum + p, 0);
@@ -200,14 +193,14 @@ function getDefaultProbs(game) {
     return {
       homeWinProb: 50,
       drawProb: 0,
-      awayWinProb: 50
+      awayWinProb: 50,
     };
   }
 
   return {
     homeWinProb: Number(((probs[0] / total) * 100).toFixed(1)),
     drawProb: Number(((probs[1] / total) * 100).toFixed(1)),
-    awayWinProb: Number(((probs[2] / total) * 100).toFixed(1))
+    awayWinProb: Number(((probs[2] / total) * 100).toFixed(1)),
   };
 }
 
@@ -215,42 +208,36 @@ function getBestBetFromGame(game, t) {
   if (!game) return null;
 
   const oddsList = getBestOdds(game, t);
-  const probs = getDefaultProbs(game);
+  const probs = getDefaultProbs(game, t);
 
   const homeOdds = oddsList.find((o) => o.name === game.home)?.price || 0;
   const awayOdds = oddsList.find((o) => o.name === game.away)?.price || 0;
-  const drawOdds =
-    oddsList.find((o) => o.name === "Draw")?.price ||
-    oddsList.find((o) => o.name === t.draw)?.price ||
-    0;
+  const drawOdds = oddsList.find((o) => o.name === t.draw)?.price || 0;
 
   const options = [
     {
       outcome: game.home,
       probPercent: Number(probs.homeWinProb || 0),
       odds: Number(homeOdds || 0),
-      bookmaker: oddsList.find((o) => o.name === game.home)?.bookmaker || "-"
+      bookmaker: oddsList.find((o) => o.name === game.home)?.bookmaker || "-",
     },
     {
       outcome: t.draw,
       probPercent: Number(probs.drawProb || 0),
       odds: Number(drawOdds || 0),
-      bookmaker:
-        oddsList.find((o) => o.name === "Draw")?.bookmaker ||
-        oddsList.find((o) => o.name === t.draw)?.bookmaker ||
-        "-"
+      bookmaker: oddsList.find((o) => o.name === t.draw)?.bookmaker || "-",
     },
     {
       outcome: game.away,
       probPercent: Number(probs.awayWinProb || 0),
       odds: Number(awayOdds || 0),
-      bookmaker: oddsList.find((o) => o.name === game.away)?.bookmaker || "-"
-    }
+      bookmaker: oddsList.find((o) => o.name === game.away)?.bookmaker || "-",
+    },
   ]
     .filter((o) => o.odds > 1)
     .map((o) => ({
       ...o,
-      ev: decimalProb(o.probPercent) * o.odds
+      ev: decimalProb(o.probPercent) * o.odds,
     }))
     .sort((a, b) => b.ev - a.ev);
 
@@ -269,8 +256,8 @@ function formatDate(dateString) {
 
 export default function Page() {
   const [sports, setSports] = useState([]);
-const [sportsFallback, setSportsFallback] = useState(false);
-  
+  const [sportsFallback, setSportsFallback] = useState(false);
+
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
 
@@ -284,6 +271,44 @@ const [sportsFallback, setSportsFallback] = useState(false);
   const [bankroll, setBankroll] = useState(1000);
   const [riskMode, setRiskMode] = useState("quarter");
   const [betHistory, setBetHistory] = useState([]);
+
+  useEffect(() => {
+    async function loadSports() {
+      try {
+        const res = await fetch("/api/sports");
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch sports");
+        }
+
+        const json = await res.json();
+
+        const sportOptions = (json.data || []).map((sport) => ({
+          key: sport.key,
+          label: sport.title || sport.key,
+        }));
+
+        setSports(sportOptions);
+        setSportsFallback(Boolean(json.fallback));
+
+        if (sportOptions.length > 0) {
+          setSelectedSportKey((prev) => {
+            const exists = sportOptions.some((s) => s.key === prev);
+            return exists ? prev : sportOptions[0].key;
+          });
+        }
+      } catch (err) {
+        setSports([
+          { key: "icehockey_nhl", label: "NHL" },
+          { key: "basketball_nba", label: "NBA" },
+          { key: "soccer_epl", label: "EPL" },
+        ]);
+        setSportsFallback(true);
+      }
+    }
+
+    loadSports();
+  }, []);
 
   useEffect(() => {
     async function loadOdds() {
@@ -301,7 +326,10 @@ const [sportsFallback, setSportsFallback] = useState(false);
 
         setGames(normalized);
         setFallback(Boolean(json.fallback));
-        setSelectedGameId((prev) => prev || normalized[0]?.id || "");
+        setSelectedGameId((prev) => {
+          const exists = normalized.some((g) => g.id === prev);
+          return exists ? prev : normalized[0]?.id || "";
+        });
       } catch (err) {
         setError(t.failedToLoad);
         setGames([]);
@@ -311,14 +339,10 @@ const [sportsFallback, setSportsFallback] = useState(false);
       }
     }
 
-    loadOdds();
-  }, [selectedSportKey, t.failedToLoad]);
-
-  useEffect(() => {
-    if (!games.find((g) => g.id === selectedGameId)) {
-      setSelectedGameId(games[0]?.id || "");
+    if (selectedSportKey) {
+      loadOdds();
     }
-  }, [games, selectedGameId]);
+  }, [selectedSportKey, t.failedToLoad]);
 
   const selectedGame = useMemo(
     () => games.find((g) => g.id === selectedGameId) || null,
@@ -331,8 +355,8 @@ const [sportsFallback, setSportsFallback] = useState(false);
   );
 
   const derivedResult = useMemo(
-    () => (selectedGame ? getDefaultProbs(selectedGame) : null),
-    [selectedGame]
+    () => (selectedGame ? getDefaultProbs(selectedGame, t) : null),
+    [selectedGame, t]
   );
 
   const bestCalculatedBet = useMemo(
@@ -371,7 +395,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
       odds: bestCalculatedBet.odds,
       stake,
       status,
-      profit
+      profit,
     };
 
     setBetHistory((prev) => [record, ...prev]);
@@ -390,7 +414,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
         color: "#f8fafc",
         padding: 24,
         fontFamily:
-          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+          'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
       }}
     >
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -401,7 +425,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
             alignItems: "center",
             gap: 16,
             flexWrap: "wrap",
-            marginBottom: 24
+            marginBottom: 24,
           }}
         >
           <div>
@@ -410,7 +434,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                 margin: 0,
                 fontSize: 40,
                 fontWeight: 800,
-                letterSpacing: 1
+                letterSpacing: 1,
               }}
             >
               {t.title}
@@ -442,7 +466,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                 onChange={(e) => setSelectedSportKey(e.target.value)}
                 style={selectStyle}
               >
-                {SPORT_OPTIONS.map((sport) => (
+                {sports.map((sport) => (
                   <option key={sport.key} value={sport.key}>
                     {sport.label}
                   </option>
@@ -452,6 +476,21 @@ const [sportsFallback, setSportsFallback] = useState(false);
           </div>
         </header>
 
+        {sportsFallback && (
+          <div
+            style={{
+              marginBottom: 12,
+              padding: 14,
+              border: "1px solid #334155",
+              background: "#1e293b",
+              color: "#cbd5e1",
+              borderRadius: 12,
+            }}
+          >
+            {t.sportsFallbackBanner}
+          </div>
+        )}
+
         {fallback && (
           <div
             style={{
@@ -460,7 +499,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
               border: "1px solid #7c5a10",
               background: "#3a2a00",
               color: "#f5c451",
-              borderRadius: 12
+              borderRadius: 12,
             }}
           >
             ⚠ {t.fallbackBanner}
@@ -475,7 +514,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
               border: "1px solid #7f1d1d",
               background: "#3a1717",
               color: "#fecaca",
-              borderRadius: 12
+              borderRadius: 12,
             }}
           >
             {error}
@@ -486,7 +525,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
           style={{
             display: "grid",
             gridTemplateColumns: "1.2fr 0.8fr",
-            gap: 20
+            gap: 20,
           }}
         >
           <section style={panelStyle}>
@@ -513,7 +552,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                           : "1px solid #1f2937",
                         background: isSelected ? "#0f172a" : "#111827",
                         textAlign: "left",
-                        cursor: "pointer"
+                        cursor: "pointer",
                       }}
                     >
                       <div
@@ -521,7 +560,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                           fontSize: 20,
                           fontWeight: 700,
                           marginBottom: 8,
-                          color: "#f8fafc"
+                          color: "#f8fafc",
                         }}
                       >
                         {game.home} vs {game.away}
@@ -531,19 +570,23 @@ const [sportsFallback, setSportsFallback] = useState(false);
                         style={{
                           fontSize: 13,
                           color: "#94a3b8",
-                          marginBottom: 12
+                          marginBottom: 12,
                         }}
                       >
                         {formatDate(game.commenceTime)}
                       </div>
 
                       <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                        {cardOdds.map((odd) => (
-                          <div key={`${game.id}-${odd.name}`} style={pillStyle}>
-                            <strong>{odd.name}</strong>: {odd.price}{" "}
-                            <span style={{ color: "#94a3b8" }}>({odd.bookmaker})</span>
-                          </div>
-                        ))}
+                        {cardOdds.length > 0 ? (
+                          cardOdds.map((odd) => (
+                            <div key={`${game.id}-${odd.name}`} style={pillStyle}>
+                              <strong>{odd.name}</strong>: {odd.price}{" "}
+                              <span style={{ color: "#94a3b8" }}>({odd.bookmaker})</span>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ color: "#94a3b8" }}>{t.noBookmakerOdds}</div>
+                        )}
                       </div>
                     </button>
                   );
@@ -612,7 +655,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                               padding: 10,
                               border: "1px solid #1f2937",
                               borderRadius: 10,
-                              background: "#0f172a"
+                              background: "#0f172a",
                             }}
                           >
                             <div>{odd.name}</div>
@@ -622,7 +665,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                           </div>
                         ))
                       ) : (
-                        <div style={{ color: "#94a3b8" }}>No bookmaker odds available</div>
+                        <div style={{ color: "#94a3b8" }}>{t.noBookmakerOdds}</div>
                       )}
                     </div>
                   </div>
@@ -653,7 +696,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                         border: "1px solid #1f8f5f",
                         borderRadius: 12,
                         padding: 14,
-                        background: "#0d1f18"
+                        background: "#0d1f18",
                       }}
                     >
                       <div style={{ fontWeight: 700, marginBottom: 10 }}>
@@ -701,7 +744,7 @@ const [sportsFallback, setSportsFallback] = useState(false);
                       display: "flex",
                       gap: 8,
                       flexWrap: "wrap",
-                      marginBottom: 14
+                      marginBottom: 14,
                     }}
                   >
                     <button onClick={() => addBetResult("win")} style={successButtonStyle}>
@@ -746,14 +789,14 @@ const [sportsFallback, setSportsFallback] = useState(false);
                           border: "1px solid #1f2937",
                           borderRadius: 10,
                           padding: 12,
-                          background: "#0f172a"
+                          background: "#0f172a",
                         }}
                       >
                         <div style={{ fontWeight: 700, marginBottom: 6 }}>{bet.outcome}</div>
-                        <div>Odds: {bet.odds}</div>
-                        <div>Stake: {bet.stake.toFixed(2)} €</div>
-                        <div>Status: {bet.status}</div>
-                        <div>Profit: {bet.profit.toFixed(2)} €</div>
+                        <div>{t.odds}: {bet.odds}</div>
+                        <div>{t.stake}: {bet.stake.toFixed(2)} €</div>
+                        <div>{t.status}: {bet.status}</div>
+                        <div>{t.profit}: {bet.profit.toFixed(2)} €</div>
                       </div>
                     ))}
                   </div>
@@ -772,25 +815,25 @@ const panelStyle = {
   border: "1px solid #1f2937",
   borderRadius: 16,
   padding: 18,
-  boxShadow: "0 10px 30px rgba(0,0,0,0.25)"
+  boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
 };
 
 const sectionTitleStyle = {
   fontSize: 18,
   fontWeight: 800,
-  marginBottom: 14
+  marginBottom: 14,
 };
 
 const miniTitleStyle = {
   fontSize: 15,
   fontWeight: 700,
-  marginBottom: 8
+  marginBottom: 8,
 };
 
 const labelStyle = {
   marginBottom: 8,
   fontWeight: 600,
-  color: "#cbd5e1"
+  color: "#cbd5e1",
 };
 
 const inputStyle = {
@@ -800,7 +843,7 @@ const inputStyle = {
   border: "1px solid #334155",
   background: "#0f172a",
   color: "#f8fafc",
-  outline: "none"
+  outline: "none",
 };
 
 const selectStyle = {
@@ -810,13 +853,13 @@ const selectStyle = {
   border: "1px solid #334155",
   background: "#0f172a",
   color: "#f8fafc",
-  outline: "none"
+  outline: "none",
 };
 
 const gameCardStyle = {
   width: "100%",
   padding: 16,
-  borderRadius: 16
+  borderRadius: 16,
 };
 
 const pillStyle = {
@@ -824,7 +867,7 @@ const pillStyle = {
   borderRadius: 999,
   background: "#0b1220",
   border: "1px solid #243042",
-  fontSize: 13
+  fontSize: 13,
 };
 
 const statRowStyle = {
@@ -834,7 +877,7 @@ const statRowStyle = {
   padding: "10px 12px",
   border: "1px solid #1f2937",
   borderRadius: 10,
-  background: "#0f172a"
+  background: "#0f172a",
 };
 
 const successButtonStyle = {
@@ -843,7 +886,7 @@ const successButtonStyle = {
   border: "1px solid #166534",
   background: "#14532d",
   color: "#dcfce7",
-  cursor: "pointer"
+  cursor: "pointer",
 };
 
 const dangerButtonStyle = {
@@ -852,7 +895,7 @@ const dangerButtonStyle = {
   border: "1px solid #991b1b",
   background: "#7f1d1d",
   color: "#fee2e2",
-  cursor: "pointer"
+  cursor: "pointer",
 };
 
 const neutralButtonStyle = {
@@ -861,5 +904,5 @@ const neutralButtonStyle = {
   border: "1px solid #334155",
   background: "#1e293b",
   color: "#e2e8f0",
-  cursor: "pointer"
+  cursor: "pointer",
 };
