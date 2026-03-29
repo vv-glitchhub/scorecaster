@@ -1,33 +1,112 @@
+function createBookmaker(title, homeTeam, awayTeam, homePrice, awayPrice, drawPrice = null) {
+  const outcomes = [
+    { name: homeTeam, price: homePrice },
+    { name: awayTeam, price: awayPrice },
+  ];
+
+  if (drawPrice) {
+    outcomes.splice(1, 0, { name: "Draw", price: drawPrice });
+  }
+
+  return {
+    key: title.toLowerCase().replace(/\s+/g, "-"),
+    title,
+    markets: [
+      {
+        key: "h2h",
+        outcomes,
+      },
+    ],
+  };
+}
+
 function getFallbackGames(sport) {
+  const now = Date.now();
+
   const fallbackBySport = {
     icehockey_nhl: [
       {
         id: "fallback-nhl-1",
         sport_key: "icehockey_nhl",
-        home_team: "Tappara",
-        away_team: "Ilves",
-        commence_time: new Date().toISOString(),
-        bookmakers: [],
+        home_team: "Boston Bruins",
+        away_team: "New York Rangers",
+        commence_time: new Date(now + 2 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Boston Bruins", "New York Rangers", 2.15, 1.78),
+          createBookmaker("DemoOdds", "Boston Bruins", "New York Rangers", 2.2, 1.8),
+        ],
+      },
+      {
+        id: "fallback-nhl-2",
+        sport_key: "icehockey_nhl",
+        home_team: "Edmonton Oilers",
+        away_team: "Colorado Avalanche",
+        commence_time: new Date(now + 5 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Edmonton Oilers", "Colorado Avalanche", 1.95, 1.95),
+          createBookmaker("DemoOdds", "Edmonton Oilers", "Colorado Avalanche", 2.0, 1.91),
+        ],
+      },
+      {
+        id: "fallback-nhl-3",
+        sport_key: "icehockey_nhl",
+        home_team: "Toronto Maple Leafs",
+        away_team: "Florida Panthers",
+        commence_time: new Date(now + 8 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Toronto Maple Leafs", "Florida Panthers", 2.05, 1.85),
+          createBookmaker("DemoOdds", "Toronto Maple Leafs", "Florida Panthers", 2.1, 1.83),
+        ],
       },
     ],
+
     basketball_nba: [
       {
         id: "fallback-nba-1",
         sport_key: "basketball_nba",
-        home_team: "Lakers",
-        away_team: "Celtics",
-        commence_time: new Date().toISOString(),
-        bookmakers: [],
+        home_team: "Los Angeles Lakers",
+        away_team: "Boston Celtics",
+        commence_time: new Date(now + 3 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Los Angeles Lakers", "Boston Celtics", 2.3, 1.68),
+          createBookmaker("DemoOdds", "Los Angeles Lakers", "Boston Celtics", 2.25, 1.7),
+        ],
+      },
+      {
+        id: "fallback-nba-2",
+        sport_key: "basketball_nba",
+        home_team: "Denver Nuggets",
+        away_team: "Phoenix Suns",
+        commence_time: new Date(now + 6 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Denver Nuggets", "Phoenix Suns", 1.87, 2.0),
+          createBookmaker("DemoOdds", "Denver Nuggets", "Phoenix Suns", 1.9, 1.96),
+        ],
       },
     ],
+
     soccer_epl: [
       {
         id: "fallback-epl-1",
         sport_key: "soccer_epl",
         home_team: "Arsenal",
         away_team: "Liverpool",
-        commence_time: new Date().toISOString(),
-        bookmakers: [],
+        commence_time: new Date(now + 24 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Arsenal", "Liverpool", 2.45, 2.7, 3.4),
+          createBookmaker("DemoOdds", "Arsenal", "Liverpool", 2.5, 2.62, 3.3),
+        ],
+      },
+      {
+        id: "fallback-epl-2",
+        sport_key: "soccer_epl",
+        home_team: "Manchester City",
+        away_team: "Chelsea",
+        commence_time: new Date(now + 30 * 60 * 60 * 1000).toISOString(),
+        bookmakers: [
+          createBookmaker("SampleBook", "Manchester City", "Chelsea", 1.72, 4.4, 3.8),
+          createBookmaker("DemoOdds", "Manchester City", "Chelsea", 1.75, 4.2, 3.75),
+        ],
       },
     ],
   };
