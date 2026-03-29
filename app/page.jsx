@@ -7,75 +7,71 @@ const TEXT = {
     title: "SCORECASTER",
     subtitle: "Vedonlyönnin analyysi- ja oddsinäkymä",
     language: "Kieli",
-    sportGroup: "Laji",
+    sport: "Laji",
     league: "Liiga",
     games: "Ottelut",
     analysis: "Analyysi",
-    bestOdds: "Parhaat kertoimet",
-    bestBet: "Paras kohde",
-    loading: "Ladataan...",
-    noGames: "Otteluita ei löytynyt",
-    bankrollTitle: "Bankroll",
-    bankroll: "Bankroll (€)",
+    bankroll: "Bankroll",
+    bankrollLabel: "Bankroll (€)",
     parsedBankroll: "Tulkittu bankroll",
     feedback: "Palaute",
     feedbackPlaceholder: "Kirjoita palaute...",
-    feedbackEmail: "Sähköposti (valinnainen)",
     send: "Lähetä",
     sending: "Lähetetään...",
-    sent: "✅ Lähetetty!",
+    sent: "✅ Lähetetty",
     failed: "❌ Lähetys epäonnistui",
+    loading: "Ladataan...",
+    noGames: "Otteluita ei löytynyt",
+    bestOdds: "Parhaat kertoimet",
+    bestBet: "Paras kohde",
     probability: "Todennäköisyys",
     odds: "Kerroin",
     bookmaker: "Vedonvälittäjä",
     edge: "Edge",
     suggestedStake: "Suositeltu panos",
-    noOdds: "Kertoimia ei saatavilla",
-    whatIsThis: "Mikä tämä on?",
-    infoTitle: "Mitä sovellus tekee?",
-    infoBody:
-      "Scorecaster näyttää tulevia otteluita, vertailee kertoimia ja arvioi parhaan kohteen saatavilla olevan datan perusteella.",
-    close: "Sulje",
     debug: "Debug",
+    info: "Info",
+    infoText:
+      "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää yksinkertaisen best bet -näkymän. Jos live-dataa ei saada, API voi käyttää fallback-dataa.",
+    close: "Sulje",
+    noOdds: "Kertoimia ei saatavilla",
   },
   en: {
     title: "SCORECASTER",
     subtitle: "Betting analysis and odds dashboard",
     language: "Language",
-    sportGroup: "Sport",
+    sport: "Sport",
     league: "League",
     games: "Games",
     analysis: "Analysis",
-    bestOdds: "Best odds",
-    bestBet: "Best bet",
-    loading: "Loading...",
-    noGames: "No games found",
-    bankrollTitle: "Bankroll",
-    bankroll: "Bankroll (€)",
+    bankroll: "Bankroll",
+    bankrollLabel: "Bankroll (€)",
     parsedBankroll: "Parsed bankroll",
     feedback: "Feedback",
     feedbackPlaceholder: "Write feedback...",
-    feedbackEmail: "Email (optional)",
     send: "Send",
     sending: "Sending...",
-    sent: "✅ Sent!",
+    sent: "✅ Sent",
     failed: "❌ Failed to send",
+    loading: "Loading...",
+    noGames: "No games found",
+    bestOdds: "Best odds",
+    bestBet: "Best bet",
     probability: "Probability",
     odds: "Odds",
     bookmaker: "Bookmaker",
     edge: "Edge",
     suggestedStake: "Suggested stake",
-    noOdds: "No odds available",
-    whatIsThis: "What is this?",
-    infoTitle: "What does this app do?",
-    infoBody:
-      "Scorecaster shows upcoming games, compares odds, and estimates the best available betting option based on available data.",
-    close: "Close",
     debug: "Debug",
+    info: "Info",
+    infoText:
+      "Scorecaster shows games, compares odds, and displays a simple best bet view. If live data is unavailable, the API may return fallback data.",
+    close: "Close",
+    noOdds: "No odds available",
   },
 };
 
-const GROUP_LABELS = {
+const SPORT_GROUPS = {
   fi: {
     icehockey: "Jääkiekko",
     basketball: "Koripallo",
@@ -102,7 +98,7 @@ function getLeagueLabel(league, lang) {
 }
 
 function getBestOdds(game) {
-  if (!game?.bookmakers?.length) return [];
+  if (!game?.bookmakers || !Array.isArray(game.bookmakers)) return [];
 
   const best = {};
 
@@ -111,11 +107,13 @@ function getBestOdds(game) {
     if (!market?.outcomes) continue;
 
     for (const outcome of market.outcomes) {
-      const current = best[outcome.name];
-      if (!current || Number(outcome.price) > Number(current.price)) {
+      const price = Number(outcome.price || 0);
+      if (!price) continue;
+
+      if (!best[outcome.name] || price > best[outcome.name].price) {
         best[outcome.name] = {
           name: outcome.name,
-          price: Number(outcome.price),
+          price,
           bookmaker: bookmaker.title || "-",
         };
       }
@@ -125,77 +123,78 @@ function getBestOdds(game) {
   return Object.values(best);
 }
 
-function impliedProbFromOdds(odds) {
-  const o = Number(odds || 0);
-  if (o <= 1) return 0;
-  return 1 / o;
+function impliedProbability(odds) {
+  const value = Number(odds || 0);
+  if (value <= 1) return 0;
+  return 1 / value;
 }
 
-function normalizeProbabilities(bestOdds, game) {
+function getBestBet(game) {
+  if (!game) return null;
+
+  const bestOdds = getBestOdds(game);
+  if (!bestOdds.length) return null;
+
   const home = bestOdds.find((o) => o.name === game.home_team);
   const away = bestOdds.find((o) => o.name === game.away_team);
   const draw = bestOdds.find((o) => o.name === "Draw");
 
   const probs = [
-    impliedProbFromOdds(home?.price),
-    impliedProbFromOdds(draw?.price),
-    impliedProbFromOdds(away?.price),
+    impliedProbability(home?.price),
+    impliedProbability(draw?.price),
+    impliedProbability(away?.price),
   ];
 
-  const total = probs.reduce((a, b) => a + b, 0);
+  const total = probs.reduce((sum, p) => sum + p, 0);
 
-  if (total <= 0) {
-    return { home: 50, draw: 0, away: 50 };
-  }
-
-  return {
-    home: Number(((probs[0] / total) * 100).toFixed(1)),
-    draw: Number(((probs[1] / total) * 100).toFixed(1)),
-    away: Number(((probs[2] / total) * 100).toFixed(1)),
+  const normalized = {
+    home: total > 0 ? (probs[0] / total) * 100 : 50,
+    draw: total > 0 ? (probs[1] / total) * 100 : 0,
+    away: total > 0 ? (probs[2] / total) * 100 : 50,
   };
-}
 
-function getBestBet(game) {
-  const bestOdds = getBestOdds(game);
-  const probs = normalizeProbabilities(bestOdds, game);
-
-  const candidates = [
+  const options = [
     {
       outcome: game.home_team,
-      probability: probs.home,
-      odd: bestOdds.find((o) => o.name === game.home_team)?.price || 0,
-      bookmaker: bestOdds.find((o) => o.name === game.home_team)?.bookmaker || "-",
+      probability: normalized.home,
+      odds: home?.price || 0,
+      bookmaker: home?.bookmaker || "-",
     },
     {
       outcome: "Draw",
-      probability: probs.draw,
-      odd: bestOdds.find((o) => o.name === "Draw")?.price || 0,
-      bookmaker: bestOdds.find((o) => o.name === "Draw")?.bookmaker || "-",
+      probability: normalized.draw,
+      odds: draw?.price || 0,
+      bookmaker: draw?.bookmaker || "-",
     },
     {
       outcome: game.away_team,
-      probability: probs.away,
-      odd: bestOdds.find((o) => o.name === game.away_team)?.price || 0,
-      bookmaker: bestOdds.find((o) => o.name === game.away_team)?.bookmaker || "-",
+      probability: normalized.away,
+      odds: away?.price || 0,
+      bookmaker: away?.bookmaker || "-",
     },
   ]
-    .filter((x) => x.odd > 1)
-    .map((x) => ({
-      ...x,
-      edge: Number(((x.probability / 100) * x.odd - 1).toFixed(3)),
+    .filter((item) => item.odds > 1)
+    .map((item) => ({
+      ...item,
+      edge: (item.probability / 100) * item.odds - 1,
     }))
     .sort((a, b) => b.edge - a.edge);
 
-  return candidates[0] || null;
+  return options[0] || null;
 }
 
-function calculateStake(bankroll, edge) {
+function formatDate(value) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleString();
+  } catch {
+    return value;
+  }
+}
+
+function suggestedStake(bankroll, edge) {
   if (!bankroll || edge <= 0) return 0;
   return Number((bankroll * Math.min(edge, 0.03)).toFixed(2));
-}
-
-function createId(prefix) {
-  return `${prefix}_${Math.random().toString(36).slice(2)}_${Date.now()}`;
 }
 
 export default function Page() {
@@ -203,121 +202,68 @@ export default function Page() {
   const t = TEXT[lang];
 
   const [selectedGroup, setSelectedGroup] = useState("icehockey");
-  const [selectedSportKey, setSelectedSportKey] = useState("icehockey_nhl");
+  const [selectedLeague, setSelectedLeague] = useState("icehockey_nhl");
 
   const [games, setGames] = useState([]);
-  const [loading, setLoading] = useState(true);
   const [selectedGameId, setSelectedGameId] = useState("");
+  const [loading, setLoading] = useState(true);
 
   const [bankrollInput, setBankrollInput] = useState("1000");
 
   const [feedback, setFeedback] = useState("");
-  const [feedbackEmail, setFeedbackEmail] = useState("");
-  const [sending, setSending] = useState(false);
-  const [status, setStatus] = useState("");
+  const [feedbackStatus, setFeedbackStatus] = useState("");
+  const [sendingFeedback, setSendingFeedback] = useState(false);
 
   const [infoOpen, setInfoOpen] = useState(false);
-  const [sessionId, setSessionId] = useState("");
-  const [visitorId, setVisitorId] = useState("");
 
   const [debugInfo, setDebugInfo] = useState({
     selectedGroup: "icehockey",
-    selectedSportKey: "icehockey_nhl",
+    selectedLeague: "icehockey_nhl",
     loading: true,
     gamesCount: 0,
     fallback: null,
     reason: null,
     error: null,
-    rawResponse: null,
+    raw: null,
   });
 
   const bankroll = useMemo(() => {
-    const parsed = Number(bankrollInput.replace(",", "."));
+    const parsed = Number(String(bankrollInput).replace(",", "."));
     return Number.isFinite(parsed) ? parsed : 0;
   }, [bankrollInput]);
 
   const currentLeagues = LEAGUES[selectedGroup] || [];
 
   useEffect(() => {
-    const storedSession = localStorage.getItem("scorecaster_session_id");
-    const storedVisitor = localStorage.getItem("scorecaster_visitor_id");
-
-    if (storedSession) {
-      setSessionId(storedSession);
-    } else {
-      const id = createId("session");
-      localStorage.setItem("scorecaster_session_id", id);
-      setSessionId(id);
+    const valid = currentLeagues.some((league) => league.key === selectedLeague);
+    if (!valid) {
+      setSelectedLeague(currentLeagues[0]?.key || "");
     }
-
-    if (storedVisitor) {
-      setVisitorId(storedVisitor);
-    } else {
-      const id = createId("visitor");
-      localStorage.setItem("scorecaster_visitor_id", id);
-      setVisitorId(id);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!currentLeagues.some((l) => l.key === selectedSportKey)) {
-      setSelectedSportKey(currentLeagues[0]?.key || "");
-    }
-  }, [selectedGroup, selectedSportKey, currentLeagues]);
-
-  useEffect(() => {
-    async function trackPageView() {
-      if (!sessionId || !visitorId) return;
-
-      try {
-        await fetch("/api/track", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event_name: "page_view",
-            page_path: "/",
-            session_id: sessionId,
-            visitor_id: visitorId,
-            selected_group: selectedGroup,
-            selected_sport_key: selectedSportKey,
-          }),
-        });
-      } catch {}
-    }
-
-    trackPageView();
-  }, [sessionId, visitorId, selectedGroup, selectedSportKey]);
+  }, [selectedGroup, selectedLeague, currentLeagues]);
 
   useEffect(() => {
     async function loadGames() {
-      if (!selectedSportKey) {
+      if (!selectedLeague) {
         setGames([]);
         setLoading(false);
-        setDebugInfo((prev) => ({
-          ...prev,
+        setDebugInfo({
           selectedGroup,
-          selectedSportKey,
+          selectedLeague,
           loading: false,
           gamesCount: 0,
-          error: "No sport key selected",
-        }));
+          fallback: null,
+          reason: null,
+          error: "No selected league",
+          raw: null,
+        });
         return;
       }
 
       setLoading(true);
-      setDebugInfo((prev) => ({
-        ...prev,
-        selectedGroup,
-        selectedSportKey,
-        loading: true,
-        error: null,
-      }));
 
       try {
-        const res = await fetch(`/api/odds?sport=${selectedSportKey}`);
+        const res = await fetch(`/api/odds?sport=${selectedLeague}`);
         const data = await res.json();
-
-        console.log("ODDS RESPONSE:", data);
 
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
@@ -325,27 +271,26 @@ export default function Page() {
 
         setDebugInfo({
           selectedGroup,
-          selectedSportKey,
+          selectedLeague,
           loading: false,
           gamesCount: list.length,
-          fallback: data.fallback ?? null,
-          reason: data.reason ?? null,
+          fallback: data?.fallback ?? null,
+          reason: data?.reason ?? null,
           error: null,
-          rawResponse: data,
+          raw: data,
         });
       } catch (error) {
         setGames([]);
         setSelectedGameId("");
-
         setDebugInfo({
           selectedGroup,
-          selectedSportKey,
+          selectedLeague,
           loading: false,
           gamesCount: 0,
           fallback: null,
           reason: null,
           error: String(error),
-          rawResponse: null,
+          raw: null,
         });
       } finally {
         setLoading(false);
@@ -353,10 +298,10 @@ export default function Page() {
     }
 
     loadGames();
-  }, [selectedSportKey, selectedGroup]);
+  }, [selectedGroup, selectedLeague]);
 
   const selectedGame = useMemo(() => {
-    return games.find((g) => g.id === selectedGameId) || null;
+    return games.find((game) => game.id === selectedGameId) || null;
   }, [games, selectedGameId]);
 
   const bestOdds = useMemo(() => {
@@ -367,66 +312,40 @@ export default function Page() {
     return selectedGame ? getBestBet(selectedGame) : null;
   }, [selectedGame]);
 
-  const suggestedStake = useMemo(() => {
-    return bestBet ? calculateStake(bankroll, bestBet.edge) : 0;
-  }, [bankroll, bestBet]);
-
   async function sendFeedback() {
     if (!feedback.trim()) return;
 
-    setSending(true);
-    setStatus("");
+    setSendingFeedback(true);
+    setFeedbackStatus("");
 
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           message: feedback,
-          email: feedbackEmail,
-          selectedSportKey,
+          selectedSportKey: selectedLeague,
           selectedGroup,
           bankroll,
           selectedGame,
-          sessionId,
-          visitorId,
         }),
       });
 
-      if (!res.ok) throw new Error("Failed");
+      if (!res.ok) throw new Error("Feedback failed");
 
       setFeedback("");
-      setFeedbackEmail("");
-      setStatus(t.sent);
-    } catch {
-      setStatus(t.failed);
+      setFeedbackStatus(t.sent);
+    } catch (error) {
+      setFeedbackStatus(t.failed);
     } finally {
-      setSending(false);
+      setSendingFeedback(false);
     }
   }
 
-  async function trackGameOpen(game) {
-    setSelectedGameId(game.id);
-
-    try {
-      await fetch("/api/track", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event_name: "game_selected",
-          page_path: "/",
-          session_id: sessionId,
-          visitor_id: visitorId,
-          selected_group: selectedGroup,
-          selected_sport_key: selectedSportKey,
-          selected_game: `${game.home_team} vs ${game.away_team}`,
-        }),
-      });
-    } catch {}
-  }
-
   return (
-    <main style={styles.main}>
+    <main style={styles.page}>
       <div style={styles.container}>
         <div style={styles.headerRow}>
           <div>
@@ -453,23 +372,23 @@ export default function Page() {
           </div>
 
           <div style={styles.field}>
-            <label style={styles.label}>{t.sportGroup}</label>
+            <label style={styles.label}>{t.sport}</label>
             <select
               value={selectedGroup}
               onChange={(e) => setSelectedGroup(e.target.value)}
               style={styles.input}
             >
-              <option value="icehockey">{GROUP_LABELS[lang].icehockey}</option>
-              <option value="basketball">{GROUP_LABELS[lang].basketball}</option>
-              <option value="soccer">{GROUP_LABELS[lang].soccer}</option>
+              <option value="icehockey">{SPORT_GROUPS[lang].icehockey}</option>
+              <option value="basketball">{SPORT_GROUPS[lang].basketball}</option>
+              <option value="soccer">{SPORT_GROUPS[lang].soccer}</option>
             </select>
           </div>
 
           <div style={styles.field}>
             <label style={styles.label}>{t.league}</label>
             <select
-              value={selectedSportKey}
-              onChange={(e) => setSelectedSportKey(e.target.value)}
+              value={selectedLeague}
+              onChange={(e) => setSelectedLeague(e.target.value)}
               style={styles.input}
             >
               {currentLeagues.map((league) => (
@@ -485,16 +404,13 @@ export default function Page() {
           <h2 style={styles.cardTitle}>{t.games}</h2>
 
           {loading && <p style={styles.muted}>{t.loading}</p>}
-
-          {!loading && games.length === 0 && (
-            <p style={styles.muted}>{t.noGames}</p>
-          )}
+          {!loading && games.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
 
           <div style={styles.gamesList}>
             {games.map((game) => (
               <button
                 key={game.id || `${game.home_team}-${game.away_team}`}
-                onClick={() => trackGameOpen(game)}
+                onClick={() => setSelectedGameId(game.id)}
                 style={{
                   ...styles.gameCard,
                   border:
@@ -506,6 +422,7 @@ export default function Page() {
                 <div style={styles.gameTitle}>
                   {game.home_team} vs {game.away_team}
                 </div>
+                <div style={styles.gameDate}>{formatDate(game.commence_time)}</div>
               </button>
             ))}
           </div>
@@ -518,14 +435,16 @@ export default function Page() {
             <p style={styles.muted}>{t.noGames}</p>
           ) : (
             <>
-              <div style={styles.analysisBlock}>
-                <div style={styles.analysisGame}>
+              <div style={styles.analysisBox}>
+                <div style={styles.analysisMatch}>
                   {selectedGame.home_team} vs {selectedGame.away_team}
                 </div>
+                <div style={styles.gameDate}>{formatDate(selectedGame.commence_time)}</div>
               </div>
 
               <div style={{ marginTop: 14 }}>
                 <div style={styles.subTitle}>{t.bestOdds}</div>
+
                 {bestOdds.length === 0 ? (
                   <div style={styles.muted}>{t.noOdds}</div>
                 ) : (
@@ -542,8 +461,9 @@ export default function Page() {
                 )}
               </div>
 
-              <div style={{ marginTop: 18 }}>
+              <div style={{ marginTop: 14 }}>
                 <div style={styles.subTitle}>{t.bestBet}</div>
+
                 {!bestBet ? (
                   <div style={styles.muted}>{t.noOdds}</div>
                 ) : (
@@ -555,11 +475,11 @@ export default function Page() {
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.probability}</span>
-                        <strong>{bestBet.probability}%</strong>
+                        <strong>{bestBet.probability.toFixed(1)}%</strong>
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.odds}</span>
-                        <strong>{bestBet.odd}</strong>
+                        <strong>{bestBet.odds}</strong>
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.bookmaker}</span>
@@ -567,11 +487,11 @@ export default function Page() {
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.edge}</span>
-                        <strong>{bestBet.edge}</strong>
+                        <strong>{bestBet.edge.toFixed(3)}</strong>
                       </div>
                       <div style={styles.rowCard}>
                         <span>{t.suggestedStake}</span>
-                        <strong>{suggestedStake.toFixed(2)} €</strong>
+                        <strong>{suggestedStake(bankroll, bestBet.edge).toFixed(2)} €</strong>
                       </div>
                     </div>
                   </div>
@@ -582,10 +502,10 @@ export default function Page() {
         </section>
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.bankrollTitle}</h2>
+          <h2 style={styles.cardTitle}>{t.bankroll}</h2>
 
           <div style={styles.field}>
-            <label style={styles.label}>{t.bankroll}</label>
+            <label style={styles.label}>{t.bankrollLabel}</label>
             <input
               type="text"
               inputMode="decimal"
@@ -603,13 +523,6 @@ export default function Page() {
         <section style={styles.card}>
           <h2 style={styles.cardTitle}>{t.feedback}</h2>
 
-          <input
-            value={feedbackEmail}
-            onChange={(e) => setFeedbackEmail(e.target.value)}
-            placeholder={t.feedbackEmail}
-            style={{ ...styles.input, marginBottom: 12 }}
-          />
-
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
@@ -617,18 +530,23 @@ export default function Page() {
             style={styles.textarea}
           />
 
-          <button onClick={sendFeedback} disabled={sending} style={styles.button}>
-            {sending ? t.sending : t.send}
+          <button
+            onClick={sendFeedback}
+            disabled={sendingFeedback}
+            style={styles.button}
+          >
+            {sendingFeedback ? t.sending : t.send}
           </button>
 
-          {status ? <div style={styles.status}>{status}</div> : null}
+          {feedbackStatus ? <div style={styles.status}>{feedbackStatus}</div> : null}
         </section>
 
         <section style={styles.debugCard}>
           <h2 style={styles.cardTitle}>{t.debug}</h2>
+
           <div style={styles.debugGrid}>
             <div><strong>selectedGroup:</strong> {debugInfo.selectedGroup}</div>
-            <div><strong>selectedSportKey:</strong> {debugInfo.selectedSportKey}</div>
+            <div><strong>selectedLeague:</strong> {debugInfo.selectedLeague}</div>
             <div><strong>loading:</strong> {String(debugInfo.loading)}</div>
             <div><strong>gamesCount:</strong> {debugInfo.gamesCount}</div>
             <div><strong>fallback:</strong> {String(debugInfo.fallback)}</div>
@@ -636,19 +554,14 @@ export default function Page() {
             <div><strong>error:</strong> {String(debugInfo.error)}</div>
           </div>
 
-          <div style={{ marginTop: 12 }}>
-            <strong>rawResponse:</strong>
-            <pre style={styles.pre}>
-              {JSON.stringify(debugInfo.rawResponse, null, 2)}
-            </pre>
-          </div>
+          <pre style={styles.pre}>{JSON.stringify(debugInfo.raw, null, 2)}</pre>
         </section>
 
         {infoOpen && (
           <div style={styles.modalOverlay} onClick={() => setInfoOpen(false)}>
             <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
-              <h3 style={{ marginTop: 0 }}>{t.infoTitle}</h3>
-              <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>{t.infoBody}</p>
+              <h3 style={{ marginTop: 0 }}>{t.info}</h3>
+              <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>{t.infoText}</p>
               <button style={styles.button} onClick={() => setInfoOpen(false)}>
                 {t.close}
               </button>
@@ -661,7 +574,7 @@ export default function Page() {
 }
 
 const styles = {
-  main: {
+  page: {
     minHeight: "100vh",
     background: "#020617",
     color: "#ffffff",
@@ -684,7 +597,6 @@ const styles = {
     lineHeight: 1,
     fontWeight: 900,
     margin: "0 0 12px 0",
-    letterSpacing: 0.5,
   },
   subtitle: {
     margin: "0 0 24px 0",
@@ -707,6 +619,25 @@ const styles = {
     display: "grid",
     gap: 12,
     marginBottom: 20,
+  },
+  field: {
+    display: "grid",
+    gap: 6,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#cbd5e1",
+  },
+  input: {
+    width: "100%",
+    padding: "14px 16px",
+    borderRadius: 14,
+    border: "1px solid #334155",
+    background: "#0b1730",
+    color: "#ffffff",
+    fontSize: 16,
+    boxSizing: "border-box",
   },
   card: {
     background: "#0f172a",
@@ -732,24 +663,66 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
   },
-  field: {
-    display: "grid",
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: 700,
-    color: "#cbd5e1",
-  },
-  input: {
-    width: "100%",
-    padding: "14px 16px",
-    borderRadius: 14,
-    border: "1px solid #334155",
-    background: "#0b1730",
-    color: "#ffffff",
+  muted: {
+    color: "#94a3b8",
     fontSize: 16,
-    boxSizing: "border-box",
+    margin: 0,
+  },
+  gamesList: {
+    display: "grid",
+    gap: 12,
+  },
+  gameCard: {
+    padding: 16,
+    borderRadius: 16,
+    background: "#13203d",
+    color: "#fff",
+    textAlign: "left",
+    cursor: "pointer",
+  },
+  gameTitle: {
+    fontSize: 18,
+    fontWeight: 800,
+    lineHeight: 1.3,
+  },
+  gameDate: {
+    marginTop: 8,
+    color: "#94a3b8",
+    fontSize: 14,
+  },
+  analysisBox: {
+    padding: 14,
+    background: "#13203d",
+    borderRadius: 16,
+    border: "1px solid #334155",
+  },
+  analysisMatch: {
+    fontSize: 20,
+    fontWeight: 800,
+  },
+  stack: {
+    display: "grid",
+    gap: 10,
+  },
+  rowCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 14px",
+    border: "1px solid #1f2937",
+    borderRadius: 14,
+    background: "#0b1730",
+  },
+  greenCard: {
+    border: "1px solid #166534",
+    borderRadius: 16,
+    padding: 14,
+    background: "#0d1f18",
+  },
+  parsedText: {
+    marginTop: 8,
+    color: "#cbd5e1",
+    fontSize: 16,
   },
   textarea: {
     width: "100%",
@@ -779,62 +752,6 @@ const styles = {
     color: "#cbd5e1",
     fontSize: 15,
   },
-  muted: {
-    color: "#94a3b8",
-    fontSize: 16,
-    margin: 0,
-  },
-  gamesList: {
-    display: "grid",
-    gap: 12,
-  },
-  gameCard: {
-    padding: 16,
-    borderRadius: 16,
-    background: "#13203d",
-    color: "#fff",
-    textAlign: "left",
-    cursor: "pointer",
-  },
-  gameTitle: {
-    fontSize: 18,
-    fontWeight: 800,
-    lineHeight: 1.3,
-  },
-  parsedText: {
-    marginTop: 8,
-    color: "#cbd5e1",
-    fontSize: 16,
-  },
-  analysisBlock: {
-    padding: 14,
-    background: "#13203d",
-    borderRadius: 16,
-    border: "1px solid #334155",
-  },
-  analysisGame: {
-    fontSize: 20,
-    fontWeight: 800,
-  },
-  stack: {
-    display: "grid",
-    gap: 10,
-  },
-  rowCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "12px 14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
-    background: "#0b1730",
-  },
-  greenCard: {
-    border: "1px solid #166534",
-    borderRadius: 16,
-    padding: 14,
-    background: "#0d1f18",
-  },
   debugGrid: {
     display: "grid",
     gap: 8,
@@ -850,7 +767,7 @@ const styles = {
     padding: 12,
     color: "#cbd5e1",
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 12,
   },
   modalOverlay: {
     position: "fixed",
