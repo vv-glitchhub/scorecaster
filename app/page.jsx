@@ -53,6 +53,9 @@ const TEXT = {
       "Palvelinvirhe otteluiden haussa. Tarkista /api/odds ja Vercel logs.",
     missingApiKeyBanner: "ODDS_API_KEY puuttuu Vercelistä.",
     sourceLabel: "Lähde",
+    topPicks: "Päivän Top 3 kohdetta",
+    topPicksEmpty: "Top-kohteita ei löytynyt",
+    topPickLeague: "Liiga",
   },
   en: {
     title: "SCORECASTER",
@@ -99,6 +102,9 @@ const TEXT = {
       "Server error while loading games. Check /api/odds and Vercel logs.",
     missingApiKeyBanner: "ODDS_API_KEY is missing in Vercel.",
     sourceLabel: "Source",
+    topPicks: "Top 3 picks today",
+    topPicksEmpty: "No top picks found",
+    topPickLeague: "League",
   },
 };
 
@@ -188,6 +194,9 @@ export default function Page() {
   const [reason, setReason] = useState(null);
   const [sourceSport, setSourceSport] = useState(null);
 
+  const [topPicks, setTopPicks] = useState([]);
+  const [topPicksLoading, setTopPicksLoading] = useState(true);
+
   const [bankrollInput, setBankrollInput] = useState("1000");
 
   const [feedback, setFeedback] = useState("");
@@ -250,6 +259,26 @@ export default function Page() {
 
     loadGames();
   }, [selectedGroup, selectedLeague]);
+
+  useEffect(() => {
+    async function loadTopPicks() {
+      setTopPicksLoading(true);
+
+      try {
+        const res = await fetch(`/api/top-picks?group=${selectedGroup}`, {
+          cache: "no-store",
+        });
+        const data = await res.json();
+        setTopPicks(Array.isArray(data.data) ? data.data : []);
+      } catch {
+        setTopPicks([]);
+      } finally {
+        setTopPicksLoading(false);
+      }
+    }
+
+    loadTopPicks();
+  }, [selectedGroup]);
 
   const groupedGames = useMemo(() => {
     return Object.entries(
@@ -362,6 +391,54 @@ export default function Page() {
                 </option>
               ))}
             </select>
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.topPicks}</h2>
+
+          {topPicksLoading && <p style={styles.muted}>{t.loading}</p>}
+          {!topPicksLoading && topPicks.length === 0 && (
+            <p style={styles.muted}>{t.topPicksEmpty}</p>
+          )}
+
+          <div style={styles.stack}>
+            {topPicks.map((pick) => (
+              <div key={`${pick.leagueKey}-${pick.gameId}-${pick.outcome}`} style={styles.topPickCard}>
+                <div style={styles.topPickLeague}>
+                  {t.topPickLeague}: {pick.leagueLabel}
+                </div>
+                <div style={styles.topPickMatch}>
+                  {pick.home_team} vs {pick.away_team}
+                </div>
+                <div style={styles.gameDate}>{formatDate(pick.commence_time)}</div>
+
+                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+                  <div style={styles.rowCard}>
+                    <span>{t.outcome}</span>
+                    <strong>{pick.outcome}</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.odds}</span>
+                    <strong>{pick.odds}</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.bookmaker}</span>
+                    <strong>{pick.bookmaker}</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.edge}</span>
+                    <strong>{(pick.edge * 100).toFixed(2)}%</strong>
+                  </div>
+                  <div style={styles.rowCard}>
+                    <span>{t.suggestedStake}</span>
+                    <strong>
+                      {getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -747,6 +824,23 @@ const styles = {
     borderRadius: 16,
     padding: 14,
     background: "#0d1f18",
+  },
+  topPickCard: {
+    padding: 14,
+    borderRadius: 16,
+    background: "#13203d",
+    border: "1px solid #334155",
+  },
+  topPickLeague: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#93c5fd",
+    marginBottom: 8,
+  },
+  topPickMatch: {
+    fontSize: 18,
+    fontWeight: 800,
+    lineHeight: 1.3,
   },
   parsedText: {
     marginTop: 8,
