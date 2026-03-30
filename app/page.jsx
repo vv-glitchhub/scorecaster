@@ -161,6 +161,19 @@ function formatDate(value) {
   }
 }
 
+function formatDayLabel(value, lang) {
+  if (!value) return "-";
+  try {
+    return new Date(value).toLocaleDateString(lang === "fi" ? "fi-FI" : "en-US", {
+      weekday: "long",
+      day: "numeric",
+      month: "numeric",
+    });
+  } catch {
+    return value;
+  }
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -237,6 +250,17 @@ export default function Page() {
 
     loadGames();
   }, [selectedGroup, selectedLeague]);
+
+  const groupedGames = useMemo(() => {
+    return Object.entries(
+      games.reduce((acc, game) => {
+        const dayKey = formatDayLabel(game.commence_time, lang);
+        if (!acc[dayKey]) acc[dayKey] = [];
+        acc[dayKey].push(game);
+        return acc;
+      }, {})
+    );
+  }, [games, lang]);
 
   const selectedGame = useMemo(() => {
     return games.find((game) => game.id === selectedGameId) || null;
@@ -374,24 +398,32 @@ export default function Page() {
           {!loading && games.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
 
           <div style={styles.gamesList}>
-            {games.map((game) => (
-              <button
-                key={game.id || `${game.home_team}-${game.away_team}`}
-                type="button"
-                onClick={() => setSelectedGameId(game.id)}
-                style={{
-                  ...styles.gameCard,
-                  border:
-                    selectedGameId === game.id
-                      ? "2px solid #22c55e"
-                      : "1px solid #334155",
-                }}
-              >
-                <div style={styles.gameTitle}>
-                  {game.home_team} vs {game.away_team}
+            {groupedGames.map(([day, dayGames]) => (
+              <div key={day} style={styles.dayGroup}>
+                <div style={styles.dayHeader}>{day}</div>
+
+                <div style={styles.dayGames}>
+                  {dayGames.map((game) => (
+                    <button
+                      key={game.id || `${game.home_team}-${game.away_team}`}
+                      type="button"
+                      onClick={() => setSelectedGameId(game.id)}
+                      style={{
+                        ...styles.gameCard,
+                        border:
+                          selectedGameId === game.id
+                            ? "2px solid #22c55e"
+                            : "1px solid #334155",
+                      }}
+                    >
+                      <div style={styles.gameTitle}>
+                        {game.home_team} vs {game.away_team}
+                      </div>
+                      <div style={styles.gameDate}>{formatDate(game.commence_time)}</div>
+                    </button>
+                  ))}
                 </div>
-                <div style={styles.gameDate}>{formatDate(game.commence_time)}</div>
-              </button>
+              </div>
             ))}
           </div>
         </section>
@@ -404,6 +436,9 @@ export default function Page() {
           ) : (
             <>
               <div style={styles.analysisBox}>
+                <div style={styles.analysisDay}>
+                  {formatDayLabel(selectedGame.commence_time, lang)}
+                </div>
                 <div style={styles.analysisMatch}>
                   {selectedGame.home_team} vs {selectedGame.away_team}
                 </div>
@@ -639,6 +674,24 @@ const styles = {
   },
   gamesList: {
     display: "grid",
+    gap: 16,
+  },
+  dayGroup: {
+    display: "grid",
+    gap: 10,
+  },
+  dayHeader: {
+    fontSize: 16,
+    fontWeight: 800,
+    color: "#f8fafc",
+    background: "#1e293b",
+    border: "1px solid #334155",
+    borderRadius: 12,
+    padding: "10px 12px",
+    textTransform: "capitalize",
+  },
+  dayGames: {
+    display: "grid",
     gap: 12,
   },
   gameCard: {
@@ -664,6 +717,13 @@ const styles = {
     background: "#13203d",
     borderRadius: 16,
     border: "1px solid #334155",
+  },
+  analysisDay: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: "#93c5fd",
+    marginBottom: 8,
+    textTransform: "capitalize",
   },
   analysisMatch: {
     fontSize: 20,
