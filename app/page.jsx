@@ -45,11 +45,14 @@ const TEXT = {
     outcome: "Kohde",
     nextAvailableBanner:
       "Valitussa liigassa ei ollut pelejä 3 päivän sisällä. Näytetään seuraavat saatavilla olevat pelit tästä lajista.",
+    globalFallbackBanner:
+      "Valitusta liigasta ei löytynyt pelejä. Näytetään koko lajin saatavilla olevia pelejä.",
     noLiveGamesBanner:
       "Tälle liigalle tai lajille ei löytynyt tulevia oikeita pelejä juuri nyt.",
     serverErrorBanner:
       "Palvelinvirhe otteluiden haussa. Tarkista /api/odds ja Vercel logs.",
     missingApiKeyBanner: "ODDS_API_KEY puuttuu Vercelistä.",
+    sourceLabel: "Lähde",
   },
   en: {
     title: "SCORECASTER",
@@ -88,11 +91,14 @@ const TEXT = {
     outcome: "Outcome",
     nextAvailableBanner:
       "No games were found in this league within 3 days. Showing the next available games from this sport.",
+    globalFallbackBanner:
+      "No games were found in the selected league. Showing available games from the whole sport.",
     noLiveGamesBanner:
       "No real upcoming games were found for this league or sport right now.",
     serverErrorBanner:
       "Server error while loading games. Check /api/odds and Vercel logs.",
     missingApiKeyBanner: "ODDS_API_KEY is missing in Vercel.",
+    sourceLabel: "Source",
   },
 };
 
@@ -338,7 +344,14 @@ export default function Page() {
         {reason === "used_next_available_game" && games.length > 0 && (
           <div style={styles.banner}>
             {t.nextAvailableBanner}
-            {sourceSport ? ` (${sourceSport})` : ""}
+            {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
+          </div>
+        )}
+
+        {reason === "global_fallback" && games.length > 0 && (
+          <div style={styles.banner}>
+            {t.globalFallbackBanner}
+            {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
           </div>
         )}
 
