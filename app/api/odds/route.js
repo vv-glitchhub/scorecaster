@@ -8,11 +8,13 @@ const SPORT_GROUP_LEAGUES = {
     "icehockey_germany_del",
     "icehockey_switzerland_nla",
     "icehockey_czech_extraliga",
+    "icehockey", // fallback koko lajiin
   ],
   basketball: [
     "basketball_nba",
     "basketball_euroleague",
     "basketball_ncaab",
+    "basketball",
   ],
   soccer: [
     "soccer_epl",
@@ -22,10 +24,12 @@ const SPORT_GROUP_LEAGUES = {
     "soccer_france_ligue_one",
     "soccer_finland_veikkausliiga",
     "soccer_uefa_champs_league",
+    "soccer",
   ],
   americanfootball: [
     "americanfootball_nfl",
     "americanfootball_ncaaf",
+    "americanfootball",
   ],
 };
 
@@ -35,24 +39,17 @@ function normalizeBookmakers(bookmakers = []) {
       const mergedOutcomes = [];
 
       for (const market of bookmaker.markets || []) {
-        if (
-          market?.key === "h2h" ||
-          market?.key === "h2h_3_way" ||
-          market?.key === "spreads" ||
-          market?.key === "totals"
-        ) {
-          if (market.key === "h2h" || market.key === "h2h_3_way") {
-            for (const outcome of market.outcomes || []) {
-              if (
-                outcome &&
-                typeof outcome.name === "string" &&
-                typeof outcome.price === "number"
-              ) {
-                mergedOutcomes.push({
-                  name: outcome.name,
-                  price: outcome.price,
-                });
-              }
+        if (market?.key === "h2h" || market?.key === "h2h_3_way") {
+          for (const outcome of market.outcomes || []) {
+            if (
+              outcome &&
+              typeof outcome.name === "string" &&
+              typeof outcome.price === "number"
+            ) {
+              mergedOutcomes.push({
+                name: outcome.name,
+                price: outcome.price,
+              });
             }
           }
         }
@@ -73,9 +70,9 @@ function normalizeBookmakers(bookmakers = []) {
     .filter(Boolean);
 }
 
-function filterUpcomingGames(games, daysAhead = 10) {
+function filterUpcomingGames(games, daysAhead = 3) {
   const now = Date.now();
-  const minStart = now + 5 * 60 * 1000;
+  const minStart = now - 3 * 60 * 60 * 1000; // pieni negatiivinen puskuri jos peli alkaa pian
   const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
 
   return (games || [])
@@ -85,12 +82,14 @@ function filterUpcomingGames(games, daysAhead = 10) {
     }))
     .filter((game) => {
       const ts = new Date(game.commence_time).getTime();
-      const hasOdds = Array.isArray(game.bookmakers) && game.bookmakers.length > 0;
+      const hasOdds =
+        Array.isArray(game.bookmakers) && game.bookmakers.length > 0;
       return Number.isFinite(ts) && ts >= minStart && ts <= maxStart && hasOdds;
     })
     .sort(
       (a, b) =>
-        new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+        new Date(a.commence_time).getTime() -
+        new Date(b.commence_time).getTime()
     );
 }
 
@@ -114,12 +113,13 @@ async function fetchOddsForSport(sport, apiKey) {
       ok: false,
       sport,
       rawCount: Array.isArray(data) ? data.length : 0,
+      filteredCount: 0,
       data: [],
       error: data || `HTTP ${res.status}`,
     };
   }
 
-  const filtered = filterUpcomingGames(data, 10);
+  const filtered = filterUpcomingGames(data, 3);
 
   return {
     ok: true,
@@ -152,7 +152,7 @@ export async function GET(req) {
       });
     }
 
-    // 1) Yritä ensin valittua liigaa
+    // 1) Valittu liiga ensin
     const primary = await fetchOddsForSport(sport, apiKey);
 
     if (primary.ok && primary.data.length > 0) {
@@ -168,10 +168,9 @@ export async function GET(req) {
       });
     }
 
-    // 2) Jos ei löydy, hae samaa lajia muista liigoista
-    const candidates = (SPORT_GROUP_LEAGUES[group] || []).filter(
-      (leagueKey) => leagueKey !== sport
-    );
+    // 2) Muut saman lajin liigat + lopuksi koko laji
+    const candidates = [...new Set((SPORT_GROUP_LEAGUES[group] || []).filter(Boolean))]
+      .filter((leagueKey) => leagueKey !== sport);
 
     if (!candidates.length) {
       return Response.json({
@@ -205,21 +204,15 @@ export async function GET(req) {
       );
 
     if (combined.length > 0) {
-      const firstTs = new Date(combined[0].commence_time).getTime();
-
-      const sameStartGames = combined.filter(
-        (game) => new Date(game.commence_time).getTime() === firstTs
-      );
-
       return Response.json({
         fallback: false,
         reason: "used_next_available_game",
         sport,
         group,
-        sourceSport: sameStartGames[0]?.source_sport || null,
+        sourceSport: combined[0]?.source_sport || null,
         rawCount: primary.rawCount || 0,
-        filteredCount: sameStartGames.length,
-        data: sameStartGames,
+        filteredCount: combined.length,
+        data: combined.slice(0, 10), // näytä useampi peli, ei vain yhtä
       });
     }
 
