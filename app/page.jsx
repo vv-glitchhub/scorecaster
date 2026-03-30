@@ -39,11 +39,11 @@ const TEXT = {
     suggestedStake: "Suositeltu panos",
     info: "Info",
     infoText:
-      "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää value bet -näkymän markkinan ja mallin perusteella. Jos live-dataa ei saada, API voi käyttää fallback-dataa.",
+      "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää value bet -näkymän markkinan ja mallin perusteella.",
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
-    fallbackBanner: "Näytetään fallback-dataa, koska live-otteluita ei saatu haettua",
+    fallbackBanner: "Oikeita otteluita ei löytynyt juuri nyt. Näytetään varadataa.",
   },
   en: {
     title: "SCORECASTER",
@@ -76,11 +76,11 @@ const TEXT = {
     suggestedStake: "Suggested stake",
     info: "Info",
     infoText:
-      "Scorecaster shows games, compares odds, and displays a value bet view based on market odds and a simple model. If live data is unavailable, the API may return fallback data.",
+      "Scorecaster shows games, compares odds, and displays a value bet view based on market odds and a simple model.",
     close: "Close",
     noOdds: "No odds available",
     outcome: "Outcome",
-    fallbackBanner: "Showing fallback data because live games were not available",
+    fallbackBanner: "Live games were not available right now. Showing fallback data.",
   },
 };
 
@@ -201,7 +201,7 @@ export default function Page() {
       } catch {
         setGames([]);
         setSelectedGameId("");
-        setFallback(true);
+        setFallback(false);
       } finally {
         setLoading(false);
       }
