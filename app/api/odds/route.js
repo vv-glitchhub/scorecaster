@@ -8,7 +8,7 @@ const SPORT_GROUP_LEAGUES = {
     "icehockey_germany_del",
     "icehockey_switzerland_nla",
     "icehockey_czech_extraliga",
-    "icehockey", // fallback koko lajiin
+    "icehockey",
   ],
   basketball: [
     "basketball_nba",
@@ -72,7 +72,7 @@ function normalizeBookmakers(bookmakers = []) {
 
 function filterUpcomingGames(games, daysAhead = 3) {
   const now = Date.now();
-  const minStart = now - 3 * 60 * 60 * 1000; // pieni negatiivinen puskuri jos peli alkaa pian
+  const minStart = now - 3 * 60 * 60 * 1000;
   const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
 
   return (games || [])
@@ -84,6 +84,7 @@ function filterUpcomingGames(games, daysAhead = 3) {
       const ts = new Date(game.commence_time).getTime();
       const hasOdds =
         Array.isArray(game.bookmakers) && game.bookmakers.length > 0;
+
       return Number.isFinite(ts) && ts >= minStart && ts <= maxStart && hasOdds;
     })
     .sort(
@@ -97,7 +98,7 @@ async function fetchOddsForSport(sport, apiKey) {
   const url =
     `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
     `?apiKey=${apiKey}` +
-    `&regions=eu,uk,us` +
+    `&regions=us` +
     `&markets=h2h,h2h_3_way` +
     `&oddsFormat=decimal` +
     `&dateFormat=iso`;
@@ -134,9 +135,8 @@ async function fetchOddsForSport(sport, apiKey) {
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const sport = searchParams.get("sport") || "icehockey_liiga";
+    const sport = searchParams.get("sport") || "icehockey_nhl";
     const group = searchParams.get("group") || "icehockey";
-
     const apiKey = process.env.ODDS_API_KEY;
 
     if (!apiKey) {
@@ -152,7 +152,7 @@ export async function GET(req) {
       });
     }
 
-    // 1) Valittu liiga ensin
+    // 1) Yritä valittua liigaa ensin
     const primary = await fetchOddsForSport(sport, apiKey);
 
     if (primary.ok && primary.data.length > 0) {
@@ -168,22 +168,10 @@ export async function GET(req) {
       });
     }
 
-    // 2) Muut saman lajin liigat + lopuksi koko laji
-    const candidates = [...new Set((SPORT_GROUP_LEAGUES[group] || []).filter(Boolean))]
-      .filter((leagueKey) => leagueKey !== sport);
-
-    if (!candidates.length) {
-      return Response.json({
-        fallback: false,
-        reason: "empty_live_data",
-        sport,
-        group,
-        sourceSport: sport,
-        rawCount: primary.rawCount || 0,
-        filteredCount: 0,
-        data: [],
-      });
-    }
+    // 2) Jos ei dataa, kokeile saman lajin muita liigoja
+    const candidates = [...new Set(SPORT_GROUP_LEAGUES[group] || [])].filter(
+      (leagueKey) => leagueKey !== sport
+    );
 
     const results = await Promise.all(
       candidates.map((candidateSport) => fetchOddsForSport(candidateSport, apiKey))
@@ -212,8 +200,26 @@ export async function GET(req) {
         sourceSport: combined[0]?.source_sport || null,
         rawCount: primary.rawCount || 0,
         filteredCount: combined.length,
-        data: combined.slice(0, 10), // näytä useampi peli, ei vain yhtä
+        data: combined.slice(0, 10),
       });
+    }
+
+    // 3) Viimeinen fallback koko lajin endpointiin
+    if (group && group !== sport) {
+      const globalFallback = await fetchOddsForSport(group, apiKey);
+
+      if (globalFallback.ok && globalFallback.data.length > 0) {
+        return Response.json({
+          fallback: true,
+          reason: "global_fallback",
+          sport,
+          group,
+          sourceSport: group,
+          rawCount: globalFallback.rawCount,
+          filteredCount: globalFallback.filteredCount,
+          data: globalFallback.data.slice(0, 10),
+        });
+      }
     }
 
     return Response.json({
