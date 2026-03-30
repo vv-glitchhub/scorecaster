@@ -44,7 +44,7 @@ const TEXT = {
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
     nextAvailableBanner:
-      "Tällä liigalla ei ollut tulevia pelejä. Näytetään seuraava oikea peli tästä lajista.",
+      "Valitussa liigassa ei ollut pelejä 3 päivän sisällä. Näytetään seuraavat saatavilla olevat pelit tästä lajista.",
     noLiveGamesBanner:
       "Tälle liigalle tai lajille ei löytynyt tulevia oikeita pelejä juuri nyt.",
     serverErrorBanner:
@@ -87,7 +87,7 @@ const TEXT = {
     noOdds: "No odds available",
     outcome: "Outcome",
     nextAvailableBanner:
-      "No upcoming games were found in this league. Showing the next real game from this sport.",
+      "No games were found in this league within 3 days. Showing the next available games from this sport.",
     noLiveGamesBanner:
       "No real upcoming games were found for this league or sport right now.",
     serverErrorBanner:
