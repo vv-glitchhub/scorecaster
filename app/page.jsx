@@ -56,6 +56,12 @@ const TEXT = {
     topPicks: "Päivän Top 3 kohdetta",
     topPicksEmpty: "Top-kohteita ei löytynyt",
     topPickLeague: "Liiga",
+    filters: "Suodattimet",
+    minEdge: "Min edge (%)",
+    minOdds: "Min kerroin",
+    maxOdds: "Max kerroin",
+    positiveEvOnly: "Vain positiivinen EV",
+    resetFilters: "Nollaa suodattimet",
   },
   en: {
     title: "SCORECASTER",
@@ -105,6 +111,12 @@ const TEXT = {
     topPicks: "Top 3 picks today",
     topPicksEmpty: "No top picks found",
     topPickLeague: "League",
+    filters: "Filters",
+    minEdge: "Min edge (%)",
+    minOdds: "Min odds",
+    maxOdds: "Max odds",
+    positiveEvOnly: "Positive EV only",
+    resetFilters: "Reset filters",
   },
 };
 
@@ -180,6 +192,12 @@ function formatDayLabel(value, lang) {
   }
 }
 
+function parseNumberInput(value, fallback = null) {
+  if (value === "" || value == null) return fallback;
+  const parsed = Number(String(value).replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -199,6 +217,11 @@ export default function Page() {
 
   const [bankrollInput, setBankrollInput] = useState("1000");
 
+  const [minEdgeInput, setMinEdgeInput] = useState("");
+  const [minOddsInput, setMinOddsInput] = useState("");
+  const [maxOddsInput, setMaxOddsInput] = useState("");
+  const [positiveEvOnly, setPositiveEvOnly] = useState(true);
+
   const [feedback, setFeedback] = useState("");
   const [feedbackStatus, setFeedbackStatus] = useState("");
   const [sendingFeedback, setSendingFeedback] = useState(false);
@@ -209,6 +232,10 @@ export default function Page() {
     const parsed = Number(String(bankrollInput).replace(",", "."));
     return Number.isFinite(parsed) ? parsed : 0;
   }, [bankrollInput]);
+
+  const minEdge = useMemo(() => parseNumberInput(minEdgeInput, 0), [minEdgeInput]);
+  const minOdds = useMemo(() => parseNumberInput(minOddsInput, null), [minOddsInput]);
+  const maxOdds = useMemo(() => parseNumberInput(maxOddsInput, null), [maxOddsInput]);
 
   const currentLeagues = LEAGUES[selectedGroup] || [];
 
@@ -244,12 +271,8 @@ export default function Page() {
         setGames(list);
         setReason(data.reason || null);
         setSourceSport(data.sourceSport || null);
-        setSelectedGameId((prev) =>
-          list.some((g) => g.id === prev) ? prev : list[0]?.id || ""
-        );
       } catch {
         setGames([]);
-        setSelectedGameId("");
         setReason("server_error");
         setSourceSport(null);
       } finally {
@@ -280,20 +303,59 @@ export default function Page() {
     loadTopPicks();
   }, [selectedGroup]);
 
+  const filteredTopPicks = useMemo(() => {
+    return topPicks.filter((pick) => {
+      const edgePercent = (pick.edge || 0) * 100;
+      const odds = Number(pick.odds || 0);
+      const ev = Number(pick.ev || 0);
+
+      if (edgePercent < minEdge) return false;
+      if (minOdds != null && odds < minOdds) return false;
+      if (maxOdds != null && odds > maxOdds) return false;
+      if (positiveEvOnly && ev <= 0) return false;
+
+      return true;
+    });
+  }, [topPicks, minEdge, minOdds, maxOdds, positiveEvOnly]);
+
+  const filteredGames = useMemo(() => {
+    return games.filter((game) => {
+      const valueBet = getValueBet(game);
+      if (!valueBet) return false;
+
+      const edgePercent = (valueBet.edge || 0) * 100;
+      const odds = Number(valueBet.odds || 0);
+      const ev = Number(valueBet.ev || 0);
+
+      if (edgePercent < minEdge) return false;
+      if (minOdds != null && odds < minOdds) return false;
+      if (maxOdds != null && odds > maxOdds) return false;
+      if (positiveEvOnly && ev <= 0) return false;
+
+      return true;
+    });
+  }, [games, minEdge, minOdds, maxOdds, positiveEvOnly]);
+
+  useEffect(() => {
+    setSelectedGameId((prev) =>
+      filteredGames.some((g) => g.id === prev) ? prev : filteredGames[0]?.id || ""
+    );
+  }, [filteredGames]);
+
   const groupedGames = useMemo(() => {
     return Object.entries(
-      games.reduce((acc, game) => {
+      filteredGames.reduce((acc, game) => {
         const dayKey = formatDayLabel(game.commence_time, lang);
         if (!acc[dayKey]) acc[dayKey] = [];
         acc[dayKey].push(game);
         return acc;
       }, {})
     );
-  }, [games, lang]);
+  }, [filteredGames, lang]);
 
   const selectedGame = useMemo(() => {
-    return games.find((game) => game.id === selectedGameId) || null;
-  }, [games, selectedGameId]);
+    return filteredGames.find((game) => game.id === selectedGameId) || null;
+  }, [filteredGames, selectedGameId]);
 
   const bestOdds = useMemo(() => {
     return selectedGame ? getBestOdds(selectedGame) : [];
@@ -302,6 +364,13 @@ export default function Page() {
   const bestBet = useMemo(() => {
     return selectedGame ? getValueBet(selectedGame) : null;
   }, [selectedGame]);
+
+  function resetFilters() {
+    setMinEdgeInput("");
+    setMinOddsInput("");
+    setMaxOddsInput("");
+    setPositiveEvOnly(true);
+  }
 
   async function sendFeedback() {
     if (!feedback.trim()) return;
@@ -395,15 +464,67 @@ export default function Page() {
         </section>
 
         <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.filters}</h2>
+
+          <div style={styles.filterGrid}>
+            <div style={styles.field}>
+              <label style={styles.label}>{t.minEdge}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={minEdgeInput}
+                onChange={(e) => setMinEdgeInput(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.minOdds}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={minOddsInput}
+                onChange={(e) => setMinOddsInput(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.maxOdds}</label>
+              <input
+                type="text"
+                inputMode="decimal"
+                value={maxOddsInput}
+                onChange={(e) => setMaxOddsInput(e.target.value)}
+                style={styles.input}
+              />
+            </div>
+          </div>
+
+          <label style={styles.checkboxRow}>
+            <input
+              type="checkbox"
+              checked={positiveEvOnly}
+              onChange={(e) => setPositiveEvOnly(e.target.checked)}
+            />
+            <span>{t.positiveEvOnly}</span>
+          </label>
+
+          <button type="button" style={styles.secondaryButton} onClick={resetFilters}>
+            {t.resetFilters}
+          </button>
+        </section>
+
+        <section style={styles.card}>
           <h2 style={styles.cardTitle}>{t.topPicks}</h2>
 
           {topPicksLoading && <p style={styles.muted}>{t.loading}</p>}
-          {!topPicksLoading && topPicks.length === 0 && (
+          {!topPicksLoading && filteredTopPicks.length === 0 && (
             <p style={styles.muted}>{t.topPicksEmpty}</p>
           )}
 
           <div style={styles.stack}>
-            {topPicks.map((pick) => (
+            {filteredTopPicks.map((pick) => (
               <div key={`${pick.leagueKey}-${pick.gameId}-${pick.outcome}`} style={styles.topPickCard}>
                 <div style={styles.topPickLeague}>
                   {t.topPickLeague}: {pick.leagueLabel}
@@ -431,6 +552,10 @@ export default function Page() {
                     <strong>{(pick.edge * 100).toFixed(2)}%</strong>
                   </div>
                   <div style={styles.rowCard}>
+                    <span>{t.expectedValue}</span>
+                    <strong>{(pick.ev * 100).toFixed(2)}%</strong>
+                  </div>
+                  <div style={styles.rowCard}>
                     <span>{t.suggestedStake}</span>
                     <strong>
                       {getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €
@@ -442,21 +567,21 @@ export default function Page() {
           </div>
         </section>
 
-        {reason === "used_next_available_game" && games.length > 0 && (
+        {reason === "used_next_available_game" && filteredGames.length > 0 && (
           <div style={styles.banner}>
             {t.nextAvailableBanner}
             {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
           </div>
         )}
 
-        {reason === "global_fallback" && games.length > 0 && (
+        {reason === "global_fallback" && filteredGames.length > 0 && (
           <div style={styles.banner}>
             {t.globalFallbackBanner}
             {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
           </div>
         )}
 
-        {reason === "empty_live_data" && games.length === 0 && (
+        {reason === "empty_live_data" && filteredGames.length === 0 && (
           <div style={styles.banner}>{t.noLiveGamesBanner}</div>
         )}
 
@@ -472,7 +597,7 @@ export default function Page() {
           <h2 style={styles.cardTitle}>{t.games}</h2>
 
           {loading && <p style={styles.muted}>{t.loading}</p>}
-          {!loading && games.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
+          {!loading && filteredGames.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
 
           <div style={styles.gamesList}>
             {groupedGames.map(([day, dayGames]) => (
@@ -717,6 +842,30 @@ const styles = {
     color: "#ffffff",
     fontSize: 16,
     boxSizing: "border-box",
+  },
+  filterGrid: {
+    display: "grid",
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+    gap: 12,
+  },
+  checkboxRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginTop: 14,
+    color: "#cbd5e1",
+    fontSize: 15,
+  },
+  secondaryButton: {
+    marginTop: 14,
+    padding: "12px 16px",
+    borderRadius: 12,
+    background: "#1e293b",
+    color: "#ffffff",
+    border: "1px solid #334155",
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: "pointer",
   },
   banner: {
     background: "#3b2a00",
