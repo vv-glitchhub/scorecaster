@@ -8,7 +8,10 @@ export default function AdminPage() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState("");
+  const [liveBanner, setLiveBanner] = useState("");
   const previousTopIdRef = useRef(null);
+  const pollIntervalRef = useRef(null);
 
   async function fetchFeedbacks(showLoading = false) {
     if (!secret) return;
@@ -25,6 +28,7 @@ export default function AdminPage() {
 
       if (!res.ok) {
         setAuthenticated(false);
+        setLiveBanner("");
         return;
       }
 
@@ -36,18 +40,28 @@ export default function AdminPage() {
       setUnreadCount(data.unreadCount || 0);
 
       if (items.length > 0) {
-        const newestId = items[0].id;
+        const newest = items[0];
+        const newestId = newest.id;
 
         if (
           previousTopIdRef.current &&
-          previousTopIdRef.current !== newestId &&
-          typeof window !== "undefined" &&
-          "Notification" in window &&
-          Notification.permission === "granted"
+          previousTopIdRef.current !== newestId
         ) {
-          new Notification("Uusi palaute Scorecasterissa", {
-            body: items[0].message || "Sinulle tuli uusi palaute.",
-          });
+          setLiveBanner(`Uusi palaute: ${newest.message || "Sinulle tuli uusi palaute."}`);
+
+          if (
+            typeof window !== "undefined" &&
+            "Notification" in window &&
+            Notification.permission === "granted"
+          ) {
+            try {
+              new Notification("Uusi palaute Scorecasterissa", {
+                body: newest.message || "Sinulle tuli uusi palaute.",
+              });
+            } catch (err) {
+              console.error("notification error:", err);
+            }
+          }
         }
 
         previousTopIdRef.current = newestId;
@@ -55,6 +69,7 @@ export default function AdminPage() {
     } catch (error) {
       console.error(error);
       setAuthenticated(false);
+      setLiveBanner("");
     } finally {
       if (showLoading) setLoading(false);
     }
@@ -84,6 +99,42 @@ export default function AdminPage() {
     }
   }
 
+  async function enableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) {
+      setNotificationStatus("Selain ei tue ilmoituksia.");
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+
+      if (permission === "granted") {
+        setNotificationStatus("Ilmoitukset sallittu.");
+      } else if (permission === "denied") {
+        setNotificationStatus("Ilmoitukset estetty selaimessa.");
+      } else {
+        setNotificationStatus("Ilmoituksia ei sallittu.");
+      }
+    } catch (error) {
+      console.error(error);
+      setNotificationStatus("Ilmoitusten sallinta epäonnistui.");
+    }
+  }
+
+  function logout() {
+    setAuthenticated(false);
+    setFeedbacks([]);
+    setUnreadCount(0);
+    setLiveBanner("");
+    setSecret("");
+    localStorage.removeItem("scorecaster_admin_secret");
+
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }
+
   useEffect(() => {
     const saved = localStorage.getItem("scorecaster_admin_secret");
     if (saved) {
@@ -97,22 +148,26 @@ export default function AdminPage() {
     localStorage.setItem("scorecaster_admin_secret", secret);
     fetchFeedbacks(true);
 
-    const interval = setInterval(() => {
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+    }
+
+    pollIntervalRef.current = setInterval(() => {
       fetchFeedbacks(false);
     }, 15000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (pollIntervalRef.current) {
+        clearInterval(pollIntervalRef.current);
+        pollIntervalRef.current = null;
+      }
+    };
   }, [secret]);
-
-  async function enableNotifications() {
-    if (typeof window === "undefined" || !("Notification" in window)) return;
-    await Notification.requestPermission();
-  }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Admin</h1>
+        <h1 style={styles.title}>Scorecaster Admin</h1>
 
         <div style={styles.card}>
           <label style={styles.label}>Admin secret</label>
@@ -121,6 +176,7 @@ export default function AdminPage() {
             value={secret}
             onChange={(e) => setSecret(e.target.value)}
             style={styles.input}
+            placeholder="Syötä ADMIN_SECRET"
           />
 
           <div style={styles.buttonRow}>
@@ -131,17 +187,40 @@ export default function AdminPage() {
             <button style={styles.secondaryButton} onClick={enableNotifications}>
               Salli ilmoitukset
             </button>
+
+            <button style={styles.secondaryButton} onClick={logout}>
+              Kirjaudu ulos
+            </button>
           </div>
+
+          {notificationStatus ? (
+            <div style={styles.notificationInfo}>{notificationStatus}</div>
+          ) : null}
         </div>
+
+        {liveBanner ? (
+          <div style={styles.liveBanner}>
+            🔔 {liveBanner}
+          </div>
+        ) : null}
 
         {authenticated && (
           <div style={styles.badgeCard}>
-            <div style={styles.badgeTitle}>Uusia palautteita</div>
+            <div>
+              <div style={styles.badgeTitle}>Uusia palautteita</div>
+              <div style={styles.badgeSub}>Päivittyy automaattisesti 15 sek välein</div>
+            </div>
             <div style={styles.badgeValue}>{unreadCount}</div>
           </div>
         )}
 
         {loading && <p style={styles.muted}>Ladataan...</p>}
+
+        {!authenticated && !loading && (
+          <p style={styles.muted}>
+            Syötä admin secret ja paina Kirjaudu / Päivitä.
+          </p>
+        )}
 
         {authenticated && feedbacks.length === 0 && (
           <p style={styles.muted}>Ei palautteita</p>
@@ -162,7 +241,12 @@ export default function AdminPage() {
                     ? new Date(item.created_at).toLocaleString("fi-FI")
                     : "-"}
                 </div>
-                <div style={styles.readState}>
+                <div
+                  style={{
+                    ...styles.readState,
+                    color: item.is_read ? "#94a3b8" : "#22c55e",
+                  }}
+                >
                   {item.is_read ? "Luettu" : "Uusi"}
                 </div>
               </div>
@@ -170,16 +254,16 @@ export default function AdminPage() {
               <div style={styles.message}>{item.message}</div>
 
               <div style={styles.metaLine}>
-                Laji: {item.selected_group || "-"}
+                <strong>Laji:</strong> {item.selected_group || "-"}
               </div>
               <div style={styles.metaLine}>
-                Liiga: {item.selected_sport_key || "-"}
+                <strong>Liiga:</strong> {item.selected_sport_key || "-"}
               </div>
               <div style={styles.metaLine}>
-                Ottelu: {item.selected_game || "-"}
+                <strong>Ottelu:</strong> {item.selected_game || "-"}
               </div>
               <div style={styles.metaLine}>
-                Bankroll: {item.bankroll ?? "-"}
+                <strong>Bankroll:</strong> {item.bankroll ?? "-"}
               </div>
 
               {!item.is_read && (
@@ -232,15 +316,30 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "center",
+    gap: 12,
   },
   badgeTitle: {
     fontSize: 18,
     fontWeight: 700,
   },
+  badgeSub: {
+    fontSize: 13,
+    color: "#94a3b8",
+    marginTop: 4,
+  },
   badgeValue: {
     fontSize: 32,
     fontWeight: 900,
     color: "#22c55e",
+  },
+  liveBanner: {
+    background: "#14532d",
+    border: "1px solid #22c55e",
+    color: "#dcfce7",
+    padding: "12px 14px",
+    borderRadius: 14,
+    marginBottom: 20,
+    fontWeight: 700,
   },
   label: {
     display: "block",
@@ -282,6 +381,11 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
   },
+  notificationInfo: {
+    marginTop: 12,
+    color: "#cbd5e1",
+    fontSize: 14,
+  },
   muted: {
     color: "#94a3b8",
   },
@@ -312,6 +416,7 @@ const styles = {
     fontSize: 18,
     fontWeight: 700,
     marginBottom: 12,
+    whiteSpace: "pre-wrap",
   },
   metaLine: {
     color: "#cbd5e1",
