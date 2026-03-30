@@ -1,97 +1,40 @@
-function futureIso(daysAhead = 0, hour = 18) {
-  const d = new Date();
-  d.setDate(d.getDate() + daysAhead);
-  d.setHours(hour, 0, 0, 0);
-  return d.toISOString();
-}
-
-function createGame(
-  id,
-  sportKey,
-  home,
-  away,
-  commenceTime,
-  homeOdds,
-  awayOdds,
-  drawOdds = null
-) {
-  const outcomes = [
-    { name: home, price: homeOdds },
-    { name: away, price: awayOdds },
-  ];
-
-  if (drawOdds !== null) {
-    outcomes.splice(1, 0, { name: "Draw", price: drawOdds });
-  }
-
-  return {
-    id,
-    sport_key: sportKey,
-    home_team: home,
-    away_team: away,
-    commence_time: commenceTime,
-    bookmakers: [
-      {
-        key: "samplebook",
-        title: "SampleBook",
-        markets: [{ key: "h2h", outcomes }],
-      },
-      {
-        key: "demoodds",
-        title: "DemoOdds",
-        markets: [
-          {
-            key: "h2h",
-            outcomes: outcomes.map((o, index) => ({
-              ...o,
-              price:
-                index === 0
-                  ? Number((o.price + 0.05).toFixed(2))
-                  : Number((o.price - 0.02).toFixed(2)),
-            })),
-          },
-        ],
-      },
-    ],
-  };
-}
-
-function getFallbackGames(sport) {
-  const data = {
-    icehockey_liiga: [
-      createGame("liiga-1", "icehockey_liiga", "Tappara", "Ilves", futureIso(1, 18), 2.15, 1.82),
-      createGame("liiga-2", "icehockey_liiga", "HIFK", "Kärpät", futureIso(3, 18), 2.05, 1.90),
-      createGame("liiga-3", "icehockey_liiga", "TPS", "Lukko", futureIso(5, 17), 2.30, 1.75),
-    ],
-    icehockey_nhl: [
-      createGame("nhl-1", "icehockey_nhl", "Boston Bruins", "New York Rangers", futureIso(1, 2), 2.20, 1.80),
-      createGame("nhl-2", "icehockey_nhl", "Edmonton Oilers", "Colorado Avalanche", futureIso(3, 3), 2.00, 1.95),
-      createGame("nhl-3", "icehockey_nhl", "Toronto Maple Leafs", "Florida Panthers", futureIso(5, 2), 2.10, 1.85),
-    ],
-    basketball_nba: [
-      createGame("nba-1", "basketball_nba", "Boston Celtics", "Milwaukee Bucks", futureIso(1, 2), 1.85, 2.05),
-      createGame("nba-2", "basketball_nba", "Denver Nuggets", "Phoenix Suns", futureIso(3, 3), 1.95, 1.95),
-      createGame("nba-3", "basketball_nba", "Lakers", "Warriors", futureIso(5, 3), 2.10, 1.84),
-    ],
-    soccer_epl: [
-      createGame("epl-1", "soccer_epl", "Arsenal", "Liverpool", futureIso(1, 17), 2.40, 2.70, 3.40),
-      createGame("epl-2", "soccer_epl", "Chelsea", "Tottenham", futureIso(4, 17), 2.30, 2.95, 3.25),
-    ],
-    americanfootball_nfl: [
-      createGame("nfl-1", "americanfootball_nfl", "Chiefs", "Bills", futureIso(2, 20), 1.88, 2.00),
-      createGame("nfl-2", "americanfootball_nfl", "49ers", "Eagles", futureIso(5, 20), 1.95, 1.95),
-    ],
-  };
-
-  return data[sport] || [];
-}
+const SPORT_GROUP_LEAGUES = {
+  icehockey: [
+    "icehockey_liiga",
+    "icehockey_nhl",
+    "icehockey_allsvenskan",
+    "icehockey_sweden_hockey_league",
+    "icehockey_finland_mestis",
+    "icehockey_germany_del",
+    "icehockey_switzerland_nla",
+    "icehockey_czech_extraliga",
+  ],
+  basketball: [
+    "basketball_nba",
+    "basketball_euroleague",
+    "basketball_ncaab",
+  ],
+  soccer: [
+    "soccer_epl",
+    "soccer_spain_la_liga",
+    "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_france_ligue_one",
+    "soccer_finland_veikkausliiga",
+    "soccer_uefa_champs_league",
+  ],
+  americanfootball: [
+    "americanfootball_nfl",
+    "americanfootball_ncaaf",
+  ],
+};
 
 function filterUpcomingGames(games, daysAhead = 7) {
   const now = Date.now();
   const minStart = now + 15 * 60 * 1000;
   const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
 
-  return games
+  return (games || [])
     .filter((game) => {
       const ts = new Date(game.commence_time).getTime();
       return Number.isFinite(ts) && ts >= minStart && ts <= maxStart;
@@ -102,65 +45,135 @@ function filterUpcomingGames(games, daysAhead = 7) {
     );
 }
 
+async function fetchOddsForSport(sport, apiKey) {
+  const url =
+    `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
+    `?apiKey=${apiKey}` +
+    `&regions=eu,us` +
+    `&markets=h2h` +
+    `&oddsFormat=decimal` +
+    `&dateFormat=iso`;
+
+  const res = await fetch(url, {
+    next: { revalidate: 300 },
+  });
+
+  const data = await res.json().catch(() => null);
+
+  if (!res.ok || !Array.isArray(data)) {
+    return {
+      ok: false,
+      sport,
+      data: [],
+      error: data || `HTTP ${res.status}`,
+    };
+  }
+
+  return {
+    ok: true,
+    sport,
+    data: filterUpcomingGames(data, 7),
+    error: null,
+  };
+}
+
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport") || "icehockey_liiga";
+    const group = searchParams.get("group") || "icehockey";
 
     if (!process.env.ODDS_API_KEY) {
+      return Response.json(
+        {
+          fallback: false,
+          reason: "missing_api_key",
+          sport,
+          group,
+          data: [],
+        },
+        { status: 200 }
+      );
+    }
+
+    // 1) Yritä ensin valitun liigan omat pelit
+    const primary = await fetchOddsForSport(sport, process.env.ODDS_API_KEY);
+
+    if (primary.ok && primary.data.length > 0) {
       return Response.json({
-        fallback: true,
-        reason: "missing_api_key",
+        fallback: false,
+        reason: null,
         sport,
-        data: getFallbackGames(sport),
+        group,
+        sourceSport: sport,
+        data: primary.data,
       });
     }
 
-    const url =
-      `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
-      `?apiKey=${process.env.ODDS_API_KEY}` +
-      `&regions=eu,us` +
-      `&markets=h2h` +
-      `&oddsFormat=decimal` +
-      `&dateFormat=iso`;
+    // 2) Jos ei löytynyt, hae seuraava oikea peli saman lajin muista liigoista
+    const candidates = (SPORT_GROUP_LEAGUES[group] || []).filter((key) => key !== sport);
 
-    const res = await fetch(url, {
-      next: { revalidate: 300 },
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !Array.isArray(data)) {
+    if (candidates.length === 0) {
       return Response.json({
-        fallback: true,
-        reason: "api_error",
-        sport,
-        data: getFallbackGames(sport),
-      });
-    }
-
-    const filtered = filterUpcomingGames(data, 7);
-
-    if (!filtered.length) {
-      return Response.json({
-        fallback: true,
+        fallback: false,
         reason: "empty_live_data",
         sport,
-        data: getFallbackGames(sport),
+        group,
+        sourceSport: sport,
+        data: [],
+      });
+    }
+
+    const results = await Promise.all(
+      candidates.map((candidateSport) =>
+        fetchOddsForSport(candidateSport, process.env.ODDS_API_KEY)
+      )
+    );
+
+    const combined = results
+      .filter((r) => r.ok && r.data.length > 0)
+      .flatMap((r) =>
+        r.data.map((game) => ({
+          ...game,
+          source_sport: r.sport,
+        }))
+      )
+      .sort(
+        (a, b) =>
+          new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+      );
+
+    if (combined.length > 0) {
+      const nextGameTime = combined[0].commence_time;
+      const sameTimeGames = combined.filter(
+        (g) => new Date(g.commence_time).getTime() === new Date(nextGameTime).getTime()
+      );
+
+      return Response.json({
+        fallback: false,
+        reason: "used_next_available_game",
+        sport,
+        group,
+        sourceSport: sameTimeGames[0]?.source_sport || null,
+        data: sameTimeGames,
       });
     }
 
     return Response.json({
       fallback: false,
-      reason: null,
+      reason: "empty_live_data",
       sport,
-      data: filtered,
+      group,
+      sourceSport: sport,
+      data: [],
     });
   } catch (error) {
     return Response.json({
-      fallback: true,
+      fallback: false,
       reason: "server_error",
       sport: null,
+      group: null,
+      sourceSport: null,
       data: [],
       error: String(error),
     });
