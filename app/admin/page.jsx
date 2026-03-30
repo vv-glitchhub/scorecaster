@@ -10,6 +10,8 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState("");
   const [liveBanner, setLiveBanner] = useState("");
+
+  const previousUnreadRef = useRef(0);
   const previousTopIdRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
@@ -28,26 +30,32 @@ export default function AdminPage() {
 
       if (!res.ok) {
         setAuthenticated(false);
+        setFeedbacks([]);
+        setUnreadCount(0);
         setLiveBanner("");
         return;
       }
 
       const data = await res.json();
       const items = Array.isArray(data.data) ? data.data : [];
+      const nextUnread = Number(data.unreadCount || 0);
 
       setAuthenticated(true);
       setFeedbacks(items);
-      setUnreadCount(data.unreadCount || 0);
+      setUnreadCount(nextUnread);
 
       if (items.length > 0) {
         const newest = items[0];
         const newestId = newest.id;
 
-        if (
-          previousTopIdRef.current &&
-          previousTopIdRef.current !== newestId
-        ) {
-          setLiveBanner(`Uusi palaute: ${newest.message || "Sinulle tuli uusi palaute."}`);
+        const hasNewUnread =
+          previousUnreadRef.current > 0
+            ? nextUnread > previousUnreadRef.current
+            : nextUnread > 0 && previousTopIdRef.current && previousTopIdRef.current !== newestId;
+
+        if (hasNewUnread) {
+          const message = newest.message || "Sinulle tuli uusi palaute.";
+          setLiveBanner(`Uusi palaute: ${message}`);
 
           if (
             typeof window !== "undefined" &&
@@ -56,7 +64,7 @@ export default function AdminPage() {
           ) {
             try {
               new Notification("Uusi palaute Scorecasterissa", {
-                body: newest.message || "Sinulle tuli uusi palaute.",
+                body: message,
               });
             } catch (err) {
               console.error("notification error:", err);
@@ -66,6 +74,8 @@ export default function AdminPage() {
 
         previousTopIdRef.current = newestId;
       }
+
+      previousUnreadRef.current = nextUnread;
     } catch (error) {
       console.error(error);
       setAuthenticated(false);
@@ -93,9 +103,18 @@ export default function AdminPage() {
           )
         );
         setUnreadCount((prev) => Math.max(0, prev - 1));
+        previousUnreadRef.current = Math.max(0, previousUnreadRef.current - 1);
       }
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  async function markAllAsRead() {
+    const unreadItems = feedbacks.filter((item) => !item.is_read);
+
+    for (const item of unreadItems) {
+      await markAsRead(item.id);
     }
   }
 
@@ -127,7 +146,8 @@ export default function AdminPage() {
     setUnreadCount(0);
     setLiveBanner("");
     setSecret("");
-    localStorage.removeItem("scorecaster_admin_secret");
+    previousUnreadRef.current = 0;
+    previousTopIdRef.current = null;
 
     if (pollIntervalRef.current) {
       clearInterval(pollIntervalRef.current);
@@ -136,16 +156,8 @@ export default function AdminPage() {
   }
 
   useEffect(() => {
-    const saved = localStorage.getItem("scorecaster_admin_secret");
-    if (saved) {
-      setSecret(saved);
-    }
-  }, []);
+    if (!authenticated || !secret) return;
 
-  useEffect(() => {
-    if (!secret) return;
-
-    localStorage.setItem("scorecaster_admin_secret", secret);
     fetchFeedbacks(true);
 
     if (pollIntervalRef.current) {
@@ -154,7 +166,7 @@ export default function AdminPage() {
 
     pollIntervalRef.current = setInterval(() => {
       fetchFeedbacks(false);
-    }, 15000);
+    }, 10000);
 
     return () => {
       if (pollIntervalRef.current) {
@@ -162,12 +174,18 @@ export default function AdminPage() {
         pollIntervalRef.current = null;
       }
     };
-  }, [secret]);
+  }, [authenticated, secret]);
+
+  function handleLogin() {
+    previousUnreadRef.current = 0;
+    previousTopIdRef.current = null;
+    fetchFeedbacks(true);
+  }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Scorecaster Admin</h1>
+        <h1 style={styles.title}>Admin</h1>
 
         <div style={styles.card}>
           <label style={styles.label}>Admin secret</label>
@@ -180,7 +198,7 @@ export default function AdminPage() {
           />
 
           <div style={styles.buttonRow}>
-            <button style={styles.button} onClick={() => fetchFeedbacks(true)}>
+            <button style={styles.button} onClick={handleLogin}>
               Kirjaudu / Päivitä
             </button>
 
@@ -188,9 +206,17 @@ export default function AdminPage() {
               Salli ilmoitukset
             </button>
 
-            <button style={styles.secondaryButton} onClick={logout}>
-              Kirjaudu ulos
-            </button>
+            {authenticated && (
+              <button style={styles.secondaryButton} onClick={logout}>
+                Kirjaudu ulos
+              </button>
+            )}
+
+            {authenticated && unreadCount > 0 && (
+              <button style={styles.secondaryButton} onClick={markAllAsRead}>
+                Merkitse kaikki luetuiksi
+              </button>
+            )}
           </div>
 
           {notificationStatus ? (
@@ -198,17 +224,13 @@ export default function AdminPage() {
           ) : null}
         </div>
 
-        {liveBanner ? (
-          <div style={styles.liveBanner}>
-            🔔 {liveBanner}
-          </div>
-        ) : null}
+        {liveBanner ? <div style={styles.liveBanner}>🔔 {liveBanner}</div> : null}
 
         {authenticated && (
           <div style={styles.badgeCard}>
             <div>
               <div style={styles.badgeTitle}>Uusia palautteita</div>
-              <div style={styles.badgeSub}>Päivittyy automaattisesti 15 sek välein</div>
+              <div style={styles.badgeSub}>Päivittyy automaattisesti 10 sek välein</div>
             </div>
             <div style={styles.badgeValue}>{unreadCount}</div>
           </div>
