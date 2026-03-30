@@ -1,13 +1,88 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [authenticated, setAuthenticated] = useState(false);
+  const [feedbacks, setFeedbacks] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [data, setData] = useState(null);
+  const previousTopIdRef = useRef(null);
+
+  async function fetchFeedbacks(showLoading = false) {
+    if (!secret) return;
+
+    if (showLoading) setLoading(true);
+
+    try {
+      const res = await fetch("/api/admin-feedback", {
+        headers: {
+          "x-admin-secret": secret,
+        },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        setAuthenticated(false);
+        return;
+      }
+
+      const data = await res.json();
+      const items = Array.isArray(data.data) ? data.data : [];
+
+      setAuthenticated(true);
+      setFeedbacks(items);
+      setUnreadCount(data.unreadCount || 0);
+
+      if (items.length > 0) {
+        const newestId = items[0].id;
+
+        if (
+          previousTopIdRef.current &&
+          previousTopIdRef.current !== newestId &&
+          typeof window !== "undefined" &&
+          "Notification" in window &&
+          Notification.permission === "granted"
+        ) {
+          new Notification("Uusi palaute Scorecasterissa", {
+            body: items[0].message || "Sinulle tuli uusi palaute.",
+          });
+        }
+
+        previousTopIdRef.current = newestId;
+      }
+    } catch (error) {
+      console.error(error);
+      setAuthenticated(false);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }
+
+  async function markAsRead(id) {
+    try {
+      const res = await fetch("/api/admin-feedback/read", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-admin-secret": secret,
+        },
+        body: JSON.stringify({ id }),
+      });
+
+      if (res.ok) {
+        setFeedbacks((prev) =>
+          prev.map((item) =>
+            item.id === id ? { ...item, is_read: true } : item
+          )
+        );
+        setUnreadCount((prev) => Math.max(0, prev - 1));
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   useEffect(() => {
     const saved = localStorage.getItem("scorecaster_admin_secret");
@@ -16,131 +91,108 @@ export default function AdminPage() {
     }
   }, []);
 
-  async function loadAdmin() {
-    if (!secret.trim()) return;
+  useEffect(() => {
+    if (!secret) return;
 
-    setLoading(true);
-    setError("");
+    localStorage.setItem("scorecaster_admin_secret", secret);
+    fetchFeedbacks(true);
 
-    try {
-      localStorage.setItem("scorecaster_admin_secret", secret);
+    const interval = setInterval(() => {
+      fetchFeedbacks(false);
+    }, 15000);
 
-      const res = await fetch(`/api/admin?secret=${encodeURIComponent(secret)}`);
-      const json = await res.json();
+    return () => clearInterval(interval);
+  }, [secret]);
 
-      if (!res.ok) {
-        throw new Error(json.error || "Failed to load admin data");
-      }
-
-      setData(json);
-      setLoaded(true);
-    } catch (err) {
-      setError(err.message || "Error");
-      setLoaded(false);
-    } finally {
-      setLoading(false);
-    }
+  async function enableNotifications() {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    await Notification.requestPermission();
   }
 
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Scorecaster Admin</h1>
+        <h1 style={styles.title}>Admin</h1>
 
-        {!loaded && (
-          <section style={styles.card}>
-            <h2 style={styles.cardTitle}>Kirjaudu adminiin</h2>
+        <div style={styles.card}>
+          <label style={styles.label}>Admin secret</label>
+          <input
+            type="password"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            style={styles.input}
+          />
 
-            <input
-              type="password"
-              value={secret}
-              onChange={(e) => setSecret(e.target.value)}
-              placeholder="ADMIN_SECRET"
-              style={styles.input}
-            />
-
-            <button onClick={loadAdmin} style={styles.button} disabled={loading}>
-              {loading ? "Ladataan..." : "Avaa admin"}
+          <div style={styles.buttonRow}>
+            <button style={styles.button} onClick={() => fetchFeedbacks(true)}>
+              Kirjaudu / Päivitä
             </button>
 
-            {error ? <div style={styles.error}>{error}</div> : null}
-          </section>
+            <button style={styles.secondaryButton} onClick={enableNotifications}>
+              Salli ilmoitukset
+            </button>
+          </div>
+        </div>
+
+        {authenticated && (
+          <div style={styles.badgeCard}>
+            <div style={styles.badgeTitle}>Uusia palautteita</div>
+            <div style={styles.badgeValue}>{unreadCount}</div>
+          </div>
         )}
 
-        {loaded && data && (
-          <>
-            <section style={styles.card}>
-              <h2 style={styles.cardTitle}>Yhteenveto</h2>
-              <div style={styles.statRow}>
-                <div style={styles.statBox}>
-                  <div style={styles.statLabel}>Tapahtumia / kävijöitä</div>
-                  <div style={styles.statValue}>{data.visitors}</div>
-                </div>
-                <div style={styles.statBox}>
-                  <div style={styles.statLabel}>Palautteita</div>
-                  <div style={styles.statValue}>{data.feedback.length}</div>
-                </div>
-              </div>
-            </section>
+        {loading && <p style={styles.muted}>Ladataan...</p>}
 
-            <section style={styles.card}>
-              <h2 style={styles.cardTitle}>Suosituimmat liigat</h2>
-              <div style={styles.list}>
-                {data.popularLeagues.length === 0 && (
-                  <div style={styles.muted}>Ei dataa</div>
-                )}
-
-                {data.popularLeagues.map((item) => (
-                  <div key={item.league} style={styles.row}>
-                    <span>{item.league}</span>
-                    <strong>{item.count}</strong>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section style={styles.card}>
-              <h2 style={styles.cardTitle}>Palautteet</h2>
-              <div style={styles.list}>
-                {data.feedback.length === 0 && (
-                  <div style={styles.muted}>Ei palautteita</div>
-                )}
-
-                {data.feedback.map((item) => (
-                  <div key={item.id} style={styles.feedbackCard}>
-                    <div style={styles.feedbackMeta}>
-                      {item.created_at ? new Date(item.created_at).toLocaleString() : "-"}
-                    </div>
-                    <div><strong>Liiga:</strong> {item.selected_sport_key || "-"}</div>
-                    <div><strong>Ottelu:</strong> {item.selected_game || "-"}</div>
-                    <div><strong>Bankroll:</strong> {item.bankroll ?? "-"}</div>
-                    <div style={styles.feedbackMessage}>{item.message}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-
-            <section style={styles.card}>
-              <h2 style={styles.cardTitle}>Viimeisimmät eventit</h2>
-              <div style={styles.list}>
-                {data.recentEvents.length === 0 && (
-                  <div style={styles.muted}>Ei eventtejä</div>
-                )}
-
-                {data.recentEvents.map((item) => (
-                  <div key={item.id} style={styles.rowBlock}>
-                    <div><strong>{item.event_name}</strong></div>
-                    <div style={styles.smallText}>
-                      {item.created_at ? new Date(item.created_at).toLocaleString() : "-"}
-                    </div>
-                    <div style={styles.smallText}>Liiga: {item.selected_sport_key || "-"}</div>
-                    <div style={styles.smallText}>Ottelu: {item.selected_game || "-"}</div>
-                  </div>
-                ))}
-              </div>
-            </section>
-          </>
+        {authenticated && feedbacks.length === 0 && (
+          <p style={styles.muted}>Ei palautteita</p>
         )}
+
+        <div style={styles.list}>
+          {feedbacks.map((item) => (
+            <div
+              key={item.id}
+              style={{
+                ...styles.feedbackCard,
+                border: item.is_read ? "1px solid #334155" : "2px solid #22c55e",
+              }}
+            >
+              <div style={styles.feedbackTop}>
+                <div style={styles.feedbackMeta}>
+                  {item.created_at
+                    ? new Date(item.created_at).toLocaleString("fi-FI")
+                    : "-"}
+                </div>
+                <div style={styles.readState}>
+                  {item.is_read ? "Luettu" : "Uusi"}
+                </div>
+              </div>
+
+              <div style={styles.message}>{item.message}</div>
+
+              <div style={styles.metaLine}>
+                Laji: {item.selected_group || "-"}
+              </div>
+              <div style={styles.metaLine}>
+                Liiga: {item.selected_sport_key || "-"}
+              </div>
+              <div style={styles.metaLine}>
+                Ottelu: {item.selected_game || "-"}
+              </div>
+              <div style={styles.metaLine}>
+                Bankroll: {item.bankroll ?? "-"}
+              </div>
+
+              {!item.is_read && (
+                <button
+                  style={styles.readButton}
+                  onClick={() => markAsRead(item.id)}
+                >
+                  Merkitse luetuksi
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
       </div>
     </main>
   );
@@ -151,7 +203,7 @@ const styles = {
     minHeight: "100vh",
     background: "#020617",
     color: "#fff",
-    padding: 16,
+    padding: 20,
     fontFamily:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
@@ -160,106 +212,119 @@ const styles = {
     margin: "0 auto",
   },
   title: {
-    fontSize: 40,
+    fontSize: 36,
     fontWeight: 900,
     marginBottom: 20,
   },
   card: {
     background: "#0f172a",
     border: "1px solid #1e293b",
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 16,
     marginBottom: 20,
   },
-  cardTitle: {
-    margin: "0 0 16px 0",
-    fontSize: 24,
-    fontWeight: 800,
+  badgeCard: {
+    background: "#0f172a",
+    border: "1px solid #1e293b",
+    borderRadius: 18,
+    padding: 16,
+    marginBottom: 20,
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  badgeTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+  },
+  badgeValue: {
+    fontSize: 32,
+    fontWeight: 900,
+    color: "#22c55e",
+  },
+  label: {
+    display: "block",
+    marginBottom: 8,
+    fontWeight: 700,
+    color: "#cbd5e1",
   },
   input: {
     width: "100%",
-    padding: "14px 16px",
-    borderRadius: 14,
+    padding: "12px 14px",
+    borderRadius: 12,
     border: "1px solid #334155",
     background: "#0b1730",
     color: "#fff",
     fontSize: 16,
     boxSizing: "border-box",
   },
-  button: {
+  buttonRow: {
+    display: "flex",
+    gap: 10,
     marginTop: 14,
-    padding: "14px 20px",
-    borderRadius: 14,
+    flexWrap: "wrap",
+  },
+  button: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: "none",
     background: "#16a34a",
     color: "#fff",
-    border: "none",
-    fontSize: 18,
     fontWeight: 700,
     cursor: "pointer",
   },
-  error: {
-    marginTop: 12,
-    color: "#fca5a5",
+  secondaryButton: {
+    padding: "12px 16px",
+    borderRadius: 12,
+    border: "1px solid #334155",
+    background: "#1e293b",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer",
   },
   muted: {
     color: "#94a3b8",
   },
-  statRow: {
-    display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: 12,
-  },
-  statBox: {
-    background: "#13203d",
-    border: "1px solid #334155",
-    borderRadius: 16,
-    padding: 16,
-  },
-  statLabel: {
-    color: "#94a3b8",
-    marginBottom: 8,
-  },
-  statValue: {
-    fontSize: 32,
-    fontWeight: 900,
-  },
   list: {
     display: "grid",
-    gap: 12,
-  },
-  row: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "12px 14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
-    background: "#0b1730",
-  },
-  rowBlock: {
-    padding: "12px 14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
-    background: "#0b1730",
-  },
-  smallText: {
-    color: "#94a3b8",
-    marginTop: 4,
-    fontSize: 14,
+    gap: 14,
   },
   feedbackCard: {
-    padding: "14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
-    background: "#0b1730",
+    background: "#0f172a",
+    borderRadius: 18,
+    padding: 16,
+  },
+  feedbackTop: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+    gap: 10,
   },
   feedbackMeta: {
     color: "#94a3b8",
-    marginBottom: 8,
     fontSize: 14,
   },
-  feedbackMessage: {
-    marginTop: 10,
-    whiteSpace: "pre-wrap",
+  readState: {
+    fontWeight: 800,
+  },
+  message: {
+    fontSize: 18,
+    fontWeight: 700,
+    marginBottom: 12,
+  },
+  metaLine: {
+    color: "#cbd5e1",
+    marginBottom: 6,
+  },
+  readButton: {
+    marginTop: 12,
+    padding: "10px 14px",
+    borderRadius: 10,
+    border: "none",
+    background: "#2563eb",
+    color: "#fff",
+    fontWeight: 700,
+    cursor: "pointer",
   },
 };
