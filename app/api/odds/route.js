@@ -29,40 +29,43 @@ const SPORT_GROUP_LEAGUES = {
   ],
 };
 
-function normalizeMarkets(bookmakers = []) {
+function normalizeBookmakers(bookmakers = []) {
   return bookmakers
     .map((bookmaker) => {
-      const allOutcomes = [];
+      const mergedOutcomes = [];
 
       for (const market of bookmaker.markets || []) {
         if (
           market?.key === "h2h" ||
           market?.key === "h2h_3_way" ||
-          market?.key === "h2h_lay"
+          market?.key === "spreads" ||
+          market?.key === "totals"
         ) {
-          for (const outcome of market.outcomes || []) {
-            if (
-              outcome &&
-              typeof outcome.name === "string" &&
-              typeof outcome.price === "number"
-            ) {
-              allOutcomes.push({
-                name: outcome.name,
-                price: outcome.price,
-              });
+          if (market.key === "h2h" || market.key === "h2h_3_way") {
+            for (const outcome of market.outcomes || []) {
+              if (
+                outcome &&
+                typeof outcome.name === "string" &&
+                typeof outcome.price === "number"
+              ) {
+                mergedOutcomes.push({
+                  name: outcome.name,
+                  price: outcome.price,
+                });
+              }
             }
           }
         }
       }
 
-      if (!allOutcomes.length) return null;
+      if (!mergedOutcomes.length) return null;
 
       return {
         ...bookmaker,
         markets: [
           {
             key: "h2h",
-            outcomes: allOutcomes,
+            outcomes: mergedOutcomes,
           },
         ],
       };
@@ -70,15 +73,15 @@ function normalizeMarkets(bookmakers = []) {
     .filter(Boolean);
 }
 
-function filterUpcomingGames(games, daysAhead = 7) {
+function filterUpcomingGames(games, daysAhead = 10) {
   const now = Date.now();
-  const minStart = now + 10 * 60 * 1000;
+  const minStart = now + 5 * 60 * 1000;
   const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
 
   return (games || [])
     .map((game) => ({
       ...game,
-      bookmakers: normalizeMarkets(game.bookmakers || []),
+      bookmakers: normalizeBookmakers(game.bookmakers || []),
     }))
     .filter((game) => {
       const ts = new Date(game.commence_time).getTime();
@@ -95,13 +98,13 @@ async function fetchOddsForSport(sport, apiKey) {
   const url =
     `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
     `?apiKey=${apiKey}` +
-    `&regions=eu,us,uk` +
+    `&regions=eu,uk,us` +
     `&markets=h2h,h2h_3_way` +
     `&oddsFormat=decimal` +
     `&dateFormat=iso`;
 
   const res = await fetch(url, {
-    next: { revalidate: 180 },
+    cache: "no-store",
   });
 
   const data = await res.json().catch(() => null);
@@ -116,12 +119,13 @@ async function fetchOddsForSport(sport, apiKey) {
     };
   }
 
-  const filtered = filterUpcomingGames(data, 7);
+  const filtered = filterUpcomingGames(data, 10);
 
   return {
     ok: true,
     sport,
     rawCount: data.length,
+    filteredCount: filtered.length,
     data: filtered,
     error: null,
   };
@@ -133,7 +137,9 @@ export async function GET(req) {
     const sport = searchParams.get("sport") || "icehockey_liiga";
     const group = searchParams.get("group") || "icehockey";
 
-    if (!process.env.ODDS_API_KEY) {
+    const apiKey = process.env.ODDS_API_KEY;
+
+    if (!apiKey) {
       return Response.json({
         fallback: false,
         reason: "missing_api_key",
@@ -146,7 +152,8 @@ export async function GET(req) {
       });
     }
 
-    const primary = await fetchOddsForSport(sport, process.env.ODDS_API_KEY);
+    // 1) Yritä ensin valittua liigaa
+    const primary = await fetchOddsForSport(sport, apiKey);
 
     if (primary.ok && primary.data.length > 0) {
       return Response.json({
@@ -156,19 +163,31 @@ export async function GET(req) {
         group,
         sourceSport: sport,
         rawCount: primary.rawCount,
-        filteredCount: primary.data.length,
+        filteredCount: primary.filteredCount,
         data: primary.data,
       });
     }
 
+    // 2) Jos ei löydy, hae samaa lajia muista liigoista
     const candidates = (SPORT_GROUP_LEAGUES[group] || []).filter(
-      (key) => key !== sport
+      (leagueKey) => leagueKey !== sport
     );
 
+    if (!candidates.length) {
+      return Response.json({
+        fallback: false,
+        reason: "empty_live_data",
+        sport,
+        group,
+        sourceSport: sport,
+        rawCount: primary.rawCount || 0,
+        filteredCount: 0,
+        data: [],
+      });
+    }
+
     const results = await Promise.all(
-      candidates.map((candidateSport) =>
-        fetchOddsForSport(candidateSport, process.env.ODDS_API_KEY)
-      )
+      candidates.map((candidateSport) => fetchOddsForSport(candidateSport, apiKey))
     );
 
     const combined = results
@@ -186,10 +205,10 @@ export async function GET(req) {
       );
 
     if (combined.length > 0) {
-      const nextGameTime = new Date(combined[0].commence_time).getTime();
+      const firstTs = new Date(combined[0].commence_time).getTime();
 
-      const sameTimeGames = combined.filter(
-        (g) => new Date(g.commence_time).getTime() === nextGameTime
+      const sameStartGames = combined.filter(
+        (game) => new Date(game.commence_time).getTime() === firstTs
       );
 
       return Response.json({
@@ -197,10 +216,10 @@ export async function GET(req) {
         reason: "used_next_available_game",
         sport,
         group,
-        sourceSport: sameTimeGames[0]?.source_sport || null,
-        rawCount: primary.rawCount,
-        filteredCount: sameTimeGames.length,
-        data: sameTimeGames,
+        sourceSport: sameStartGames[0]?.source_sport || null,
+        rawCount: primary.rawCount || 0,
+        filteredCount: sameStartGames.length,
+        data: sameStartGames,
       });
     }
 
@@ -210,7 +229,7 @@ export async function GET(req) {
       sport,
       group,
       sourceSport: sport,
-      rawCount: primary.rawCount,
+      rawCount: primary.rawCount || 0,
       filteredCount: 0,
       data: [],
     });
