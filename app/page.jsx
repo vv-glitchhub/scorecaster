@@ -47,6 +47,9 @@ const TEXT = {
       "Tällä liigalla ei ollut tulevia pelejä. Näytetään seuraava oikea peli tästä lajista.",
     noLiveGamesBanner:
       "Tälle liigalle tai lajille ei löytynyt tulevia oikeita pelejä juuri nyt.",
+    serverErrorBanner:
+      "Palvelinvirhe otteluiden haussa. Tarkista /api/odds ja Vercel logs.",
+    missingApiKeyBanner: "ODDS_API_KEY puuttuu Vercelistä.",
   },
   en: {
     title: "SCORECASTER",
@@ -87,6 +90,9 @@ const TEXT = {
       "No upcoming games were found in this league. Showing the next real game from this sport.",
     noLiveGamesBanner:
       "No real upcoming games were found for this league or sport right now.",
+    serverErrorBanner:
+      "Server error while loading games. Check /api/odds and Vercel logs.",
+    missingApiKeyBanner: "ODDS_API_KEY is missing in Vercel.",
   },
 };
 
@@ -189,6 +195,7 @@ export default function Page() {
     async function loadGames() {
       if (!selectedLeague) {
         setGames([]);
+        setSelectedGameId("");
         setLoading(false);
         return;
       }
@@ -199,8 +206,10 @@ export default function Page() {
 
       try {
         const res = await fetch(
-          `/api/odds?sport=${selectedLeague}&group=${selectedGroup}`
+          `/api/odds?sport=${selectedLeague}&group=${selectedGroup}`,
+          { cache: "no-store" }
         );
+
         const data = await res.json();
 
         const list = Array.isArray(data.data) ? data.data : [];
@@ -278,7 +287,7 @@ export default function Page() {
             <p style={styles.subtitle}>{t.subtitle}</p>
           </div>
 
-          <button style={styles.infoButton} onClick={() => setInfoOpen(true)}>
+          <button type="button" style={styles.infoButton} onClick={() => setInfoOpen(true)}>
             ?
           </button>
         </div>
@@ -334,15 +343,15 @@ export default function Page() {
         )}
 
         {reason === "empty_live_data" && games.length === 0 && (
-          <div style={styles.banner}>
-            {t.noLiveGamesBanner}
-          </div>
+          <div style={styles.banner}>{t.noLiveGamesBanner}</div>
         )}
 
         {reason === "missing_api_key" && (
-          <div style={styles.banner}>
-            ODDS_API_KEY puuttuu Vercelistä.
-          </div>
+          <div style={styles.banner}>{t.missingApiKeyBanner}</div>
+        )}
+
+        {reason === "server_error" && (
+          <div style={styles.banner}>{t.serverErrorBanner}</div>
         )}
 
         <section style={styles.card}>
@@ -355,6 +364,7 @@ export default function Page() {
             {games.map((game) => (
               <button
                 key={game.id || `${game.home_team}-${game.away_team}`}
+                type="button"
                 onClick={() => setSelectedGameId(game.id)}
                 style={{
                   ...styles.gameCard,
@@ -490,6 +500,7 @@ export default function Page() {
           />
 
           <button
+            type="button"
             onClick={sendFeedback}
             disabled={sendingFeedback}
             style={styles.button}
@@ -505,7 +516,7 @@ export default function Page() {
             <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>{t.info}</h3>
               <p style={{ color: "#cbd5e1", lineHeight: 1.6 }}>{t.infoText}</p>
-              <button style={styles.button} onClick={() => setInfoOpen(false)}>
+              <button type="button" style={styles.button} onClick={() => setInfoOpen(false)}>
                 {t.close}
               </button>
             </div>
