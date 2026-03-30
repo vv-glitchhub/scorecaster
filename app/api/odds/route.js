@@ -29,15 +29,61 @@ const SPORT_GROUP_LEAGUES = {
   ],
 };
 
+function normalizeMarkets(bookmakers = []) {
+  return bookmakers
+    .map((bookmaker) => {
+      const allOutcomes = [];
+
+      for (const market of bookmaker.markets || []) {
+        if (
+          market?.key === "h2h" ||
+          market?.key === "h2h_3_way" ||
+          market?.key === "h2h_lay"
+        ) {
+          for (const outcome of market.outcomes || []) {
+            if (
+              outcome &&
+              typeof outcome.name === "string" &&
+              typeof outcome.price === "number"
+            ) {
+              allOutcomes.push({
+                name: outcome.name,
+                price: outcome.price,
+              });
+            }
+          }
+        }
+      }
+
+      if (!allOutcomes.length) return null;
+
+      return {
+        ...bookmaker,
+        markets: [
+          {
+            key: "h2h",
+            outcomes: allOutcomes,
+          },
+        ],
+      };
+    })
+    .filter(Boolean);
+}
+
 function filterUpcomingGames(games, daysAhead = 7) {
   const now = Date.now();
-  const minStart = now + 15 * 60 * 1000;
+  const minStart = now + 10 * 60 * 1000;
   const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
 
   return (games || [])
+    .map((game) => ({
+      ...game,
+      bookmakers: normalizeMarkets(game.bookmakers || []),
+    }))
     .filter((game) => {
       const ts = new Date(game.commence_time).getTime();
-      return Number.isFinite(ts) && ts >= minStart && ts <= maxStart;
+      const hasOdds = Array.isArray(game.bookmakers) && game.bookmakers.length > 0;
+      return Number.isFinite(ts) && ts >= minStart && ts <= maxStart && hasOdds;
     })
     .sort(
       (a, b) =>
@@ -49,13 +95,13 @@ async function fetchOddsForSport(sport, apiKey) {
   const url =
     `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
     `?apiKey=${apiKey}` +
-    `&regions=eu,us` +
-    `&markets=h2h` +
+    `&regions=eu,us,uk` +
+    `&markets=h2h,h2h_3_way` +
     `&oddsFormat=decimal` +
     `&dateFormat=iso`;
 
   const res = await fetch(url, {
-    next: { revalidate: 300 },
+    next: { revalidate: 180 },
   });
 
   const data = await res.json().catch(() => null);
@@ -64,15 +110,19 @@ async function fetchOddsForSport(sport, apiKey) {
     return {
       ok: false,
       sport,
+      rawCount: Array.isArray(data) ? data.length : 0,
       data: [],
       error: data || `HTTP ${res.status}`,
     };
   }
 
+  const filtered = filterUpcomingGames(data, 7);
+
   return {
     ok: true,
     sport,
-    data: filterUpcomingGames(data, 7),
+    rawCount: data.length,
+    data: filtered,
     error: null,
   };
 }
@@ -84,19 +134,18 @@ export async function GET(req) {
     const group = searchParams.get("group") || "icehockey";
 
     if (!process.env.ODDS_API_KEY) {
-      return Response.json(
-        {
-          fallback: false,
-          reason: "missing_api_key",
-          sport,
-          group,
-          data: [],
-        },
-        { status: 200 }
-      );
+      return Response.json({
+        fallback: false,
+        reason: "missing_api_key",
+        sport,
+        group,
+        sourceSport: null,
+        rawCount: 0,
+        filteredCount: 0,
+        data: [],
+      });
     }
 
-    // 1) Yritä ensin valitun liigan omat pelit
     const primary = await fetchOddsForSport(sport, process.env.ODDS_API_KEY);
 
     if (primary.ok && primary.data.length > 0) {
@@ -106,23 +155,15 @@ export async function GET(req) {
         sport,
         group,
         sourceSport: sport,
+        rawCount: primary.rawCount,
+        filteredCount: primary.data.length,
         data: primary.data,
       });
     }
 
-    // 2) Jos ei löytynyt, hae seuraava oikea peli saman lajin muista liigoista
-    const candidates = (SPORT_GROUP_LEAGUES[group] || []).filter((key) => key !== sport);
-
-    if (candidates.length === 0) {
-      return Response.json({
-        fallback: false,
-        reason: "empty_live_data",
-        sport,
-        group,
-        sourceSport: sport,
-        data: [],
-      });
-    }
+    const candidates = (SPORT_GROUP_LEAGUES[group] || []).filter(
+      (key) => key !== sport
+    );
 
     const results = await Promise.all(
       candidates.map((candidateSport) =>
@@ -140,13 +181,15 @@ export async function GET(req) {
       )
       .sort(
         (a, b) =>
-          new Date(a.commence_time).getTime() - new Date(b.commence_time).getTime()
+          new Date(a.commence_time).getTime() -
+          new Date(b.commence_time).getTime()
       );
 
     if (combined.length > 0) {
-      const nextGameTime = combined[0].commence_time;
+      const nextGameTime = new Date(combined[0].commence_time).getTime();
+
       const sameTimeGames = combined.filter(
-        (g) => new Date(g.commence_time).getTime() === new Date(nextGameTime).getTime()
+        (g) => new Date(g.commence_time).getTime() === nextGameTime
       );
 
       return Response.json({
@@ -155,6 +198,8 @@ export async function GET(req) {
         sport,
         group,
         sourceSport: sameTimeGames[0]?.source_sport || null,
+        rawCount: primary.rawCount,
+        filteredCount: sameTimeGames.length,
         data: sameTimeGames,
       });
     }
@@ -165,6 +210,8 @@ export async function GET(req) {
       sport,
       group,
       sourceSport: sport,
+      rawCount: primary.rawCount,
+      filteredCount: 0,
       data: [],
     });
   } catch (error) {
@@ -174,6 +221,8 @@ export async function GET(req) {
       sport: null,
       group: null,
       sourceSport: null,
+      rawCount: 0,
+      filteredCount: 0,
       data: [],
       error: String(error),
     });
