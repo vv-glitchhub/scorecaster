@@ -43,7 +43,10 @@ const TEXT = {
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
-    fallbackBanner: "Oikeita otteluita ei löytynyt juuri nyt. Näytetään varadataa.",
+    nextAvailableBanner:
+      "Tällä liigalla ei ollut tulevia pelejä. Näytetään seuraava oikea peli tästä lajista.",
+    noLiveGamesBanner:
+      "Tälle liigalle tai lajille ei löytynyt tulevia oikeita pelejä juuri nyt.",
   },
   en: {
     title: "SCORECASTER",
@@ -80,7 +83,10 @@ const TEXT = {
     close: "Close",
     noOdds: "No odds available",
     outcome: "Outcome",
-    fallbackBanner: "Live games were not available right now. Showing fallback data.",
+    nextAvailableBanner:
+      "No upcoming games were found in this league. Showing the next real game from this sport.",
+    noLiveGamesBanner:
+      "No real upcoming games were found for this league or sport right now.",
   },
 };
 
@@ -153,7 +159,9 @@ export default function Page() {
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [fallback, setFallback] = useState(false);
+
+  const [reason, setReason] = useState(null);
+  const [sourceSport, setSourceSport] = useState(null);
 
   const [bankrollInput, setBankrollInput] = useState("1000");
 
@@ -186,22 +194,27 @@ export default function Page() {
       }
 
       setLoading(true);
-      setFallback(false);
+      setReason(null);
+      setSourceSport(null);
 
       try {
-        const res = await fetch(`/api/odds?sport=${selectedLeague}`);
+        const res = await fetch(
+          `/api/odds?sport=${selectedLeague}&group=${selectedGroup}`
+        );
         const data = await res.json();
 
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
-        setFallback(Boolean(data.fallback));
+        setReason(data.reason || null);
+        setSourceSport(data.sourceSport || null);
         setSelectedGameId((prev) =>
           list.some((g) => g.id === prev) ? prev : list[0]?.id || ""
         );
       } catch {
         setGames([]);
         setSelectedGameId("");
-        setFallback(false);
+        setReason("server_error");
+        setSourceSport(null);
       } finally {
         setLoading(false);
       }
@@ -313,9 +326,22 @@ export default function Page() {
           </div>
         </section>
 
-        {fallback && (
+        {reason === "used_next_available_game" && games.length > 0 && (
           <div style={styles.banner}>
-            {t.fallbackBanner}
+            {t.nextAvailableBanner}
+            {sourceSport ? ` (${sourceSport})` : ""}
+          </div>
+        )}
+
+        {reason === "empty_live_data" && games.length === 0 && (
+          <div style={styles.banner}>
+            {t.noLiveGamesBanner}
+          </div>
+        )}
+
+        {reason === "missing_api_key" && (
+          <div style={styles.banner}>
+            ODDS_API_KEY puuttuu Vercelistä.
           </div>
         )}
 
