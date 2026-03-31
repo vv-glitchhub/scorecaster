@@ -2,21 +2,68 @@
 
 import { useEffect, useRef, useState } from "react";
 
+const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 tunti
+
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [feedbacks, setFeedbacks] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [notificationStatus, setNotificationStatus] = useState("");
   const [liveBanner, setLiveBanner] = useState("");
+  const [authError, setAuthError] = useState("");
 
   const previousUnreadRef = useRef(0);
   const previousTopIdRef = useRef(null);
   const pollIntervalRef = useRef(null);
 
+  function clearAdminSession() {
+    localStorage.removeItem("admin_auth");
+    localStorage.removeItem("admin_auth_expires_at");
+  }
+
+  function logout() {
+    clearAdminSession();
+    setIsAdmin(false);
+    setAuthenticated(false);
+    setFeedbacks([]);
+    setUnreadCount(0);
+    setLiveBanner("");
+    setSecret("");
+    setAuthError("");
+    previousUnreadRef.current = 0;
+    previousTopIdRef.current = null;
+
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+  }
+
+  function saveAdminSession() {
+    localStorage.setItem("admin_auth", "true");
+    localStorage.setItem(
+      "admin_auth_expires_at",
+      String(Date.now() + SESSION_DURATION_MS)
+    );
+  }
+
+  function hasValidSession() {
+    const auth = localStorage.getItem("admin_auth");
+    const expiresAtRaw = localStorage.getItem("admin_auth_expires_at");
+    const expiresAt = Number(expiresAtRaw);
+
+    if (auth !== "true") return false;
+    if (!Number.isFinite(expiresAt)) return false;
+    if (Date.now() > expiresAt) return false;
+
+    return true;
+  }
+
   async function fetchFeedbacks(showLoading = false) {
-    if (!secret) return;
+    if (!secret || !isAdmin) return;
 
     if (showLoading) setLoading(true);
 
@@ -33,6 +80,9 @@ export default function AdminPage() {
         setFeedbacks([]);
         setUnreadCount(0);
         setLiveBanner("");
+        setAuthError("Väärä admin secret tai pääsy evätty.");
+        clearAdminSession();
+        setIsAdmin(false);
         return;
       }
 
@@ -43,6 +93,7 @@ export default function AdminPage() {
       setAuthenticated(true);
       setFeedbacks(items);
       setUnreadCount(nextUnread);
+      setAuthError("");
 
       if (items.length > 0) {
         const newest = items[0];
@@ -51,7 +102,9 @@ export default function AdminPage() {
         const hasNewUnread =
           previousUnreadRef.current > 0
             ? nextUnread > previousUnreadRef.current
-            : nextUnread > 0 && previousTopIdRef.current && previousTopIdRef.current !== newestId;
+            : nextUnread > 0 &&
+              previousTopIdRef.current &&
+              previousTopIdRef.current !== newestId;
 
         if (hasNewUnread) {
           const message = newest.message || "Sinulle tuli uusi palaute.";
@@ -80,8 +133,60 @@ export default function AdminPage() {
       console.error(error);
       setAuthenticated(false);
       setLiveBanner("");
+      setAuthError("Palautteiden haku epäonnistui.");
     } finally {
       if (showLoading) setLoading(false);
+    }
+  }
+
+  async function handleLogin() {
+    if (!secret.trim()) {
+      setAuthError("Syötä admin secret.");
+      return;
+    }
+
+    setLoading(true);
+    setAuthError("");
+    setLiveBanner("");
+
+    try {
+      const res = await fetch("/api/admin-feedback", {
+        headers: {
+          "x-admin-secret": secret.trim(),
+        },
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        clearAdminSession();
+        setIsAdmin(false);
+        setAuthenticated(false);
+        setFeedbacks([]);
+        setUnreadCount(0);
+        setAuthError("Väärä admin secret.");
+        return;
+      }
+
+      const data = await res.json();
+      const items = Array.isArray(data.data) ? data.data : [];
+
+      saveAdminSession();
+      setIsAdmin(true);
+      setAuthenticated(true);
+      setFeedbacks(items);
+      setUnreadCount(Number(data.unreadCount || 0));
+      setAuthError("");
+
+      previousUnreadRef.current = Number(data.unreadCount || 0);
+      previousTopIdRef.current = items[0]?.id || null;
+    } catch (error) {
+      console.error(error);
+      clearAdminSession();
+      setIsAdmin(false);
+      setAuthenticated(false);
+      setAuthError("Kirjautuminen epäonnistui.");
+    } finally {
+      setLoading(false);
     }
   }
 
@@ -114,6 +219,7 @@ export default function AdminPage() {
     const unreadItems = feedbacks.filter((item) => !item.is_read);
 
     for (const item of unreadItems) {
+      // eslint-disable-next-line no-await-in-loop
       await markAsRead(item.id);
     }
   }
@@ -140,23 +246,17 @@ export default function AdminPage() {
     }
   }
 
-  function logout() {
-    setAuthenticated(false);
-    setFeedbacks([]);
-    setUnreadCount(0);
-    setLiveBanner("");
-    setSecret("");
-    previousUnreadRef.current = 0;
-    previousTopIdRef.current = null;
+  useEffect(() => {
+    const valid = hasValidSession();
+    setIsAdmin(valid);
 
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
+    if (!valid) {
+      clearAdminSession();
     }
-  }
+  }, []);
 
   useEffect(() => {
-    if (!authenticated || !secret) return;
+    if (!isAdmin || !secret) return;
 
     fetchFeedbacks(true);
 
@@ -165,6 +265,10 @@ export default function AdminPage() {
     }
 
     pollIntervalRef.current = setInterval(() => {
+      if (!hasValidSession()) {
+        logout();
+        return;
+      }
       fetchFeedbacks(false);
     }, 10000);
 
@@ -174,13 +278,31 @@ export default function AdminPage() {
         pollIntervalRef.current = null;
       }
     };
-  }, [authenticated, secret]);
+  }, [isAdmin, secret]);
 
-  function handleLogin() {
-    previousUnreadRef.current = 0;
-    previousTopIdRef.current = null;
-    fetchFeedbacks(true);
-  }
+  useEffect(() => {
+    if (!isAdmin) return;
+
+    const expiresAt = Number(localStorage.getItem("admin_auth_expires_at"));
+
+    if (!Number.isFinite(expiresAt)) {
+      logout();
+      return;
+    }
+
+    const timeoutMs = expiresAt - Date.now();
+
+    if (timeoutMs <= 0) {
+      logout();
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      logout();
+    }, timeoutMs);
+
+    return () => clearTimeout(timeout);
+  }, [isAdmin]);
 
   return (
     <main style={styles.page}>
@@ -195,25 +317,34 @@ export default function AdminPage() {
             onChange={(e) => setSecret(e.target.value)}
             style={styles.input}
             placeholder="Syötä ADMIN_SECRET"
+            autoComplete="off"
           />
 
           <div style={styles.buttonRow}>
-            <button style={styles.button} onClick={handleLogin}>
-              Kirjaudu / Päivitä
+            <button style={styles.button} onClick={handleLogin} disabled={loading}>
+              {loading ? "Ladataan..." : "Kirjaudu / Päivitä"}
             </button>
 
-            <button style={styles.secondaryButton} onClick={enableNotifications}>
+            <button
+              style={styles.secondaryButton}
+              onClick={enableNotifications}
+              type="button"
+            >
               Salli ilmoitukset
             </button>
 
-            {authenticated && (
-              <button style={styles.secondaryButton} onClick={logout}>
+            {isAdmin && (
+              <button style={styles.secondaryButton} onClick={logout} type="button">
                 Kirjaudu ulos
               </button>
             )}
 
             {authenticated && unreadCount > 0 && (
-              <button style={styles.secondaryButton} onClick={markAllAsRead}>
+              <button
+                style={styles.secondaryButton}
+                onClick={markAllAsRead}
+                type="button"
+              >
                 Merkitse kaikki luetuiksi
               </button>
             )}
@@ -222,7 +353,15 @@ export default function AdminPage() {
           {notificationStatus ? (
             <div style={styles.notificationInfo}>{notificationStatus}</div>
           ) : null}
+
+          {authError ? <div style={styles.errorText}>{authError}</div> : null}
         </div>
+
+        {!isAdmin && !loading && (
+          <p style={styles.muted}>
+            Syötä admin secret ja paina Kirjaudu / Päivitä.
+          </p>
+        )}
 
         {liveBanner ? <div style={styles.liveBanner}>🔔 {liveBanner}</div> : null}
 
@@ -230,18 +369,12 @@ export default function AdminPage() {
           <div style={styles.badgeCard}>
             <div>
               <div style={styles.badgeTitle}>Uusia palautteita</div>
-              <div style={styles.badgeSub}>Päivittyy automaattisesti 10 sek välein</div>
+              <div style={styles.badgeSub}>
+                Päivittyy automaattisesti 10 sek välein
+              </div>
             </div>
             <div style={styles.badgeValue}>{unreadCount}</div>
           </div>
-        )}
-
-        {loading && <p style={styles.muted}>Ladataan...</p>}
-
-        {!authenticated && !loading && (
-          <p style={styles.muted}>
-            Syötä admin secret ja paina Kirjaudu / Päivitä.
-          </p>
         )}
 
         {authenticated && feedbacks.length === 0 && (
@@ -249,55 +382,59 @@ export default function AdminPage() {
         )}
 
         <div style={styles.list}>
-          {feedbacks.map((item) => (
-            <div
-              key={item.id}
-              style={{
-                ...styles.feedbackCard,
-                border: item.is_read ? "1px solid #334155" : "2px solid #22c55e",
-              }}
-            >
-              <div style={styles.feedbackTop}>
-                <div style={styles.feedbackMeta}>
-                  {item.created_at
-                    ? new Date(item.created_at).toLocaleString("fi-FI")
-                    : "-"}
+          {authenticated &&
+            feedbacks.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  ...styles.feedbackCard,
+                  border: item.is_read
+                    ? "1px solid #334155"
+                    : "2px solid #22c55e",
+                }}
+              >
+                <div style={styles.feedbackTop}>
+                  <div style={styles.feedbackMeta}>
+                    {item.created_at
+                      ? new Date(item.created_at).toLocaleString("fi-FI")
+                      : "-"}
+                  </div>
+                  <div
+                    style={{
+                      ...styles.readState,
+                      color: item.is_read ? "#94a3b8" : "#22c55e",
+                    }}
+                  >
+                    {item.is_read ? "Luettu" : "Uusi"}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    ...styles.readState,
-                    color: item.is_read ? "#94a3b8" : "#22c55e",
-                  }}
-                >
-                  {item.is_read ? "Luettu" : "Uusi"}
+
+                <div style={styles.message}>{item.message}</div>
+
+                <div style={styles.metaLine}>
+                  <strong>Laji:</strong> {item.selected_group || "-"}
                 </div>
-              </div>
+                <div style={styles.metaLine}>
+                  <strong>Liiga:</strong> {item.selected_sport_key || "-"}
+                </div>
+                <div style={styles.metaLine}>
+                  <strong>Ottelu:</strong> {item.selected_game || "-"}
+                </div>
+                <div style={styles.metaLine}>
+                  <strong>Bankroll:</strong> {item.bankroll ?? "-"}
+                </div>
 
-              <div style={styles.message}>{item.message}</div>
-
-              <div style={styles.metaLine}>
-                <strong>Laji:</strong> {item.selected_group || "-"}
+                {!item.is_read && (
+                  <button
+                    style={styles.readButton}
+                    onClick={() => markAsRead(item.id)}
+                    type="button"
+                  >
+                    Merkitse luetuksi
+                  </button>
+                )}
               </div>
-              <div style={styles.metaLine}>
-                <strong>Liiga:</strong> {item.selected_sport_key || "-"}
-              </div>
-              <div style={styles.metaLine}>
-                <strong>Ottelu:</strong> {item.selected_game || "-"}
-              </div>
-              <div style={styles.metaLine}>
-                <strong>Bankroll:</strong> {item.bankroll ?? "-"}
-              </div>
-
-              {!item.is_read && (
-                <button
-                  style={styles.readButton}
-                  onClick={() => markAsRead(item.id)}
-                >
-                  Merkitse luetuksi
-                </button>
-              )}
-            </div>
-          ))}
+            ))}
         </div>
       </div>
     </main>
@@ -407,6 +544,12 @@ const styles = {
     marginTop: 12,
     color: "#cbd5e1",
     fontSize: 14,
+  },
+  errorText: {
+    marginTop: 12,
+    color: "#fca5a5",
+    fontSize: 14,
+    fontWeight: 700,
   },
   muted: {
     color: "#94a3b8",
