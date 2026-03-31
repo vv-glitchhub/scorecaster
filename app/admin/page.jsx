@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SESSION_DURATION_MS = 60 * 60 * 1000; // 1h
+const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 tunti
 
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
@@ -20,6 +20,7 @@ export default function AdminPage() {
   const previousUnreadRef = useRef(0);
   const previousTopIdRef = useRef(null);
   const pollIntervalRef = useRef(null);
+  const hiddenInputRef = useRef(null);
 
   function clearAdminSession() {
     localStorage.removeItem("admin_auth");
@@ -308,6 +309,11 @@ export default function AdminPage() {
   }, [isAdmin]);
 
   const maskedSecret = secret ? "•".repeat(secret.length) : "";
+  const displayValue = secret
+    ? showSecret
+      ? secret
+      : maskedSecret
+    : "Syötä ADMIN_SECRET";
 
   return (
     <main style={styles.page}>
@@ -318,43 +324,42 @@ export default function AdminPage() {
           <label style={styles.label}>Admin secret</label>
 
           <div style={styles.secretWrap}>
+            <button
+              type="button"
+              style={styles.fakeInput}
+              onClick={() => hiddenInputRef.current?.focus()}
+            >
+              <span
+                style={
+                  secret
+                    ? styles.fakeInputValue
+                    : styles.fakeInputPlaceholder
+                }
+              >
+                {displayValue}
+              </span>
+            </button>
+
             <input
+              ref={hiddenInputRef}
               type="text"
-              name="admin-secret-visible"
-              autoComplete="off"
+              inputMode="text"
+              autoComplete="new-password"
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
-              inputMode="text"
-              value={showSecret ? secret : maskedSecret}
-              onChange={(e) => {
-                if (showSecret) {
-                  setSecret(e.target.value);
+              enterKeyHint="done"
+              name={`field_${Math.random().toString(36).slice(2)}`}
+              value={secret}
+              onChange={(e) => setSecret(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  handleLogin();
                 }
               }}
-              onFocus={() => {
-                if (!showSecret) return;
-              }}
-              style={styles.input}
-              placeholder="Syötä ADMIN_SECRET"
-              readOnly={!showSecret}
+              style={styles.realHiddenInput}
+              aria-label="Admin secret input"
             />
-
-            {!showSecret && (
-              <input
-                type="text"
-                name="admin-secret-hidden"
-                autoComplete="off"
-                autoCorrect="off"
-                autoCapitalize="none"
-                spellCheck={false}
-                inputMode="text"
-                value={secret}
-                onChange={(e) => setSecret(e.target.value)}
-                style={styles.hiddenOverlayInput}
-                placeholder="Syötä ADMIN_SECRET"
-              />
-            )}
 
             <button
               type="button"
@@ -554,29 +559,44 @@ const styles = {
   secretWrap: {
     position: "relative",
   },
-  input: {
+  fakeInput: {
     width: "100%",
-    padding: "12px 84px 12px 14px",
+    minHeight: 50,
+    padding: "12px 92px 12px 14px",
     borderRadius: 12,
     border: "1px solid #334155",
     background: "#0b1730",
-    color: "#fff",
-    fontSize: 16,
     boxSizing: "border-box",
+    textAlign: "left",
+    cursor: "text",
   },
-  hiddenOverlayInput: {
-    position: "absolute",
-    inset: 0,
-    width: "100%",
-    padding: "12px 84px 12px 14px",
-    borderRadius: 12,
-    border: "1px solid transparent",
-    background: "transparent",
-    color: "transparent",
-    caretColor: "#fff",
+  fakeInputValue: {
+    color: "#ffffff",
     fontSize: 16,
-    boxSizing: "border-box",
+    letterSpacing: 1,
+    display: "block",
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  fakeInputPlaceholder: {
+    color: "#94a3b8",
+    fontSize: 16,
+    display: "block",
+  },
+  realHiddenInput: {
+    position: "absolute",
+    left: 14,
+    top: 12,
+    width: "calc(100% - 120px)",
+    height: 26,
+    opacity: 0.01,
+    background: "transparent",
+    border: "none",
     outline: "none",
+    color: "transparent",
+    caretColor: "#ffffff",
+    fontSize: 16,
   },
   eyeButton: {
     position: "absolute",
@@ -587,7 +607,7 @@ const styles = {
     background: "#1e293b",
     color: "#fff",
     borderRadius: 10,
-    padding: "8px 10px",
+    padding: "8px 12px",
     fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
