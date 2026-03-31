@@ -2,10 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 tunti
+const SESSION_DURATION_MS = 60 * 60 * 1000; // 1h
 
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
+  const [showSecret, setShowSecret] = useState(false);
+
   const [isAdmin, setIsAdmin] = useState(false);
   const [authenticated, setAuthenticated] = useState(false);
   const [feedbacks, setFeedbacks] = useState([]);
@@ -22,24 +24,6 @@ export default function AdminPage() {
   function clearAdminSession() {
     localStorage.removeItem("admin_auth");
     localStorage.removeItem("admin_auth_expires_at");
-  }
-
-  function logout() {
-    clearAdminSession();
-    setIsAdmin(false);
-    setAuthenticated(false);
-    setFeedbacks([]);
-    setUnreadCount(0);
-    setLiveBanner("");
-    setSecret("");
-    setAuthError("");
-    previousUnreadRef.current = 0;
-    previousTopIdRef.current = null;
-
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
   }
 
   function saveAdminSession() {
@@ -60,6 +44,25 @@ export default function AdminPage() {
     if (Date.now() > expiresAt) return false;
 
     return true;
+  }
+
+  function logout() {
+    clearAdminSession();
+    setIsAdmin(false);
+    setAuthenticated(false);
+    setFeedbacks([]);
+    setUnreadCount(0);
+    setLiveBanner("");
+    setSecret("");
+    setShowSecret(false);
+    setAuthError("");
+    previousUnreadRef.current = 0;
+    previousTopIdRef.current = null;
+
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
   }
 
   async function fetchFeedbacks(showLoading = false) {
@@ -304,6 +307,8 @@ export default function AdminPage() {
     return () => clearTimeout(timeout);
   }, [isAdmin]);
 
+  const maskedSecret = secret ? "•".repeat(secret.length) : "";
+
   return (
     <main style={styles.page}>
       <div style={styles.container}>
@@ -311,14 +316,54 @@ export default function AdminPage() {
 
         <div style={styles.card}>
           <label style={styles.label}>Admin secret</label>
-          <input
-            type="password"
-            value={secret}
-            onChange={(e) => setSecret(e.target.value)}
-            style={styles.input}
-            placeholder="Syötä ADMIN_SECRET"
-            autoComplete="off"
-          />
+
+          <div style={styles.secretWrap}>
+            <input
+              type="text"
+              name="admin-secret-visible"
+              autoComplete="off"
+              autoCorrect="off"
+              autoCapitalize="none"
+              spellCheck={false}
+              inputMode="text"
+              value={showSecret ? secret : maskedSecret}
+              onChange={(e) => {
+                if (showSecret) {
+                  setSecret(e.target.value);
+                }
+              }}
+              onFocus={() => {
+                if (!showSecret) return;
+              }}
+              style={styles.input}
+              placeholder="Syötä ADMIN_SECRET"
+              readOnly={!showSecret}
+            />
+
+            {!showSecret && (
+              <input
+                type="text"
+                name="admin-secret-hidden"
+                autoComplete="off"
+                autoCorrect="off"
+                autoCapitalize="none"
+                spellCheck={false}
+                inputMode="text"
+                value={secret}
+                onChange={(e) => setSecret(e.target.value)}
+                style={styles.hiddenOverlayInput}
+                placeholder="Syötä ADMIN_SECRET"
+              />
+            )}
+
+            <button
+              type="button"
+              onClick={() => setShowSecret((prev) => !prev)}
+              style={styles.eyeButton}
+            >
+              {showSecret ? "Piilota" : "Näytä"}
+            </button>
+          </div>
 
           <div style={styles.buttonRow}>
             <button style={styles.button} onClick={handleLogin} disabled={loading}>
@@ -506,15 +551,46 @@ const styles = {
     fontWeight: 700,
     color: "#cbd5e1",
   },
+  secretWrap: {
+    position: "relative",
+  },
   input: {
     width: "100%",
-    padding: "12px 14px",
+    padding: "12px 84px 12px 14px",
     borderRadius: 12,
     border: "1px solid #334155",
     background: "#0b1730",
     color: "#fff",
     fontSize: 16,
     boxSizing: "border-box",
+  },
+  hiddenOverlayInput: {
+    position: "absolute",
+    inset: 0,
+    width: "100%",
+    padding: "12px 84px 12px 14px",
+    borderRadius: 12,
+    border: "1px solid transparent",
+    background: "transparent",
+    color: "transparent",
+    caretColor: "#fff",
+    fontSize: 16,
+    boxSizing: "border-box",
+    outline: "none",
+  },
+  eyeButton: {
+    position: "absolute",
+    top: "50%",
+    right: 10,
+    transform: "translateY(-50%)",
+    border: "1px solid #334155",
+    background: "#1e293b",
+    color: "#fff",
+    borderRadius: 10,
+    padding: "8px 10px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
   },
   buttonRow: {
     display: "flex",
