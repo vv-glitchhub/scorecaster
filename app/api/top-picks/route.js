@@ -80,12 +80,7 @@ function normalizeBookmakers(bookmakers = []) {
 
       return {
         ...bookmaker,
-        markets: [
-          {
-            key: "h2h",
-            outcomes: mergedOutcomes,
-          },
-        ],
+        markets: [{ key: "h2h", outcomes: mergedOutcomes }],
       };
     })
     .filter(Boolean);
@@ -128,21 +123,11 @@ async function fetchOddsForSport(sport, apiKey) {
   const data = await res.json().catch(() => null);
 
   if (!res.ok) {
-    return {
-      ok: false,
-      sport,
-      data: [],
-      error: data || `HTTP ${res.status}`,
-    };
+    return { ok: false, sport, data: [], error: data || `HTTP ${res.status}` };
   }
 
   if (!Array.isArray(data)) {
-    return {
-      ok: false,
-      sport,
-      data: [],
-      error: "Response was not an array",
-    };
+    return { ok: false, sport, data: [], error: "Response was not an array" };
   }
 
   return {
@@ -199,9 +184,7 @@ export async function GET(req) {
     const picks = results
       .filter((result) => result.ok)
       .flatMap((result) =>
-        result.data
-          .map((game) => buildPick(game, result.sport))
-          .filter(Boolean)
+        result.data.map((game) => buildPick(game, result.sport)).filter(Boolean)
       )
       .filter((pick) => Number.isFinite(pick.edge) && Number.isFinite(pick.ev))
       .sort((a, b) => {
