@@ -1,28 +1,15 @@
-import { buildRoundRobinFixtures, simulateTournamentManyTimes } from "../../../lib/simulator";
-import { DEFAULT_TEAM_RATINGS } from "../../../lib/team-ratings";
+import { DEFAULT_TEAM_DATA } from "../../../lib/team-ratings";
+import { simulateWorldChampionshipManyTimes } from "../../../lib/simulator";
 
 export async function GET() {
   try {
-    const teams = Object.keys(DEFAULT_TEAM_RATINGS);
-    const fixtures = buildRoundRobinFixtures(teams);
-
-    const results = simulateTournamentManyTimes(
-      teams,
-      fixtures,
-      5000,
-      {
-        customRatings: DEFAULT_TEAM_RATINGS,
-        homeAdvantage: 0,
-        fatigue: {},
-        injuries: {},
-      }
-    );
+    const iterations = 5000;
+    const results = simulateWorldChampionshipManyTimes(iterations, DEFAULT_TEAM_DATA);
 
     return Response.json({
       ok: true,
-      teams,
-      fixturesCount: fixtures.length,
-      iterations: 5000,
+      tournament: "IIHF World Championship",
+      iterations,
       results,
     });
   } catch (error) {
