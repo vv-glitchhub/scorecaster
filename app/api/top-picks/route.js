@@ -40,11 +40,9 @@ const LEAGUE_LABELS = {
   icehockey_germany_del: "DEL",
   icehockey_switzerland_nla: "National League",
   icehockey_czech_extraliga: "Extraliga",
-
   basketball_nba: "NBA",
   basketball_euroleague: "EuroLeague",
   basketball_ncaab: "NCAA",
-
   soccer_epl: "Premier League",
   soccer_spain_la_liga: "La Liga",
   soccer_italy_serie_a: "Serie A",
@@ -52,7 +50,6 @@ const LEAGUE_LABELS = {
   soccer_france_ligue_one: "Ligue 1",
   soccer_finland_veikkausliiga: "Veikkausliiga",
   soccer_uefa_champs_league: "Champions League",
-
   americanfootball_nfl: "NFL",
   americanfootball_ncaaf: "NCAA Football",
 };
