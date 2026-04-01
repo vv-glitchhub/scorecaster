@@ -7,6 +7,7 @@ export default function SimulatorPage() {
   const [results, setResults] = useState([]);
   const [iterations, setIterations] = useState(0);
   const [tournament, setTournament] = useState("");
+  const [meta, setMeta] = useState(null);
 
   useEffect(() => {
     async function loadSimulator() {
@@ -19,10 +20,12 @@ export default function SimulatorPage() {
         setResults(Array.isArray(data.results) ? data.results : []);
         setIterations(data.iterations || 0);
         setTournament(data.tournament || "");
+        setMeta(data.meta || null);
       } catch {
         setResults([]);
         setIterations(0);
         setTournament("");
+        setMeta(null);
       } finally {
         setLoading(false);
       }
@@ -38,6 +41,48 @@ export default function SimulatorPage() {
         <p style={styles.subtitle}>
           {tournament || "Turnaussimulaattori"}
         </p>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>Miten tämä toimii?</h2>
+
+          <div style={styles.infoGrid}>
+            <div style={styles.infoBox}>
+              <div style={styles.infoTitle}>Simulaatioiden määrä</div>
+              <div style={styles.infoText}>
+                Turnaus simuloidaan monta kertaa. Tässä versiossa määrä on{" "}
+                <strong>{iterations}</strong>.
+              </div>
+            </div>
+
+            <div style={styles.infoBox}>
+              <div style={styles.infoTitle}>Mitä malli huomioi</div>
+              <ul style={styles.infoList}>
+                {(meta?.includes || []).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={styles.infoBox}>
+              <div style={styles.infoTitle}>Mitä malli ei vielä huomioi</div>
+              <ul style={styles.infoList}>
+                {(meta?.excludes || []).map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+
+            <div style={styles.infoBox}>
+              <div style={styles.infoTitle}>Mitä prosentit tarkoittavat?</div>
+              <div style={styles.infoText}>
+                Jos joukkueen mestaruustodennäköisyys on esimerkiksi 18 %, se ei
+                tarkoita että joukkue voittaa varmasti. Se tarkoittaa, että
+                näillä oletuksilla joukkue voitti noin 18 % simuloiduista
+                turnauksista.
+              </div>
+            </div>
+          </div>
+        </section>
 
         <section style={styles.card}>
           <div style={styles.metaLabel}>Simulaatioita</div>
@@ -59,7 +104,9 @@ export default function SimulatorPage() {
 
                 <div style={styles.teamBlock}>
                   <div style={styles.teamName}>{row.team}</div>
-                  <div style={styles.teamMeta}>Rating: {row.rating.toFixed(1)}</div>
+                  <div style={styles.teamMeta}>
+                    Rating: {row.rating.toFixed(1)}
+                  </div>
                 </div>
 
                 <div style={styles.probBlock}>
@@ -70,6 +117,20 @@ export default function SimulatorPage() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>Miksi joukkue on tällä sijalla?</h2>
+
+          <div style={styles.explainBlock}>
+            <p style={styles.explainText}>
+              Joukkueen sijoitukseen vaikuttaa tässä versiossa erityisesti sen
+              kokonaisrating, joka muodostuu hyökkäys-, puolustus-,
+              maalivahti- ja formiarvioista. Simulaattori pelaa koko turnauksen
+              tuhansia kertoja, ja laskee kuinka usein joukkue pääsee
+              pudotuspeleihin, välieriin, finaaliin ja voittaa koko turnauksen.
+            </p>
           </div>
         </section>
 
@@ -91,10 +152,18 @@ export default function SimulatorPage() {
                 {results.map((row) => (
                   <tr key={row.team}>
                     <td style={styles.tdStrong}>{row.team}</td>
-                    <td style={styles.td}>{(row.quarterProbability * 100).toFixed(1)}%</td>
-                    <td style={styles.td}>{(row.semifinalProbability * 100).toFixed(1)}%</td>
-                    <td style={styles.td}>{(row.finalProbability * 100).toFixed(1)}%</td>
-                    <td style={styles.td}>{(row.championProbability * 100).toFixed(1)}%</td>
+                    <td style={styles.td}>
+                      {(row.quarterProbability * 100).toFixed(1)}%
+                    </td>
+                    <td style={styles.td}>
+                      {(row.semifinalProbability * 100).toFixed(1)}%
+                    </td>
+                    <td style={styles.td}>
+                      {(row.finalProbability * 100).toFixed(1)}%
+                    </td>
+                    <td style={styles.td}>
+                      {(row.championProbability * 100).toFixed(1)}%
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -220,5 +289,41 @@ const styles = {
     borderBottom: "1px solid #1e293b",
     color: "#fff",
     fontWeight: 700,
+  },
+  infoGrid: {
+    display: "grid",
+    gap: 14,
+  },
+  infoBox: {
+    background: "#13203d",
+    border: "1px solid #334155",
+    borderRadius: 16,
+    padding: 16,
+  },
+  infoTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    marginBottom: 8,
+  },
+  infoText: {
+    color: "#cbd5e1",
+    lineHeight: 1.7,
+  },
+  infoList: {
+    margin: 0,
+    paddingLeft: 18,
+    color: "#cbd5e1",
+    lineHeight: 1.7,
+  },
+  explainBlock: {
+    background: "#13203d",
+    border: "1px solid #334155",
+    borderRadius: 16,
+    padding: 16,
+  },
+  explainText: {
+    color: "#cbd5e1",
+    lineHeight: 1.8,
+    margin: 0,
   },
 };
