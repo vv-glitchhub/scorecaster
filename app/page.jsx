@@ -57,6 +57,36 @@ const TEXT = {
     simulatorPreviewSub: "MM-kisojen mestarisuosikit",
     openSimulator: "Avaa simulaattori",
     championChance: "Mestaruus",
+    sourceLabel: "Datan lähde",
+    sourceLive: "Live-data",
+    sourceFallbackSport: "Seuraava oikea peli samasta lajista",
+    sourceDemo: "Demo / fallback-data",
+    whyThisBet: "Miksi tämä kohde?",
+    calcDetails: "Näytä laskelma",
+    calcExplainerTitle: "Miten tämä laskettiin?",
+    calcExplainer1:
+      "Markkinan todennäköisyys saadaan parhaasta kertoimesta kaavalla 1 / kerroin.",
+    calcExplainer2:
+      "Mallin todennäköisyys on Scorecasterin oma arvio kohteen voittomahdollisuudesta.",
+    calcExplainer3:
+      "Jos mallin arvio on korkeampi kuin markkinan arvio, kohteessa voi olla valuea.",
+    calcExplainer4:
+      "Odotusarvo kertoo, onko veto pitkällä aikavälillä teoriassa plussalla vai miinuksella.",
+    calcExplainer5:
+      "Quarter Kelly antaa varovaisemman panossuosituksen kuin täysi Kelly.",
+    simpleMeaning: "Mitä tämä käytännössä tarkoittaa?",
+    simpleMeaningPositive:
+      "Malli pitää tätä kohdetta hieman markkinaa parempana, joten veto voi olla pelikelpoinen.",
+    simpleMeaningNeutral:
+      "Mallin ja markkinan arviot ovat lähellä toisiaan, joten etu on pieni.",
+    simpleMeaningNegative:
+      "Markkina hinnoittelee tämän kohteen vähintään yhtä hyväksi kuin malli, joten etu on heikko.",
+    rawNumbers: "Luvut auki",
+    impliedFormula: "Markkinan todennäköisyys = 1 / kerroin",
+    edgeFormula: "Edge = mallin todennäköisyys - markkinan todennäköisyys",
+    evFormula: "Odotusarvo = (kerroin × mallin todennäköisyys) - 1",
+    noteLiveVsDemo:
+      "Jos data ei ole liveä, analyysi on vain suuntaa-antava.",
   },
   en: {
     title: "SCORECASTER",
@@ -106,6 +136,36 @@ const TEXT = {
     simulatorPreviewSub: "World Championship title odds",
     openSimulator: "Open simulator",
     championChance: "Title chance",
+    sourceLabel: "Data source",
+    sourceLive: "Live data",
+    sourceFallbackSport: "Next real game from same sport",
+    sourceDemo: "Demo / fallback data",
+    whyThisBet: "Why this pick?",
+    calcDetails: "Show calculation",
+    calcExplainerTitle: "How was this calculated?",
+    calcExplainer1:
+      "Market probability comes from the best available odds using the formula 1 / odds.",
+    calcExplainer2:
+      "Model probability is Scorecaster's own estimate of this outcome winning.",
+    calcExplainer3:
+      "If the model estimate is higher than the market estimate, the pick may contain value.",
+    calcExplainer4:
+      "Expected value tells whether the bet is theoretically positive or negative over the long run.",
+    calcExplainer5:
+      "Quarter Kelly gives a more conservative stake suggestion than full Kelly.",
+    simpleMeaning: "What does this mean in practice?",
+    simpleMeaningPositive:
+      "The model rates this outcome slightly better than the market does, so it may be playable.",
+    simpleMeaningNeutral:
+      "The model and market are close to each other, so the edge is small.",
+    simpleMeaningNegative:
+      "The market prices this outcome at least as well as the model, so the edge is weak.",
+    rawNumbers: "Open the numbers",
+    impliedFormula: "Market probability = 1 / odds",
+    edgeFormula: "Edge = model probability - market probability",
+    evFormula: "Expected value = (odds × model probability) - 1",
+    noteLiveVsDemo:
+      "If the source is not live, the analysis is only indicative.",
   },
 };
 
@@ -180,6 +240,40 @@ function parseNumberInput(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function getSourceInfo(reason, t) {
+  if (!reason) {
+    return { label: t.sourceLive, tone: "live" };
+  }
+
+  if (reason === "used_next_available_game") {
+    return { label: t.sourceFallbackSport, tone: "fallback" };
+  }
+
+  if (
+    reason === "api_empty_using_demo_fallback" ||
+    reason === "missing_api_key" ||
+    reason === "server_error"
+  ) {
+    return { label: t.sourceDemo, tone: "demo" };
+  }
+
+  return { label: t.sourceLive, tone: "live" };
+}
+
+function getMeaningText(bestBet, t) {
+  if (!bestBet) return "";
+
+  if (bestBet.edge > 0.025 && bestBet.ev > 0) {
+    return t.simpleMeaningPositive;
+  }
+
+  if (bestBet.edge > 0 && bestBet.ev >= 0) {
+    return t.simpleMeaningNeutral;
+  }
+
+  return t.simpleMeaningNegative;
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -190,6 +284,7 @@ export default function Page() {
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [loading, setLoading] = useState(true);
+  const [sourceReason, setSourceReason] = useState(null);
 
   const [topPicks, setTopPicks] = useState([]);
   const [topPicksLoading, setTopPicksLoading] = useState(true);
@@ -247,8 +342,10 @@ export default function Page() {
         const data = await res.json();
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
+        setSourceReason(data.reason || null);
       } catch {
         setGames([]);
+        setSourceReason("server_error");
       } finally {
         setLoading(false);
       }
@@ -358,6 +455,8 @@ export default function Page() {
     return selectedGame ? getValueBet(selectedGame) : null;
   }, [selectedGame]);
 
+  const sourceInfo = useMemo(() => getSourceInfo(sourceReason, t), [sourceReason, t]);
+
   function resetFilters() {
     setMinEdgeInput("");
     setMinOddsInput("");
@@ -410,8 +509,20 @@ export default function Page() {
         </div>
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.simulatorPreview}</h2>
-          <p style={styles.cardSub}>{t.simulatorPreviewSub}</p>
+          <div style={styles.cardHeaderInline}>
+            <div>
+              <h2 style={styles.cardTitle}>{t.simulatorPreview}</h2>
+              <p style={styles.cardSub}>{t.simulatorPreviewSub}</p>
+            </div>
+            <div
+              style={{
+                ...styles.sourceBadge,
+                ...(styles.sourceBadgeLive),
+              }}
+            >
+              Preview
+            </div>
+          </div>
 
           {simLoading && <p style={styles.muted}>{t.loading}</p>}
 
@@ -545,41 +656,69 @@ export default function Page() {
                 </div>
                 <div style={styles.gameDate}>{formatDate(pick.commence_time)}</div>
 
-                <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-                  <div style={styles.rowCard}>
-                    <span>{t.outcome}</span>
-                    <strong>{pick.outcome}</strong>
-                  </div>
-                  <div style={styles.rowCard}>
-                    <span>{t.odds}</span>
-                    <strong>{pick.odds}</strong>
-                  </div>
-                  <div style={styles.rowCard}>
-                    <span>{t.bookmaker}</span>
-                    <strong>{pick.bookmaker}</strong>
-                  </div>
-                  <div style={styles.rowCard}>
-                    <span>{t.edge}</span>
-                    <strong>{(pick.edge * 100).toFixed(2)}%</strong>
-                  </div>
-                  <div style={styles.rowCard}>
-                    <span>{t.expectedValue}</span>
-                    <strong>{(pick.ev * 100).toFixed(2)}%</strong>
-                  </div>
-                  <div style={styles.rowCard}>
-                    <span>{t.suggestedStake}</span>
-                    <strong>
-                      {getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €
-                    </strong>
-                  </div>
+                <div style={styles.transparentBox}>
+                  <div style={styles.transparentTitle}>{t.whyThisBet}</div>
+                  <p style={styles.transparentText}>
+                    {pick.ev > 0
+                      ? t.simpleMeaningPositive
+                      : t.simpleMeaningNegative}
+                  </p>
                 </div>
+
+                <details style={styles.details}>
+                  <summary style={styles.summary}>{t.calcDetails}</summary>
+                  <div style={styles.detailsContent}>
+                    <div style={styles.rowCard}>
+                      <span>{t.outcome}</span>
+                      <strong>{pick.outcome}</strong>
+                    </div>
+                    <div style={styles.rowCard}>
+                      <span>{t.odds}</span>
+                      <strong>{pick.odds}</strong>
+                    </div>
+                    <div style={styles.rowCard}>
+                      <span>{t.bookmaker}</span>
+                      <strong>{pick.bookmaker}</strong>
+                    </div>
+                    <div style={styles.rowCard}>
+                      <span>{t.edge}</span>
+                      <strong>{(pick.edge * 100).toFixed(2)}%</strong>
+                    </div>
+                    <div style={styles.rowCard}>
+                      <span>{t.expectedValue}</span>
+                      <strong>{(pick.ev * 100).toFixed(2)}%</strong>
+                    </div>
+                    <div style={styles.rowCard}>
+                      <span>{t.suggestedStake}</span>
+                      <strong>
+                        {getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €
+                      </strong>
+                    </div>
+                  </div>
+                </details>
               </div>
             ))}
           </div>
         </section>
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.games}</h2>
+          <div style={styles.cardHeaderInline}>
+            <h2 style={styles.cardTitle}>{t.games}</h2>
+            <div
+              style={{
+                ...styles.sourceBadge,
+                ...(sourceInfo.tone === "live"
+                  ? styles.sourceBadgeLive
+                  : sourceInfo.tone === "fallback"
+                  ? styles.sourceBadgeFallback
+                  : styles.sourceBadgeDemo),
+              }}
+            >
+              {t.sourceLabel}: {sourceInfo.label}
+            </div>
+          </div>
+
+          <p style={styles.noteText}>{t.noteLiveVsDemo}</p>
 
           {loading && <p style={styles.muted}>{t.loading}</p>}
           {!loading && filteredGames.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
@@ -616,7 +755,21 @@ export default function Page() {
         </section>
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.analysis}</h2>
+          <div style={styles.cardHeaderInline}>
+            <h2 style={styles.cardTitle}>{t.analysis}</h2>
+            <div
+              style={{
+                ...styles.sourceBadge,
+                ...(sourceInfo.tone === "live"
+                  ? styles.sourceBadgeLive
+                  : sourceInfo.tone === "fallback"
+                  ? styles.sourceBadgeFallback
+                  : styles.sourceBadgeDemo),
+              }}
+            >
+              {sourceInfo.label}
+            </div>
+          </div>
 
           {!selectedGame ? (
             <p style={styles.muted}>{t.noGames}</p>
@@ -657,48 +810,98 @@ export default function Page() {
                 {!bestBet ? (
                   <div style={styles.muted}>{t.noOdds}</div>
                 ) : (
-                  <div style={styles.greenCard}>
-                    <div style={styles.stack}>
-                      <div style={styles.rowCard}>
-                        <span>{t.outcome}</span>
-                        <strong>{bestBet.outcome}</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.probability}</span>
-                        <strong>{(bestBet.modelProb * 100).toFixed(1)}%</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.marketProbability}</span>
-                        <strong>{(bestBet.marketProb * 100).toFixed(1)}%</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.odds}</span>
-                        <strong>{bestBet.odds}</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.bookmaker}</span>
-                        <strong>{bestBet.bookmaker}</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.edge}</span>
-                        <strong>{(bestBet.edge * 100).toFixed(2)}%</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.expectedValue}</span>
-                        <strong>{(bestBet.ev * 100).toFixed(2)}%</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.quarterKelly}</span>
-                        <strong>{(bestBet.kelly * 0.25 * 100).toFixed(2)}%</strong>
-                      </div>
-                      <div style={styles.rowCard}>
-                        <span>{t.suggestedStake}</span>
-                        <strong>
-                          {getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €
-                        </strong>
+                  <>
+                    <div style={styles.transparentBox}>
+                      <div style={styles.transparentTitle}>{t.whyThisBet}</div>
+                      <p style={styles.transparentText}>
+                        {getMeaningText(bestBet, t)}
+                      </p>
+                    </div>
+
+                    <div style={styles.greenCard}>
+                      <div style={styles.stack}>
+                        <div style={styles.rowCard}>
+                          <span>{t.outcome}</span>
+                          <strong>{bestBet.outcome}</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.probability}</span>
+                          <strong>{(bestBet.modelProb * 100).toFixed(1)}%</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.marketProbability}</span>
+                          <strong>{(bestBet.marketProb * 100).toFixed(1)}%</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.odds}</span>
+                          <strong>{bestBet.odds}</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.bookmaker}</span>
+                          <strong>{bestBet.bookmaker}</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.edge}</span>
+                          <strong>{(bestBet.edge * 100).toFixed(2)}%</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.expectedValue}</span>
+                          <strong>{(bestBet.ev * 100).toFixed(2)}%</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.quarterKelly}</span>
+                          <strong>{(bestBet.kelly * 0.25 * 100).toFixed(2)}%</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.suggestedStake}</span>
+                          <strong>
+                            {getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €
+                          </strong>
+                        </div>
                       </div>
                     </div>
-                  </div>
+
+                    <details style={styles.details}>
+                      <summary style={styles.summary}>{t.calcDetails}</summary>
+                      <div style={styles.detailsContent}>
+                        <div style={styles.calcBox}>
+                          <div style={styles.calcTitle}>{t.calcExplainerTitle}</div>
+                          <ul style={styles.calcList}>
+                            <li>{t.calcExplainer1}</li>
+                            <li>{t.calcExplainer2}</li>
+                            <li>{t.calcExplainer3}</li>
+                            <li>{t.calcExplainer4}</li>
+                            <li>{t.calcExplainer5}</li>
+                          </ul>
+                        </div>
+
+                        <div style={styles.calcBox}>
+                          <div style={styles.calcTitle}>{t.rawNumbers}</div>
+                          <div style={styles.formulaLine}>
+                            {t.impliedFormula}:{" "}
+                            <strong>
+                              1 / {bestBet.odds} = {(bestBet.marketProb * 100).toFixed(2)}%
+                            </strong>
+                          </div>
+                          <div style={styles.formulaLine}>
+                            {t.edgeFormula}:{" "}
+                            <strong>
+                              {(bestBet.modelProb * 100).toFixed(2)}% -{" "}
+                              {(bestBet.marketProb * 100).toFixed(2)}% ={" "}
+                              {(bestBet.edge * 100).toFixed(2)}%
+                            </strong>
+                          </div>
+                          <div style={styles.formulaLine}>
+                            {t.evFormula}:{" "}
+                            <strong>
+                              ({bestBet.odds} × {bestBet.modelProb.toFixed(4)}) - 1 ={" "}
+                              {(bestBet.ev * 100).toFixed(2)}%
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    </details>
+                  </>
                 )}
               </div>
             </>
@@ -858,6 +1061,13 @@ const styles = {
     borderRadius: 20,
     padding: 16,
     marginBottom: 20,
+  },
+  cardHeaderInline: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
   },
   cardTitle: {
     margin: "0 0 10px 0",
@@ -1031,5 +1241,91 @@ const styles = {
     border: "1px solid #334155",
     borderRadius: 20,
     padding: 20,
+  },
+  sourceBadge: {
+    padding: "8px 12px",
+    borderRadius: 999,
+    fontSize: 13,
+    fontWeight: 800,
+    border: "1px solid",
+    whiteSpace: "nowrap",
+  },
+  sourceBadgeLive: {
+    background: "#052e16",
+    color: "#86efac",
+    borderColor: "#166534",
+  },
+  sourceBadgeFallback: {
+    background: "#3b2a00",
+    color: "#facc15",
+    borderColor: "#8b5e00",
+  },
+  sourceBadgeDemo: {
+    background: "#3f1d1d",
+    color: "#fca5a5",
+    borderColor: "#7f1d1d",
+  },
+  transparentBox: {
+    marginTop: 14,
+    padding: 14,
+    borderRadius: 14,
+    background: "#111827",
+    border: "1px solid #334155",
+  },
+  transparentTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    marginBottom: 8,
+  },
+  transparentText: {
+    margin: 0,
+    color: "#cbd5e1",
+    lineHeight: 1.6,
+    fontSize: 15,
+  },
+  details: {
+    marginTop: 14,
+    border: "1px solid #334155",
+    borderRadius: 14,
+    background: "#0b1730",
+    overflow: "hidden",
+  },
+  summary: {
+    cursor: "pointer",
+    padding: "14px 16px",
+    fontWeight: 800,
+    color: "#fff",
+  },
+  detailsContent: {
+    padding: "0 16px 16px 16px",
+    display: "grid",
+    gap: 14,
+  },
+  calcBox: {
+    border: "1px solid #334155",
+    borderRadius: 14,
+    padding: 14,
+    background: "#111827",
+  },
+  calcTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    marginBottom: 8,
+  },
+  calcList: {
+    margin: 0,
+    paddingLeft: 18,
+    color: "#cbd5e1",
+    lineHeight: 1.7,
+  },
+  formulaLine: {
+    color: "#cbd5e1",
+    lineHeight: 1.7,
+    marginBottom: 8,
+  },
+  noteText: {
+    margin: "0 0 14px 0",
+    color: "#94a3b8",
+    fontSize: 14,
   },
 };
