@@ -10,6 +10,22 @@ export async function GET() {
       ok: true,
       tournament: "IIHF World Championship",
       iterations,
+      meta: {
+        includes: [
+          "joukkueiden hyökkäysarvio",
+          "joukkueiden puolustusarvio",
+          "maalivahtivaikutus",
+          "joukkueen nykyinen formi",
+          "lohkovaihe, puolivälierät, välierät, finaali ja pronssiottelu",
+        ],
+        excludes: [
+          "viime hetken loukkaantumiset",
+          "todelliset kisakokoonpanot",
+          "matkustuskuorma",
+          "markkinafutures-kertoimet",
+          "valmennuksen taktiset erot",
+        ],
+      },
       results,
     });
   } catch (error) {
