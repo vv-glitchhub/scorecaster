@@ -6,7 +6,7 @@ export default function SimulatorPage() {
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState([]);
   const [iterations, setIterations] = useState(0);
-  const [fixturesCount, setFixturesCount] = useState(0);
+  const [tournament, setTournament] = useState("");
 
   useEffect(() => {
     async function loadSimulator() {
@@ -18,11 +18,11 @@ export default function SimulatorPage() {
 
         setResults(Array.isArray(data.results) ? data.results : []);
         setIterations(data.iterations || 0);
-        setFixturesCount(data.fixturesCount || 0);
+        setTournament(data.tournament || "");
       } catch {
         setResults([]);
         setIterations(0);
-        setFixturesCount(0);
+        setTournament("");
       } finally {
         setLoading(false);
       }
@@ -34,26 +34,18 @@ export default function SimulatorPage() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <h1 style={styles.title}>Turnaussimulaattori</h1>
+        <h1 style={styles.title}>Simulaattori</h1>
         <p style={styles.subtitle}>
-          MM-kisojen voittajaennuste rating-mallilla
+          {tournament || "Turnaussimulaattori"}
         </p>
 
         <section style={styles.card}>
-          <div style={styles.metaRow}>
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Simulaatioita</div>
-              <div style={styles.metaValue}>{iterations}</div>
-            </div>
-            <div style={styles.metaBox}>
-              <div style={styles.metaLabel}>Otteluita / turnaus</div>
-              <div style={styles.metaValue}>{fixturesCount}</div>
-            </div>
-          </div>
+          <div style={styles.metaLabel}>Simulaatioita</div>
+          <div style={styles.metaValue}>{iterations}</div>
         </section>
 
         <section style={styles.card}>
-          <h2 style={styles.cardTitle}>Voittajaennusteet</h2>
+          <h2 style={styles.cardTitle}>Mestarisuosikit</h2>
 
           {loading && <p style={styles.muted}>Ladataan...</p>}
           {!loading && results.length === 0 && (
@@ -67,16 +59,46 @@ export default function SimulatorPage() {
 
                 <div style={styles.teamBlock}>
                   <div style={styles.teamName}>{row.team}</div>
-                  <div style={styles.teamMeta}>
-                    Keskimääräiset voitot: {row.averageWins.toFixed(2)}
-                  </div>
+                  <div style={styles.teamMeta}>Rating: {row.rating.toFixed(1)}</div>
                 </div>
 
-                <div style={styles.probability}>
-                  {(row.championProbability * 100).toFixed(2)}%
+                <div style={styles.probBlock}>
+                  <div style={styles.probMain}>
+                    {(row.championProbability * 100).toFixed(2)}%
+                  </div>
+                  <div style={styles.probSub}>mestaruus</div>
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>Syvemmät todennäköisyydet</h2>
+
+          <div style={styles.tableWrap}>
+            <table style={styles.table}>
+              <thead>
+                <tr>
+                  <th style={styles.th}>Joukkue</th>
+                  <th style={styles.th}>QF</th>
+                  <th style={styles.th}>SF</th>
+                  <th style={styles.th}>Final</th>
+                  <th style={styles.th}>Win</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((row) => (
+                  <tr key={row.team}>
+                    <td style={styles.tdStrong}>{row.team}</td>
+                    <td style={styles.td}>{(row.quarterProbability * 100).toFixed(1)}%</td>
+                    <td style={styles.td}>{(row.semifinalProbability * 100).toFixed(1)}%</td>
+                    <td style={styles.td}>{(row.finalProbability * 100).toFixed(1)}%</td>
+                    <td style={styles.td}>{(row.championProbability * 100).toFixed(1)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
         </section>
       </div>
@@ -94,13 +116,13 @@ const styles = {
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   container: {
-    maxWidth: 900,
+    maxWidth: 960,
     margin: "0 auto",
   },
   title: {
     fontSize: 40,
     fontWeight: 900,
-    margin: "0 0 10px 0",
+    margin: "0 0 8px 0",
   },
   subtitle: {
     color: "#94a3b8",
@@ -123,24 +145,13 @@ const styles = {
     color: "#94a3b8",
     fontSize: 16,
   },
-  metaRow: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 12,
-  },
-  metaBox: {
-    background: "#13203d",
-    border: "1px solid #334155",
-    borderRadius: 16,
-    padding: 16,
-  },
   metaLabel: {
     color: "#94a3b8",
     fontSize: 14,
     marginBottom: 6,
   },
   metaValue: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: 900,
   },
   list: {
@@ -149,9 +160,9 @@ const styles = {
   },
   rowCard: {
     display: "grid",
-    gridTemplateColumns: "70px 1fr auto",
-    alignItems: "center",
+    gridTemplateColumns: "64px 1fr auto",
     gap: 12,
+    alignItems: "center",
     padding: 16,
     borderRadius: 16,
     background: "#13203d",
@@ -170,13 +181,44 @@ const styles = {
     fontWeight: 800,
   },
   teamMeta: {
-    color: "#94a3b8",
     fontSize: 14,
+    color: "#94a3b8",
     marginTop: 4,
   },
-  probability: {
-    fontSize: 24,
+  probBlock: {
+    textAlign: "right",
+  },
+  probMain: {
+    fontSize: 26,
     fontWeight: 900,
-    color: "#f8fafc",
+  },
+  probSub: {
+    fontSize: 13,
+    color: "#94a3b8",
+  },
+  tableWrap: {
+    overflowX: "auto",
+  },
+  table: {
+    width: "100%",
+    borderCollapse: "collapse",
+  },
+  th: {
+    textAlign: "left",
+    padding: "12px 10px",
+    color: "#94a3b8",
+    fontSize: 14,
+    borderBottom: "1px solid #334155",
+  },
+  td: {
+    padding: "12px 10px",
+    borderBottom: "1px solid #1e293b",
+    color: "#e2e8f0",
+  },
+  tdStrong: {
+    padding: "12px 10px",
+    borderBottom: "1px solid #1e293b",
+    color: "#fff",
+    fontWeight: 700,
   },
 };
