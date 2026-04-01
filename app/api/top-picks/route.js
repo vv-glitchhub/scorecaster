@@ -1,39 +1,60 @@
 import { getValueBet } from "../../../lib/value-model";
 
-export const revalidate = 600; // 10 min cache
-
-const TOP_LEAGUES = {
+const SPORT_GROUP_LEAGUES = {
   icehockey: [
     "icehockey_liiga",
     "icehockey_nhl",
-    "icehockey_sweden_hockey_league",
     "icehockey_allsvenskan",
+    "icehockey_sweden_hockey_league",
+    "icehockey_finland_mestis",
+    "icehockey_germany_del",
+    "icehockey_switzerland_nla",
+    "icehockey_czech_extraliga",
   ],
   basketball: [
     "basketball_nba",
     "basketball_euroleague",
+    "basketball_ncaab",
   ],
   soccer: [
     "soccer_epl",
     "soccer_spain_la_liga",
     "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_france_ligue_one",
+    "soccer_finland_veikkausliiga",
+    "soccer_uefa_champs_league",
   ],
   americanfootball: [
     "americanfootball_nfl",
+    "americanfootball_ncaaf",
   ],
 };
 
 const LEAGUE_LABELS = {
   icehockey_liiga: "Liiga",
   icehockey_nhl: "NHL",
-  icehockey_sweden_hockey_league: "SHL",
   icehockey_allsvenskan: "Allsvenskan",
+  icehockey_sweden_hockey_league: "SHL",
+  icehockey_finland_mestis: "Mestis",
+  icehockey_germany_del: "DEL",
+  icehockey_switzerland_nla: "National League",
+  icehockey_czech_extraliga: "Extraliga",
+
   basketball_nba: "NBA",
   basketball_euroleague: "EuroLeague",
+  basketball_ncaab: "NCAA",
+
   soccer_epl: "Premier League",
   soccer_spain_la_liga: "La Liga",
   soccer_italy_serie_a: "Serie A",
+  soccer_germany_bundesliga: "Bundesliga",
+  soccer_france_ligue_one: "Ligue 1",
+  soccer_finland_veikkausliiga: "Veikkausliiga",
+  soccer_uefa_champs_league: "Champions League",
+
   americanfootball_nfl: "NFL",
+  americanfootball_ncaaf: "NCAA Football",
 };
 
 function normalizeBookmakers(bookmakers = []) {
@@ -106,38 +127,55 @@ async function fetchOddsForSport(sport, apiKey) {
     `&oddsFormat=decimal` +
     `&dateFormat=iso`;
 
-  const res = await fetch(url, {
-    next: { revalidate: 600 },
-  });
-
+  const res = await fetch(url, { cache: "no-store" });
   const data = await res.json().catch(() => null);
 
-  if (!res.ok || !Array.isArray(data)) {
-    return [];
+  if (!res.ok) {
+    return {
+      ok: false,
+      sport,
+      data: [],
+      error: data || `HTTP ${res.status}`,
+    };
   }
 
-  return filterUpcomingGames(data, 3);
-}
-
-function buildTopPickEntry(game, leagueKey) {
-  const bestBet = getValueBet(game);
-  if (!bestBet) return null;
+  if (!Array.isArray(data)) {
+    return {
+      ok: false,
+      sport,
+      data: [],
+      error: "Response was not an array",
+    };
+  }
 
   return {
+    ok: true,
+    sport,
+    data: filterUpcomingGames(data, 3),
+    error: null,
+  };
+}
+
+function buildPick(game, leagueKey) {
+  const valueBet = getValueBet(game);
+  if (!valueBet) return null;
+
+  return {
+    id: `${leagueKey}-${game.id}-${valueBet.outcome}`,
     gameId: game.id,
     leagueKey,
     leagueLabel: LEAGUE_LABELS[leagueKey] || leagueKey,
     home_team: game.home_team,
     away_team: game.away_team,
     commence_time: game.commence_time,
-    outcome: bestBet.outcome,
-    odds: bestBet.odds,
-    bookmaker: bestBet.bookmaker,
-    modelProb: bestBet.modelProb,
-    marketProb: bestBet.marketProb,
-    edge: bestBet.edge,
-    ev: bestBet.ev,
-    kelly: bestBet.kelly,
+    outcome: valueBet.outcome,
+    bookmaker: valueBet.bookmaker,
+    odds: valueBet.odds,
+    modelProb: valueBet.modelProb,
+    marketProb: valueBet.marketProb,
+    edge: valueBet.edge,
+    ev: valueBet.ev,
+    kelly: valueBet.kelly,
   };
 }
 
@@ -151,41 +189,41 @@ export async function GET(req) {
       return Response.json({
         ok: false,
         reason: "missing_api_key",
-        group,
         data: [],
       });
     }
 
-    const leagues = TOP_LEAGUES[group] || TOP_LEAGUES.icehockey;
+    const leagues = SPORT_GROUP_LEAGUES[group] || SPORT_GROUP_LEAGUES.icehockey;
 
     const results = await Promise.all(
-      leagues.map(async (leagueKey) => {
-        const games = await fetchOddsForSport(leagueKey, apiKey);
-        return { leagueKey, games };
-      })
+      leagues.map((leagueKey) => fetchOddsForSport(leagueKey, apiKey))
     );
 
-    const allPicks = results
-      .flatMap(({ leagueKey, games }) =>
-        games
-          .map((game) => buildTopPickEntry(game, leagueKey))
+    const picks = results
+      .filter((result) => result.ok)
+      .flatMap((result) =>
+        result.data
+          .map((game) => buildPick(game, result.sport))
           .filter(Boolean)
       )
-      .filter((pick) => Number.isFinite(pick.edge))
-      .sort((a, b) => b.edge - a.edge)
+      .filter((pick) => Number.isFinite(pick.edge) && Number.isFinite(pick.ev))
+      .sort((a, b) => {
+        if (b.edge !== a.edge) return b.edge - a.edge;
+        return b.ev - a.ev;
+      })
       .slice(0, 3);
 
     return Response.json({
       ok: true,
       reason: null,
-      group,
-      data: allPicks,
+      data: picks,
     });
   } catch (error) {
+    console.error("top-picks route error:", error);
+
     return Response.json({
       ok: false,
       reason: "server_error",
-      error: String(error),
       data: [],
     });
   }
