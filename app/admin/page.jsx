@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const SESSION_DURATION_MS = 60 * 60 * 1000; // 1 tunti
+const SESSION_DURATION_MS = 60 * 60 * 1000;
 
 export default function AdminPage() {
   const [secret, setSecret] = useState("");
@@ -20,7 +20,6 @@ export default function AdminPage() {
   const previousUnreadRef = useRef(0);
   const previousTopIdRef = useRef(null);
   const pollIntervalRef = useRef(null);
-  const hiddenInputRef = useRef(null);
 
   function clearAdminSession() {
     localStorage.removeItem("admin_auth");
@@ -55,7 +54,6 @@ export default function AdminPage() {
     setUnreadCount(0);
     setLiveBanner("");
     setSecret("");
-    setShowSecret(false);
     setAuthError("");
     previousUnreadRef.current = 0;
     previousTopIdRef.current = null;
@@ -308,13 +306,6 @@ export default function AdminPage() {
     return () => clearTimeout(timeout);
   }, [isAdmin]);
 
-  const maskedSecret = secret ? "•".repeat(secret.length) : "";
-  const displayValue = secret
-    ? showSecret
-      ? secret
-      : maskedSecret
-    : "Syötä ADMIN_SECRET";
-
   return (
     <main style={styles.page}>
       <div style={styles.container}>
@@ -324,41 +315,21 @@ export default function AdminPage() {
           <label style={styles.label}>Admin secret</label>
 
           <div style={styles.secretWrap}>
-            <button
-              type="button"
-              style={styles.fakeInput}
-              onClick={() => hiddenInputRef.current?.focus()}
-            >
-              <span
-                style={
-                  secret
-                    ? styles.fakeInputValue
-                    : styles.fakeInputPlaceholder
-                }
-              >
-                {displayValue}
-              </span>
-            </button>
-
             <input
-              ref={hiddenInputRef}
-              type="text"
-              inputMode="text"
-              autoComplete="new-password"
+              type={showSecret ? "text" : "text"}
+              name="admin_access_code"
+              autoComplete="off"
               autoCorrect="off"
               autoCapitalize="none"
               spellCheck={false}
-              enterKeyHint="done"
-              name={`field_${Math.random().toString(36).slice(2)}`}
+              inputMode="text"
               value={secret}
               onChange={(e) => setSecret(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  handleLogin();
-                }
+                if (e.key === "Enter") handleLogin();
               }}
-              style={styles.realHiddenInput}
-              aria-label="Admin secret input"
+              style={styles.input}
+              placeholder="Syötä ADMIN_SECRET"
             />
 
             <button
@@ -559,44 +530,15 @@ const styles = {
   secretWrap: {
     position: "relative",
   },
-  fakeInput: {
+  input: {
     width: "100%",
-    minHeight: 50,
     padding: "12px 92px 12px 14px",
     borderRadius: 12,
     border: "1px solid #334155",
     background: "#0b1730",
-    boxSizing: "border-box",
-    textAlign: "left",
-    cursor: "text",
-  },
-  fakeInputValue: {
     color: "#ffffff",
     fontSize: 16,
-    letterSpacing: 1,
-    display: "block",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  fakeInputPlaceholder: {
-    color: "#94a3b8",
-    fontSize: 16,
-    display: "block",
-  },
-  realHiddenInput: {
-    position: "absolute",
-    left: 14,
-    top: 12,
-    width: "calc(100% - 120px)",
-    height: 26,
-    opacity: 0.01,
-    background: "transparent",
-    border: "none",
-    outline: "none",
-    color: "transparent",
-    caretColor: "#ffffff",
-    fontSize: 16,
+    boxSizing: "border-box",
   },
   eyeButton: {
     position: "absolute",
