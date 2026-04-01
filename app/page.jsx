@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   getBestOdds,
@@ -43,16 +44,6 @@ const TEXT = {
     close: "Sulje",
     noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
-    nextAvailableBanner:
-      "Valitussa liigassa ei ollut pelejä 3 päivän sisällä. Näytetään seuraavat saatavilla olevat pelit tästä lajista.",
-    globalFallbackBanner:
-      "Valitusta liigasta ei löytynyt pelejä. Näytetään koko lajin saatavilla olevia pelejä.",
-    noLiveGamesBanner:
-      "Tälle liigalle tai lajille ei löytynyt tulevia oikeita pelejä juuri nyt.",
-    serverErrorBanner:
-      "Palvelinvirhe otteluiden haussa. Tarkista /api/odds ja Vercel logs.",
-    missingApiKeyBanner: "ODDS_API_KEY puuttuu Vercelistä.",
-    sourceLabel: "Lähde",
     topPicks: "Päivän Top 3 kohdetta",
     topPicksEmpty: "Top-kohteita ei löytynyt",
     topPickLeague: "Liiga",
@@ -62,6 +53,10 @@ const TEXT = {
     maxOdds: "Max kerroin",
     positiveEvOnly: "Vain positiivinen EV",
     resetFilters: "Nollaa suodattimet",
+    simulatorPreview: "Simulaattori",
+    simulatorPreviewSub: "MM-kisojen mestarisuosikit",
+    openSimulator: "Avaa simulaattori",
+    championChance: "Mestaruus",
   },
   en: {
     title: "SCORECASTER",
@@ -98,16 +93,6 @@ const TEXT = {
     close: "Close",
     noOdds: "No odds available",
     outcome: "Outcome",
-    nextAvailableBanner:
-      "No games were found in this league within 3 days. Showing the next available games from this sport.",
-    globalFallbackBanner:
-      "No games were found in the selected league. Showing available games from the whole sport.",
-    noLiveGamesBanner:
-      "No real upcoming games were found for this league or sport right now.",
-    serverErrorBanner:
-      "Server error while loading games. Check /api/odds and Vercel logs.",
-    missingApiKeyBanner: "ODDS_API_KEY is missing in Vercel.",
-    sourceLabel: "Source",
     topPicks: "Top 3 picks today",
     topPicksEmpty: "No top picks found",
     topPickLeague: "League",
@@ -117,6 +102,10 @@ const TEXT = {
     maxOdds: "Max odds",
     positiveEvOnly: "Positive EV only",
     resetFilters: "Reset filters",
+    simulatorPreview: "Simulator",
+    simulatorPreviewSub: "World Championship title odds",
+    openSimulator: "Open simulator",
+    championChance: "Title chance",
   },
 };
 
@@ -141,10 +130,6 @@ const LEAGUES = {
     { key: "icehockey_nhl", fi: "NHL", en: "NHL" },
     { key: "icehockey_allsvenskan", fi: "Allsvenskan", en: "Allsvenskan" },
     { key: "icehockey_sweden_hockey_league", fi: "SHL", en: "SHL" },
-    { key: "icehockey_finland_mestis", fi: "Mestis", en: "Mestis" },
-    { key: "icehockey_germany_del", fi: "DEL", en: "DEL" },
-    { key: "icehockey_switzerland_nla", fi: "National League", en: "National League" },
-    { key: "icehockey_czech_extraliga", fi: "Extraliga", en: "Extraliga" },
   ],
   basketball: [
     { key: "basketball_nba", fi: "NBA", en: "NBA" },
@@ -156,9 +141,6 @@ const LEAGUES = {
     { key: "soccer_spain_la_liga", fi: "La Liga", en: "La Liga" },
     { key: "soccer_italy_serie_a", fi: "Serie A", en: "Serie A" },
     { key: "soccer_germany_bundesliga", fi: "Bundesliiga", en: "Bundesliga" },
-    { key: "soccer_france_ligue_one", fi: "Ligue 1", en: "Ligue 1" },
-    { key: "soccer_finland_veikkausliiga", fi: "Veikkausliiga", en: "Veikkausliiga" },
-    { key: "soccer_uefa_champs_league", fi: "Mestarien liiga", en: "Champions League" },
   ],
   americanfootball: [
     { key: "americanfootball_nfl", fi: "NFL", en: "NFL" },
@@ -209,14 +191,13 @@ export default function Page() {
   const [selectedGameId, setSelectedGameId] = useState("");
   const [loading, setLoading] = useState(true);
 
-  const [reason, setReason] = useState(null);
-  const [sourceSport, setSourceSport] = useState(null);
-
   const [topPicks, setTopPicks] = useState([]);
   const [topPicksLoading, setTopPicksLoading] = useState(true);
 
-  const [bankrollInput, setBankrollInput] = useState("1000");
+  const [simPreview, setSimPreview] = useState([]);
+  const [simLoading, setSimLoading] = useState(true);
 
+  const [bankrollInput, setBankrollInput] = useState("1000");
   const [minEdgeInput, setMinEdgeInput] = useState("");
   const [minOddsInput, setMinOddsInput] = useState("");
   const [maxOddsInput, setMaxOddsInput] = useState("");
@@ -256,8 +237,6 @@ export default function Page() {
       }
 
       setLoading(true);
-      setReason(null);
-      setSourceSport(null);
 
       try {
         const res = await fetch(
@@ -266,15 +245,10 @@ export default function Page() {
         );
 
         const data = await res.json();
-
         const list = Array.isArray(data.data) ? data.data : [];
         setGames(list);
-        setReason(data.reason || null);
-        setSourceSport(data.sourceSport || null);
       } catch {
         setGames([]);
-        setReason("server_error");
-        setSourceSport(null);
       } finally {
         setLoading(false);
       }
@@ -302,6 +276,25 @@ export default function Page() {
 
     loadTopPicks();
   }, [selectedGroup]);
+
+  useEffect(() => {
+    async function loadSimulatorPreview() {
+      setSimLoading(true);
+
+      try {
+        const res = await fetch("/api/simulator", { cache: "no-store" });
+        const data = await res.json();
+        const rows = Array.isArray(data.results) ? data.results.slice(0, 5) : [];
+        setSimPreview(rows);
+      } catch {
+        setSimPreview([]);
+      } finally {
+        setSimLoading(false);
+      }
+    }
+
+    loadSimulatorPreview();
+  }, []);
 
   const filteredTopPicks = useMemo(() => {
     return topPicks.filter((pick) => {
@@ -381,9 +374,7 @@ export default function Page() {
     try {
       const res = await fetch("/api/feedback", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           message: feedback,
           selectedSportKey: selectedLeague,
@@ -393,9 +384,7 @@ export default function Page() {
         }),
       });
 
-      if (!res.ok) {
-        throw new Error("Feedback failed");
-      }
+      if (!res.ok) throw new Error("Feedback failed");
 
       setFeedback("");
       setFeedbackStatus(t.sent);
@@ -419,6 +408,28 @@ export default function Page() {
             ?
           </button>
         </div>
+
+        <section style={styles.card}>
+          <h2 style={styles.cardTitle}>{t.simulatorPreview}</h2>
+          <p style={styles.cardSub}>{t.simulatorPreviewSub}</p>
+
+          {simLoading && <p style={styles.muted}>{t.loading}</p>}
+
+          <div style={styles.stack}>
+            {simPreview.map((team, index) => (
+              <div key={team.team} style={styles.rowCard}>
+                <span>
+                  #{index + 1} {team.team}
+                </span>
+                <strong>{(team.championProbability * 100).toFixed(2)}%</strong>
+              </div>
+            ))}
+          </div>
+
+          <Link href="/simulator" style={styles.linkButton}>
+            {t.openSimulator}
+          </Link>
+        </section>
 
         <section style={styles.section}>
           <div style={styles.field}>
@@ -525,7 +536,7 @@ export default function Page() {
 
           <div style={styles.stack}>
             {filteredTopPicks.map((pick) => (
-              <div key={`${pick.leagueKey}-${pick.gameId}-${pick.outcome}`} style={styles.topPickCard}>
+              <div key={pick.id} style={styles.topPickCard}>
                 <div style={styles.topPickLeague}>
                   {t.topPickLeague}: {pick.leagueLabel}
                 </div>
@@ -567,32 +578,6 @@ export default function Page() {
           </div>
         </section>
 
-        {reason === "used_next_available_game" && filteredGames.length > 0 && (
-          <div style={styles.banner}>
-            {t.nextAvailableBanner}
-            {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
-          </div>
-        )}
-
-        {reason === "global_fallback" && filteredGames.length > 0 && (
-          <div style={styles.banner}>
-            {t.globalFallbackBanner}
-            {sourceSport ? ` — ${t.sourceLabel}: ${sourceSport}` : ""}
-          </div>
-        )}
-
-        {reason === "empty_live_data" && filteredGames.length === 0 && (
-          <div style={styles.banner}>{t.noLiveGamesBanner}</div>
-        )}
-
-        {reason === "missing_api_key" && (
-          <div style={styles.banner}>{t.missingApiKeyBanner}</div>
-        )}
-
-        {reason === "server_error" && (
-          <div style={styles.banner}>{t.serverErrorBanner}</div>
-        )}
-
         <section style={styles.card}>
           <h2 style={styles.cardTitle}>{t.games}</h2>
 
@@ -618,7 +603,7 @@ export default function Page() {
                             : "1px solid #334155",
                       }}
                     >
-                      <div style={styles.gameTitle}>
+                      <div style={styles.gameTitleText}>
                         {game.home_team} vs {game.away_team}
                       </div>
                       <div style={styles.gameDate}>{formatDate(game.commence_time)}</div>
@@ -867,15 +852,6 @@ const styles = {
     fontWeight: 700,
     cursor: "pointer",
   },
-  banner: {
-    background: "#3b2a00",
-    border: "1px solid #8b5e00",
-    color: "#facc15",
-    padding: "12px 14px",
-    borderRadius: 14,
-    marginBottom: 20,
-    fontWeight: 700,
-  },
   card: {
     background: "#0f172a",
     border: "1px solid #1e293b",
@@ -884,9 +860,14 @@ const styles = {
     marginBottom: 20,
   },
   cardTitle: {
-    margin: "0 0 16px 0",
+    margin: "0 0 10px 0",
     fontSize: 24,
     fontWeight: 800,
+  },
+  cardSub: {
+    margin: "0 0 16px 0",
+    color: "#94a3b8",
+    fontSize: 14,
   },
   subTitle: {
     margin: "0 0 10px 0",
@@ -897,6 +878,46 @@ const styles = {
     color: "#94a3b8",
     fontSize: 16,
     margin: 0,
+  },
+  stack: {
+    display: "grid",
+    gap: 10,
+  },
+  rowCard: {
+    display: "flex",
+    justifyContent: "space-between",
+    gap: 12,
+    padding: "12px 14px",
+    border: "1px solid #1f2937",
+    borderRadius: 14,
+    background: "#0b1730",
+  },
+  linkButton: {
+    display: "inline-block",
+    marginTop: 14,
+    padding: "12px 16px",
+    borderRadius: 12,
+    background: "#16a34a",
+    color: "#fff",
+    textDecoration: "none",
+    fontWeight: 800,
+  },
+  topPickCard: {
+    padding: 14,
+    borderRadius: 16,
+    background: "#13203d",
+    border: "1px solid #334155",
+  },
+  topPickLeague: {
+    fontSize: 13,
+    fontWeight: 700,
+    color: "#93c5fd",
+    marginBottom: 8,
+  },
+  topPickMatch: {
+    fontSize: 18,
+    fontWeight: 800,
+    lineHeight: 1.3,
   },
   gamesList: {
     display: "grid",
@@ -928,7 +949,7 @@ const styles = {
     textAlign: "left",
     cursor: "pointer",
   },
-  gameTitle: {
+  gameTitleText: {
     fontSize: 18,
     fontWeight: 800,
     lineHeight: 1.3,
@@ -955,41 +976,11 @@ const styles = {
     fontSize: 20,
     fontWeight: 800,
   },
-  stack: {
-    display: "grid",
-    gap: 10,
-  },
-  rowCard: {
-    display: "flex",
-    justifyContent: "space-between",
-    gap: 12,
-    padding: "12px 14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
-    background: "#0b1730",
-  },
   greenCard: {
     border: "1px solid #166534",
     borderRadius: 16,
     padding: 14,
     background: "#0d1f18",
-  },
-  topPickCard: {
-    padding: 14,
-    borderRadius: 16,
-    background: "#13203d",
-    border: "1px solid #334155",
-  },
-  topPickLeague: {
-    fontSize: 13,
-    fontWeight: 700,
-    color: "#93c5fd",
-    marginBottom: 8,
-  },
-  topPickMatch: {
-    fontSize: 18,
-    fontWeight: 800,
-    lineHeight: 1.3,
   },
   parsedText: {
     marginTop: 8,
