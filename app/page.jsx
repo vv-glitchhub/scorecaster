@@ -28,6 +28,7 @@ const TEXT = {
     failed: "❌ Lähetys epäonnistui",
     loading: "Ladataan...",
     noGames: "Otteluita ei löytynyt",
+    noOdds: "Kertoimia ei saatavilla",
     bestOdds: "Parhaat kertoimet",
     bestBet: "Paras kohde",
     probability: "Mallin todennäköisyys",
@@ -42,7 +43,6 @@ const TEXT = {
     infoText:
       "Scorecaster näyttää otteluita, vertailee kertoimia ja näyttää value bet -näkymän markkinan ja mallin perusteella.",
     close: "Sulje",
-    noOdds: "Kertoimia ei saatavilla",
     outcome: "Kohde",
     topPicks: "Päivän Top 3 kohdetta",
     topPicksEmpty: "Top-kohteita ei löytynyt",
@@ -56,11 +56,12 @@ const TEXT = {
     simulatorPreview: "Simulaattori",
     simulatorPreviewSub: "MM-kisojen mestarisuosikit",
     openSimulator: "Avaa simulaattori",
-    championChance: "Mestaruus",
     sourceLabel: "Datan lähde",
     sourceLive: "Live-data",
-    sourceFallbackSport: "Seuraava oikea peli samasta lajista",
-    sourceDemo: "Demo / fallback-data",
+    sourceCache: "Cache-data",
+    sourceCacheFallback: "Cache fallback",
+    sourceDemo: "Demo-data",
+    sourceEmpty: "Ei dataa",
     whyThisBet: "Miksi tämä kohde?",
     calcDetails: "Näytä laskelma",
     calcExplainerTitle: "Miten tämä laskettiin?",
@@ -74,7 +75,6 @@ const TEXT = {
       "Odotusarvo kertoo, onko veto pitkällä aikavälillä teoriassa plussalla vai miinuksella.",
     calcExplainer5:
       "Quarter Kelly antaa varovaisemman panossuosituksen kuin täysi Kelly.",
-    simpleMeaning: "Mitä tämä käytännössä tarkoittaa?",
     simpleMeaningPositive:
       "Malli pitää tätä kohdetta hieman markkinaa parempana, joten veto voi olla pelikelpoinen.",
     simpleMeaningNeutral:
@@ -87,6 +87,17 @@ const TEXT = {
     evFormula: "Odotusarvo = (kerroin × mallin todennäköisyys) - 1",
     noteLiveVsDemo:
       "Jos data ei ole liveä, analyysi on vain suuntaa-antava.",
+    quotaTitle: "Live data ei ole saatavilla",
+    quotaMessage:
+      "API quota on täynnä juuri nyt. Sovellus ei saanut oikeita live-kertoimia tähän liigaan.",
+    emptyTitle: "Dataa ei löytynyt",
+    emptyMessage:
+      "Valitusta liigasta ei löytynyt käyttökelpoista dataa tällä hetkellä.",
+    cacheMessage: "Näytetään viimeisin tallennettu cache-data.",
+    demoMessage:
+      "Näytetään demo-dataa vain testikäyttöä varten. Tätä ei pidä tulkita oikeaksi markkinadataksi.",
+    liveMessage: "Näytetään tuore live-data.",
+    refreshHint: "Voit kokeilla myöhemmin uudelleen tai vaihtaa liigaa.",
   },
   en: {
     title: "SCORECASTER",
@@ -107,6 +118,7 @@ const TEXT = {
     failed: "❌ Failed to send",
     loading: "Loading...",
     noGames: "No games found",
+    noOdds: "No odds available",
     bestOdds: "Best odds",
     bestBet: "Best bet",
     probability: "Model probability",
@@ -121,7 +133,6 @@ const TEXT = {
     infoText:
       "Scorecaster shows games, compares odds, and displays a value bet view based on market odds and a simple model.",
     close: "Close",
-    noOdds: "No odds available",
     outcome: "Outcome",
     topPicks: "Top 3 picks today",
     topPicksEmpty: "No top picks found",
@@ -135,11 +146,12 @@ const TEXT = {
     simulatorPreview: "Simulator",
     simulatorPreviewSub: "World Championship title odds",
     openSimulator: "Open simulator",
-    championChance: "Title chance",
     sourceLabel: "Data source",
     sourceLive: "Live data",
-    sourceFallbackSport: "Next real game from same sport",
-    sourceDemo: "Demo / fallback data",
+    sourceCache: "Cached data",
+    sourceCacheFallback: "Cache fallback",
+    sourceDemo: "Demo data",
+    sourceEmpty: "No data",
     whyThisBet: "Why this pick?",
     calcDetails: "Show calculation",
     calcExplainerTitle: "How was this calculated?",
@@ -153,7 +165,6 @@ const TEXT = {
       "Expected value tells whether the bet is theoretically positive or negative over the long run.",
     calcExplainer5:
       "Quarter Kelly gives a more conservative stake suggestion than full Kelly.",
-    simpleMeaning: "What does this mean in practice?",
     simpleMeaningPositive:
       "The model rates this outcome slightly better than the market does, so it may be playable.",
     simpleMeaningNeutral:
@@ -166,6 +177,17 @@ const TEXT = {
     evFormula: "Expected value = (odds × model probability) - 1",
     noteLiveVsDemo:
       "If the source is not live, the analysis is only indicative.",
+    quotaTitle: "Live data is unavailable",
+    quotaMessage:
+      "API quota is currently exhausted. The app could not fetch real live odds for this league.",
+    emptyTitle: "No data found",
+    emptyMessage:
+      "No usable data was found for the selected league at the moment.",
+    cacheMessage: "Showing the latest saved cached data.",
+    demoMessage:
+      "Showing demo data for testing only. Do not treat this as real market data.",
+    liveMessage: "Showing fresh live data.",
+    refreshHint: "You can try again later or switch league.",
   },
 };
 
@@ -212,10 +234,10 @@ function getLeagueLabel(league, lang) {
   return lang === "fi" ? league.fi : league.en;
 }
 
-function formatDate(value) {
+function formatDate(value, lang = "fi") {
   if (!value) return "-";
   try {
-    return new Date(value).toLocaleString("fi-FI");
+    return new Date(value).toLocaleString(lang === "fi" ? "fi-FI" : "en-US");
   } catch {
     return value;
   }
@@ -224,11 +246,14 @@ function formatDate(value) {
 function formatDayLabel(value, lang) {
   if (!value) return "-";
   try {
-    return new Date(value).toLocaleDateString(lang === "fi" ? "fi-FI" : "en-US", {
-      weekday: "long",
-      day: "numeric",
-      month: "numeric",
-    });
+    return new Date(value).toLocaleDateString(
+      lang === "fi" ? "fi-FI" : "en-US",
+      {
+        weekday: "long",
+        day: "numeric",
+        month: "numeric",
+      }
+    );
   } catch {
     return value;
   }
@@ -240,38 +265,53 @@ function parseNumberInput(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
-function getSourceInfo(reason, t) {
-  if (!reason) {
-    return { label: t.sourceLive, tone: "live" };
-  }
-
-  if (reason === "used_next_available_game") {
-    return { label: t.sourceFallbackSport, tone: "fallback" };
-  }
-
-  if (
-    reason === "api_empty_using_demo_fallback" ||
-    reason === "missing_api_key" ||
-    reason === "server_error"
-  ) {
-    return { label: t.sourceDemo, tone: "demo" };
-  }
-
-  return { label: t.sourceLive, tone: "live" };
-}
-
 function getMeaningText(bestBet, t) {
   if (!bestBet) return "";
-
-  if (bestBet.edge > 0.025 && bestBet.ev > 0) {
-    return t.simpleMeaningPositive;
-  }
-
-  if (bestBet.edge > 0 && bestBet.ev >= 0) {
-    return t.simpleMeaningNeutral;
-  }
-
+  if (bestBet.edge > 0.025 && bestBet.ev > 0) return t.simpleMeaningPositive;
+  if (bestBet.edge > 0 && bestBet.ev >= 0) return t.simpleMeaningNeutral;
   return t.simpleMeaningNegative;
+}
+
+function getSourceMeta(source, t) {
+  if (source === "live") {
+    return {
+      label: t.sourceLive,
+      tone: "live",
+      description: t.liveMessage,
+    };
+  }
+
+  if (source === "cache" || source === "cache_fallback") {
+    return {
+      label: source === "cache" ? t.sourceCache : t.sourceCacheFallback,
+      tone: "cache",
+      description: t.cacheMessage,
+    };
+  }
+
+  if (source === "demo") {
+    return {
+      label: t.sourceDemo,
+      tone: "demo",
+      description: t.demoMessage,
+    };
+  }
+
+  return {
+    label: t.sourceEmpty,
+    tone: "empty",
+    description: "",
+  };
+}
+
+function WarningBox({ title, message, hint }) {
+  return (
+    <div style={styles.warningBox}>
+      <div style={styles.warningTitle}>{title}</div>
+      <div style={styles.warningText}>{message}</div>
+      {hint ? <div style={styles.warningHint}>{hint}</div> : null}
+    </div>
+  );
 }
 
 export default function Page() {
@@ -284,7 +324,11 @@ export default function Page() {
   const [games, setGames] = useState([]);
   const [selectedGameId, setSelectedGameId] = useState("");
   const [loading, setLoading] = useState(true);
-  const [sourceReason, setSourceReason] = useState(null);
+
+  const [oddsSource, setOddsSource] = useState("empty");
+  const [oddsEmpty, setOddsEmpty] = useState(false);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const [oddsMessage, setOddsMessage] = useState("");
 
   const [topPicks, setTopPicks] = useState([]);
   const [topPicksLoading, setTopPicksLoading] = useState(true);
@@ -328,6 +372,10 @@ export default function Page() {
         setGames([]);
         setSelectedGameId("");
         setLoading(false);
+        setOddsSource("empty");
+        setOddsEmpty(true);
+        setQuotaExceeded(false);
+        setOddsMessage("");
         return;
       }
 
@@ -341,11 +389,18 @@ export default function Page() {
 
         const data = await res.json();
         const list = Array.isArray(data.data) ? data.data : [];
+
         setGames(list);
-        setSourceReason(data.reason || null);
+        setOddsSource(data.source || "empty");
+        setOddsEmpty(Boolean(data.empty));
+        setQuotaExceeded(Boolean(data.quotaExceeded));
+        setOddsMessage(data.message || "");
       } catch {
         setGames([]);
-        setSourceReason("server_error");
+        setOddsSource("empty");
+        setOddsEmpty(true);
+        setQuotaExceeded(false);
+        setOddsMessage("");
       } finally {
         setLoading(false);
       }
@@ -455,7 +510,7 @@ export default function Page() {
     return selectedGame ? getValueBet(selectedGame) : null;
   }, [selectedGame]);
 
-  const sourceInfo = useMemo(() => getSourceInfo(sourceReason, t), [sourceReason, t]);
+  const sourceMeta = useMemo(() => getSourceMeta(oddsSource, t), [oddsSource, t]);
 
   function resetFilters() {
     setMinEdgeInput("");
@@ -494,6 +549,9 @@ export default function Page() {
     }
   }
 
+  const showQuotaWarning = !loading && quotaExceeded && oddsEmpty;
+  const showEmptyWarning = !loading && oddsEmpty && !quotaExceeded;
+
   return (
     <main style={styles.page}>
       <div style={styles.container}>
@@ -514,12 +572,7 @@ export default function Page() {
               <h2 style={styles.cardTitle}>{t.simulatorPreview}</h2>
               <p style={styles.cardSub}>{t.simulatorPreviewSub}</p>
             </div>
-            <div
-              style={{
-                ...styles.sourceBadge,
-                ...(styles.sourceBadgeLive),
-              }}
-            >
+            <div style={{ ...styles.sourceBadge, ...styles.sourceBadgeCache }}>
               Preview
             </div>
           </div>
@@ -654,14 +707,12 @@ export default function Page() {
                 <div style={styles.topPickMatch}>
                   {pick.home_team} vs {pick.away_team}
                 </div>
-                <div style={styles.gameDate}>{formatDate(pick.commence_time)}</div>
+                <div style={styles.gameDate}>{formatDate(pick.commence_time, lang)}</div>
 
                 <div style={styles.transparentBox}>
                   <div style={styles.transparentTitle}>{t.whyThisBet}</div>
                   <p style={styles.transparentText}>
-                    {pick.ev > 0
-                      ? t.simpleMeaningPositive
-                      : t.simpleMeaningNegative}
+                    {pick.ev > 0 ? t.simpleMeaningPositive : t.simpleMeaningNegative}
                   </p>
                 </div>
 
@@ -707,51 +758,80 @@ export default function Page() {
             <div
               style={{
                 ...styles.sourceBadge,
-                ...(sourceInfo.tone === "live"
+                ...(sourceMeta.tone === "live"
                   ? styles.sourceBadgeLive
-                  : sourceInfo.tone === "fallback"
-                  ? styles.sourceBadgeFallback
-                  : styles.sourceBadgeDemo),
+                  : sourceMeta.tone === "cache"
+                  ? styles.sourceBadgeCache
+                  : sourceMeta.tone === "demo"
+                  ? styles.sourceBadgeDemo
+                  : styles.sourceBadgeEmpty),
               }}
             >
-              {t.sourceLabel}: {sourceInfo.label}
+              {t.sourceLabel}: {sourceMeta.label}
             </div>
           </div>
 
-          <p style={styles.noteText}>{t.noteLiveVsDemo}</p>
+          {sourceMeta.description ? (
+            <p style={styles.noteText}>{sourceMeta.description}</p>
+          ) : null}
+
+          {oddsMessage ? <p style={styles.noteText}>{oddsMessage}</p> : null}
+
+          {showQuotaWarning && (
+            <WarningBox
+              title={t.quotaTitle}
+              message={t.quotaMessage}
+              hint={t.refreshHint}
+            />
+          )}
+
+          {showEmptyWarning && (
+            <WarningBox
+              title={t.emptyTitle}
+              message={t.emptyMessage}
+              hint={t.refreshHint}
+            />
+          )}
 
           {loading && <p style={styles.muted}>{t.loading}</p>}
-          {!loading && filteredGames.length === 0 && <p style={styles.muted}>{t.noGames}</p>}
 
-          <div style={styles.gamesList}>
-            {groupedGames.map(([day, dayGames]) => (
-              <div key={day} style={styles.dayGroup}>
-                <div style={styles.dayHeader}>{day}</div>
+          {!loading && !oddsEmpty && filteredGames.length === 0 && (
+            <p style={styles.muted}>{t.noGames}</p>
+          )}
 
-                <div style={styles.dayGames}>
-                  {dayGames.map((game) => (
-                    <button
-                      key={game.id || `${game.home_team}-${game.away_team}`}
-                      type="button"
-                      onClick={() => setSelectedGameId(game.id)}
-                      style={{
-                        ...styles.gameCard,
-                        border:
-                          selectedGameId === game.id
-                            ? "2px solid #22c55e"
-                            : "1px solid #334155",
-                      }}
-                    >
-                      <div style={styles.gameTitleText}>
-                        {game.home_team} vs {game.away_team}
-                      </div>
-                      <div style={styles.gameDate}>{formatDate(game.commence_time)}</div>
-                    </button>
-                  ))}
+          {!oddsEmpty && (
+            <div style={styles.gamesList}>
+              {groupedGames.map(([day, dayGames]) => (
+                <div key={day} style={styles.dayGroup}>
+                  <div style={styles.dayHeader}>{day}</div>
+
+                  <div style={styles.dayGames}>
+                    {dayGames.map((game) => (
+                      <button
+                        key={game.id || `${game.home_team}-${game.away_team}`}
+                        type="button"
+                        onClick={() => setSelectedGameId(game.id)}
+                        style={{
+                          ...styles.gameCard,
+                          border:
+                            selectedGameId === game.id
+                              ? "2px solid #22c55e"
+                              : "1px solid #334155",
+                        }}
+                      >
+                        <div style={styles.gameTitleText}>
+                          {game.home_team} vs {game.away_team}
+                        </div>
+                        <div style={styles.gameDate}>
+                          {formatDate(game.commence_time, lang)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section style={styles.card}>
@@ -760,18 +840,26 @@ export default function Page() {
             <div
               style={{
                 ...styles.sourceBadge,
-                ...(sourceInfo.tone === "live"
+                ...(sourceMeta.tone === "live"
                   ? styles.sourceBadgeLive
-                  : sourceInfo.tone === "fallback"
-                  ? styles.sourceBadgeFallback
-                  : styles.sourceBadgeDemo),
+                  : sourceMeta.tone === "cache"
+                  ? styles.sourceBadgeCache
+                  : sourceMeta.tone === "demo"
+                  ? styles.sourceBadgeDemo
+                  : styles.sourceBadgeEmpty),
               }}
             >
-              {sourceInfo.label}
+              {sourceMeta.label}
             </div>
           </div>
 
-          {!selectedGame ? (
+          {oddsEmpty ? (
+            <WarningBox
+              title={quotaExceeded ? t.quotaTitle : t.emptyTitle}
+              message={quotaExceeded ? t.quotaMessage : t.emptyMessage}
+              hint={t.refreshHint}
+            />
+          ) : !selectedGame ? (
             <p style={styles.muted}>{t.noGames}</p>
           ) : (
             <>
@@ -782,7 +870,9 @@ export default function Page() {
                 <div style={styles.analysisMatch}>
                   {selectedGame.home_team} vs {selectedGame.away_team}
                 </div>
-                <div style={styles.gameDate}>{formatDate(selectedGame.commence_time)}</div>
+                <div style={styles.gameDate}>
+                  {formatDate(selectedGame.commence_time, lang)}
+                </div>
               </div>
 
               <div style={{ marginTop: 14 }}>
@@ -880,7 +970,8 @@ export default function Page() {
                           <div style={styles.formulaLine}>
                             {t.impliedFormula}:{" "}
                             <strong>
-                              1 / {bestBet.odds} = {(bestBet.marketProb * 100).toFixed(2)}%
+                              1 / {bestBet.odds} ={" "}
+                              {(bestBet.marketProb * 100).toFixed(2)}%
                             </strong>
                           </div>
                           <div style={styles.formulaLine}>
@@ -1255,15 +1346,20 @@ const styles = {
     color: "#86efac",
     borderColor: "#166534",
   },
-  sourceBadgeFallback: {
-    background: "#3b2a00",
-    color: "#facc15",
-    borderColor: "#8b5e00",
+  sourceBadgeCache: {
+    background: "#1e293b",
+    color: "#93c5fd",
+    borderColor: "#334155",
   },
   sourceBadgeDemo: {
     background: "#3f1d1d",
     color: "#fca5a5",
     borderColor: "#7f1d1d",
+  },
+  sourceBadgeEmpty: {
+    background: "#3b2a00",
+    color: "#facc15",
+    borderColor: "#8b5e00",
   },
   transparentBox: {
     marginTop: 14,
@@ -1326,6 +1422,29 @@ const styles = {
   noteText: {
     margin: "0 0 14px 0",
     color: "#94a3b8",
+    fontSize: 14,
+  },
+  warningBox: {
+    marginBottom: 14,
+    padding: 14,
+    borderRadius: 14,
+    background: "#3b0a0a",
+    border: "1px solid #7f1d1d",
+  },
+  warningTitle: {
+    fontSize: 16,
+    fontWeight: 800,
+    color: "#fecaca",
+    marginBottom: 8,
+  },
+  warningText: {
+    color: "#fee2e2",
+    lineHeight: 1.6,
+    fontSize: 15,
+  },
+  warningHint: {
+    marginTop: 8,
+    color: "#fca5a5",
     fontSize: 14,
   },
 };
