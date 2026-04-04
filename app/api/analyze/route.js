@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { buildQuickModel } from "@/lib/model-engine-v1";
+import { buildQuickModel } from "../../../lib/model-engine-v1";
 
 function fallbackTeamStats(name, isHome = false) {
   return {
