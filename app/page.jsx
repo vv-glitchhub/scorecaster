@@ -98,6 +98,9 @@ const TEXT = {
       "Näytetään demo-dataa vain testikäyttöä varten. Tätä ei pidä tulkita oikeaksi markkinadataksi.",
     liveMessage: "Näytetään tuore live-data.",
     refreshHint: "Voit kokeilla myöhemmin uudelleen tai vaihtaa liigaa.",
+    backendModel: "Backend-malli",
+    backendAnalysisFailed: "Backend-analyysiä ei saatu haettua.",
+    noClearValue: "Selkeää value-kohdetta ei löytynyt.",
   },
   en: {
     title: "SCORECASTER",
@@ -188,6 +191,9 @@ const TEXT = {
       "Showing demo data for testing only. Do not treat this as real market data.",
     liveMessage: "Showing fresh live data.",
     refreshHint: "You can try again later or switch league.",
+    backendModel: "Backend model",
+    backendAnalysisFailed: "Backend analysis could not be loaded.",
+    noClearValue: "No clear value bet found.",
   },
 };
 
@@ -335,6 +341,10 @@ export default function Page() {
 
   const [simPreview, setSimPreview] = useState([]);
   const [simLoading, setSimLoading] = useState(true);
+
+  const [analysisData, setAnalysisData] = useState(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisError, setAnalysisError] = useState("");
 
   const [bankrollInput, setBankrollInput] = useState("1000");
   const [minEdgeInput, setMinEdgeInput] = useState("");
@@ -512,6 +522,46 @@ export default function Page() {
 
   const sourceMeta = useMemo(() => getSourceMeta(oddsSource, t), [oddsSource, t]);
 
+  useEffect(() => {
+    async function loadAnalysis() {
+      if (!selectedGame || oddsEmpty) {
+        setAnalysisData(null);
+        setAnalysisError("");
+        return;
+      }
+
+      setAnalysisLoading(true);
+      setAnalysisError("");
+
+      try {
+        const res = await fetch("/api/analyze", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            match: selectedGame,
+          }),
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data?.error || "Analyze failed");
+        }
+
+        setAnalysisData(data);
+      } catch {
+        setAnalysisData(null);
+        setAnalysisError(t.backendAnalysisFailed);
+      } finally {
+        setAnalysisLoading(false);
+      }
+    }
+
+    loadAnalysis();
+  }, [selectedGame, oddsEmpty, t.backendAnalysisFailed]);
+
   function resetFilters() {
     setMinEdgeInput("");
     setMinOddsInput("");
@@ -551,6 +601,56 @@ export default function Page() {
 
   const showQuotaWarning = !loading && quotaExceeded && oddsEmpty;
   const showEmptyWarning = !loading && oddsEmpty && !quotaExceeded;
+
+  const recommendedSide = analysisData?.analysis?.recommendedSide || null;
+  const recommendedOutcomeLabel =
+    recommendedSide === "home"
+      ? selectedGame?.home_team
+      : recommendedSide === "away"
+      ? selectedGame?.away_team
+      : null;
+
+  const recommendedModelProbability =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.homeWinProbability
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.awayWinProbability
+      : null;
+
+  const recommendedMarketProbability =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.marketHomeProbability
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.marketAwayProbability
+      : null;
+
+  const recommendedOdds =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.bestHomeOdds
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.bestAwayOdds
+      : null;
+
+  const recommendedEdge =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.edgeHome
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.edgeAway
+      : null;
+
+  const recommendedEv =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.evHome
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.evAway
+      : null;
+
+  const recommendedKelly =
+    recommendedSide === "home"
+      ? analysisData?.analysis?.kellyHome
+      : recommendedSide === "away"
+      ? analysisData?.analysis?.kellyAway
+      : null;
 
   return (
     <main style={styles.page}>
@@ -895,7 +995,153 @@ export default function Page() {
               </div>
 
               <div style={{ marginTop: 14 }}>
-                <div style={styles.subTitle}>{t.bestBet}</div>
+                <div style={styles.subTitle}>
+                  {t.bestBet} · {t.backendModel}
+                </div>
+
+                {analysisLoading ? (
+                  <div style={styles.muted}>{t.loading}</div>
+                ) : analysisError ? (
+                  <WarningBox
+                    title={t.bestBet}
+                    message={analysisError}
+                    hint={t.noteLiveVsDemo}
+                  />
+                ) : !analysisData?.analysis ? (
+                  <div style={styles.muted}>{t.noOdds}</div>
+                ) : (
+                  <>
+                    <div style={styles.transparentBox}>
+                      <div style={styles.transparentTitle}>{t.whyThisBet}</div>
+                      <p style={styles.transparentText}>
+                        {recommendedSide === "home"
+                          ? `${selectedGame.home_team} näyttää mallin mukaan markkinaa paremmalta kohteelta.`
+                          : recommendedSide === "away"
+                          ? `${selectedGame.away_team} näyttää mallin mukaan markkinaa paremmalta kohteelta.`
+                          : t.noClearValue}
+                      </p>
+                    </div>
+
+                    <div style={styles.greenCard}>
+                      <div style={styles.stack}>
+                        <div style={styles.rowCard}>
+                          <span>{t.outcome}</span>
+                          <strong>{recommendedOutcomeLabel || "-"}</strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.probability}</span>
+                          <strong>
+                            {recommendedModelProbability != null
+                              ? `${(recommendedModelProbability * 100).toFixed(1)}%`
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.marketProbability}</span>
+                          <strong>
+                            {recommendedMarketProbability != null
+                              ? `${(recommendedMarketProbability * 100).toFixed(1)}%`
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.odds}</span>
+                          <strong>
+                            {recommendedOdds != null
+                              ? recommendedOdds.toFixed(2)
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.edge}</span>
+                          <strong>
+                            {recommendedEdge != null
+                              ? `${(recommendedEdge * 100).toFixed(2)}%`
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.expectedValue}</span>
+                          <strong>
+                            {recommendedEv != null
+                              ? `${(recommendedEv * 100).toFixed(2)}%`
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.quarterKelly}</span>
+                          <strong>
+                            {recommendedKelly != null
+                              ? `${(recommendedKelly * 0.25 * 100).toFixed(2)}%`
+                              : "-"}
+                          </strong>
+                        </div>
+                        <div style={styles.rowCard}>
+                          <span>{t.suggestedStake}</span>
+                          <strong>
+                            {recommendedKelly != null
+                              ? `${(bankroll * recommendedKelly * 0.25).toFixed(2)} €`
+                              : "-"}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <details style={styles.details}>
+                      <summary style={styles.summary}>{t.calcDetails}</summary>
+                      <div style={styles.detailsContent}>
+                        <div style={styles.calcBox}>
+                          <div style={styles.calcTitle}>{t.calcExplainerTitle}</div>
+                          <ul style={styles.calcList}>
+                            <li>{t.calcExplainer1}</li>
+                            <li>{t.calcExplainer2}</li>
+                            <li>{t.calcExplainer3}</li>
+                            <li>{t.calcExplainer4}</li>
+                            <li>{t.calcExplainer5}</li>
+                          </ul>
+                        </div>
+
+                        {recommendedSide ? (
+                          <div style={styles.calcBox}>
+                            <div style={styles.calcTitle}>{t.rawNumbers}</div>
+                            <div style={styles.formulaLine}>
+                              {t.impliedFormula}:{" "}
+                              <strong>
+                                1 / {recommendedOdds?.toFixed(2)} ={" "}
+                                {((recommendedMarketProbability || 0) * 100).toFixed(2)}%
+                              </strong>
+                            </div>
+                            <div style={styles.formulaLine}>
+                              {t.edgeFormula}:{" "}
+                              <strong>
+                                {((recommendedModelProbability || 0) * 100).toFixed(2)}% -{" "}
+                                {((recommendedMarketProbability || 0) * 100).toFixed(2)}% ={" "}
+                                {((recommendedEdge || 0) * 100).toFixed(2)}%
+                              </strong>
+                            </div>
+                            <div style={styles.formulaLine}>
+                              {t.evFormula}:{" "}
+                              <strong>
+                                ({recommendedOdds?.toFixed(2)} ×{" "}
+                                {(recommendedModelProbability || 0).toFixed(4)}) - 1 ={" "}
+                                {((recommendedEv || 0) * 100).toFixed(2)}%
+                              </strong>
+                            </div>
+                          </div>
+                        ) : (
+                          <div style={styles.calcBox}>
+                            <div style={styles.calcTitle}>{t.rawNumbers}</div>
+                            <div style={styles.formulaLine}>{t.noClearValue}</div>
+                          </div>
+                        )}
+                      </div>
+                    </details>
+                  </>
+                )}
+              </div>
+
+              <div style={{ marginTop: 14 }}>
+                <div style={styles.subTitle}>{t.bestBet} · Legacy</div>
 
                 {!bestBet ? (
                   <div style={styles.muted}>{t.noOdds}</div>
@@ -908,7 +1154,7 @@ export default function Page() {
                       </p>
                     </div>
 
-                    <div style={styles.greenCard}>
+                    <div style={styles.legacyCard}>
                       <div style={styles.stack}>
                         <div style={styles.rowCard}>
                           <span>{t.outcome}</span>
@@ -950,48 +1196,6 @@ export default function Page() {
                         </div>
                       </div>
                     </div>
-
-                    <details style={styles.details}>
-                      <summary style={styles.summary}>{t.calcDetails}</summary>
-                      <div style={styles.detailsContent}>
-                        <div style={styles.calcBox}>
-                          <div style={styles.calcTitle}>{t.calcExplainerTitle}</div>
-                          <ul style={styles.calcList}>
-                            <li>{t.calcExplainer1}</li>
-                            <li>{t.calcExplainer2}</li>
-                            <li>{t.calcExplainer3}</li>
-                            <li>{t.calcExplainer4}</li>
-                            <li>{t.calcExplainer5}</li>
-                          </ul>
-                        </div>
-
-                        <div style={styles.calcBox}>
-                          <div style={styles.calcTitle}>{t.rawNumbers}</div>
-                          <div style={styles.formulaLine}>
-                            {t.impliedFormula}:{" "}
-                            <strong>
-                              1 / {bestBet.odds} ={" "}
-                              {(bestBet.marketProb * 100).toFixed(2)}%
-                            </strong>
-                          </div>
-                          <div style={styles.formulaLine}>
-                            {t.edgeFormula}:{" "}
-                            <strong>
-                              {(bestBet.modelProb * 100).toFixed(2)}% -{" "}
-                              {(bestBet.marketProb * 100).toFixed(2)}% ={" "}
-                              {(bestBet.edge * 100).toFixed(2)}%
-                            </strong>
-                          </div>
-                          <div style={styles.formulaLine}>
-                            {t.evFormula}:{" "}
-                            <strong>
-                              ({bestBet.odds} × {bestBet.modelProb.toFixed(4)}) - 1 ={" "}
-                              {(bestBet.ev * 100).toFixed(2)}%
-                            </strong>
-                          </div>
-                        </div>
-                      </div>
-                    </details>
                   </>
                 )}
               </div>
@@ -1282,6 +1486,12 @@ const styles = {
     borderRadius: 16,
     padding: 14,
     background: "#0d1f18",
+  },
+  legacyCard: {
+    border: "1px solid #334155",
+    borderRadius: 16,
+    padding: 14,
+    background: "#101827",
   },
   parsedText: {
     marginTop: 8,
