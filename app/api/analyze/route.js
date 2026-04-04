@@ -1,6 +1,13 @@
 import { NextResponse } from "next/server";
 import { buildQuickModel } from "../../../lib/model-engine-v1";
 
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    message: "Use POST to analyze a match.",
+  });
+}
+
 function fallbackTeamStats(name, isHome = false) {
   return {
     team_name: name,
