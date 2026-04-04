@@ -1,60 +1,93 @@
 import { NextResponse } from "next/server";
-import { buildPrediction } from "@/lib/modelEngine";
-import { getBestOddsByTeams } from "@/lib/getBestOddsByTeams";
+import { buildQuickModel } from "@/lib/model-engine-v1";
 
-function fallbackTeamRatings(teamName, side = "home") {
+function fallbackTeamStats(name, isHome = false) {
   return {
-    team_name: teamName,
-    rating: side === "home" ? 1520 : 1490,
-    attack_rating: side === "home" ? 1.4 : 1.2,
-    defense_rating: side === "home" ? 1.1 : 1.0,
-    goalie_rating: side === "home" ? 1.0 : 0.9,
-    form_last_5: side === "home" ? 1.3 : 0.8,
-    fatigue_index: side === "home" ? 0.3 : 0.5,
-    home_advantage: side === "home" ? 1.0 : 0,
-    injuries_count: side === "home" ? 1 : 2,
-    lineup_stability: side === "home" ? 1.2 : 0.9,
+    team_name: name,
+    rating: isHome ? 58 : 54,
+    form_last_5: isHome ? 56 : 50,
+    attack_rating: isHome ? 57 : 52,
+    defense_rating: isHome ? 55 : 51,
+    goalie_rating: isHome ? 56 : 50,
+    lineup_stability: isHome ? 60 : 54,
+    strength_of_schedule: 50,
+    home_advantage: isHome ? 4 : 0,
+    fatigue_index: isHome ? 2 : 3,
+    injuries_count: isHome ? 1 : 2,
+  };
+}
+
+function mapOddsRowsFromBookmakers(bookmakers = []) {
+  return bookmakers.flatMap((bookmaker) =>
+    (bookmaker.markets || []).flatMap((market) => {
+      if (market.key !== "h2h") return [];
+
+      return (market.outcomes || []).map((outcome) => ({
+        bookmaker: bookmaker.title,
+        market: market.key,
+        outcome_name: outcome.name,
+        odds: outcome.price,
+      }));
+    })
+  );
+}
+
+function buildFallbackContext(match) {
+  return {
+    home_team: match.home_team,
+    away_team: match.away_team,
+    rest_days_home: 2,
+    rest_days_away: 2,
+    schedule_load_7d_home: 2,
+    schedule_load_7d_away: 2,
+    travel_km_7d_home: 0,
+    travel_km_7d_away: 200,
+    timezone_penalty_home: 0,
+    timezone_penalty_away: 0,
   };
 }
 
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { match, bankroll = 1000 } = body;
+    const { match } = body;
 
-    if (!match) {
-      return NextResponse.json({ error: "Missing match" }, { status: 400 });
+    if (!match?.home_team || !match?.away_team) {
+      return NextResponse.json(
+        { error: "Missing match.home_team or match.away_team" },
+        { status: 400 }
+      );
     }
 
-    const bestOdds = getBestOddsByTeams(
-      match.bookmakers,
-      match.home_team,
-      match.away_team
-    );
+    const homeTeamStats = fallbackTeamStats(match.home_team, true);
+    const awayTeamStats = fallbackTeamStats(match.away_team, false);
+    const oddsRows = mapOddsRowsFromBookmakers(match.bookmakers || []);
+    const context = buildFallbackContext(match);
 
-    const homeTeam = fallbackTeamRatings(match.home_team, "home");
-    const awayTeam = fallbackTeamRatings(match.away_team, "away");
-
-    const prediction = buildPrediction({
-      homeTeam,
-      awayTeam,
-      bestOdds,
-      bankroll,
-      marketType: "h2h",
+    const analysis = buildQuickModel({
+      homeTeamStats,
+      awayTeamStats,
+      homePlayers: [],
+      awayPlayers: [],
+      context,
+      oddsRows,
     });
 
     return NextResponse.json({
       match: {
+        id: match.id ?? null,
         home_team: match.home_team,
         away_team: match.away_team,
-        commence_time: match.commence_time,
+        commence_time: match.commence_time ?? null,
       },
-      bestOdds,
-      prediction,
+      analysis,
     });
   } catch (error) {
     return NextResponse.json(
-      { error: "Analyze failed", details: error.message },
+      {
+        error: "Analyze failed",
+        details: error?.message || "Unknown server error",
+      },
       { status: 500 }
     );
   }
