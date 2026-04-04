@@ -101,6 +101,7 @@ const TEXT = {
     backendModel: "Backend-malli",
     backendAnalysisFailed: "Backend-analyysiä ei saatu haettua.",
     noClearValue: "Selkeää value-kohdetta ei löytynyt.",
+    debugTitle: "Debug",
   },
   en: {
     title: "SCORECASTER",
@@ -194,6 +195,7 @@ const TEXT = {
     backendModel: "Backend model",
     backendAnalysisFailed: "Backend analysis could not be loaded.",
     noClearValue: "No clear value bet found.",
+    debugTitle: "Debug",
   },
 };
 
@@ -335,6 +337,7 @@ export default function Page() {
   const [oddsEmpty, setOddsEmpty] = useState(false);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const [oddsMessage, setOddsMessage] = useState("");
+  const [oddsDebug, setOddsDebug] = useState(null);
 
   const [topPicks, setTopPicks] = useState([]);
   const [topPicksLoading, setTopPicksLoading] = useState(true);
@@ -386,6 +389,7 @@ export default function Page() {
         setOddsEmpty(true);
         setQuotaExceeded(false);
         setOddsMessage("");
+        setOddsDebug(null);
         return;
       }
 
@@ -405,12 +409,14 @@ export default function Page() {
         setOddsEmpty(Boolean(data.empty));
         setQuotaExceeded(Boolean(data.quotaExceeded));
         setOddsMessage(data.message || "");
+        setOddsDebug(data.debug || null);
       } catch {
         setGames([]);
         setOddsSource("empty");
         setOddsEmpty(true);
         setQuotaExceeded(false);
         setOddsMessage("");
+        setOddsDebug(null);
       } finally {
         setLoading(false);
       }
@@ -476,8 +482,7 @@ export default function Page() {
   const filteredGames = useMemo(() => {
     return games.filter((game) => {
       const valueBet = getValueBet(game);
-      if (!valueBet) return false;
-
+      if (!valueBet) return true;
       const edgePercent = (valueBet.edge || 0) * 100;
       const odds = Number(valueBet.odds || 0);
       const ev = Number(valueBet.ev || 0);
@@ -898,6 +903,15 @@ export default function Page() {
           {!loading && !oddsEmpty && filteredGames.length === 0 && (
             <p style={styles.muted}>{t.noGames}</p>
           )}
+
+          {oddsDebug ? (
+            <div>
+              <div style={styles.subTitle}>{t.debugTitle}</div>
+              <pre style={styles.debugBox}>
+                {JSON.stringify(oddsDebug, null, 2)}
+              </pre>
+            </div>
+          ) : null}
 
           {!oddsEmpty && (
             <div style={styles.gamesList}>
@@ -1656,5 +1670,15 @@ const styles = {
     marginTop: 8,
     color: "#fca5a5",
     fontSize: 14,
+  },
+  debugBox: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    background: "#111827",
+    border: "1px solid #334155",
+    color: "#93c5fd",
+    fontSize: 12,
+    overflowX: "auto",
   },
 };
