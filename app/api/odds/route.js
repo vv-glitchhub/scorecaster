@@ -1,56 +1,174 @@
 import { NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-const API_KEY = process.env.ODDS_API_KEY;
-const BASE_URL = "https://api.the-odds-api.com/v4/sports";
-const CACHE_TTL_MINUTES = 15;
-
-function getDemoData(sport) {
-  return [
+const DEMO_GAMES = {
+  icehockey_liiga: [
     {
-      id: "demo-1",
-      sport_key: sport,
-      home_team: "Boston Bruins",
-      away_team: "New York Rangers",
-      commence_time: new Date().toISOString(),
+      id: "demo-liiga-1",
+      sport_key: "icehockey_liiga",
+      sport_title: "Liiga",
+      commence_time: "2026-04-05T17:30:00Z",
+      home_team: "Tappara",
+      away_team: "Ilves",
       bookmakers: [
         {
-          title: "DemoOdds",
+          key: "demobook",
+          title: "DemoBook",
           markets: [
             {
               key: "h2h",
               outcomes: [
-                { name: "Boston Bruins", price: 2.2 },
-                { name: "New York Rangers", price: 1.8 },
+                { name: "Tappara", price: 2.25 },
+                { name: "Ilves", price: 1.78 },
               ],
             },
           ],
         },
       ],
     },
-  ];
+    {
+      id: "demo-liiga-2",
+      sport_key: "icehockey_liiga",
+      sport_title: "Liiga",
+      commence_time: "2026-04-06T15:00:00Z",
+      home_team: "Lukko",
+      away_team: "TPS",
+      bookmakers: [
+        {
+          key: "demobook",
+          title: "DemoBook",
+          markets: [
+            {
+              key: "h2h",
+              outcomes: [
+                { name: "Lukko", price: 1.92 },
+                { name: "TPS", price: 2.02 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  icehockey_nhl: [
+    {
+      id: "demo-nhl-1",
+      sport_key: "icehockey_nhl",
+      sport_title: "NHL",
+      commence_time: "2026-04-05T23:00:00Z",
+      home_team: "Boston Bruins",
+      away_team: "Toronto Maple Leafs",
+      bookmakers: [
+        {
+          key: "demobook",
+          title: "DemoBook",
+          markets: [
+            {
+              key: "h2h",
+              outcomes: [
+                { name: "Boston Bruins", price: 2.05 },
+                { name: "Toronto Maple Leafs", price: 1.87 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      id: "demo-nhl-2",
+      sport_key: "icehockey_nhl",
+      sport_title: "NHL",
+      commence_time: "2026-04-06T00:30:00Z",
+      home_team: "New York Rangers",
+      away_team: "New Jersey Devils",
+      bookmakers: [
+        {
+          key: "demobook",
+          title: "DemoBook",
+          markets: [
+            {
+              key: "h2h",
+              outcomes: [
+                { name: "New York Rangers", price: 1.95 },
+                { name: "New Jersey Devils", price: 1.98 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  basketball_nba: [
+    {
+      id: "demo-nba-1",
+      sport_key: "basketball_nba",
+      sport_title: "NBA",
+      commence_time: "2026-04-05T23:30:00Z",
+      home_team: "Boston Celtics",
+      away_team: "Milwaukee Bucks",
+      bookmakers: [
+        {
+          key: "demobook",
+          title: "DemoBook",
+          markets: [
+            {
+              key: "h2h",
+              outcomes: [
+                { name: "Boston Celtics", price: 1.83 },
+                { name: "Milwaukee Bucks", price: 2.08 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+  soccer_epl: [
+    {
+      id: "demo-epl-1",
+      sport_key: "soccer_epl",
+      sport_title: "Premier League",
+      commence_time: "2026-04-06T14:00:00Z",
+      home_team: "Arsenal",
+      away_team: "Tottenham",
+      bookmakers: [
+        {
+          key: "demobook",
+          title: "DemoBook",
+          markets: [
+            {
+              key: "h2h",
+              outcomes: [
+                { name: "Arsenal", price: 2.12 },
+                { name: "Draw", price: 3.45 },
+                { name: "Tottenham", price: 3.15 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+  ],
+};
+
+function getFallbackGames(sport) {
+  return DEMO_GAMES[sport] || [];
 }
 
-function isFreshEnough(updatedAt) {
-  if (!updatedAt) return false;
-
-  const updated = new Date(updatedAt);
-  const now = new Date();
-  const minutes = (now - updated) / 1000 / 60;
-
-  return minutes < CACHE_TTL_MINUTES;
+function isUsableGame(game) {
+  return (
+    game?.home_team &&
+    game?.away_team &&
+    Array.isArray(game?.bookmakers) &&
+    game.bookmakers.length > 0
+  );
 }
 
-function isUsableRealCache(row) {
-  if (!row) return false;
-  if (!Array.isArray(row.data) || row.data.length === 0) return false;
-  if (row.fallback === true) return false;
-  return true;
+function sortByTimeAscending(games) {
+  return [...games].sort((a, b) => {
+    const aTime = new Date(a.commence_time || 0).getTime();
+    const bTime = new Date(b.commence_time || 0).getTime();
+    return aTime - bTime;
+  });
 }
 
 export async function GET(req) {
@@ -58,271 +176,109 @@ export async function GET(req) {
     const { searchParams } = new URL(req.url);
     const sport = searchParams.get("sport");
     const group = searchParams.get("group");
-    const allowDemo = searchParams.get("allowDemo") === "true";
+    const apiKey = process.env.ODDS_API_KEY;
 
-    if (!sport || !group) {
-      return NextResponse.json(
-        { error: "Missing sport or group" },
-        { status: 400 }
-      );
-    }
-
-    const { data: cacheRow, error: cacheError } = await supabase
-      .from("odds_cache")
-      .select("*")
-      .eq("sport", sport)
-      .eq("group_name", group)
-      .maybeSingle();
-
-    if (cacheError) {
-      console.error("odds_cache read error:", cacheError);
-    }
-
-    if (isUsableRealCache(cacheRow) && isFreshEnough(cacheRow.updated_at)) {
+    if (!sport) {
       return NextResponse.json({
-        fallback: false,
-        empty: false,
-        quotaExceeded: false,
-        reason: "cache_hit",
-        message: "Näytetään välimuistissa oleva oikea data.",
-        sport,
-        group,
-        sourceSport: cacheRow.source_sport || sport,
-        rawCount: cacheRow.raw_count || cacheRow.data.length,
-        filteredCount: cacheRow.filtered_count || cacheRow.data.length,
-        apiError: null,
-        data: cacheRow.data,
-        source: "cache",
-      });
-    }
-
-    if (!API_KEY) {
-      if (isUsableRealCache(cacheRow)) {
-        return NextResponse.json({
-          fallback: false,
-          empty: false,
-          quotaExceeded: false,
-          reason: "missing_api_key_using_cache",
-          message: "ODDS_API_KEY puuttuu, käytetään vanhaa cachea.",
-          sport,
-          group,
-          sourceSport: cacheRow.source_sport || sport,
-          rawCount: cacheRow.raw_count || cacheRow.data.length,
-          filteredCount: cacheRow.filtered_count || cacheRow.data.length,
-          apiError: null,
-          data: cacheRow.data,
-          source: "cache",
-        });
-      }
-
-      if (!allowDemo) {
-        return NextResponse.json({
-          fallback: false,
-          empty: true,
-          quotaExceeded: false,
-          reason: "missing_api_key",
-          message: "ODDS_API_KEY puuttuu palvelimelta.",
-          sport,
-          group,
-          sourceSport: null,
-          rawCount: 0,
-          filteredCount: 0,
-          apiError: null,
-          data: [],
-          source: "empty",
-        });
-      }
-
-      const demo = getDemoData(sport);
-
-      return NextResponse.json({
-        fallback: true,
-        empty: false,
-        quotaExceeded: false,
-        reason: "missing_api_key_demo",
-        message: "ODDS_API_KEY puuttuu, käytetään demo-dataa.",
-        sport,
-        group,
-        sourceSport: null,
-        rawCount: demo.length,
-        filteredCount: demo.length,
-        apiError: null,
-        data: demo,
-        source: "demo",
-      });
-    }
-
-    const res = await fetch(
-      `${BASE_URL}/${sport}/odds?apiKey=${API_KEY}&markets=h2h&regions=us,eu,uk&oddsFormat=decimal&dateFormat=iso`,
-      { cache: "no-store" }
-    );
-
-    const json = await res.json().catch(() => null);
-    const quotaExceeded = json?.error_code === "OUT_OF_USAGE_CREDITS";
-
-    if (res.ok && Array.isArray(json) && json.length > 0) {
-      const { error: upsertError } = await supabase.from("odds_cache").upsert({
-        sport,
-        group_name: group,
-        source_sport: sport,
-        data: json,
-        fallback: false,
-        empty: false,
-        quota_exceeded: false,
-        reason: null,
-        message: "Live data cached",
-        raw_count: json.length,
-        filtered_count: json.length,
-        updated_at: new Date().toISOString(),
-      });
-
-      if (upsertError) {
-        console.error("odds_cache upsert error:", upsertError);
-      }
-
-      return NextResponse.json({
-        fallback: false,
-        empty: false,
-        quotaExceeded: false,
-        reason: null,
-        message: "Live data haettu onnistuneesti.",
-        sport,
-        group,
-        sourceSport: sport,
-        rawCount: json.length,
-        filteredCount: json.length,
-        apiError: null,
-        data: json,
-        source: "live",
-      });
-    }
-
-    if (quotaExceeded) {
-      if (isUsableRealCache(cacheRow)) {
-        return NextResponse.json({
-          fallback: false,
-          empty: false,
-          quotaExceeded: true,
-          reason: "quota_exceeded_using_cache",
-          message: "API quota täynnä, käytetään viimeisintä oikeaa cache-dataa.",
-          sport,
-          group,
-          sourceSport: cacheRow.source_sport || sport,
-          rawCount: cacheRow.raw_count || cacheRow.data.length,
-          filteredCount: cacheRow.filtered_count || cacheRow.data.length,
-          apiError: json,
-          data: cacheRow.data,
-          source: "cache_fallback",
-        });
-      }
-
-      if (!allowDemo) {
-        return NextResponse.json({
-          fallback: false,
-          empty: true,
-          quotaExceeded: true,
-          reason: "quota_exceeded",
-          message: "API quota on täynnä. Oikeaa dataa ei saatu juuri nyt.",
-          sport,
-          group,
-          sourceSport: null,
-          rawCount: 0,
-          filteredCount: 0,
-          apiError: json,
-          data: [],
-          source: "empty",
-        });
-      }
-
-      const demo = getDemoData(sport);
-
-      return NextResponse.json({
-        fallback: true,
-        empty: false,
-        quotaExceeded: true,
-        reason: "quota_exceeded_demo",
-        message: "API quota täynnä, käytetään demo-dataa.",
-        sport,
-        group,
-        sourceSport: null,
-        rawCount: demo.length,
-        filteredCount: demo.length,
-        apiError: json,
-        data: demo,
-        source: "demo",
-      });
-    }
-
-    if (isUsableRealCache(cacheRow)) {
-      return NextResponse.json({
-        fallback: false,
-        empty: false,
-        quotaExceeded: false,
-        reason: "live_failed_using_cache",
-        message: "Live-haku epäonnistui, käytetään vanhaa cachea.",
-        sport,
-        group,
-        sourceSport: cacheRow.source_sport || sport,
-        rawCount: cacheRow.raw_count || cacheRow.data.length,
-        filteredCount: cacheRow.filtered_count || cacheRow.data.length,
-        apiError: json,
-        data: cacheRow.data,
-        source: "cache_fallback",
-      });
-    }
-
-    if (!allowDemo) {
-      return NextResponse.json({
-        fallback: false,
-        empty: true,
-        quotaExceeded: false,
-        reason: "no_games_found",
-        message: "Valitusta liigasta ei löytynyt pelejä.",
-        sport,
-        group,
-        sourceSport: null,
-        rawCount: 0,
-        filteredCount: 0,
-        apiError: json,
         data: [],
         source: "empty",
+        empty: true,
+        quotaExceeded: false,
+        message: "Missing sport parameter",
+        debug: {
+          requestedSport: sport,
+          requestedGroup: group,
+        },
       });
     }
 
-    const demo = getDemoData(sport);
+    if (!apiKey) {
+      const fallback = sortByTimeAscending(getFallbackGames(sport));
+      return NextResponse.json({
+        data: fallback,
+        source: "demo",
+        empty: fallback.length === 0,
+        quotaExceeded: false,
+        message: "ODDS_API_KEY missing, using demo fallback",
+        debug: {
+          requestedSport: sport,
+          requestedGroup: group,
+          reason: "missing_api_key",
+          fallbackCount: fallback.length,
+        },
+      });
+    }
+
+    const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
+
+    const res = await fetch(url, {
+      next: { revalidate: 60 },
+    });
+
+    const text = await res.text();
+
+    let json = [];
+    try {
+      json = JSON.parse(text);
+    } catch {
+      json = [];
+    }
+
+    const quotaExceeded =
+      !res.ok &&
+      typeof text === "string" &&
+      text.toLowerCase().includes("out_of_usage_credits");
+
+    const rawGames = Array.isArray(json) ? json : [];
+    const usableGames = sortByTimeAscending(rawGames.filter(isUsableGame));
+
+    if (res.ok && usableGames.length > 0) {
+      return NextResponse.json({
+        data: usableGames,
+        source: "live",
+        empty: false,
+        quotaExceeded: false,
+        message: "Showing fresh live data",
+        debug: {
+          requestedSport: sport,
+          requestedGroup: group,
+          rawCount: rawGames.length,
+          usableCount: usableGames.length,
+          fallbackCount: 0,
+          status: res.status,
+        },
+      });
+    }
+
+    const fallback = sortByTimeAscending(getFallbackGames(sport));
 
     return NextResponse.json({
-      fallback: true,
-      empty: false,
-      quotaExceeded: false,
-      reason: "demo_fallback",
-      message: "Käytetään demo-dataa.",
-      sport,
-      group,
-      sourceSport: null,
-      rawCount: demo.length,
-      filteredCount: demo.length,
-      apiError: json,
-      data: demo,
+      data: fallback,
       source: "demo",
+      empty: fallback.length === 0,
+      quotaExceeded,
+      message: quotaExceeded
+        ? "API quota exceeded, using demo fallback"
+        : "Live data unavailable, using demo fallback",
+      debug: {
+        requestedSport: sport,
+        requestedGroup: group,
+        rawCount: rawGames.length,
+        usableCount: usableGames.length,
+        fallbackCount: fallback.length,
+        status: res.status,
+      },
     });
   } catch (error) {
-    console.error("odds route server error:", error);
-
     return NextResponse.json({
-      fallback: false,
-      empty: true,
-      quotaExceeded: false,
-      reason: "server_error",
-      message: "Palvelinvirhe odds-haussa.",
-      sport: null,
-      group: null,
-      sourceSport: null,
-      rawCount: 0,
-      filteredCount: 0,
-      apiError: String(error),
       data: [],
       source: "empty",
+      empty: true,
+      quotaExceeded: false,
+      message: "odds route failed",
+      debug: {
+        error: error?.message || "unknown error",
+      },
     });
   }
 }
