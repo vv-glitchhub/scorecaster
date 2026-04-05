@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { buildQuickModel } from "../../../lib/model-engine-v1";
+import { getSupabaseAdmin } from "../../../lib/supabase-admin";
 
 export async function GET() {
   return NextResponse.json({
@@ -8,9 +9,20 @@ export async function GET() {
   });
 }
 
-function fallbackTeamStats(name, isHome = false) {
+function inferSportGroupFromLeague(league) {
+  if (!league) return "unknown";
+  if (league.startsWith("icehockey")) return "icehockey";
+  if (league.startsWith("basketball")) return "basketball";
+  if (league.startsWith("soccer")) return "soccer";
+  if (league.startsWith("americanfootball")) return "americanfootball";
+  return "unknown";
+}
+
+function fallbackTeamStats(name, sport, league, isHome = false) {
   return {
     team_name: name,
+    sport,
+    league,
     rating: isHome ? 58 : 54,
     form_last_5: isHome ? 56 : 50,
     attack_rating: isHome ? 57 : 52,
@@ -21,6 +33,8 @@ function fallbackTeamStats(name, isHome = false) {
     home_advantage: isHome ? 4 : 0,
     fatigue_index: isHome ? 2 : 3,
     injuries_count: isHome ? 1 : 2,
+    xg_for_last_5: isHome ? 3.0 : 2.5,
+    xg_against_last_5: isHome ? 2.4 : 2.8,
   };
 }
 
@@ -54,6 +68,26 @@ function buildFallbackContext(match) {
   };
 }
 
+async function getTeamRatingFromDb({ teamName, sport, league }) {
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return null;
+
+  const { data, error } = await supabase
+    .from("team_ratings")
+    .select("*")
+    .eq("team_name", teamName)
+    .eq("sport", sport)
+    .eq("league", league)
+    .maybeSingle();
+
+  if (error) {
+    console.error("team_ratings fetch error:", error.message);
+    return null;
+  }
+
+  return data || null;
+}
+
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -66,8 +100,28 @@ export async function POST(req) {
       );
     }
 
-    const homeTeamStats = fallbackTeamStats(match.home_team, true);
-    const awayTeamStats = fallbackTeamStats(match.away_team, false);
+    const league = match.sport_key || match.league || "unknown";
+    const sport = inferSportGroupFromLeague(league);
+
+    const [homeFromDb, awayFromDb] = await Promise.all([
+      getTeamRatingFromDb({
+        teamName: match.home_team,
+        sport,
+        league,
+      }),
+      getTeamRatingFromDb({
+        teamName: match.away_team,
+        sport,
+        league,
+      }),
+    ]);
+
+    const homeTeamStats =
+      homeFromDb || fallbackTeamStats(match.home_team, sport, league, true);
+
+    const awayTeamStats =
+      awayFromDb || fallbackTeamStats(match.away_team, sport, league, false);
+
     const oddsRows = mapOddsRowsFromBookmakers(match.bookmakers || []);
     const context = buildFallbackContext(match);
 
@@ -86,8 +140,17 @@ export async function POST(req) {
         home_team: match.home_team,
         away_team: match.away_team,
         commence_time: match.commence_time ?? null,
+        sport,
+        league,
       },
       analysis,
+      debug: {
+        homeFromDb: Boolean(homeFromDb),
+        awayFromDb: Boolean(awayFromDb),
+        modelVersion: analysis.modelVersion,
+        homeXgAdjustment: analysis.homeXgAdjustment,
+        awayXgAdjustment: analysis.awayXgAdjustment,
+      },
     });
   } catch (error) {
     return NextResponse.json(
