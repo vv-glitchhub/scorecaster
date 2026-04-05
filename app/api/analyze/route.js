@@ -20,7 +20,7 @@ function inferSportGroupFromLeague(league) {
 
 function fallbackTeamStats(name, sport, league, isHome = false) {
   return {
-    team_name: name,
+    team: name,
     sport,
     league,
     rating: isHome ? 58 : 54,
@@ -68,24 +68,60 @@ function buildFallbackContext(match) {
   };
 }
 
+function normalizeTeamName(value) {
+  return String(value || "").trim();
+}
+
 async function getTeamRatingFromDb({ teamName, sport, league }) {
   const supabase = getSupabaseAdmin();
   if (!supabase) return null;
 
-  const { data, error } = await supabase
+  const cleanTeamName = normalizeTeamName(teamName);
+
+  // 1) Exact match ensin
+  let query = supabase
     .from("team_ratings")
     .select("*")
-    .eq("team_name", teamName)
     .eq("sport", sport)
-    .eq("league", league)
-    .maybeSingle();
+    .eq("team", cleanTeamName);
 
-  if (error) {
-    console.error("team_ratings fetch error:", error.message);
+  if (league && league !== "unknown") {
+    query = query.eq("league", league);
+  }
+
+  const { data: exactRows, error: exactError } = await query.limit(1);
+
+  if (exactError) {
+    console.error("team_ratings exact fetch error:", exactError.message);
+  }
+
+  if (Array.isArray(exactRows) && exactRows.length > 0) {
+    return exactRows[0];
+  }
+
+  // 2) Case-insensitive fallback
+  let ilikeQuery = supabase
+    .from("team_ratings")
+    .select("*")
+    .eq("sport", sport)
+    .ilike("team", cleanTeamName);
+
+  if (league && league !== "unknown") {
+    ilikeQuery = ilikeQuery.eq("league", league);
+  }
+
+  const { data: ilikeRows, error: ilikeError } = await ilikeQuery.limit(1);
+
+  if (ilikeError) {
+    console.error("team_ratings ilike fetch error:", ilikeError.message);
     return null;
   }
 
-  return data || null;
+  if (Array.isArray(ilikeRows) && ilikeRows.length > 0) {
+    return ilikeRows[0];
+  }
+
+  return null;
 }
 
 export async function POST(req) {
@@ -145,8 +181,12 @@ export async function POST(req) {
       },
       analysis,
       debug: {
+        homeLookupName: normalizeTeamName(match.home_team),
+        awayLookupName: normalizeTeamName(match.away_team),
         homeFromDb: Boolean(homeFromDb),
         awayFromDb: Boolean(awayFromDb),
+        homeDbTeam: homeFromDb?.team || null,
+        awayDbTeam: awayFromDb?.team || null,
         modelVersion: analysis.modelVersion,
         homeXgAdjustment: analysis.homeXgAdjustment,
         awayXgAdjustment: analysis.awayXgAdjustment,
