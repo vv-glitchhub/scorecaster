@@ -193,6 +193,9 @@ export async function GET(req) {
     const group = searchParams.get("group");
     const apiKey = process.env.ODDS_API_KEY;
 
+    console.log("ODDS_API_KEY exists:", !!apiKey);
+    console.log("ODDS_API_KEY prefix:", apiKey ? apiKey.slice(0, 6) : "missing");
+
     if (!sport) {
       return NextResponse.json({
         data: [],
