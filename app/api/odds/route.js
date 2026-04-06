@@ -150,7 +150,9 @@ const DEMO_GAMES = {
   ],
 };
 
-function getFallbackGames(sport) {
+const LAST_GOOD_CACHE = new Map();
+
+function getDemoGames(sport) {
   return DEMO_GAMES[sport] || [];
 }
 
@@ -168,6 +170,19 @@ function sortByTimeAscending(games) {
     const aTime = new Date(a.commence_time || 0).getTime();
     const bTime = new Date(b.commence_time || 0).getTime();
     return aTime - bTime;
+  });
+}
+
+function getCachedGames(sport) {
+  const hit = LAST_GOOD_CACHE.get(sport);
+  if (!hit) return [];
+  return sortByTimeAscending(hit.data || []);
+}
+
+function setCachedGames(sport, games) {
+  LAST_GOOD_CACHE.set(sport, {
+    savedAt: Date.now(),
+    data: sortByTimeAscending(games),
   });
 }
 
@@ -193,18 +208,37 @@ export async function GET(req) {
     }
 
     if (!apiKey) {
-      const fallback = sortByTimeAscending(getFallbackGames(sport));
+      const cached = getCachedGames(sport);
+      if (cached.length > 0) {
+        return NextResponse.json({
+          data: cached,
+          source: "cached",
+          empty: false,
+          quotaExceeded: false,
+          message: "ODDS_API_KEY missing, using last cached live data",
+          debug: {
+            requestedSport: sport,
+            requestedGroup: group,
+            reason: "missing_api_key",
+            cachedCount: cached.length,
+            demoCount: 0,
+          },
+        });
+      }
+
+      const demo = sortByTimeAscending(getDemoGames(sport));
       return NextResponse.json({
-        data: fallback,
+        data: demo,
         source: "demo",
-        empty: fallback.length === 0,
+        empty: demo.length === 0,
         quotaExceeded: false,
         message: "ODDS_API_KEY missing, using demo fallback",
         debug: {
           requestedSport: sport,
           requestedGroup: group,
           reason: "missing_api_key",
-          fallbackCount: fallback.length,
+          cachedCount: 0,
+          demoCount: demo.length,
         },
       });
     }
@@ -212,7 +246,7 @@ export async function GET(req) {
     const url = `https://api.the-odds-api.com/v4/sports/${sport}/odds/?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
 
     const res = await fetch(url, {
-      next: { revalidate: 60 },
+      next: { revalidate: 300 },
     });
 
     const text = await res.text();
@@ -224,15 +258,12 @@ export async function GET(req) {
       json = [];
     }
 
-    const quotaExceeded =
-      !res.ok &&
-      typeof text === "string" &&
-      text.toLowerCase().includes("out_of_usage_credits");
-
     const rawGames = Array.isArray(json) ? json : [];
     const usableGames = sortByTimeAscending(rawGames.filter(isUsableGame));
 
     if (res.ok && usableGames.length > 0) {
+      setCachedGames(sport, usableGames);
+
       return NextResponse.json({
         data: usableGames,
         source: "live",
@@ -244,18 +275,43 @@ export async function GET(req) {
           requestedGroup: group,
           rawCount: rawGames.length,
           usableCount: usableGames.length,
-          fallbackCount: 0,
+          cachedCount: usableGames.length,
+          demoCount: 0,
           status: res.status,
         },
       });
     }
 
-    const fallback = sortByTimeAscending(getFallbackGames(sport));
+    const quotaExceeded = res.status === 429;
+    const cached = getCachedGames(sport);
+
+    if (cached.length > 0) {
+      return NextResponse.json({
+        data: cached,
+        source: "cached",
+        empty: false,
+        quotaExceeded,
+        message: quotaExceeded
+          ? "API quota exceeded, using last cached live data"
+          : "Live data unavailable, using last cached live data",
+        debug: {
+          requestedSport: sport,
+          requestedGroup: group,
+          rawCount: rawGames.length,
+          usableCount: usableGames.length,
+          cachedCount: cached.length,
+          demoCount: 0,
+          status: res.status,
+        },
+      });
+    }
+
+    const demo = sortByTimeAscending(getDemoGames(sport));
 
     return NextResponse.json({
-      data: fallback,
+      data: demo,
       source: "demo",
-      empty: fallback.length === 0,
+      empty: demo.length === 0,
       quotaExceeded,
       message: quotaExceeded
         ? "API quota exceeded, using demo fallback"
@@ -265,7 +321,8 @@ export async function GET(req) {
         requestedGroup: group,
         rawCount: rawGames.length,
         usableCount: usableGames.length,
-        fallbackCount: fallback.length,
+        cachedCount: 0,
+        demoCount: demo.length,
         status: res.status,
       },
     });
