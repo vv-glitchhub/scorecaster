@@ -102,6 +102,8 @@ const TEXT = {
     backendAnalysisFailed: "Backend-analyysiä ei saatu haettua.",
     noClearValue: "Selkeää value-kohdetta ei löytynyt.",
     debugTitle: "Debug",
+    valueBetList: "Value betit · Backend",
+    level: "Taso",
   },
   en: {
     title: "SCORECASTER",
@@ -196,6 +198,8 @@ const TEXT = {
     backendAnalysisFailed: "Backend analysis could not be loaded.",
     noClearValue: "No clear value bet found.",
     debugTitle: "Debug",
+    valueBetList: "Value bets · Backend",
+    level: "Level",
   },
 };
 
@@ -309,6 +313,27 @@ function getSourceMeta(source, t) {
     label: t.sourceEmpty,
     tone: "empty",
     description: "",
+  };
+}
+
+function getValueBetCardStyle(level, edge) {
+  if (level === "strong" || edge > 0.05) {
+    return {
+      border: "1px solid #166534",
+      background: "#0d1f18",
+    };
+  }
+
+  if (level === "playable" || edge > 0) {
+    return {
+      border: "1px solid #a16207",
+      background: "#2a1d08",
+    };
+  }
+
+  return {
+    border: "1px solid #334155",
+    background: "#101827",
   };
 }
 
@@ -656,6 +681,12 @@ export default function Page() {
       : recommendedSide === "away"
       ? analysisData?.analysis?.kellyAway
       : null;
+
+  const backendValueBets = Array.isArray(analysisData?.valueBets)
+    ? analysisData.valueBets
+        .filter((bet) => bet && typeof bet.edge === "number")
+        .sort((a, b) => b.edge - a.edge)
+    : [];
 
   return (
     <main style={styles.page}>
@@ -1061,9 +1092,7 @@ export default function Page() {
                         <div style={styles.rowCard}>
                           <span>{t.odds}</span>
                           <strong>
-                            {recommendedOdds != null
-                              ? recommendedOdds.toFixed(2)
-                              : "-"}
+                            {recommendedOdds != null ? recommendedOdds.toFixed(2) : "-"}
                           </strong>
                         </div>
                         <div style={styles.rowCard}>
@@ -1151,6 +1180,82 @@ export default function Page() {
                       </div>
                     </details>
                   </>
+                )}
+              </div>
+
+              <div style={{ marginTop: 14 }}>
+                <div style={styles.subTitle}>{t.valueBetList}</div>
+
+                {analysisLoading ? (
+                  <div style={styles.muted}>{t.loading}</div>
+                ) : backendValueBets.length === 0 ? (
+                  <div style={styles.muted}>{t.noClearValue}</div>
+                ) : (
+                  <div style={styles.stack}>
+                    {backendValueBets.map((bet, index) => {
+                      const cardStyle = getValueBetCardStyle(bet.level, bet.edge);
+
+                      return (
+                        <div
+                          key={`${bet.outcome}-${index}`}
+                          style={{
+                            ...styles.legacyCard,
+                            ...cardStyle,
+                          }}
+                        >
+                          <div style={styles.rowCard}>
+                            <span>{t.outcome}</span>
+                            <strong>{bet.outcome}</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.bookmaker}</span>
+                            <strong>{bet.bookmaker}</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.odds}</span>
+                            <strong>{Number(bet.odds || 0).toFixed(2)}</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.probability}</span>
+                            <strong>{(Number(bet.modelProb || 0) * 100).toFixed(1)}%</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.marketProbability}</span>
+                            <strong>{(Number(bet.marketProb || 0) * 100).toFixed(1)}%</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.edge}</span>
+                            <strong>{(Number(bet.edge || 0) * 100).toFixed(2)}%</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.expectedValue}</span>
+                            <strong>{(Number(bet.ev || 0) * 100).toFixed(2)}%</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.quarterKelly}</span>
+                            <strong>{(Number(bet.kelly || 0) * 0.25 * 100).toFixed(2)}%</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.suggestedStake}</span>
+                            <strong>{Number(bet.stake || 0).toFixed(2)} €</strong>
+                          </div>
+
+                          <div style={styles.rowCard}>
+                            <span>{t.level}</span>
+                            <strong>{bet.level}</strong>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
