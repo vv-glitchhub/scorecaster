@@ -134,7 +134,7 @@ function buildModelProbabilityMap(match, analysis) {
 export async function POST(req) {
   try {
     const body = await req.json();
-    const { match } = body;
+    const { match, bankroll } = body;
 
     if (!match?.home_team || !match?.away_team) {
       return NextResponse.json(
@@ -145,6 +145,8 @@ export async function POST(req) {
 
     const league = match.sport_key || match.league || "unknown";
     const sport = inferSportGroupFromLeague(league);
+    const parsedBankroll =
+      typeof bankroll === "number" && Number.isFinite(bankroll) ? bankroll : 1000;
 
     const [homeFromDb, awayFromDb] = await Promise.all([
       getTeamRatingFromDb({
@@ -182,7 +184,7 @@ export async function POST(req) {
     const valueBets = buildValueBets({
       oddsRows,
       modelProbabilities,
-      bankroll: 1000,
+      bankroll: parsedBankroll,
     });
 
     return NextResponse.json({
@@ -207,6 +209,7 @@ export async function POST(req) {
         homeXgAdjustment: analysis.homeXgAdjustment,
         awayXgAdjustment: analysis.awayXgAdjustment,
         oddsRowCount: oddsRows.length,
+        bankrollUsed: parsedBankroll,
       },
     });
   } catch (error) {
