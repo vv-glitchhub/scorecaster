@@ -79,15 +79,14 @@ async function getTeamRatingFromDb({ teamName, sport, league }) {
 
   const cleanTeamName = normalizeTeamName(teamName);
 
-  // 1) Exact match ensin
   let query = supabase
     .from("team_ratings")
     .select("*")
-    .eq("sport", sport)
+    .eq("sport_key", sport)
     .eq("team", cleanTeamName);
 
   if (league && league !== "unknown") {
-    query = query.eq("league", league);
+    query = query.eq("league_key", league);
   }
 
   const { data: exactRows, error: exactError } = await query.limit(1);
@@ -100,15 +99,14 @@ async function getTeamRatingFromDb({ teamName, sport, league }) {
     return exactRows[0];
   }
 
-  // 2) Case-insensitive fallback
   let ilikeQuery = supabase
     .from("team_ratings")
     .select("*")
-    .eq("sport", sport)
+    .eq("sport_key", sport)
     .ilike("team", cleanTeamName);
 
   if (league && league !== "unknown") {
-    ilikeQuery = ilikeQuery.eq("league", league);
+    ilikeQuery = ilikeQuery.eq("league_key", league);
   }
 
   const { data: ilikeRows, error: ilikeError } = await ilikeQuery.limit(1);
@@ -123,6 +121,14 @@ async function getTeamRatingFromDb({ teamName, sport, league }) {
   }
 
   return null;
+}
+
+function buildModelProbabilityMap(match, analysis) {
+  return {
+    [match.home_team]: analysis?.probabilities?.home ?? 0,
+    Draw: analysis?.probabilities?.draw ?? 0,
+    [match.away_team]: analysis?.probabilities?.away ?? 0,
+  };
 }
 
 export async function POST(req) {
@@ -171,6 +177,14 @@ export async function POST(req) {
       oddsRows,
     });
 
+    const modelProbabilities = buildModelProbabilityMap(match, analysis);
+
+    const valueBets = buildValueBets({
+      oddsRows,
+      modelProbabilities,
+      bankroll: 1000,
+    });
+
     return NextResponse.json({
       match: {
         id: match.id ?? null,
@@ -181,6 +195,7 @@ export async function POST(req) {
         league,
       },
       analysis,
+      valueBets,
       debug: {
         homeLookupName: normalizeTeamName(match.home_team),
         awayLookupName: normalizeTeamName(match.away_team),
@@ -191,6 +206,7 @@ export async function POST(req) {
         modelVersion: analysis.modelVersion,
         homeXgAdjustment: analysis.homeXgAdjustment,
         awayXgAdjustment: analysis.awayXgAdjustment,
+        oddsRowCount: oddsRows.length,
       },
     });
   } catch (error) {
