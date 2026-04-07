@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { buildQuickModel } from "../../../lib/model-engine-v1";
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
+import { buildValueBets } from "../../../lib/model/value-engine";
 
 export async function GET() {
   return NextResponse.json({
