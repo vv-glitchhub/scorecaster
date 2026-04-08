@@ -8,11 +8,20 @@ function buildMatchLabel(match) {
   return `${match.home_team} vs ${match.away_team}`;
 }
 
-function getAllH2HMarkets(oddsData) {
-  const bookmakers = Array.isArray(oddsData?.bookmakers)
-    ? oddsData.bookmakers
-    : [];
+function normalizeDrawName(name) {
+  const lower = String(name ?? "").trim().toLowerCase();
+  return lower === "draw" || lower === "tie" ? "Draw" : name;
+}
 
+function getNormalizedBookmakers(oddsData) {
+  if (Array.isArray(oddsData?.bookmakers)) return oddsData.bookmakers;
+  if (Array.isArray(oddsData?.data?.bookmakers)) return oddsData.data.bookmakers;
+  if (Array.isArray(oddsData?.bookmaker_data)) return oddsData.bookmaker_data;
+  return [];
+}
+
+function getAllH2HMarkets(oddsData) {
+  const bookmakers = getNormalizedBookmakers(oddsData);
   const result = [];
 
   for (const bookmaker of bookmakers) {
@@ -21,11 +30,26 @@ function getAllH2HMarkets(oddsData) {
 
     if (!h2h?.outcomes?.length) continue;
 
+    const outcomes = h2h.outcomes
+      .map((outcome) => {
+        const odds = Number(outcome?.price ?? outcome?.odds);
+        if (!Number.isFinite(odds)) return null;
+
+        return {
+          ...outcome,
+          name: normalizeDrawName(outcome?.name),
+          odds,
+        };
+      })
+      .filter(Boolean);
+
+    if (!outcomes.length) continue;
+
     result.push({
       bookmakerKey: bookmaker?.key ?? null,
       bookmakerTitle: bookmaker?.title ?? "Unknown",
       marketKey: h2h?.key ?? "h2h",
-      outcomes: h2h.outcomes,
+      outcomes,
     });
   }
 
@@ -33,9 +57,7 @@ function getAllH2HMarkets(oddsData) {
 }
 
 function getBestOddsRows(oddsData, match) {
-  const bookmakers = Array.isArray(oddsData?.bookmakers)
-    ? oddsData.bookmakers
-    : [];
+  const bookmakers = getNormalizedBookmakers(oddsData);
 
   const best = {
     [match?.home_team]: null,
@@ -48,16 +70,10 @@ function getBestOddsRows(oddsData, match) {
     if (!h2h?.outcomes) continue;
 
     for (const outcome of h2h.outcomes) {
-      const name = String(outcome?.name ?? "").trim();
       const odds = Number(outcome?.price ?? outcome?.odds);
-
       if (!Number.isFinite(odds)) continue;
 
-      let key = name;
-      if (name.toLowerCase() === "draw" || name.toLowerCase() === "tie") {
-        key = "Draw";
-      }
-
+      const key = normalizeDrawName(String(outcome?.name ?? "").trim());
       if (!(key in best)) continue;
 
       const current = best[key];
@@ -72,6 +88,85 @@ function getBestOddsRows(oddsData, match) {
   }
 
   return Object.values(best).filter(Boolean);
+}
+
+function buildFallbackBookmakersFromBestOdds(bestOddsRows, match) {
+  if (!Array.isArray(bestOddsRows) || !bestOddsRows.length) return [];
+
+  return [
+    {
+      key: "fallback-book",
+      title: "FallbackBook",
+      markets: [
+        {
+          key: "h2h",
+          outcomes: bestOddsRows.map((row) => ({
+            name: normalizeDrawName(row.outcomeName),
+            odds: Number(row.odds),
+          })),
+        },
+      ],
+    },
+  ];
+}
+
+function buildFallbackValueBetsFromBestOdds({
+  match,
+  bestOddsRows,
+  bankroll,
+}) {
+  if (!Array.isArray(bestOddsRows) || !bestOddsRows.length) return [];
+
+  const defaultModel = {
+    [match.home_team]: 0.45,
+    [match.away_team]: 0.35,
+    Draw: 0.2,
+  };
+
+  const totalRaw = bestOddsRows.reduce((sum, row) => {
+    const odds = Number(row.odds);
+    return Number.isFinite(odds) && odds > 1 ? sum + 1 / odds : sum;
+  }, 0);
+
+  return bestOddsRows.map((row, index) => {
+    const odds = Number(row.odds);
+    const marketProbability =
+      Number.isFinite(odds) && odds > 1 && totalRaw > 0 ? (1 / odds) / totalRaw : 0.33;
+
+    const modelProbability = defaultModel[normalizeDrawName(row.outcomeName)] ?? 0.33;
+    const edge = modelProbability - marketProbability;
+    const ev = modelProbability * odds - 1;
+    const b = odds - 1;
+    const q = 1 - modelProbability;
+    const rawKelly = b > 0 ? ((b * modelProbability) - q) / b : 0;
+    const kelly = Math.max(0, Math.min(rawKelly, 0.25));
+    const recommendedStake = bankroll > 0 ? Number((bankroll * kelly).toFixed(2)) : 0;
+    const isBet = edge >= 0.005 && ev >= 0.005;
+    const confidence = Math.max(0, Math.min(100, Math.round(20 + edge * 900 + ev * 500)));
+
+    return {
+      match: buildMatchLabel(match),
+      marketKey: "h2h",
+      outcomeName: normalizeDrawName(row.outcomeName),
+      bookmaker: row.bookmaker ?? "FallbackBook",
+      odds: Number(odds.toFixed(2)),
+      fairOdds: Number((1 / modelProbability).toFixed(3)),
+      modelProbability: Number(modelProbability.toFixed(4)),
+      marketProbability: Number(marketProbability.toFixed(4)),
+      edge: Number(edge.toFixed(4)),
+      ev: Number(ev.toFixed(4)),
+      kelly: Number(kelly.toFixed(4)),
+      recommendedStake,
+      isBet,
+      status: isBet ? "bet" : "no_bet",
+      noBetReasons: isBet ? [] : ["fallback_model"],
+      confidence,
+      grade: isBet ? (edge >= 0.08 ? "A" : edge >= 0.05 ? "B" : edge >= 0.025 ? "C" : "D") : "F",
+      reasonTag: "fallback",
+      _fallback: true,
+      _rank: index + 1,
+    };
+  });
 }
 
 export async function POST(req) {
@@ -93,16 +188,25 @@ export async function POST(req) {
       );
     }
 
-    const normalizedOddsData = {
+    let normalizedOddsData = {
       ...oddsData,
-      bookmakers: Array.isArray(oddsData?.bookmakers)
-        ? oddsData.bookmakers
-        : Array.isArray(oddsData?.data?.bookmakers)
-        ? oddsData.data.bookmakers
-        : [],
+      bookmakers: getNormalizedBookmakers(oddsData),
     };
 
-    if (!normalizedOddsData.bookmakers.length) {
+    let bestOdds = getBestOddsRows(normalizedOddsData, match);
+
+    if (!normalizedOddsData.bookmakers.length && bestOdds.length) {
+      normalizedOddsData = {
+        ...normalizedOddsData,
+        bookmakers: buildFallbackBookmakersFromBestOdds(bestOdds, match),
+      };
+    }
+
+    if (!bestOdds.length) {
+      bestOdds = getBestOddsRows(normalizedOddsData, match);
+    }
+
+    if (!normalizedOddsData.bookmakers.length && !bestOdds.length) {
       return NextResponse.json(
         {
           ok: false,
@@ -122,36 +226,47 @@ export async function POST(req) {
       teamRatings,
     });
 
-    const modelProbabilitiesByOutcome = mapModelProbabilitiesToOutcomeNames(
-      match,
-      rawModel
-    );
+    const mappedModel = mapModelProbabilitiesToOutcomeNames(match, rawModel);
+
+    const safeModelProbabilities =
+      mappedModel && Object.keys(mappedModel).length > 0
+        ? mappedModel
+        : {
+            [match.home_team]: 0.45,
+            [match.away_team]: 0.35,
+            Draw: 0.2,
+          };
 
     const h2hMarkets = getAllH2HMarkets(normalizedOddsData);
     const matchLabel = buildMatchLabel(match);
 
-    const valueBets = h2hMarkets.flatMap((market) =>
+    let valueBets = h2hMarkets.flatMap((market) =>
       buildValueBets({
         matchLabel,
         marketKey: market.marketKey,
         bookmaker: market.bookmakerTitle,
         outcomes: market.outcomes,
-        modelProbabilitiesByOutcome,
+        modelProbabilitiesByOutcome: safeModelProbabilities,
         bankroll,
         config: {
           minOdds: 1.01,
           maxOdds: 100,
           minProbability: 0.0001,
           maxProbability: 0.9999,
-
-          // Löysemmät rajat, jotta demo-datalla löytyy kohteita
           minEdgeToBet: 0.005,
           minEvToBet: 0.005,
-
           maxKellyFraction: 0.25,
         },
       })
     );
+
+    if (!valueBets.length && bestOdds.length) {
+      valueBets = buildFallbackValueBetsFromBestOdds({
+        match,
+        bestOddsRows: bestOdds,
+        bankroll,
+      });
+    }
 
     const sortedValueBets = [...valueBets].sort((a, b) => {
       const aScore =
@@ -169,12 +284,12 @@ export async function POST(req) {
       return bScore - aScore;
     });
 
-    const bestBet = sortedValueBets.find((bet) => bet.isBet) ?? sortedValueBets[0] ?? null;
-    const bestOdds = getBestOddsRows(normalizedOddsData, match);
+    const bestBet =
+      sortedValueBets.find((bet) => bet.isBet) ??
+      sortedValueBets[0] ??
+      null;
 
     let topPicks = sortedValueBets.filter((bet) => bet.isBet).slice(0, 3);
-
-    // Fallback: jos ei yhtään varsinaista bettiä, näytä 3 parasta silti
     if (topPicks.length === 0) {
       topPicks = sortedValueBets.slice(0, 3);
     }
@@ -188,7 +303,7 @@ export async function POST(req) {
       },
       model: {
         raw: rawModel,
-        mapped: modelProbabilitiesByOutcome,
+        mapped: safeModelProbabilities,
       },
       bestOdds,
       bestBet,
@@ -199,6 +314,7 @@ export async function POST(req) {
         h2hMarketsCount: h2hMarkets.length,
         valueBetsCount: sortedValueBets.length,
         topPicksCount: topPicks.length,
+        usedFallbackValueBets: !h2hMarkets.length || valueBets.some((x) => x._fallback),
       },
     });
   } catch (error) {
