@@ -77,7 +77,9 @@ function BestOddsList({ bestOdds = [] }) {
           className="flex items-center justify-between rounded-2xl border border-slate-700 bg-[#08183E] px-6 py-5"
         >
           <span className="text-2xl font-bold text-white">{row.outcomeName}</span>
-          <span className="text-2xl font-bold text-white">{formatOdds(row.odds)} • {row.bookmaker}</span>
+          <span className="text-2xl font-bold text-white">
+            {formatOdds(row.odds)} • {row.bookmaker}
+          </span>
         </div>
       ))}
     </section>
