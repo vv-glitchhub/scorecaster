@@ -97,6 +97,13 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
     async function run() {
       if (!match || !oddsData) return;
 
+      console.log("ANALYSIS PANEL INPUT", {
+        match,
+        oddsData,
+        hasBookmakers: Array.isArray(oddsData?.bookmakers),
+        bookmakersCount: Array.isArray(oddsData?.bookmakers) ? oddsData.bookmakers.length : 0,
+      });
+
       setLoadingAnalyze(true);
       setAnalyzeError("");
 
@@ -108,6 +115,8 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
       });
 
       if (!active) return;
+
+      console.log("ANALYSIS PANEL RESPONSE", data);
 
       if (data) {
         setAnalyzeData(data);
