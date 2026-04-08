@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
 import { buildQuickModel } from "../../../lib/model-engine-v1";
+import { getTeamProfile } from "../../../lib/team-ratings";
 
 export async function GET(req) {
   try {
@@ -23,11 +24,19 @@ export async function GET(req) {
     }
 
     const model = buildQuickModel({});
+    const profiles =
+      homeTeam && awayTeam
+        ? {
+            home: getTeamProfile(homeTeam, teamRatings),
+            away: getTeamProfile(awayTeam, teamRatings),
+          }
+        : null;
 
     return NextResponse.json({
       ok: true,
       model,
       teamRatings,
+      profiles,
     });
   } catch (error) {
     return NextResponse.json(
