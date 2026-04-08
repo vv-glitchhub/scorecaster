@@ -60,7 +60,11 @@ function Row({ label, value }) {
 
 function ValueBetCard({ bet }) {
   return (
-    <div className="rounded-[28px] border border-slate-700 bg-[#08183E] p-6 shadow-lg">
+    <div
+      className={`rounded-[28px] border p-6 shadow-lg ${
+        bet.edge > 0 ? "border-green-700 bg-[#08183E]" : "border-red-700 bg-[#08183E]"
+      }`}
+    >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-2xl font-extrabold text-white">{bet.outcomeName ?? "—"}</div>
         <div className="flex items-center gap-2">
@@ -77,14 +81,8 @@ function ValueBetCard({ bet }) {
         <Row label="Vedonvälittäjä" value={bet.bookmaker ?? "—"} />
         <Row label="Kerroin" value={formatOdds(bet.odds)} />
         <Row label="Fair odds" value={formatOdds(bet.fairOdds)} />
-        <Row
-          label="Mallin todennäköisyys"
-          value={formatPercent(bet.modelProbability)}
-        />
-        <Row
-          label="Markkinan todennäköisyys"
-          value={formatPercent(bet.marketProbability)}
-        />
+        <Row label="Mallin todennäköisyys" value={formatPercent(bet.modelProbability)} />
+        <Row label="Markkinan todennäköisyys" value={formatPercent(bet.marketProbability)} />
         <Row label="Edge" value={formatPercent(bet.edge)} />
         <Row label="Odotusarvo" value={formatPercent(bet.ev)} />
         <Row label="Quarter Kelly" value={formatPercent(bet.kelly)} />
@@ -93,8 +91,8 @@ function ValueBetCard({ bet }) {
         <Row label="Taso" value={bet.status ?? "—"} />
       </div>
 
-      {Array.isArray(bet.noBetReasons) && bet.noBetReasons.length > 0 ? (
-        <div className="mt-4 rounded-2xl border border-slate-700 bg-[#061433] px-4 py-3 text-sm text-slate-300">
+      {!bet.isBet && Array.isArray(bet.noBetReasons) && bet.noBetReasons.length > 0 ? (
+        <div className="mt-4 rounded-2xl border border-red-800 bg-[#3A0C0C] px-4 py-3 text-sm text-red-200">
           {bet.noBetReasons.join(", ")}
         </div>
       ) : null}
