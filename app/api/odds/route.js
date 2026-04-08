@@ -1,170 +1,70 @@
-import { NextResponse } from "next/server";
+import { NextResponse } from "next/server"
 
-const DEMO_MATCHES = [
-  {
-    id: "demo-liiga-1",
-    sport_key: "icehockey_liiga",
-    sport_title: "Liiga",
-    commence_time: "2026-04-05T17:30:00Z",
-    home_team: "Tappara",
-    away_team: "Ilves",
-  },
-  {
-    id: "demo-liiga-2",
-    sport_key: "icehockey_liiga",
-    sport_title: "Liiga",
-    commence_time: "2026-04-06T15:00:00Z",
-    home_team: "Lukko",
-    away_team: "TPS",
-  },
-];
+const API_KEY = process.env.ODDS_API_KEY
+const BASE_URL = "https://api.the-odds-api.com/v4/sports"
 
-function buildDemoOdds(match) {
-  return {
-    id: match.id,
-    sport_key: match.sport_key,
-    sport_title: match.sport_title,
-    commence_time: match.commence_time,
-    home_team: match.home_team,
-    away_team: match.away_team,
-    bookmakers: [
-      {
-        key: "demobook",
-        title: "DemoBook",
-        markets: [
-          {
-            key: "h2h",
-            outcomes: [
-              { name: match.home_team, price: 2.25 },
-              { name: match.away_team, price: 1.78 },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-}
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const sport = searchParams.get("sport") || "icehockey_liiga"
 
-function normalizeSportToOddsKey(sport) {
-  const value = String(sport ?? "").trim().toLowerCase();
+  if (!API_KEY) {
+    return NextResponse.json({
+      status: 401,
+      reason: "Missing API key",
+      demo: true,
+      data: getDemoData()
+    })
+  }
 
-  if (!value) return "icehockey_liiga";
-  if (value.includes("liiga")) return "icehockey_liiga";
-  if (value.includes("nhl")) return "icehockey_nhl";
-  if (value.includes("soccer") || value.includes("jalkapallo")) return "soccer_epl";
-  if (value.includes("basket")) return "basketball_nba";
-
-  return value;
-}
-
-export async function GET(req) {
   try {
-    const { searchParams } = new URL(req.url);
-    const requestedSport = searchParams.get("sport") || "icehockey_liiga";
-    const sportKey = normalizeSportToOddsKey(requestedSport);
-
-    const apiKey =
-      process.env.ODDS_API_KEY ||
-      process.env.THE_ODDS_API_KEY ||
-      "";
-
-    if (!apiKey) {
-      const demoData = DEMO_MATCHES
-        .filter((m) => m.sport_key === sportKey || sportKey === "icehockey_liiga")
-        .map(buildDemoOdds);
-
-      return NextResponse.json({
-        ok: true,
-        source: "demo",
-        data: demoData,
-        debug: {
-          requestedSport: sportKey,
-          requestedGroup: "icehockey",
-          rawCount: 0,
-          usableCount: 0,
-          cachedCount: 0,
-          demoCount: demoData.length,
-          status: 401,
-          reason: "Missing API key",
-        },
-      });
-    }
-
-    const url =
-      `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
-      `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
-
-    const res = await fetch(url, {
-      next: { revalidate: 60 },
-    });
+    const res = await fetch(
+      `${BASE_URL}/${sport}/odds/?regions=eu&markets=h2h&apiKey=${API_KEY}`
+    )
 
     if (!res.ok) {
-      const demoData = DEMO_MATCHES
-        .filter((m) => m.sport_key === sportKey || sportKey === "icehockey_liiga")
-        .map(buildDemoOdds);
-
       return NextResponse.json({
-        ok: true,
-        source: "demo",
-        data: demoData,
-        debug: {
-          requestedSport: sportKey,
-          requestedGroup: "icehockey",
-          rawCount: 0,
-          usableCount: 0,
-          cachedCount: 0,
-          demoCount: demoData.length,
-          status: res.status,
-          reason: "Live data unavailable, using demo fallback",
-        },
-      });
+        status: res.status,
+        reason: "Live data unavailable, using demo fallback",
+        demo: true,
+        data: getDemoData()
+      })
     }
 
-    const raw = await res.json();
-
-    const normalized = Array.isArray(raw)
-      ? raw.map((match) => ({
-          id: match.id,
-          sport_key: match.sport_key,
-          sport_title: match.sport_title,
-          commence_time: match.commence_time,
-          home_team: match.home_team,
-          away_team: match.away_team,
-          bookmakers: Array.isArray(match.bookmakers) ? match.bookmakers : [],
-        }))
-      : [];
+    const data = await res.json()
 
     return NextResponse.json({
-      ok: true,
-      source: "live",
-      data: normalized,
-      debug: {
-        requestedSport: sportKey,
-        requestedGroup: "icehockey",
-        rawCount: normalized.length,
-        usableCount: normalized.length,
-        cachedCount: 0,
-        demoCount: 0,
-        status: 200,
-      },
-    });
-  } catch (error) {
-    const demoData = DEMO_MATCHES.map(buildDemoOdds);
-
+      status: 200,
+      demo: false,
+      data
+    })
+  } catch (err) {
     return NextResponse.json({
-      ok: true,
-      source: "demo",
-      data: demoData,
-      debug: {
-        requestedSport: "icehockey_liiga",
-        requestedGroup: "icehockey",
-        rawCount: 0,
-        usableCount: 0,
-        cachedCount: 0,
-        demoCount: demoData.length,
-        status: 500,
-        reason: error?.message ?? "Unknown error",
-      },
-    });
+      status: 500,
+      reason: "Fetch failed, using demo fallback",
+      demo: true,
+      data: getDemoData()
+    })
   }
+}
+
+function getDemoData() {
+  return [
+    {
+      home_team: "Tappara",
+      away_team: "Ilves",
+      bookmakers: [
+        {
+          title: "DemoBook",
+          markets: [
+            {
+              outcomes: [
+                { name: "Tappara", price: 2.25 },
+                { name: "Ilves", price: 1.78 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
 }
