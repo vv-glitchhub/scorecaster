@@ -91,6 +91,16 @@ export async function POST(req) {
       );
     }
 
+    if (!Array.isArray(oddsData?.bookmakers)) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "Invalid oddsData shape",
+        },
+        { status: 400 }
+      );
+    }
+
     const rawModel = await getModelProbabilitiesForMatch({
       match,
       oddsData,
@@ -126,13 +136,24 @@ export async function POST(req) {
     );
 
     const sortedValueBets = [...valueBets].sort((a, b) => {
-      const aScore = (a.isBet ? 1000 : 0) + (a.ev ?? -999) * 100 + (a.edge ?? -999);
-      const bScore = (b.isBet ? 1000 : 0) + (b.ev ?? -999) * 100 + (b.edge ?? -999);
+      const aScore =
+        (a.isBet ? 1000 : 0) +
+        (a.confidence ?? 0) * 10 +
+        (a.ev ?? -999) * 100 +
+        (a.edge ?? -999);
+
+      const bScore =
+        (b.isBet ? 1000 : 0) +
+        (b.confidence ?? 0) * 10 +
+        (b.ev ?? -999) * 100 +
+        (b.edge ?? -999);
+
       return bScore - aScore;
     });
 
     const bestBet = sortedValueBets.find((bet) => bet.isBet) ?? null;
     const bestOdds = getBestOddsRows(oddsData, match);
+    const topPicks = sortedValueBets.filter((bet) => bet.isBet).slice(0, 3);
 
     return NextResponse.json({
       ok: true,
@@ -147,6 +168,7 @@ export async function POST(req) {
       },
       bestOdds,
       bestBet,
+      topPicks,
       valueBets: sortedValueBets,
       debug: {
         bookmakersCount: Array.isArray(oddsData?.bookmakers)
