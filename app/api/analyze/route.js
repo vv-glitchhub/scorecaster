@@ -1,77 +1,3 @@
-import { NextResponse } from "next/server";
-import { buildValueBets } from "../../../lib/betting/value-engine";
-import { mapModelProbabilitiesToOutcomeNames } from "../../../lib/betting/outcome-mapper";
-import { getModelProbabilitiesForMatch } from "../../../lib/model-engine-v1";
-
-function buildMatchLabel(match) {
-  if (!match) return "Unknown match";
-  return `${match.home_team} vs ${match.away_team}`;
-}
-
-function getAllH2HMarkets(oddsData) {
-  const bookmakers = Array.isArray(oddsData?.bookmakers)
-    ? oddsData.bookmakers
-    : [];
-
-  const result = [];
-
-  for (const bookmaker of bookmakers) {
-    const markets = Array.isArray(bookmaker?.markets) ? bookmaker.markets : [];
-    const h2h = markets.find((market) => market?.key === "h2h");
-    if (!h2h?.outcomes?.length) continue;
-
-    result.push({
-      bookmakerKey: bookmaker?.key ?? null,
-      bookmakerTitle: bookmaker?.title ?? "Unknown",
-      marketKey: h2h?.key ?? "h2h",
-      outcomes: h2h.outcomes,
-    });
-  }
-
-  return result;
-}
-
-function getBestOddsRows(oddsData, match) {
-  const bookmakers = Array.isArray(oddsData?.bookmakers)
-    ? oddsData.bookmakers
-    : [];
-
-  const best = {
-    [match?.home_team]: null,
-    [match?.away_team]: null,
-    Draw: null,
-  };
-
-  for (const bookmaker of bookmakers) {
-    const h2h = bookmaker?.markets?.find((market) => market?.key === "h2h");
-    if (!h2h?.outcomes) continue;
-
-    for (const outcome of h2h.outcomes) {
-      const name = String(outcome?.name ?? "").trim();
-      const odds = Number(outcome?.price ?? outcome?.odds);
-      if (!Number.isFinite(odds)) continue;
-
-      let key = name;
-      if (name.toLowerCase() === "draw" || name.toLowerCase() === "tie") {
-        key = "Draw";
-      }
-
-      if (!(key in best)) continue;
-
-      const current = best[key];
-      if (!current || odds > current.odds) {
-        best[key] = {
-          outcomeName: key,
-          odds,
-          bookmaker: bookmaker?.title ?? "Unknown",
-        };
-      }
-    }
-  }
-
-  return Object.values(best).filter(Boolean);
-}
-
 export async function POST(req) {
   try {
     const body = await req.json();
@@ -91,11 +17,24 @@ export async function POST(req) {
       );
     }
 
-    if (!Array.isArray(oddsData?.bookmakers)) {
+    const normalizedOddsData = {
+      ...oddsData,
+      bookmakers: Array.isArray(oddsData?.bookmakers)
+        ? oddsData.bookmakers
+        : Array.isArray(oddsData?.data?.bookmakers)
+        ? oddsData.data.bookmakers
+        : [],
+    };
+
+    if (!normalizedOddsData.bookmakers.length) {
       return NextResponse.json(
         {
           ok: false,
           error: "Invalid oddsData shape",
+          debug: {
+            hasOddsData: Boolean(oddsData),
+            oddsDataKeys: oddsData ? Object.keys(oddsData) : [],
+          },
         },
         { status: 400 }
       );
@@ -103,7 +42,7 @@ export async function POST(req) {
 
     const rawModel = await getModelProbabilitiesForMatch({
       match,
-      oddsData,
+      oddsData: normalizedOddsData,
       teamRatings,
     });
 
@@ -112,7 +51,7 @@ export async function POST(req) {
       rawModel
     );
 
-    const h2hMarkets = getAllH2HMarkets(oddsData);
+    const h2hMarkets = getAllH2HMarkets(normalizedOddsData);
     const matchLabel = buildMatchLabel(match);
 
     const valueBets = h2hMarkets.flatMap((market) =>
@@ -152,7 +91,7 @@ export async function POST(req) {
     });
 
     const bestBet = sortedValueBets.find((bet) => bet.isBet) ?? null;
-    const bestOdds = getBestOddsRows(oddsData, match);
+    const bestOdds = getBestOddsRows(normalizedOddsData, match);
     const topPicks = sortedValueBets.filter((bet) => bet.isBet).slice(0, 3);
 
     return NextResponse.json({
@@ -171,9 +110,7 @@ export async function POST(req) {
       topPicks,
       valueBets: sortedValueBets,
       debug: {
-        bookmakersCount: Array.isArray(oddsData?.bookmakers)
-          ? oddsData.bookmakers.length
-          : 0,
+        bookmakersCount: normalizedOddsData.bookmakers.length,
         h2hMarketsCount: h2hMarkets.length,
       },
     });
