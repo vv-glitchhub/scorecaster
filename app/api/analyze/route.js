@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { buildValueBets } from "@/lib/betting/value-engine";
-import { mapModelProbabilitiesToOutcomeNames } from "@/lib/betting/outcome-mapper";
-import { getModelProbabilitiesForMatch } from "@/lib/model-engine-v1";
+import { buildValueBets } from "../../../lib/betting/value-engine";
+import { mapModelProbabilitiesToOutcomeNames } from "../../../lib/betting/outcome-mapper";
+import { getModelProbabilitiesForMatch } from "../../../lib/model-engine-v1";
 
 function buildMatchLabel(match) {
   if (!match) return "Unknown match";
