@@ -21,17 +21,20 @@ function formatMoney(value) {
   return `${Number(value).toFixed(2)} €`;
 }
 
+function Badge({ label, className }) {
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${className}`}>
+      {label}
+    </span>
+  );
+}
+
 function StatusBadge({ isBet }) {
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${
-        isBet
-          ? "bg-green-600 text-white"
-          : "bg-orange-600 text-white"
-      }`}
-    >
-      {isBet ? "Bet" : "No bet"}
-    </span>
+    <Badge
+      label={isBet ? "Bet" : "No bet"}
+      className={isBet ? "bg-green-600 text-white" : "bg-orange-600 text-white"}
+    />
   );
 }
 
@@ -44,15 +47,38 @@ function GradeBadge({ grade }) {
     F: "bg-red-600 text-white",
   };
 
-  return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-extrabold uppercase tracking-wide ${
-        styles[grade] ?? "bg-slate-600 text-white"
-      }`}
-    >
-      {grade ?? "—"}
-    </span>
-  );
+  return <Badge label={grade ?? "—"} className={styles[grade] ?? "bg-slate-600 text-white"} />;
+}
+
+function MarketSignalBadge({ signal }) {
+  const styles = {
+    market_underpricing: "bg-blue-600 text-white",
+    model_edge: "bg-indigo-600 text-white",
+    neutral: "bg-slate-600 text-white",
+    market_expensive: "bg-red-700 text-white",
+    unknown: "bg-slate-700 text-white",
+  };
+
+  return <Badge label={signal ?? "unknown"} className={styles[signal] ?? "bg-slate-700 text-white"} />;
+}
+
+function BucketBadge({ label }) {
+  const map = {
+    elite: "bg-green-700 text-white",
+    strong: "bg-emerald-700 text-white",
+    solid: "bg-blue-700 text-white",
+    thin: "bg-yellow-600 text-black",
+    marginal: "bg-orange-600 text-white",
+    negative: "bg-red-700 text-white",
+    none: "bg-slate-700 text-white",
+    tiny: "bg-slate-600 text-white",
+    small: "bg-cyan-700 text-white",
+    medium: "bg-blue-700 text-white",
+    aggressive: "bg-purple-700 text-white",
+    unknown: "bg-slate-700 text-white",
+  };
+
+  return <Badge label={label ?? "unknown"} className={map[label] ?? "bg-slate-700 text-white"} />;
 }
 
 function Row({ label, value }) {
@@ -74,13 +100,24 @@ function NoBetReasons({ reasons }) {
   );
 }
 
+function ClvBox({ clv }) {
+  if (!clv) return null;
+
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-700 bg-[#061433] px-4 py-3 text-sm text-slate-200">
+      <div>Opening odds: {formatOdds(clv.openingOdds)}</div>
+      <div>Current odds: {formatOdds(clv.currentOdds)}</div>
+      <div>Target close odds: {formatOdds(clv.targetCloseOdds)}</div>
+      <div>Estimated CLV edge: {formatOdds(clv.estimatedClvEdge)}</div>
+    </div>
+  );
+}
+
 function ValueBetCard({ bet }) {
   return (
     <div
       className={`rounded-[28px] border p-6 shadow-lg ${
-        bet.isBet
-          ? "border-green-700 bg-[#08183E]"
-          : "border-orange-700 bg-[#08183E]"
+        bet.isBet ? "border-green-700 bg-[#08183E]" : "border-orange-700 bg-[#08183E]"
       }`}
     >
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -93,10 +130,17 @@ function ValueBetCard({ bet }) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <GradeBadge grade={bet.grade} />
           <StatusBadge isBet={bet.isBet} />
+          <MarketSignalBadge signal={bet.marketSignal} />
         </div>
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        <BucketBadge label={bet.edgeBucket} />
+        <BucketBadge label={bet.evBucket} />
+        <BucketBadge label={bet.kellyBucket} />
       </div>
 
       <div className="mb-4 inline-flex rounded-full border border-slate-700 bg-[#061433] px-3 py-1 text-sm font-semibold text-slate-300">
@@ -106,14 +150,8 @@ function ValueBetCard({ bet }) {
       <div className="grid gap-3 md:grid-cols-2">
         <Row label="Kerroin" value={formatOdds(bet.odds)} />
         <Row label="Fair odds" value={formatOdds(bet.fairOdds)} />
-        <Row
-          label="Mallin todennäköisyys"
-          value={formatPercent(bet.modelProbability)}
-        />
-        <Row
-          label="Markkinan todennäköisyys"
-          value={formatPercent(bet.marketProbability)}
-        />
+        <Row label="Mallin todennäköisyys" value={formatPercent(bet.modelProbability)} />
+        <Row label="Markkinan todennäköisyys" value={formatPercent(bet.marketProbability)} />
         <Row label="Edge" value={formatPercent(bet.edge)} />
         <Row label="Odotusarvo" value={formatPercent(bet.ev)} />
         <Row label="Quarter Kelly" value={formatPercent(bet.kelly)} />
@@ -122,6 +160,7 @@ function ValueBetCard({ bet }) {
         <Row label="Taso" value={bet.status ?? "—"} />
       </div>
 
+      <ClvBox clv={bet.clv} />
       <NoBetReasons reasons={bet.noBetReasons} />
     </div>
   );
