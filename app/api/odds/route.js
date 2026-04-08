@@ -115,7 +115,7 @@ export async function GET(req) {
           cachedCount: 0,
           demoCount: demoData.length,
           status: res.status,
-          reason: `Live data unavailable, using demo fallback`,
+          reason: "Live data unavailable, using demo fallback",
         },
       });
     }
