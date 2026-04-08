@@ -27,7 +27,6 @@ function getAllH2HMarkets(oddsData) {
   for (const bookmaker of bookmakers) {
     const markets = Array.isArray(bookmaker?.markets) ? bookmaker.markets : [];
     const h2h = markets.find((market) => market?.key === "h2h");
-
     if (!h2h?.outcomes?.length) continue;
 
     const outcomes = h2h.outcomes
@@ -90,7 +89,7 @@ function getBestOddsRows(oddsData, match) {
   return Object.values(best).filter(Boolean);
 }
 
-function buildFallbackBookmakersFromBestOdds(bestOddsRows, match) {
+function buildFallbackBookmakersFromBestOdds(bestOddsRows) {
   if (!Array.isArray(bestOddsRows) || !bestOddsRows.length) return [];
 
   return [
@@ -110,11 +109,7 @@ function buildFallbackBookmakersFromBestOdds(bestOddsRows, match) {
   ];
 }
 
-function buildFallbackValueBetsFromBestOdds({
-  match,
-  bestOddsRows,
-  bankroll,
-}) {
+function buildFallbackValueBetsFromBestOdds({ match, bestOddsRows, bankroll }) {
   if (!Array.isArray(bestOddsRows) || !bestOddsRows.length) return [];
 
   const defaultModel = {
@@ -179,13 +174,7 @@ export async function POST(req) {
     const teamRatings = body?.teamRatings ?? null;
 
     if (!match || !oddsData) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "Missing match or oddsData",
-        },
-        { status: 400 }
-      );
+      return NextResponse.json({ ok: false, error: "Missing match or oddsData" }, { status: 400 });
     }
 
     let normalizedOddsData = {
@@ -198,7 +187,7 @@ export async function POST(req) {
     if (!normalizedOddsData.bookmakers.length && bestOdds.length) {
       normalizedOddsData = {
         ...normalizedOddsData,
-        bookmakers: buildFallbackBookmakersFromBestOdds(bestOdds, match),
+        bookmakers: buildFallbackBookmakersFromBestOdds(bestOdds),
       };
     }
 
@@ -284,10 +273,7 @@ export async function POST(req) {
       return bScore - aScore;
     });
 
-    const bestBet =
-      sortedValueBets.find((bet) => bet.isBet) ??
-      sortedValueBets[0] ??
-      null;
+    const bestBet = sortedValueBets.find((bet) => bet.isBet) ?? sortedValueBets[0] ?? null;
 
     let topPicks = sortedValueBets.filter((bet) => bet.isBet).slice(0, 3);
     if (topPicks.length === 0) {
