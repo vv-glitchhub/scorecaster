@@ -1,31 +1,21 @@
 function formatPercent(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
 function formatOdds(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return Number(value).toFixed(2);
 }
 
 function formatMoney(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return `${Number(value).toFixed(2)} €`;
 }
 
 function Badge({ isBet }) {
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-sm font-bold ${
-        isBet ? "bg-green-600 text-white" : "bg-orange-600 text-white"
-      }`}
-    >
+    <span className={`rounded-full px-3 py-1 text-sm font-bold ${isBet ? "bg-green-600 text-white" : "bg-orange-600 text-white"}`}>
       {isBet ? "BET" : "NO BET"}
     </span>
   );
@@ -40,11 +30,7 @@ function GradeBadge({ grade }) {
     F: "bg-red-600 text-white",
   };
 
-  return (
-    <span className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}>
-      {grade}
-    </span>
-  );
+  return <span className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}>{grade}</span>;
 }
 
 function Row({ label, value }) {
@@ -58,11 +44,7 @@ function Row({ label, value }) {
 
 function ValueBetCard({ bet }) {
   return (
-    <div
-      className={`rounded-[28px] border p-6 shadow-lg ${
-        bet.isBet ? "border-green-700 bg-[#08183E]" : "border-orange-700 bg-[#08183E]"
-      }`}
-    >
+    <div className={`rounded-[28px] border p-6 shadow-lg ${bet.isBet ? "border-green-700 bg-[#08183E]" : "border-orange-700 bg-[#08183E]"}`}>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-2xl font-extrabold text-white">{bet.outcomeName ?? "—"}</div>
         <div className="flex items-center gap-2">
@@ -114,10 +96,7 @@ export default function BackendValueBets({ valueBets = [] }) {
     <section className="space-y-4">
       <h3 className="text-3xl font-extrabold text-white">Value betit • Backend</h3>
       {valueBets.map((bet, index) => (
-        <ValueBetCard
-          key={`${bet.bookmaker}-${bet.outcomeName}-${bet.odds}-${index}`}
-          bet={bet}
-        />
+        <ValueBetCard key={`${bet.bookmaker}-${bet.outcomeName}-${bet.odds}-${index}`} bet={bet} />
       ))}
     </section>
   );
