@@ -68,10 +68,16 @@ export async function GET(req) {
       process.env.THE_ODDS_API_KEY ||
       "";
 
+    const demoData = DEMO_MATCHES
+      .filter((m) => m.sport_key === sportKey || sportKey === "icehockey_liiga")
+      .map(buildDemoOdds);
+
+    console.log("ODDS_API_KEY exists:", Boolean(apiKey));
+    console.log("Requested sport:", requestedSport);
+    console.log("Normalized sport key:", sportKey);
+
     if (!apiKey) {
-      const demoData = DEMO_MATCHES
-        .filter((m) => m.sport_key === sportKey || sportKey === "icehockey_liiga")
-        .map(buildDemoOdds);
+      console.log("Missing Odds API key, returning demo fallback");
 
       return NextResponse.json({
         ok: true,
@@ -86,6 +92,7 @@ export async function GET(req) {
           demoCount: demoData.length,
           status: 401,
           reason: "Missing API key",
+          hasApiKey: false,
         },
       });
     }
@@ -94,14 +101,24 @@ export async function GET(req) {
       `https://api.the-odds-api.com/v4/sports/${sportKey}/odds/` +
       `?apiKey=${apiKey}&regions=eu&markets=h2h&oddsFormat=decimal`;
 
+    console.log("Odds request URL:", url.replace(apiKey, "HIDDEN"));
+
     const res = await fetch(url, {
       next: { revalidate: 60 },
     });
 
+    console.log("Odds API response status:", res.status);
+
     if (!res.ok) {
-      const demoData = DEMO_MATCHES
-        .filter((m) => m.sport_key === sportKey || sportKey === "icehockey_liiga")
-        .map(buildDemoOdds);
+      let errorBody = "";
+
+      try {
+        errorBody = await res.text();
+      } catch (readError) {
+        errorBody = "Could not read error body";
+      }
+
+      console.log("Odds API error body:", errorBody);
 
       return NextResponse.json({
         ok: true,
@@ -116,11 +133,15 @@ export async function GET(req) {
           demoCount: demoData.length,
           status: res.status,
           reason: "Live data unavailable, using demo fallback",
+          hasApiKey: true,
+          oddsApiErrorBody: errorBody,
         },
       });
     }
 
     const raw = await res.json();
+
+    console.log("Odds API raw match count:", Array.isArray(raw) ? raw.length : 0);
 
     const normalized = Array.isArray(raw)
       ? raw.map((match) => ({
@@ -134,6 +155,8 @@ export async function GET(req) {
         }))
       : [];
 
+    console.log("Normalized match count:", normalized.length);
+
     return NextResponse.json({
       ok: true,
       source: "live",
@@ -146,10 +169,13 @@ export async function GET(req) {
         cachedCount: 0,
         demoCount: 0,
         status: 200,
+        hasApiKey: true,
       },
     });
   } catch (error) {
     const demoData = DEMO_MATCHES.map(buildDemoOdds);
+
+    console.log("Odds route exception:", error?.message ?? error);
 
     return NextResponse.json({
       ok: true,
