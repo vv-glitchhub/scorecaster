@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import BackendValueBets from "./BackendValueBets";
 import TopPicks from "./TopPicks";
 import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
+import ValueBetFilters from "../filters/ValueBetFilters";
+import {
+  applyValueBetFilters,
+  getDefaultValueBetFilters,
+} from "../../lib/filters/valueBetFilters";
 
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
@@ -90,6 +95,7 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
   const [analyzeData, setAnalyzeData] = useState(null);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const [filters, setFilters] = useState(getDefaultValueBetFilters());
   const lastRequestKeyRef = useRef("");
 
   useEffect(() => {
@@ -138,16 +144,44 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
     return () => {
       active = false;
     };
-  }, [
-    match?.id,
-    match?.commence_time,
-    bankroll,
-    oddsData,
-    teamRatings,
-  ]);
+  }, [match?.id, match?.commence_time, bankroll, oddsData, teamRatings]);
+
+  const filteredValueBets = useMemo(() => {
+    return applyValueBetFilters(analyzeData?.valueBets ?? [], filters);
+  }, [analyzeData, filters]);
+
+  const filteredTopPicks = useMemo(() => {
+    const picks = applyValueBetFilters(analyzeData?.topPicks ?? [], filters);
+    if (picks.length > 0) return picks.slice(0, 3);
+    return filteredValueBets.slice(0, 3);
+  }, [analyzeData, filters, filteredValueBets]);
+
+  const filteredBestBet = useMemo(() => {
+    if (filteredValueBets.length > 0) {
+      return filteredValueBets.find((bet) => bet.isBet) ?? filteredValueBets[0];
+    }
+    return analyzeData?.bestBet ?? null;
+  }, [filteredValueBets, analyzeData]);
+
+  function handleFilterChange(key, value) {
+    setFilters((prev) => ({
+      ...prev,
+      [key]: value,
+    }));
+  }
+
+  function handleFilterReset() {
+    setFilters(getDefaultValueBetFilters());
+  }
 
   return (
     <section className="space-y-6">
+      <ValueBetFilters
+        filters={filters}
+        onChange={handleFilterChange}
+        onReset={handleFilterReset}
+      />
+
       {loadingAnalyze ? (
         <div className="rounded-[28px] border border-slate-700 bg-[#08183E] p-6 text-slate-300">
           Haetaan backend-analyysiä...
@@ -166,15 +200,15 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
 
       {analyzeData ? (
         <>
-          <TopPicks picks={analyzeData.topPicks ?? []} />
+          <TopPicks picks={filteredTopPicks} />
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
 
           <section className="space-y-4">
             <h3 className="text-3xl font-extrabold text-white">Paras kohde • Legacy</h3>
-            <BestBetCard bestBet={analyzeData.bestBet} />
+            <BestBetCard bestBet={filteredBestBet} />
           </section>
 
-          <BackendValueBets valueBets={analyzeData.valueBets ?? []} />
+          <BackendValueBets valueBets={filteredValueBets} />
         </>
       ) : null}
     </section>
