@@ -23,7 +23,7 @@ function Badge({ isBet }) {
   return (
     <span
       className={`rounded-full px-3 py-1 text-sm font-bold ${
-        isBet ? "bg-green-600 text-white" : "bg-red-600 text-white"
+        isBet ? "bg-green-600 text-white" : "bg-orange-600 text-white"
       }`}
     >
       {isBet ? "BET" : "NO BET"}
@@ -41,9 +41,7 @@ function GradeBadge({ grade }) {
   };
 
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}
-    >
+    <span className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}>
       {grade}
     </span>
   );
@@ -62,7 +60,7 @@ function ValueBetCard({ bet }) {
   return (
     <div
       className={`rounded-[28px] border p-6 shadow-lg ${
-        bet.edge > 0 ? "border-green-700 bg-[#08183E]" : "border-red-700 bg-[#08183E]"
+        bet.isBet ? "border-green-700 bg-[#08183E]" : "border-orange-700 bg-[#08183E]"
       }`}
     >
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -92,7 +90,7 @@ function ValueBetCard({ bet }) {
       </div>
 
       {!bet.isBet && Array.isArray(bet.noBetReasons) && bet.noBetReasons.length > 0 ? (
-        <div className="mt-4 rounded-2xl border border-red-800 bg-[#3A0C0C] px-4 py-3 text-sm text-red-200">
+        <div className="mt-4 rounded-2xl border border-orange-800 bg-[#3A220C] px-4 py-3 text-sm text-orange-200">
           {bet.noBetReasons.join(", ")}
         </div>
       ) : null}
