@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import BackendValueBets from "./BackendValueBets";
 import TopPicks from "./TopPicks";
+import ProEngineSummary from "./ProEngineSummary";
 import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
 import ValueBetFilters from "../filters/ValueBetFilters";
 import {
@@ -255,6 +256,7 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
 
       {analyzeData ? (
         <>
+          <ProEngineSummary summary={analyzeData.proSummary} />
           <TopPicks picks={filteredTopPicks} />
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
           <ModelBreakdown debug={analyzeData.debug} />
