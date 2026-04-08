@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import BackendValueBets from "./BackendValueBets";
 import TopPicks from "./TopPicks";
 import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
@@ -90,6 +90,7 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
   const [analyzeData, setAnalyzeData] = useState(null);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
+  const lastRequestKeyRef = useRef("");
 
   useEffect(() => {
     let active = true;
@@ -97,12 +98,17 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
     async function run() {
       if (!match || !oddsData) return;
 
-      console.log("ANALYSIS PANEL INPUT", {
-        match,
-        oddsData,
-        hasBookmakers: Array.isArray(oddsData?.bookmakers),
-        bookmakersCount: Array.isArray(oddsData?.bookmakers) ? oddsData.bookmakers.length : 0,
+      const requestKey = JSON.stringify({
+        matchId: match?.id ?? `${match?.home_team}-${match?.away_team}`,
+        commence_time: match?.commence_time ?? null,
+        bankroll: Number(bankroll ?? 0),
       });
+
+      if (lastRequestKeyRef.current === requestKey) {
+        return;
+      }
+
+      lastRequestKeyRef.current = requestKey;
 
       setLoadingAnalyze(true);
       setAnalyzeError("");
@@ -115,8 +121,6 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
       });
 
       if (!active) return;
-
-      console.log("ANALYSIS PANEL RESPONSE", data);
 
       if (data) {
         setAnalyzeData(data);
@@ -134,7 +138,13 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
     return () => {
       active = false;
     };
-  }, [match, oddsData, bankroll, teamRatings]);
+  }, [
+    match?.id,
+    match?.commence_time,
+    bankroll,
+    oddsData,
+    teamRatings,
+  ]);
 
   return (
     <section className="space-y-6">
