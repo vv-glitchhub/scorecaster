@@ -1,5 +1,3 @@
-// components/analysis/BackendValueBets.jsx
-
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
     return "—";
@@ -37,14 +35,8 @@ function ValueBetCard({ bet }) {
         <Row label="Kohde" value={bet.outcomeName ?? "—"} />
         <Row label="Vedonvälittäjä" value={bet.bookmaker ?? "—"} />
         <Row label="Kerroin" value={formatOdds(bet.odds)} />
-        <Row
-          label="Mallin todennäköisyys"
-          value={formatPercent(bet.modelProbability)}
-        />
-        <Row
-          label="Markkinan todennäköisyys"
-          value={formatPercent(bet.marketProbability)}
-        />
+        <Row label="Mallin todennäköisyys" value={formatPercent(bet.modelProbability)} />
+        <Row label="Markkinan todennäköisyys" value={formatPercent(bet.marketProbability)} />
         <Row label="Fair odds" value={formatOdds(bet.fairOdds)} />
         <Row label="Edge" value={formatPercent(bet.edge)} />
         <Row label="Odotusarvo" value={formatPercent(bet.ev)} />
