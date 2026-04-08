@@ -91,6 +91,61 @@ function BestOddsList({ bestOdds = [] }) {
   );
 }
 
+function ModelBreakdown({ debug }) {
+  if (!debug?.modelBreakdown) return null;
+
+  const factors = debug.modelBreakdown?.factors;
+  const teams = debug.modelBreakdown?.teams;
+
+  return (
+    <section className="rounded-[28px] border border-slate-800 bg-[#08183E] p-6 shadow-lg">
+      <h3 className="mb-4 text-3xl font-extrabold text-white">Mallin breakdown</h3>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-2xl border border-slate-700 bg-[#071B49] p-4">
+          <div className="mb-2 text-lg font-bold text-white">Kotijoukkue</div>
+          <div className="space-y-2 text-slate-200">
+            <div>Attack: {teams?.home?.attack_rating ?? "—"}</div>
+            <div>Defense: {teams?.home?.defense_rating ?? "—"}</div>
+            <div>Form: {teams?.home?.form_last_5 ?? "—"}</div>
+            <div>Rest days: {teams?.home?.rest_days ?? "—"}</div>
+            <div>Travel km: {teams?.home?.travel_km ?? "—"}</div>
+            <div>Injuries: {teams?.home?.injuries_count ?? "—"}</div>
+            <div>Lineup stability: {teams?.home?.lineup_stability ?? "—"}</div>
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-slate-700 bg-[#071B49] p-4">
+          <div className="mb-2 text-lg font-bold text-white">Vierasjoukkue</div>
+          <div className="space-y-2 text-slate-200">
+            <div>Attack: {teams?.away?.attack_rating ?? "—"}</div>
+            <div>Defense: {teams?.away?.defense_rating ?? "—"}</div>
+            <div>Form: {teams?.away?.form_last_5 ?? "—"}</div>
+            <div>Rest days: {teams?.away?.rest_days ?? "—"}</div>
+            <div>Travel km: {teams?.away?.travel_km ?? "—"}</div>
+            <div>Injuries: {teams?.away?.injuries_count ?? "—"}</div>
+            <div>Lineup stability: {teams?.away?.lineup_stability ?? "—"}</div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-slate-700 bg-[#071B49] p-4">
+        <div className="mb-2 text-lg font-bold text-white">Factor shifts</div>
+        <div className="grid gap-2 md:grid-cols-2 text-slate-200">
+          <div>Attack edge: {Number(factors?.attackEdge ?? 0).toFixed(3)}</div>
+          <div>Defense edge: {Number(factors?.defenseEdge ?? 0).toFixed(3)}</div>
+          <div>Form edge: {Number(factors?.formEdge ?? 0).toFixed(3)}</div>
+          <div>Rest edge: {Number(factors?.restEdge ?? 0).toFixed(3)}</div>
+          <div>Travel edge: {Number(factors?.travelEdge ?? 0).toFixed(3)}</div>
+          <div>Injury edge: {Number(factors?.injuryEdge ?? 0).toFixed(3)}</div>
+          <div>Lineup edge: {Number(factors?.lineupEdge ?? 0).toFixed(3)}</div>
+          <div>Home advantage: {Number(factors?.homeAdvantageEdge ?? 0).toFixed(3)}</div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings = null }) {
   const [analyzeData, setAnalyzeData] = useState(null);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
@@ -202,6 +257,7 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
         <>
           <TopPicks picks={filteredTopPicks} />
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
+          <ModelBreakdown debug={analyzeData.debug} />
 
           <section className="space-y-4">
             <h3 className="text-3xl font-extrabold text-white">Paras kohde • Legacy</h3>
