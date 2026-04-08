@@ -159,7 +159,6 @@ export default function AnalysisPanel({
       {analyzeData ? (
         <>
           <TopPicks picks={analyzeData.topPicks ?? []} />
-
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
 
           <section className="space-y-4">
