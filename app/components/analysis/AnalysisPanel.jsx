@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import BackendValueBets from "./BackendValueBets";
-import { fetchAnalyze } from "@/lib/api/fetchAnalyze";
+import TopPicks from "./TopPicks";
+import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
 
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) {
@@ -48,7 +49,7 @@ function BestBetCard({ bestBet }) {
       <div className="mb-6 rounded-[24px] border border-slate-700 bg-[#0A1B45] p-6">
         <h3 className="mb-3 text-2xl font-extrabold text-white">Miksi tämä kohde?</h3>
         <p className="text-lg text-slate-300">
-          Malli pitää tätä kohdetta hieman markkinaa parempana, joten veto voi olla pelikelpoinen.
+          Malli pitää tätä kohdetta markkinaa parempana. Edge, EV ja Kelly tukevat tätä valintaa.
         </p>
       </div>
 
@@ -57,10 +58,13 @@ function BestBetCard({ bestBet }) {
         <Row label="Mallin todennäköisyys" value={formatPercent(bestBet.modelProbability)} />
         <Row label="Markkinan todennäköisyys" value={formatPercent(bestBet.marketProbability)} />
         <Row label="Kerroin" value={formatOdds(bestBet.odds)} />
+        <Row label="Fair odds" value={formatOdds(bestBet.fairOdds)} />
         <Row label="Vedonvälittäjä" value={bestBet.bookmaker ?? "—"} />
         <Row label="Edge" value={formatPercent(bestBet.edge)} />
         <Row label="Odotusarvo" value={formatPercent(bestBet.ev)} />
         <Row label="Quarter Kelly" value={formatPercent(bestBet.kelly)} />
+        <Row label="Confidence" value={`${bestBet.confidence ?? 0}%`} />
+        <Row label="Grade" value={bestBet.grade ?? "—"} />
         <Row label="Suositeltu panos" value={formatMoney(bestBet.recommendedStake)} />
       </div>
     </div>
@@ -154,6 +158,8 @@ export default function AnalysisPanel({
 
       {analyzeData ? (
         <>
+          <TopPicks picks={analyzeData.topPicks ?? []} />
+
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
 
           <section className="space-y-4">
