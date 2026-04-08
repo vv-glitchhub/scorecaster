@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { buildValueBets } from "../../../lib/betting/value-engine";
+import {
+  buildValueBets,
+  summarizeValueBets,
+} from "../../../lib/betting/value-engine";
 import { mapModelProbabilitiesToOutcomeNames } from "../../../lib/betting/outcome-mapper";
 import { getModelProbabilitiesForMatch } from "../../../lib/model-engine-v1";
 
@@ -121,6 +124,22 @@ function buildFallbackBookmakers(match) {
   ];
 }
 
+function buildProSummary(valueBets) {
+  const summary = summarizeValueBets(valueBets);
+  const buckets = {
+    elite: valueBets.filter((x) => x.edgeBucket === "elite").length,
+    strong: valueBets.filter((x) => x.edgeBucket === "strong").length,
+    solid: valueBets.filter((x) => x.edgeBucket === "solid").length,
+    thin: valueBets.filter((x) => x.edgeBucket === "thin").length,
+    negative: valueBets.filter((x) => x.edgeBucket === "negative").length,
+  };
+
+  return {
+    ...summary,
+    buckets,
+  };
+}
+
 export async function POST(req) {
   try {
     cleanupAnalyzeCache();
@@ -182,7 +201,7 @@ export async function POST(req) {
     const h2hMarkets = getAllH2HMarkets(normalizedOddsData);
     const matchLabel = buildMatchLabel(match);
 
-    let valueBets = h2hMarkets.flatMap((market) =>
+    const valueBets = h2hMarkets.flatMap((market) =>
       buildValueBets({
         matchLabel,
         marketKey: market.marketKey,
@@ -203,22 +222,7 @@ export async function POST(req) {
     );
 
     const bestOdds = getBestOddsRows(normalizedOddsData, match);
-
-    const sortedValueBets = [...valueBets].sort((a, b) => {
-      const aScore =
-        (a.isBet ? 1000 : 0) +
-        (a.confidence ?? 0) * 10 +
-        (a.ev ?? -999) * 100 +
-        (a.edge ?? -999);
-
-      const bScore =
-        (b.isBet ? 1000 : 0) +
-        (b.confidence ?? 0) * 10 +
-        (b.ev ?? -999) * 100 +
-        (b.edge ?? -999);
-
-      return bScore - aScore;
-    });
+    const sortedValueBets = [...valueBets];
 
     let topPicks = sortedValueBets.filter((bet) => bet.isBet).slice(0, 3);
     if (topPicks.length === 0) {
@@ -245,6 +249,7 @@ export async function POST(req) {
       bestBet,
       topPicks,
       valueBets: sortedValueBets,
+      proSummary: buildProSummary(sortedValueBets),
       debug: {
         bookmakersCount: normalizedOddsData.bookmakers.length,
         h2hMarketsCount: h2hMarkets.length,
