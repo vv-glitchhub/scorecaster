@@ -77,8 +77,6 @@ export async function GET(req) {
     console.log("Normalized sport key:", sportKey);
 
     if (!apiKey) {
-      console.log("Missing Odds API key, returning demo fallback");
-
       return NextResponse.json({
         ok: true,
         source: "demo",
@@ -93,6 +91,7 @@ export async function GET(req) {
           status: 401,
           reason: "Missing API key",
           hasApiKey: false,
+          cacheSeconds: 600,
         },
       });
     }
@@ -104,7 +103,7 @@ export async function GET(req) {
     console.log("Odds request URL:", url.replace(apiKey, "HIDDEN"));
 
     const res = await fetch(url, {
-      next: { revalidate: 60 },
+      next: { revalidate: 600 }, // 10 min cache
     });
 
     console.log("Odds API response status:", res.status);
@@ -114,11 +113,17 @@ export async function GET(req) {
 
       try {
         errorBody = await res.text();
-      } catch (readError) {
+      } catch {
         errorBody = "Could not read error body";
       }
 
-      console.log("Odds API error body:", errorBody);
+      let parsedError = null;
+      try {
+        parsedError = JSON.parse(errorBody);
+      } catch {}
+
+      const isQuotaError =
+        parsedError?.error_code === "OUT_OF_USAGE_CREDITS";
 
       return NextResponse.json({
         ok: true,
@@ -132,16 +137,18 @@ export async function GET(req) {
           cachedCount: 0,
           demoCount: demoData.length,
           status: res.status,
-          reason: "Live data unavailable, using demo fallback",
+          reason: isQuotaError
+            ? "Odds API credits exhausted, using demo fallback"
+            : "Live data unavailable, using demo fallback",
           hasApiKey: true,
           oddsApiErrorBody: errorBody,
+          oddsApiErrorCode: parsedError?.error_code ?? null,
+          cacheSeconds: 600,
         },
       });
     }
 
     const raw = await res.json();
-
-    console.log("Odds API raw match count:", Array.isArray(raw) ? raw.length : 0);
 
     const normalized = Array.isArray(raw)
       ? raw.map((match) => ({
@@ -154,8 +161,6 @@ export async function GET(req) {
           bookmakers: Array.isArray(match.bookmakers) ? match.bookmakers : [],
         }))
       : [];
-
-    console.log("Normalized match count:", normalized.length);
 
     return NextResponse.json({
       ok: true,
@@ -170,12 +175,11 @@ export async function GET(req) {
         demoCount: 0,
         status: 200,
         hasApiKey: true,
+        cacheSeconds: 600,
       },
     });
   } catch (error) {
     const demoData = DEMO_MATCHES.map(buildDemoOdds);
-
-    console.log("Odds route exception:", error?.message ?? error);
 
     return NextResponse.json({
       ok: true,
@@ -190,6 +194,7 @@ export async function GET(req) {
         demoCount: demoData.length,
         status: 500,
         reason: error?.message ?? "Unknown error",
+        cacheSeconds: 600,
       },
     });
   }
