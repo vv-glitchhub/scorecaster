@@ -29,9 +29,7 @@ function GradeBadge({ grade }) {
   };
 
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}
-    >
+    <span className={`rounded-full px-3 py-1 text-sm font-bold ${styles[grade] ?? "bg-slate-600 text-white"}`}>
       {grade}
     </span>
   );
@@ -69,7 +67,7 @@ export default function TopPicks({ picks = [] }) {
         <div
           key={`${bet.bookmaker}-${bet.outcomeName}-${index}`}
           className={`rounded-[28px] border p-6 shadow-lg ${
-            bet.isBet ? "border-green-700 bg-[#08183E]" : "border-red-700 bg-[#08183E]"
+            bet.isBet ? "border-green-700 bg-[#08183E]" : "border-orange-700 bg-[#08183E]"
           }`}
         >
           <div className="mb-4 flex items-start justify-between gap-4">
@@ -94,16 +92,12 @@ export default function TopPicks({ picks = [] }) {
           <div className="grid gap-3 md:grid-cols-2">
             <div className="rounded-2xl border border-slate-700 bg-[#071B49] px-4 py-3">
               <div className="text-sm text-slate-300">Edge</div>
-              <div className="text-xl font-bold text-white">
-                {formatPercent(bet.edge)}
-              </div>
+              <div className="text-xl font-bold text-white">{formatPercent(bet.edge)}</div>
             </div>
 
             <div className="rounded-2xl border border-slate-700 bg-[#071B49] px-4 py-3">
               <div className="text-sm text-slate-300">Odotusarvo</div>
-              <div className="text-xl font-bold text-white">
-                {formatPercent(bet.ev)}
-              </div>
+              <div className="text-xl font-bold text-white">{formatPercent(bet.ev)}</div>
             </div>
 
             <div className="rounded-2xl border border-slate-700 bg-[#071B49] px-4 py-3">
@@ -113,9 +107,7 @@ export default function TopPicks({ picks = [] }) {
 
             <div className="rounded-2xl border border-slate-700 bg-[#071B49] px-4 py-3">
               <div className="text-sm text-slate-300">Suositeltu panos</div>
-              <div className="text-xl font-bold text-white">
-                {formatMoney(bet.recommendedStake)}
-              </div>
+              <div className="text-xl font-bold text-white">{formatMoney(bet.recommendedStake)}</div>
             </div>
           </div>
 
@@ -125,9 +117,7 @@ export default function TopPicks({ picks = [] }) {
             </div>
 
             {!bet.isBet && Array.isArray(bet.noBetReasons) && bet.noBetReasons.length > 0 ? (
-              <div className="text-xs text-red-300">
-                {bet.noBetReasons.join(", ")}
-              </div>
+              <div className="text-xs text-orange-300">{bet.noBetReasons.join(", ")}</div>
             ) : null}
           </div>
         </div>
