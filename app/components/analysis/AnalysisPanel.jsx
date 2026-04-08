@@ -6,23 +6,17 @@ import TopPicks from "./TopPicks";
 import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
 
 function formatPercent(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
 function formatOdds(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return Number(value).toFixed(2);
 }
 
 function formatMoney(value) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) {
-    return "—";
-  }
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
   return `${Number(value).toFixed(2)} €`;
 }
 
@@ -83,21 +77,14 @@ function BestOddsList({ bestOdds = [] }) {
           className="flex items-center justify-between rounded-2xl border border-slate-700 bg-[#08183E] px-6 py-5"
         >
           <span className="text-2xl font-bold text-white">{row.outcomeName}</span>
-          <span className="text-2xl font-bold text-white">
-            {formatOdds(row.odds)} • {row.bookmaker}
-          </span>
+          <span className="text-2xl font-bold text-white">{formatOdds(row.odds)} • {row.bookmaker}</span>
         </div>
       ))}
     </section>
   );
 }
 
-export default function AnalysisPanel({
-  match,
-  oddsData,
-  bankroll,
-  teamRatings = null,
-}) {
+export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings = null }) {
   const [analyzeData, setAnalyzeData] = useState(null);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
