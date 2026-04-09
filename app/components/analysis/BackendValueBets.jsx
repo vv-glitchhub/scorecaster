@@ -57,15 +57,15 @@ export default function BackendValueBets({ valueBets = [], bets = [] }) {
 
       {items.map((bet, index) => {
         const outcomeName =
-          safeText(bet?.outcomeName) ||
-          safeText(bet?.outcome) ||
-          safeText(bet?.team) ||
-          safeText(bet?.selection) ||
+          safeText(bet?.outcomeName, "") ||
+          safeText(bet?.outcome, "") ||
+          safeText(bet?.team, "") ||
+          safeText(bet?.selection, "") ||
           "—";
 
         const bookmaker =
-          safeText(bet?.bookmaker) ||
-          safeText(bet?.bookmakerTitle) ||
+          safeText(bet?.bookmaker, "") ||
+          safeText(bet?.bookmakerTitle, "") ||
           "Unknown";
 
         const status =
