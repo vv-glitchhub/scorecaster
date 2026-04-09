@@ -132,7 +132,7 @@ function ModelBreakdown({ debug }) {
 
       <div className="mt-4 rounded-2xl border border-slate-700 bg-[#071B49] p-4">
         <div className="mb-2 text-lg font-bold text-white">Factor shifts</div>
-        <div className="grid gap-2 md:grid-cols-2 text-slate-200">
+        <div className="grid gap-2 text-slate-200 md:grid-cols-2">
           <div>Attack edge: {Number(factors?.attackEdge ?? 0).toFixed(3)}</div>
           <div>Defense edge: {Number(factors?.defenseEdge ?? 0).toFixed(3)}</div>
           <div>Form edge: {Number(factors?.formEdge ?? 0).toFixed(3)}</div>
