@@ -63,13 +63,6 @@ const TEXT = {
     sourceDemo: "Demo-data",
     sourceEmpty: "Ei dataa",
     whyThisBet: "Miksi tämä kohde?",
-    calcDetails: "Näytä laskelma",
-    simpleMeaningPositive:
-      "Malli pitää tätä kohdetta hieman markkinaa parempana, joten veto voi olla pelikelpoinen.",
-    simpleMeaningNeutral:
-      "Mallin ja markkinan arviot ovat lähellä toisiaan, joten etu on pieni.",
-    simpleMeaningNegative:
-      "Markkina hinnoittelee tämän kohteen vähintään yhtä hyväksi kuin malli, joten etu on heikko.",
     noteLiveVsDemo:
       "Jos data ei ole liveä, analyysi on vain suuntaa-antava.",
     quotaTitle: "Live data ei ole saatavilla",
@@ -78,7 +71,7 @@ const TEXT = {
     emptyTitle: "Dataa ei löytynyt",
     emptyMessage:
       "Valitusta liigasta ei löytynyt käyttökelpoista dataa tällä hetkellä.",
-    cacheMessage: "Näytetään viimeisin tallennettu cache-data.",
+    cacheMessage: "Näytetään välimuistista tallennettu data.",
     demoMessage:
       "Näytetään demo-dataa vain testikäyttöä varten. Tätä ei pidä tulkita oikeaksi markkinadataksi.",
     liveMessage: "Näytetään tuore live-data.",
@@ -112,6 +105,7 @@ const TEXT = {
     saved: "Tallennettu",
     remove: "Poista",
     backendTop3: "Top 3 bets · Backend",
+    controls: "Controls",
   },
   en: {
     title: "SCORECASTER",
@@ -167,13 +161,6 @@ const TEXT = {
     sourceDemo: "Demo data",
     sourceEmpty: "No data",
     whyThisBet: "Why this pick?",
-    calcDetails: "Show calculation",
-    simpleMeaningPositive:
-      "The model rates this outcome slightly better than the market does, so it may be playable.",
-    simpleMeaningNeutral:
-      "The model and market are close to each other, so the edge is small.",
-    simpleMeaningNegative:
-      "The market prices this outcome at least as well as the model, so the edge is weak.",
     noteLiveVsDemo:
       "If the source is not live, the analysis is only indicative.",
     quotaTitle: "Live data is unavailable",
@@ -182,7 +169,7 @@ const TEXT = {
     emptyTitle: "No data found",
     emptyMessage:
       "No usable data was found for the selected league at the moment.",
-    cacheMessage: "Showing the latest saved cached data.",
+    cacheMessage: "Showing cached data.",
     demoMessage:
       "Showing demo data for testing only. Do not treat this as real market data.",
     liveMessage: "Showing fresh live data.",
@@ -216,6 +203,7 @@ const TEXT = {
     saved: "Saved",
     remove: "Remove",
     backendTop3: "Top 3 bets · Backend",
+    controls: "Controls",
   },
 };
 
@@ -335,11 +323,7 @@ function getConfidenceScore(bet) {
     bet.modelProb ?? bet.modelProbability ?? 0
   );
 
-  const score =
-    edge * 700 +
-    ev * 300 +
-    probability * 35;
-
+  const score = edge * 700 + ev * 300 + probability * 35;
   return Math.round(clamp(score, 0, 99));
 }
 
@@ -879,7 +863,7 @@ export default function Page() {
           </Link>
         </SectionCard>
 
-        <SectionCard title="Controls">
+        <SectionCard title={t.controls}>
           <div style={styles.controlsGrid}>
             <div style={styles.field}>
               <label style={styles.label}>{t.language}</label>
@@ -976,7 +960,6 @@ export default function Page() {
 
         <SectionCard title={t.topPicks}>
           {topPicksLoading ? <p style={styles.muted}>{t.loading}</p> : null}
-
           {!topPicksLoading && filteredTopPicks.length === 0 ? (
             <p style={styles.muted}>{t.topPicksEmpty}</p>
           ) : null}
@@ -999,20 +982,17 @@ export default function Page() {
                   </p>
                 </div>
 
-                <details style={styles.details}>
-                  <summary style={styles.summary}>{t.calcDetails}</summary>
-                  <div style={styles.detailsContent}>
-                    <StatRow label={t.outcome} value={pick.outcome} />
-                    <StatRow label={t.odds} value={pick.odds} />
-                    <StatRow label={t.bookmaker} value={pick.bookmaker} />
-                    <StatRow label={t.edge} value={`${(pick.edge * 100).toFixed(2)}%`} />
-                    <StatRow label={t.expectedValue} value={`${(pick.ev * 100).toFixed(2)}%`} />
-                    <StatRow
-                      label={t.suggestedStake}
-                      value={`${getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €`}
-                    />
-                  </div>
-                </details>
+                <div style={styles.stack}>
+                  <StatRow label={t.outcome} value={pick.outcome} />
+                  <StatRow label={t.odds} value={pick.odds} />
+                  <StatRow label={t.bookmaker} value={pick.bookmaker} />
+                  <StatRow label={t.edge} value={`${(pick.edge * 100).toFixed(2)}%`} />
+                  <StatRow label={t.expectedValue} value={`${(pick.ev * 100).toFixed(2)}%`} />
+                  <StatRow
+                    label={t.suggestedStake}
+                    value={`${getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €`}
+                  />
+                </div>
               </div>
             ))}
           </div>
@@ -1887,24 +1867,6 @@ const styles = {
     color: "#cbd5e1",
     lineHeight: 1.6,
     fontSize: 15,
-  },
-  details: {
-    marginTop: 14,
-    border: "1px solid #334155",
-    borderRadius: 16,
-    background: "#0b1730",
-    overflow: "hidden",
-  },
-  summary: {
-    cursor: "pointer",
-    padding: "14px 16px",
-    fontWeight: 800,
-    color: "#fff",
-  },
-  detailsContent: {
-    padding: "0 16px 16px 16px",
-    display: "grid",
-    gap: 14,
   },
   noteText: {
     margin: "0 0 14px 0",
