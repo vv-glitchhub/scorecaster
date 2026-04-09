@@ -39,7 +39,7 @@ export default function SimulatorPanel() {
 
   useEffect(() => {
     loadSimulation(iterations);
-  }, []); // initial only
+  }, []); // initial load only
 
   return (
     <section className="space-y-6">
@@ -90,30 +90,60 @@ export default function SimulatorPanel() {
             </h3>
 
             <div className="space-y-3">
-              {data.top5?.map((team, index) => (
-                <div
-                  key={team.team_name}
-                  className="flex items-center justify-between rounded-2xl border border-slate-700 bg-[#071B49] px-5 py-4"
-                >
-                  <div className="text-white">
-                    <div className="text-lg font-bold">
-                      #{index + 1} {team.team_name}
+              {(data.top5 ?? []).length === 0 ? (
+                <div className="text-slate-300">Tuloksia ei löytynyt.</div>
+              ) : (
+                data.top5.map((team, index) => (
+                  <div
+                    key={team.team_name}
+                    className="flex items-center justify-between rounded-2xl border border-slate-700 bg-[#071B49] px-5 py-4"
+                  >
+                    <div className="text-white">
+                      <div className="text-lg font-bold">
+                        #{index + 1} {team.team_name}
+                      </div>
+                      <div className="text-sm text-slate-300">
+                        Overall {team.overall_rating}
+                      </div>
                     </div>
-                    <div className="text-sm text-slate-300">
-                      Overall {team.overall_rating}
-                    </div>
-                  </div>
 
-                  <div className="text-right">
-                    <div className="text-lg font-extrabold text-white">
-                      {formatPct(team.championship_pct)}
-                    </div>
-                    <div className="text-sm text-slate-300">
-                      mestaruus
+                    <div className="text-right">
+                      <div className="text-lg font-extrabold text-white">
+                        {formatPct(team.championship_pct)}
+                      </div>
+                      <div className="text-sm text-slate-300">
+                        mestaruus
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
+                ))
+              )}
+            </div>
+          </section>
+
+          <section className="rounded-[28px] border border-slate-800 bg-[#08183E] p-6 shadow-lg">
+            <h3 className="mb-4 text-3xl font-extrabold text-white">
+              Joukkueiden ratingit
+            </h3>
+
+            <div className="space-y-3">
+              {(data.powerRanking ?? []).length === 0 ? (
+                <div className="text-slate-300">Ratingeja ei löytynyt.</div>
+              ) : (
+                data.powerRanking.map((team) => (
+                  <div
+                    key={team.team_name}
+                    className="grid gap-3 rounded-2xl border border-slate-700 bg-[#071B49] px-5 py-4 md:grid-cols-6"
+                  >
+                    <div className="font-bold text-white">{team.team_name}</div>
+                    <div className="text-slate-200">Overall: {team.overall_rating}</div>
+                    <div className="text-slate-200">Hyökkäys: {team.attack_rating}</div>
+                    <div className="text-slate-200">Puolustus: {team.defense_rating}</div>
+                    <div className="text-slate-200">Formi: {team.form_last_5}</div>
+                    <div className="text-slate-200">Loukkaantumiset: {team.injuries_count}</div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
 
@@ -123,18 +153,22 @@ export default function SimulatorPanel() {
             </h3>
 
             <div className="space-y-3">
-              {data.championshipTable?.map((team) => (
-                <div
-                  key={team.team_name}
-                  className="grid gap-3 rounded-2xl border border-slate-700 bg-[#071B49] px-5 py-4 md:grid-cols-5"
-                >
-                  <div className="font-bold text-white">{team.team_name}</div>
-                  <div className="text-slate-200">Overall: {team.overall_rating}</div>
-                  <div className="text-slate-200">Top 4: {formatPct(team.top4_pct)}</div>
-                  <div className="text-slate-200">Final: {formatPct(team.finals_pct)}</div>
-                  <div className="text-slate-200">Champion: {formatPct(team.championship_pct)}</div>
-                </div>
-              ))}
+              {(data.championshipTable ?? []).length === 0 ? (
+                <div className="text-slate-300">Tuloksia ei löytynyt.</div>
+              ) : (
+                data.championshipTable.map((team) => (
+                  <div
+                    key={team.team_name}
+                    className="grid gap-3 rounded-2xl border border-slate-700 bg-[#071B49] px-5 py-4 md:grid-cols-5"
+                  >
+                    <div className="font-bold text-white">{team.team_name}</div>
+                    <div className="text-slate-200">Overall: {team.overall_rating}</div>
+                    <div className="text-slate-200">Top 4: {formatPct(team.top4_pct)}</div>
+                    <div className="text-slate-200">Final: {formatPct(team.finals_pct)}</div>
+                    <div className="text-slate-200">Champion: {formatPct(team.championship_pct)}</div>
+                  </div>
+                ))
+              )}
             </div>
           </section>
         </>
