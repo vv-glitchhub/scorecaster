@@ -130,6 +130,26 @@ function NoBetReasons({ reasons }) {
 function ValueBetCard({ bet }) {
   if (!bet) return null;
 
+  const outcomeName =
+    bet.outcomeName ??
+    bet.outcome ??
+    bet.team ??
+    bet.selection ??
+    "—";
+
+  const bookmaker =
+    bet.bookmaker ??
+    bet.bookmakerTitle ??
+    "Unknown";
+
+  const status =
+    bet.status ??
+    (bet.isBet ? "bet" : "no_bet");
+
+  const confidence = Number.isFinite(Number(bet.confidence))
+    ? `${Number(bet.confidence)}%`
+    : "0%";
+
   return (
     <div
       className={`rounded-[28px] border p-6 shadow-lg ${
@@ -139,10 +159,10 @@ function ValueBetCard({ bet }) {
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-2xl font-extrabold text-white">
-            {bet.outcomeName ?? "—"}
+            {outcomeName}
           </div>
           <div className="mt-2 text-sm text-slate-300">
-            {bet.bookmaker ?? "—"} • {bet.marketKey ?? "—"}
+            {bookmaker} • {bet.marketKey ?? "h2h"}
           </div>
         </div>
 
@@ -164,8 +184,8 @@ function ValueBetCard({ bet }) {
       </div>
 
       <div className="grid gap-3 md:grid-cols-2">
-        <Row label="Kohde" value={bet.outcomeName ?? "—"} />
-        <Row label="Vedonvälittäjä" value={bet.bookmaker ?? "—"} />
+        <Row label="Kohde" value={outcomeName} />
+        <Row label="Vedonvälittäjä" value={bookmaker} />
         <Row label="Kerroin" value={formatOdds(bet.odds)} />
         <Row label="Fair odds" value={formatOdds(bet.fairOdds)} />
         <Row label="Mallin todennäköisyys" value={formatPercent(bet.modelProbability)} />
@@ -173,9 +193,9 @@ function ValueBetCard({ bet }) {
         <Row label="Edge" value={formatPercent(bet.edge)} />
         <Row label="Odotusarvo" value={formatPercent(bet.ev)} />
         <Row label="Quarter Kelly" value={formatPercent(bet.kelly)} />
-        <Row label="Confidence" value={`${Number(bet.confidence ?? 0)}%`} />
+        <Row label="Confidence" value={confidence} />
         <Row label="Grade" value={bet.grade ?? "—"} />
-        <Row label="Taso" value={bet.status ?? "—"} />
+        <Row label="Taso" value={status} />
         <Row label="Suositeltu panos" value={formatMoney(bet.recommendedStake)} />
       </div>
 
@@ -207,7 +227,7 @@ export default function BackendValueBets({ valueBets = [] }) {
 
       {valueBets.map((bet, index) => (
         <ValueBetCard
-          key={`${bet?.bookmaker}-${bet?.outcomeName}-${bet?.odds}-${index}`}
+          key={`${bet?.bookmaker ?? "book"}-${bet?.outcomeName ?? bet?.outcome ?? "outcome"}-${bet?.odds ?? index}-${index}`}
           bet={bet}
         />
       ))}
