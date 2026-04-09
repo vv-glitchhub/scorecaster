@@ -1,210 +1,170 @@
-import { getValueBet } from "../../../lib/value-model";
+import { NextResponse } from "next/server";
+import { getOddsData } from "../../../lib/odds-service";
+import { getModelProbabilitiesForMatch } from "../../../lib/model-engine-v1";
+import { rankValueBets, buildValueBets } from "../../../lib/betting/value-engine";
 
-const SPORT_GROUP_LEAGUES = {
-  icehockey: [
-    "icehockey_liiga",
-    "icehockey_nhl",
-    "icehockey_allsvenskan",
-    "icehockey_sweden_hockey_league",
-    "icehockey_finland_mestis",
-    "icehockey_germany_del",
-    "icehockey_switzerland_nla",
-    "icehockey_czech_extraliga",
-  ],
-  basketball: [
-    "basketball_nba",
-    "basketball_euroleague",
-    "basketball_ncaab",
-  ],
-  soccer: [
-    "soccer_epl",
-    "soccer_spain_la_liga",
-    "soccer_italy_serie_a",
-    "soccer_germany_bundesliga",
-    "soccer_france_ligue_one",
-    "soccer_finland_veikkausliiga",
-    "soccer_uefa_champs_league",
-  ],
-  americanfootball: [
-    "americanfootball_nfl",
-    "americanfootball_ncaaf",
-  ],
-};
+function normalizeOutcomeName(name) {
+  const value = String(name ?? "").trim();
+  if (!value) return "";
+  const lower = value.toLowerCase();
+  if (lower === "draw" || lower === "tie" || lower === "x") return "Draw";
+  return value;
+}
 
-const LEAGUE_LABELS = {
-  icehockey_liiga: "Liiga",
-  icehockey_nhl: "NHL",
-  icehockey_allsvenskan: "Allsvenskan",
-  icehockey_sweden_hockey_league: "SHL",
-  icehockey_finland_mestis: "Mestis",
-  icehockey_germany_del: "DEL",
-  icehockey_switzerland_nla: "National League",
-  icehockey_czech_extraliga: "Extraliga",
-  basketball_nba: "NBA",
-  basketball_euroleague: "EuroLeague",
-  basketball_ncaab: "NCAA",
-  soccer_epl: "Premier League",
-  soccer_spain_la_liga: "La Liga",
-  soccer_italy_serie_a: "Serie A",
-  soccer_germany_bundesliga: "Bundesliga",
-  soccer_france_ligue_one: "Ligue 1",
-  soccer_finland_veikkausliiga: "Veikkausliiga",
-  soccer_uefa_champs_league: "Champions League",
-  americanfootball_nfl: "NFL",
-  americanfootball_ncaaf: "NCAA Football",
-};
+function getLeagueLabelFromSportKey(sportKey) {
+  const map = {
+    icehockey_liiga: "Liiga",
+    icehockey_nhl: "NHL",
+    icehockey_allsvenskan: "Allsvenskan",
+    icehockey_sweden_hockey_league: "SHL",
+    basketball_nba: "NBA",
+    basketball_euroleague: "EuroLeague",
+    basketball_ncaab: "NCAA",
+    soccer_epl: "Premier League",
+    soccer_spain_la_liga: "La Liga",
+    soccer_italy_serie_a: "Serie A",
+    soccer_germany_bundesliga: "Bundesliga",
+    americanfootball_nfl: "NFL",
+    americanfootball_ncaaf: "NCAA Football",
+  };
 
-function normalizeBookmakers(bookmakers = []) {
-  return bookmakers
-    .map((bookmaker) => {
-      const mergedOutcomes = [];
+  return map[sportKey] ?? sportKey ?? "Unknown";
+}
 
-      for (const market of bookmaker.markets || []) {
-        if (market?.key === "h2h" || market?.key === "h2h_3_way") {
-          for (const outcome of market.outcomes || []) {
-            if (
-              outcome &&
-              typeof outcome.name === "string" &&
-              typeof outcome.price === "number"
-            ) {
-              mergedOutcomes.push({
-                name: outcome.name,
-                price: outcome.price,
-              });
-            }
-          }
-        }
+function getH2hOutcomes(match) {
+  const bookmakers = Array.isArray(match?.bookmakers) ? match.bookmakers : [];
+
+  const bestByOutcome = new Map();
+
+  for (const bookmaker of bookmakers) {
+    const markets = Array.isArray(bookmaker?.markets) ? bookmaker.markets : [];
+    const h2h = markets.find((m) => m?.key === "h2h");
+    const outcomes = Array.isArray(h2h?.outcomes) ? h2h.outcomes : [];
+
+    for (const outcome of outcomes) {
+      const name = normalizeOutcomeName(outcome?.name);
+      const odds = Number(outcome?.price ?? outcome?.odds);
+
+      if (!name || !Number.isFinite(odds) || odds <= 1) continue;
+
+      if (!bestByOutcome.has(name) || odds > bestByOutcome.get(name).odds) {
+        bestByOutcome.set(name, {
+          name,
+          odds,
+          price: odds,
+          bookmaker: bookmaker?.title ?? "Unknown",
+        });
       }
-
-      if (!mergedOutcomes.length) return null;
-
-      return {
-        ...bookmaker,
-        markets: [{ key: "h2h", outcomes: mergedOutcomes }],
-      };
-    })
-    .filter(Boolean);
-}
-
-function filterUpcomingGames(games, daysAhead = 3) {
-  const now = Date.now();
-  const minStart = now - 6 * 60 * 60 * 1000;
-  const maxStart = now + daysAhead * 24 * 60 * 60 * 1000;
-
-  return (games || [])
-    .map((game) => ({
-      ...game,
-      bookmakers: normalizeBookmakers(game.bookmakers || []),
-    }))
-    .filter((game) => {
-      const ts = new Date(game.commence_time).getTime();
-      const hasOdds =
-        Array.isArray(game.bookmakers) && game.bookmakers.length > 0;
-
-      return Number.isFinite(ts) && ts >= minStart && ts <= maxStart && hasOdds;
-    })
-    .sort(
-      (a, b) =>
-        new Date(a.commence_time).getTime() -
-        new Date(b.commence_time).getTime()
-    );
-}
-
-async function fetchOddsForSport(sport, apiKey) {
-  const url =
-    `https://api.the-odds-api.com/v4/sports/${sport}/odds` +
-    `?apiKey=${apiKey}` +
-    `&regions=us,eu,uk` +
-    `&markets=h2h` +
-    `&oddsFormat=decimal` +
-    `&dateFormat=iso`;
-
-  const res = await fetch(url, { cache: "no-store" });
-  const data = await res.json().catch(() => null);
-
-  if (!res.ok) {
-    return { ok: false, sport, data: [], error: data || `HTTP ${res.status}` };
+    }
   }
 
-  if (!Array.isArray(data)) {
-    return { ok: false, sport, data: [], error: "Response was not an array" };
-  }
-
-  return {
-    ok: true,
-    sport,
-    data: filterUpcomingGames(data, 3),
-    error: null,
-  };
-}
-
-function buildPick(game, leagueKey) {
-  const valueBet = getValueBet(game);
-  if (!valueBet) return null;
-
-  return {
-    id: `${leagueKey}-${game.id}-${valueBet.outcome}`,
-    gameId: game.id,
-    leagueKey,
-    leagueLabel: LEAGUE_LABELS[leagueKey] || leagueKey,
-    home_team: game.home_team,
-    away_team: game.away_team,
-    commence_time: game.commence_time,
-    outcome: valueBet.outcome,
-    bookmaker: valueBet.bookmaker,
-    odds: valueBet.odds,
-    modelProb: valueBet.modelProb,
-    marketProb: valueBet.marketProb,
-    edge: valueBet.edge,
-    ev: valueBet.ev,
-    kelly: valueBet.kelly,
-  };
+  return Array.from(bestByOutcome.values());
 }
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
-    const group = searchParams.get("group") || "icehockey";
-    const apiKey = process.env.ODDS_API_KEY;
+    const requestedGroup = searchParams.get("group") || "icehockey";
 
-    if (!apiKey) {
-      return Response.json({
-        ok: false,
-        reason: "missing_api_key",
-        data: [],
+    const defaultSportByGroup = {
+      icehockey: "icehockey_liiga",
+      basketball: "basketball_nba",
+      soccer: "soccer_epl",
+      americanfootball: "americanfootball_nfl",
+    };
+
+    const payload = await getOddsData({
+      requestedSport: defaultSportByGroup[requestedGroup] || "icehockey_liiga",
+      requestedGroup,
+    });
+
+    const matches = Array.isArray(payload?.data) ? payload.data : [];
+
+    const picks = [];
+
+    for (const match of matches) {
+      const outcomes = getH2hOutcomes(match);
+      if (outcomes.length === 0) continue;
+
+      const model = await getModelProbabilitiesForMatch({
+        match,
+        oddsData: match,
+      });
+
+      const modelProbabilities = Object.fromEntries(
+        Object.entries(model).filter(([key, value]) => key !== "debug" && Number.isFinite(Number(value)))
+      );
+
+      const bets = rankValueBets(
+        buildValueBets({
+          matchLabel: `${match.home_team} vs ${match.away_team}`,
+          marketKey: "h2h",
+          bookmaker: "Best market",
+          outcomes,
+          modelProbabilitiesByOutcome: modelProbabilities,
+          bankroll: 1000,
+          config: {
+            minOdds: 1.01,
+            maxOdds: 100,
+            minProbability: 0.0001,
+            maxProbability: 0.9999,
+            minEdgeToBet: 0.01,
+            minEvToBet: 0.005,
+            maxKellyFraction: 0.25,
+          },
+        })
+      );
+
+      const best = bets[0];
+      if (!best) continue;
+
+      picks.push({
+        id: `${match.id}-${best.outcomeName}`,
+        leagueLabel: getLeagueLabelFromSportKey(match.sport_key),
+        sport_key: match.sport_key,
+        home_team: match.home_team,
+        away_team: match.away_team,
+        commence_time: match.commence_time,
+        outcome: best.outcomeName,
+        odds: best.odds,
+        bookmaker: best.bookmaker,
+        edge: best.edge,
+        ev: best.ev,
+        kelly: best.kelly,
+        modelProbability: best.modelProbability,
+        marketProbability: best.marketProbability,
+        fairOdds: best.fairOdds,
+        confidence: best.confidence,
+        level: best.level,
+        score:
+          Number(best.confidence || 0) * 10 +
+          Number(best.edge || 0) * 1000 +
+          Number(best.ev || 0) * 700 +
+          Number(best.kelly || 0) * 200,
       });
     }
 
-    const leagues = SPORT_GROUP_LEAGUES[group] || SPORT_GROUP_LEAGUES.icehockey;
+    picks.sort((a, b) => b.score - a.score);
 
-    const results = await Promise.all(
-      leagues.map((leagueKey) => fetchOddsForSport(leagueKey, apiKey))
-    );
-
-    const picks = results
-      .filter((result) => result.ok)
-      .flatMap((result) =>
-        result.data.map((game) => buildPick(game, result.sport)).filter(Boolean)
-      )
-      .filter((pick) => Number.isFinite(pick.edge) && Number.isFinite(pick.ev))
-      .sort((a, b) => {
-        if (b.edge !== a.edge) return b.edge - a.edge;
-        return b.ev - a.ev;
-      })
-      .slice(0, 3);
-
-    return Response.json({
+    return NextResponse.json({
       ok: true,
-      reason: null,
-      data: picks,
+      source: payload?.source ?? "demo",
+      data: picks.slice(0, 12),
+      debug: {
+        requestedGroup,
+        source: payload?.source ?? "demo",
+        rawMatches: matches.length,
+        picksCount: picks.length,
+      },
     });
   } catch (error) {
-    console.error("top-picks route error:", error);
-
-    return Response.json({
-      ok: false,
-      reason: "server_error",
+    return NextResponse.json({
+      ok: true,
+      source: "demo",
       data: [],
+      debug: {
+        error: error?.message ?? "Unknown error",
+      },
     });
   }
 }
