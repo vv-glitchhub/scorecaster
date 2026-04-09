@@ -4,6 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import BackendValueBets from "./BackendValueBets";
 import TopPicks from "./TopPicks";
 import { fetchAnalyze } from "../../lib/api/fetchAnalyze";
+import SectionCard from "../ui/SectionCard";
+import SourceBadge from "../ui/SourceBadge";
 
 function formatPercent(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
@@ -71,6 +73,7 @@ function BestOddsList({ bestOdds = [] }) {
   return (
     <section className="space-y-4">
       <h3 className="text-3xl font-extrabold text-white">Parhaat kertoimet</h3>
+
       {bestOdds.map((row, index) => (
         <div
           key={`${row.outcomeName}-${row.bookmaker}-${index}`}
@@ -86,7 +89,13 @@ function BestOddsList({ bestOdds = [] }) {
   );
 }
 
-export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings = null }) {
+export default function AnalysisPanel({
+  match,
+  oddsData,
+  bankroll,
+  teamRatings = null,
+  source = "unknown",
+}) {
   const [analyzeData, setAnalyzeData] = useState(null);
   const [loadingAnalyze, setLoadingAnalyze] = useState(false);
   const [analyzeError, setAnalyzeError] = useState("");
@@ -104,10 +113,7 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
         bankroll: Number(bankroll ?? 0),
       });
 
-      if (lastRequestKeyRef.current === requestKey) {
-        return;
-      }
-
+      if (lastRequestKeyRef.current === requestKey) return;
       lastRequestKeyRef.current = requestKey;
 
       setLoadingAnalyze(true);
@@ -159,7 +165,10 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
   }, [analyzeData, valueBets]);
 
   return (
-    <section className="space-y-6">
+    <SectionCard
+      title="Analyysi"
+      rightSlot={<SourceBadge source={source} />}
+    >
       {loadingAnalyze ? (
         <div className="rounded-[28px] border border-slate-700 bg-[#08183E] p-6 text-slate-300">
           Haetaan backend-analyysiä...
@@ -177,18 +186,17 @@ export default function AnalysisPanel({ match, oddsData, bankroll, teamRatings =
       ) : null}
 
       {analyzeData ? (
-        <>
+        <div className="space-y-6">
           <TopPicks picks={topPicks} />
           <BestOddsList bestOdds={analyzeData.bestOdds ?? []} />
-
           <BackendValueBets valueBets={valueBets} />
 
           <section className="space-y-4">
             <h3 className="text-3xl font-extrabold text-white">Paras kohde • Legacy</h3>
             <BestBetCard bestBet={bestBet} />
           </section>
-        </>
+        </div>
       ) : null}
-    </section>
+    </SectionCard>
   );
 }
