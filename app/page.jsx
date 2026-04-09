@@ -64,27 +64,12 @@ const TEXT = {
     sourceEmpty: "Ei dataa",
     whyThisBet: "Miksi tämä kohde?",
     calcDetails: "Näytä laskelma",
-    calcExplainerTitle: "Miten tämä laskettiin?",
-    calcExplainer1:
-      "Markkinan todennäköisyys saadaan parhaasta kertoimesta kaavalla 1 / kerroin.",
-    calcExplainer2:
-      "Mallin todennäköisyys on Scorecasterin oma arvio kohteen voittomahdollisuudesta.",
-    calcExplainer3:
-      "Jos mallin arvio on korkeampi kuin markkinan arvio, kohteessa voi olla valuea.",
-    calcExplainer4:
-      "Odotusarvo kertoo, onko veto pitkällä aikavälillä teoriassa plussalla vai miinuksella.",
-    calcExplainer5:
-      "Quarter Kelly antaa varovaisemman panossuosituksen kuin täysi Kelly.",
     simpleMeaningPositive:
       "Malli pitää tätä kohdetta hieman markkinaa parempana, joten veto voi olla pelikelpoinen.",
     simpleMeaningNeutral:
       "Mallin ja markkinan arviot ovat lähellä toisiaan, joten etu on pieni.",
     simpleMeaningNegative:
       "Markkina hinnoittelee tämän kohteen vähintään yhtä hyväksi kuin malli, joten etu on heikko.",
-    rawNumbers: "Luvut auki",
-    impliedFormula: "Markkinan todennäköisyys = 1 / kerroin",
-    edgeFormula: "Edge = mallin todennäköisyys - markkinan todennäköisyys",
-    evFormula: "Odotusarvo = (kerroin × mallin todennäköisyys) - 1",
     noteLiveVsDemo:
       "Jos data ei ole liveä, analyysi on vain suuntaa-antava.",
     quotaTitle: "Live data ei ole saatavilla",
@@ -98,7 +83,6 @@ const TEXT = {
       "Näytetään demo-dataa vain testikäyttöä varten. Tätä ei pidä tulkita oikeaksi markkinadataksi.",
     liveMessage: "Näytetään tuore live-data.",
     refreshHint: "Voit kokeilla myöhemmin uudelleen tai vaihtaa liigaa.",
-    backendModel: "Backend-malli",
     backendAnalysisFailed: "Backend-analyysiä ei saatu haettua.",
     noClearValue: "Selkeää value-kohdetta ei löytynyt.",
     debugTitle: "Debug",
@@ -106,6 +90,28 @@ const TEXT = {
     level: "Taso",
     showDebug: "Näytä debug",
     hideDebug: "Piilota debug",
+    aiRanking: "AI ranking",
+    confidence: "Confidence",
+    fairOdds: "Fair odds",
+    noBet: "Ei pelikohde",
+    strongBet: "Vahva",
+    playableBet: "Pelattava",
+    skipBet: "Skip",
+    bankrollHistory: "Bankroll history",
+    addSnapshot: "Tallenna snapshot",
+    emptyHistory: "Historiaa ei vielä ole",
+    clvTracking: "CLV tracking",
+    trackBet: "Seuraa vetoa",
+    trackedBets: "Seuratut vedot",
+    noTrackedBets: "Ei seurattuja vetoja",
+    takenOdds: "Otettu kerroin",
+    closingOdds: "Closing odds",
+    clvValue: "CLV",
+    saveClosingOdds: "Tallenna closing odds",
+    pending: "Odottaa",
+    saved: "Tallennettu",
+    remove: "Poista",
+    backendTop3: "Top 3 bets · Backend",
   },
   en: {
     title: "SCORECASTER",
@@ -162,27 +168,12 @@ const TEXT = {
     sourceEmpty: "No data",
     whyThisBet: "Why this pick?",
     calcDetails: "Show calculation",
-    calcExplainerTitle: "How was this calculated?",
-    calcExplainer1:
-      "Market probability comes from the best available odds using the formula 1 / odds.",
-    calcExplainer2:
-      "Model probability is Scorecaster's own estimate of this outcome winning.",
-    calcExplainer3:
-      "If the model estimate is higher than the market estimate, the pick may contain value.",
-    calcExplainer4:
-      "Expected value tells whether the bet is theoretically positive or negative over the long run.",
-    calcExplainer5:
-      "Quarter Kelly gives a more conservative stake suggestion than full Kelly.",
     simpleMeaningPositive:
       "The model rates this outcome slightly better than the market does, so it may be playable.",
     simpleMeaningNeutral:
       "The model and market are close to each other, so the edge is small.",
     simpleMeaningNegative:
       "The market prices this outcome at least as well as the model, so the edge is weak.",
-    rawNumbers: "Open the numbers",
-    impliedFormula: "Market probability = 1 / odds",
-    edgeFormula: "Edge = model probability - market probability",
-    evFormula: "Expected value = (odds × model probability) - 1",
     noteLiveVsDemo:
       "If the source is not live, the analysis is only indicative.",
     quotaTitle: "Live data is unavailable",
@@ -196,7 +187,6 @@ const TEXT = {
       "Showing demo data for testing only. Do not treat this as real market data.",
     liveMessage: "Showing fresh live data.",
     refreshHint: "You can try again later or switch league.",
-    backendModel: "Backend model",
     backendAnalysisFailed: "Backend analysis could not be loaded.",
     noClearValue: "No clear value bet found.",
     debugTitle: "Debug",
@@ -204,6 +194,28 @@ const TEXT = {
     level: "Level",
     showDebug: "Show debug",
     hideDebug: "Hide debug",
+    aiRanking: "AI ranking",
+    confidence: "Confidence",
+    fairOdds: "Fair odds",
+    noBet: "No bet",
+    strongBet: "Strong",
+    playableBet: "Playable",
+    skipBet: "Skip",
+    bankrollHistory: "Bankroll history",
+    addSnapshot: "Save snapshot",
+    emptyHistory: "No history yet",
+    clvTracking: "CLV tracking",
+    trackBet: "Track bet",
+    trackedBets: "Tracked bets",
+    noTrackedBets: "No tracked bets",
+    takenOdds: "Taken odds",
+    closingOdds: "Closing odds",
+    clvValue: "CLV",
+    saveClosingOdds: "Save closing odds",
+    pending: "Pending",
+    saved: "Saved",
+    remove: "Remove",
+    backendTop3: "Top 3 bets · Backend",
   },
 };
 
@@ -281,6 +293,10 @@ function parseNumberInput(value, fallback = null) {
   return Number.isFinite(parsed) ? parsed : fallback;
 }
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function getMeaningText(bestBet, t) {
   if (!bestBet) return "";
   if (bestBet.edge > 0.025 && bestBet.ev > 0) return t.simpleMeaningPositive;
@@ -290,13 +306,8 @@ function getMeaningText(bestBet, t) {
 
 function getSourceMeta(source, t) {
   if (source === "live") {
-    return {
-      label: t.sourceLive,
-      tone: "live",
-      description: t.liveMessage,
-    };
+    return { label: t.sourceLive, tone: "live", description: t.liveMessage };
   }
-
   if (source === "cache" || source === "cache_fallback") {
     return {
       label: source === "cache" ? t.sourceCache : t.sourceCacheFallback,
@@ -304,41 +315,68 @@ function getSourceMeta(source, t) {
       description: t.cacheMessage,
     };
   }
-
   if (source === "demo") {
-    return {
-      label: t.sourceDemo,
-      tone: "demo",
-      description: t.demoMessage,
-    };
+    return { label: t.sourceDemo, tone: "demo", description: t.demoMessage };
   }
+  return { label: t.sourceEmpty, tone: "empty", description: "" };
+}
 
-  return {
-    label: t.sourceEmpty,
-    tone: "empty",
-    description: "",
-  };
+function getLevel(edge, t) {
+  if (edge > 0.05) return t.strongBet;
+  if (edge > 0.015) return t.playableBet;
+  return t.skipBet;
+}
+
+function getConfidenceScore(bet) {
+  if (!bet) return 0;
+  const edge = Math.max(0, Number(bet.edge || 0));
+  const ev = Math.max(0, Number(bet.ev || 0));
+  const probability = Number(
+    bet.modelProb ?? bet.modelProbability ?? 0
+  );
+
+  const score =
+    edge * 700 +
+    ev * 300 +
+    probability * 35;
+
+  return Math.round(clamp(score, 0, 99));
+}
+
+function getFairOdds(probability) {
+  const p = Number(probability || 0);
+  if (!p || p <= 0) return null;
+  return 1 / p;
 }
 
 function getValueBetCardStyle(level, edge) {
-  if (level === "strong" || edge > 0.05) {
+  if (edge > 0.05) {
     return {
-      border: "1px solid #166534",
-      background: "#0d1f18",
+      border: "2px solid #22c55e",
+      background: "linear-gradient(135deg, #052e16, #020617)",
+      boxShadow: "0 0 20px rgba(34,197,94,0.15)",
     };
   }
-
-  if (level === "playable" || edge > 0) {
+  if (edge > 0.015) {
     return {
-      border: "1px solid #a16207",
-      background: "#2a1d08",
+      border: "2px solid #facc15",
+      background: "#1e1b0a",
     };
   }
-
   return {
     border: "1px solid #334155",
     background: "#101827",
+    opacity: 0.75,
   };
+}
+
+function getClvFromOdds(takenOdds, closingOdds) {
+  const taken = Number(takenOdds);
+  const closing = Number(closingOdds);
+  if (!Number.isFinite(taken) || !Number.isFinite(closing) || taken <= 0 || closing <= 0) {
+    return null;
+  }
+  return ((taken / closing) - 1) * 100;
 }
 
 function WarningBox({ title, message, hint }) {
@@ -360,7 +398,7 @@ function SectionCard({ title, subtitle, rightSlot, children }) {
             {title ? <h2 style={styles.cardTitle}>{title}</h2> : null}
             {subtitle ? <p style={styles.cardSub}>{subtitle}</p> : null}
           </div>
-          {rightSlot ? rightSlot : null}
+          {rightSlot || null}
         </div>
       )}
       {children}
@@ -435,6 +473,10 @@ export default function Page() {
   const [infoOpen, setInfoOpen] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
 
+  const [bankrollHistory, setBankrollHistory] = useState([]);
+  const [trackedBets, setTrackedBets] = useState([]);
+  const [closingOddsInputs, setClosingOddsInputs] = useState({});
+
   const bankroll = useMemo(() => {
     const parsed = Number(String(bankrollInput).replace(",", "."));
     return Number.isFinite(parsed) ? parsed : 0;
@@ -452,6 +494,27 @@ export default function Page() {
       setSelectedLeague(currentLeagues[0]?.key || "");
     }
   }, [selectedGroup, selectedLeague, currentLeagues]);
+
+  useEffect(() => {
+    try {
+      const savedHistory = localStorage.getItem("scorecaster_bankroll_history");
+      const savedTrackedBets = localStorage.getItem("scorecaster_tracked_bets");
+      if (savedHistory) setBankrollHistory(JSON.parse(savedHistory));
+      if (savedTrackedBets) setTrackedBets(JSON.parse(savedTrackedBets));
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("scorecaster_bankroll_history", JSON.stringify(bankrollHistory));
+    } catch {}
+  }, [bankrollHistory]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("scorecaster_tracked_bets", JSON.stringify(trackedBets));
+    } catch {}
+  }, [trackedBets]);
 
   useEffect(() => {
     async function loadGames() {
@@ -548,6 +611,7 @@ export default function Page() {
       if (minOdds != null && odds < minOdds) return false;
       if (maxOdds != null && odds > maxOdds) return false;
       if (positiveEvOnly && ev <= 0) return false;
+      if (ev <= -0.02) return false;
 
       return true;
     });
@@ -679,6 +743,55 @@ export default function Page() {
     }
   }
 
+  function addBankrollSnapshot() {
+    if (!Number.isFinite(bankroll) || bankroll <= 0) return;
+    setBankrollHistory((prev) => [
+      {
+        id: `${Date.now()}`,
+        value: bankroll,
+        date: new Date().toISOString(),
+      },
+      ...prev.slice(0, 19),
+    ]);
+  }
+
+  function trackBet(bet, match) {
+    if (!bet || !match) return;
+
+    const tracked = {
+      id: `${match.id || `${match.home_team}-${match.away_team}`}-${bet.outcome || bet.outcomeName}-${Date.now()}`,
+      matchLabel: `${match.home_team} vs ${match.away_team}`,
+      outcome: bet.outcome || bet.outcomeName || "-",
+      bookmaker: bet.bookmaker || "-",
+      takenOdds: Number(bet.odds || 0),
+      closingOdds: null,
+      clv: null,
+      date: new Date().toISOString(),
+    };
+
+    setTrackedBets((prev) => [tracked, ...prev]);
+  }
+
+  function saveClosingOdds(trackedId) {
+    const input = parseNumberInput(closingOddsInputs[trackedId], null);
+    if (!input || input <= 0) return;
+
+    setTrackedBets((prev) =>
+      prev.map((bet) => {
+        if (bet.id !== trackedId) return bet;
+        return {
+          ...bet,
+          closingOdds: input,
+          clv: getClvFromOdds(bet.takenOdds, input),
+        };
+      })
+    );
+  }
+
+  function removeTrackedBet(trackedId) {
+    setTrackedBets((prev) => prev.filter((bet) => bet.id !== trackedId));
+  }
+
   const showQuotaWarning = !loading && quotaExceeded && oddsEmpty;
   const showEmptyWarning = !loading && oddsEmpty && !quotaExceeded;
 
@@ -687,6 +800,40 @@ export default function Page() {
         .filter((bet) => bet && typeof bet.edge === "number")
         .sort((a, b) => b.edge - a.edge)
     : [];
+
+  const backendTop3 = useMemo(() => {
+    const source =
+      Array.isArray(analysisData?.topPicks) && analysisData.topPicks.length > 0
+        ? analysisData.topPicks
+        : backendValueBets;
+
+    return source
+      .map((bet) => {
+        const modelProbability = Number(
+          bet.modelProb ?? bet.modelProbability ?? 0
+        );
+        const confidence = getConfidenceScore({
+          ...bet,
+          modelProb: modelProbability,
+        });
+
+        return {
+          ...bet,
+          outcomeName: bet.outcome || bet.outcomeName || "-",
+          modelProbability,
+          marketProbability: Number(
+            bet.marketProb ?? bet.marketProbability ?? 0
+          ),
+          confidence,
+          fairOdds: getFairOdds(modelProbability),
+        };
+      })
+      .sort((a, b) => {
+        if (b.confidence !== a.confidence) return b.confidence - a.confidence;
+        return Number(b.edge || 0) - Number(a.edge || 0);
+      })
+      .slice(0, 3);
+  }, [analysisData, backendValueBets]);
 
   return (
     <main style={styles.page}>
@@ -923,9 +1070,18 @@ export default function Page() {
                         <div style={styles.gameTitleText}>
                           {game.home_team} vs {game.away_team}
                         </div>
+
                         <div style={styles.gameDate}>
                           {formatDate(game.commence_time, lang)}
                         </div>
+
+                        {getBestOdds(game)?.length > 0 ? (
+                          <div style={styles.gameOddsPreview}>
+                            {getBestOdds(game)
+                              .map((o) => `${o.name} ${o.price}`)
+                              .join(" • ")}
+                          </div>
+                        ) : null}
                       </button>
                     ))}
                   </div>
@@ -981,6 +1137,68 @@ export default function Page() {
               </div>
 
               <div style={{ marginTop: 18 }}>
+                <div style={styles.subTitle}>{t.backendTop3}</div>
+
+                {analysisLoading ? (
+                  <div style={styles.muted}>{t.loading}</div>
+                ) : backendTop3.length === 0 ? (
+                  <div style={styles.muted}>{t.noClearValue}</div>
+                ) : (
+                  <div style={styles.stack}>
+                    {backendTop3.map((bet, index) => {
+                      const level = getLevel(Number(bet.edge || 0), t);
+                      const confidence = getConfidenceScore(bet);
+                      const fairOdds = getFairOdds(
+                        Number(bet.modelProbability ?? bet.modelProb ?? 0)
+                      );
+
+                      return (
+                        <div
+                          key={`${bet.outcomeName}-${index}`}
+                          style={{
+                            ...styles.topAiCard,
+                            ...getValueBetCardStyle(level, Number(bet.edge || 0)),
+                          }}
+                        >
+                          <div style={styles.topAiHeader}>
+                            <div style={styles.topAiRank}>#{index + 1}</div>
+                            <div style={styles.topAiOutcome}>{bet.outcomeName}</div>
+                            <div style={styles.confidenceBadge}>{confidence}/100</div>
+                          </div>
+
+                          <div style={styles.stack}>
+                            <StatRow label={t.bookmaker} value={bet.bookmaker || "-"} />
+                            <StatRow label={t.odds} value={Number(bet.odds || 0).toFixed(2)} />
+                            <StatRow
+                              label={t.probability}
+                              value={`${(Number(bet.modelProbability || 0) * 100).toFixed(1)}%`}
+                            />
+                            <StatRow
+                              label={t.marketProbability}
+                              value={`${(Number(bet.marketProbability || 0) * 100).toFixed(1)}%`}
+                            />
+                            <StatRow label={t.edge} value={`${(Number(bet.edge || 0) * 100).toFixed(2)}%`} />
+                            <StatRow label={t.expectedValue} value={`${(Number(bet.ev || 0) * 100).toFixed(2)}%`} />
+                            <StatRow label={t.confidence} value={`${confidence}/100`} />
+                            <StatRow label={t.fairOdds} value={fairOdds ? fairOdds.toFixed(2) : "-"} />
+                            <StatRow label={t.level} value={level} />
+                          </div>
+
+                          <button
+                            type="button"
+                            style={styles.secondaryButton}
+                            onClick={() => trackBet(bet, selectedGame)}
+                          >
+                            {t.trackBet}
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div style={{ marginTop: 18 }}>
                 <div style={styles.subTitle}>{t.valueBetList}</div>
 
                 {analysisLoading ? (
@@ -996,58 +1214,47 @@ export default function Page() {
                 ) : (
                   <div style={styles.stack}>
                     {backendValueBets.map((bet, index) => {
-                      const cardStyle = getValueBetCardStyle(bet.level, bet.edge);
+                      const modelProbability = Number(
+                        bet.modelProb ?? bet.modelProbability ?? 0
+                      );
+                      const marketProbability = Number(
+                        bet.marketProb ?? bet.marketProbability ?? 0
+                      );
+                      const level = getLevel(Number(bet.edge || 0), t);
+                      const confidence = getConfidenceScore({
+                        ...bet,
+                        modelProb: modelProbability,
+                      });
+                      const fairOdds = getFairOdds(modelProbability);
 
                       return (
                         <div
                           key={`${bet.outcome || bet.outcomeName}-${index}`}
                           style={{
                             ...styles.legacyCard,
-                            ...cardStyle,
+                            ...getValueBetCardStyle(level, Number(bet.edge || 0)),
                           }}
                         >
                           <StatRow label={t.outcome} value={bet.outcome || bet.outcomeName || "-"} />
-                          <StatRow label={t.bookmaker} value={bet.bookmaker} />
+                          <StatRow label={t.bookmaker} value={bet.bookmaker || "-"} />
                           <StatRow label={t.odds} value={Number(bet.odds || 0).toFixed(2)} />
-                          <StatRow
-                            label={t.probability}
-                            value={`${(
-                              Number(
-                                bet.modelProb ??
-                                  bet.modelProbability ??
-                                  0
-                              ) * 100
-                            ).toFixed(1)}%`}
-                          />
-                          <StatRow
-                            label={t.marketProbability}
-                            value={`${(
-                              Number(
-                                bet.marketProb ??
-                                  bet.marketProbability ??
-                                  0
-                              ) * 100
-                            ).toFixed(1)}%`}
-                          />
-                          <StatRow
-                            label={t.edge}
-                            value={`${(Number(bet.edge || 0) * 100).toFixed(2)}%`}
-                          />
-                          <StatRow
-                            label={t.expectedValue}
-                            value={`${(Number(bet.ev || 0) * 100).toFixed(2)}%`}
-                          />
-                          <StatRow
-                            label={t.quarterKelly}
-                            value={`${(
-                              Number(bet.kelly || 0) * 0.25 * 100
-                            ).toFixed(2)}%`}
-                          />
-                          <StatRow
-                            label={t.suggestedStake}
-                            value={`${Number(bet.stake || 0).toFixed(2)} €`}
-                          />
-                          <StatRow label={t.level} value={bet.level || "-"} />
+                          <StatRow label={t.probability} value={`${(modelProbability * 100).toFixed(1)}%`} />
+                          <StatRow label={t.marketProbability} value={`${(marketProbability * 100).toFixed(1)}%`} />
+                          <StatRow label={t.edge} value={`${(Number(bet.edge || 0) * 100).toFixed(2)}%`} />
+                          <StatRow label={t.expectedValue} value={`${(Number(bet.ev || 0) * 100).toFixed(2)}%`} />
+                          <StatRow label={t.quarterKelly} value={`${(Number(bet.kelly || 0) * 0.25 * 100).toFixed(2)}%`} />
+                          <StatRow label={t.suggestedStake} value={`${Number(bet.stake || 0).toFixed(2)} €`} />
+                          <StatRow label={t.confidence} value={`${confidence}/100`} />
+                          <StatRow label={t.fairOdds} value={fairOdds ? fairOdds.toFixed(2) : "-"} />
+                          <StatRow label={t.level} value={level} />
+
+                          <button
+                            type="button"
+                            style={styles.secondaryButton}
+                            onClick={() => trackBet(bet, selectedGame)}
+                          >
+                            {t.trackBet}
+                          </button>
                         </div>
                       );
                     })}
@@ -1056,7 +1263,7 @@ export default function Page() {
               </div>
 
               <div style={{ marginTop: 18 }}>
-                <div style={styles.subTitle}>{t.bestBet} · Legacy</div>
+                <div style={styles.subTitle}>{t.bestBet}</div>
 
                 {!bestBet ? (
                   <div style={styles.muted}>{t.noOdds}</div>
@@ -1072,33 +1279,26 @@ export default function Page() {
                     <div style={styles.legacyCard}>
                       <div style={styles.stack}>
                         <StatRow label={t.outcome} value={bestBet.outcome} />
-                        <StatRow
-                          label={t.probability}
-                          value={`${(bestBet.modelProb * 100).toFixed(1)}%`}
-                        />
-                        <StatRow
-                          label={t.marketProbability}
-                          value={`${(bestBet.marketProb * 100).toFixed(1)}%`}
-                        />
+                        <StatRow label={t.probability} value={`${(bestBet.modelProb * 100).toFixed(1)}%`} />
+                        <StatRow label={t.marketProbability} value={`${(bestBet.marketProb * 100).toFixed(1)}%`} />
                         <StatRow label={t.odds} value={bestBet.odds} />
                         <StatRow label={t.bookmaker} value={bestBet.bookmaker} />
-                        <StatRow
-                          label={t.edge}
-                          value={`${(bestBet.edge * 100).toFixed(2)}%`}
-                        />
-                        <StatRow
-                          label={t.expectedValue}
-                          value={`${(bestBet.ev * 100).toFixed(2)}%`}
-                        />
-                        <StatRow
-                          label={t.quarterKelly}
-                          value={`${(bestBet.kelly * 0.25 * 100).toFixed(2)}%`}
-                        />
-                        <StatRow
-                          label={t.suggestedStake}
-                          value={`${getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €`}
-                        />
+                        <StatRow label={t.edge} value={`${(bestBet.edge * 100).toFixed(2)}%`} />
+                        <StatRow label={t.expectedValue} value={`${(bestBet.ev * 100).toFixed(2)}%`} />
+                        <StatRow label={t.quarterKelly} value={`${(bestBet.kelly * 0.25 * 100).toFixed(2)}%`} />
+                        <StatRow label={t.suggestedStake} value={`${getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €`} />
+                        <StatRow label={t.confidence} value={`${getConfidenceScore(bestBet)}/100`} />
+                        <StatRow label={t.fairOdds} value={getFairOdds(bestBet.modelProb)?.toFixed(2) || "-"} />
+                        <StatRow label={t.level} value={getLevel(bestBet.edge, t)} />
                       </div>
+
+                      <button
+                        type="button"
+                        style={styles.secondaryButton}
+                        onClick={() => trackBet(bestBet, selectedGame)}
+                      >
+                        {t.trackBet}
+                      </button>
                     </div>
                   </>
                 )}
@@ -1107,7 +1307,14 @@ export default function Page() {
           )}
         </SectionCard>
 
-        <SectionCard title={t.bankroll}>
+        <SectionCard
+          title={t.bankroll}
+          rightSlot={
+            <button type="button" style={styles.secondaryButton} onClick={addBankrollSnapshot}>
+              {t.addSnapshot}
+            </button>
+          }
+        >
           <div style={styles.field}>
             <label style={styles.label}>{t.bankrollLabel}</label>
             <input
@@ -1122,6 +1329,87 @@ export default function Page() {
           <div style={styles.parsedText}>
             {t.parsedBankroll}: {bankroll.toFixed(2)} €
           </div>
+        </SectionCard>
+
+        <SectionCard title={t.bankrollHistory}>
+          {bankrollHistory.length === 0 ? (
+            <p style={styles.muted}>{t.emptyHistory}</p>
+          ) : (
+            <div style={styles.stack}>
+              {bankrollHistory.map((item) => (
+                <div key={item.id} style={styles.rowCard}>
+                  <span>{formatDate(item.date, lang)}</span>
+                  <strong>{Number(item.value).toFixed(2)} €</strong>
+                </div>
+              ))}
+            </div>
+          )}
+        </SectionCard>
+
+        <SectionCard title={t.clvTracking}>
+          <div style={styles.subTitle}>{t.trackedBets}</div>
+
+          {trackedBets.length === 0 ? (
+            <p style={styles.muted}>{t.noTrackedBets}</p>
+          ) : (
+            <div style={styles.stack}>
+              {trackedBets.map((bet) => (
+                <div key={bet.id} style={styles.legacyCard}>
+                  <div style={styles.trackTitle}>{bet.matchLabel}</div>
+                  <div style={styles.trackSub}>{bet.outcome}</div>
+
+                  <div style={styles.stack}>
+                    <StatRow label={t.bookmaker} value={bet.bookmaker} />
+                    <StatRow label={t.takenOdds} value={Number(bet.takenOdds).toFixed(2)} />
+                    <StatRow
+                      label={t.closingOdds}
+                      value={bet.closingOdds ? Number(bet.closingOdds).toFixed(2) : t.pending}
+                    />
+                    <StatRow
+                      label={t.clvValue}
+                      value={
+                        bet.clv == null
+                          ? t.pending
+                          : `${bet.clv > 0 ? "+" : ""}${bet.clv.toFixed(2)}%`
+                      }
+                    />
+                  </div>
+
+                  <div style={styles.clvInputRow}>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={t.closingOdds}
+                      value={closingOddsInputs[bet.id] || ""}
+                      onChange={(e) =>
+                        setClosingOddsInputs((prev) => ({
+                          ...prev,
+                          [bet.id]: e.target.value,
+                        }))
+                      }
+                      style={styles.input}
+                    />
+
+                    <button
+                      type="button"
+                      style={styles.secondaryButton}
+                      onClick={() => saveClosingOdds(bet.id)}
+                    >
+                      {t.saveClosingOdds}
+                    </button>
+
+                    <button
+                      type="button"
+                      style={styles.dangerButton}
+                      onClick={() => removeTrackedBet(bet.id)}
+                    >
+                      {t.remove}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </SectionCard>
 
         <SectionCard title={t.feedback}>
@@ -1238,13 +1526,16 @@ const styles = {
     zIndex: 1,
   },
   title: {
-    fontSize: 50,
+    fontSize: 52,
     lineHeight: 0.95,
     fontWeight: 900,
     margin: "0 0 12px 0",
     letterSpacing: "0.08em",
     fontFamily:
       '"Space Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+    background: "linear-gradient(90deg, #ffffff, #93c5fd)",
+    WebkitBackgroundClip: "text",
+    WebkitTextFillColor: "transparent",
   },
   subtitle: {
     margin: "0 0 6px 0",
@@ -1266,12 +1557,13 @@ const styles = {
     flexShrink: 0,
   },
   card: {
-    background: "#0f172a",
+    background: "rgba(15, 23, 42, 0.92)",
     border: "1px solid #1e293b",
     borderRadius: 24,
     padding: 16,
     marginBottom: 20,
     boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+    backdropFilter: "blur(10px)",
   },
   cardHeaderInline: {
     display: "flex",
@@ -1344,6 +1636,16 @@ const styles = {
     background: "#1e293b",
     color: "#ffffff",
     border: "1px solid #334155",
+    fontSize: 15,
+    fontWeight: 800,
+    cursor: "pointer",
+  },
+  dangerButton: {
+    padding: "12px 16px",
+    borderRadius: 14,
+    background: "#3b0a0a",
+    color: "#ffffff",
+    border: "1px solid #7f1d1d",
     fontSize: 15,
     fontWeight: 800,
     cursor: "pointer",
@@ -1429,6 +1731,12 @@ const styles = {
     color: "#94a3b8",
     fontSize: 14,
   },
+  gameOddsPreview: {
+    marginTop: 6,
+    fontSize: 13,
+    color: "#94a3b8",
+    lineHeight: 1.5,
+  },
   analysisBox: {
     padding: 16,
     background: "#13203d",
@@ -1451,6 +1759,37 @@ const styles = {
     borderRadius: 18,
     padding: 14,
     background: "#101827",
+  },
+  topAiCard: {
+    borderRadius: 18,
+    padding: 14,
+  },
+  topAiHeader: {
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    marginBottom: 12,
+    flexWrap: "wrap",
+  },
+  topAiRank: {
+    padding: "6px 10px",
+    borderRadius: 999,
+    background: "#0b1730",
+    border: "1px solid #334155",
+    fontWeight: 900,
+  },
+  topAiOutcome: {
+    fontSize: 20,
+    fontWeight: 900,
+    flex: 1,
+  },
+  confidenceBadge: {
+    padding: "8px 12px",
+    borderRadius: 999,
+    background: "#1d4ed8",
+    color: "#fff",
+    fontWeight: 900,
+    fontSize: 14,
   },
   parsedText: {
     marginTop: 10,
@@ -1604,5 +1943,19 @@ const styles = {
     color: "#93c5fd",
     fontSize: 12,
     overflowX: "auto",
+  },
+  trackTitle: {
+    fontSize: 18,
+    fontWeight: 900,
+    marginBottom: 6,
+  },
+  trackSub: {
+    color: "#94a3b8",
+    marginBottom: 12,
+  },
+  clvInputRow: {
+    display: "grid",
+    gap: 10,
+    marginTop: 12,
   },
 };
