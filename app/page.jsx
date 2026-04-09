@@ -104,6 +104,8 @@ const TEXT = {
     debugTitle: "Debug",
     valueBetList: "Value betit · Backend",
     level: "Taso",
+    showDebug: "Näytä debug",
+    hideDebug: "Piilota debug",
   },
   en: {
     title: "SCORECASTER",
@@ -200,6 +202,8 @@ const TEXT = {
     debugTitle: "Debug",
     valueBetList: "Value bets · Backend",
     level: "Level",
+    showDebug: "Show debug",
+    hideDebug: "Hide debug",
   },
 };
 
@@ -347,6 +351,50 @@ function WarningBox({ title, message, hint }) {
   );
 }
 
+function SectionCard({ title, subtitle, rightSlot, children }) {
+  return (
+    <section style={styles.card}>
+      {(title || subtitle || rightSlot) && (
+        <div style={styles.cardHeaderInline}>
+          <div>
+            {title ? <h2 style={styles.cardTitle}>{title}</h2> : null}
+            {subtitle ? <p style={styles.cardSub}>{subtitle}</p> : null}
+          </div>
+          {rightSlot ? rightSlot : null}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+}
+
+function SourceBadge({ meta, labelPrefix }) {
+  const toneStyle =
+    meta.tone === "live"
+      ? styles.sourceBadgeLive
+      : meta.tone === "cache"
+      ? styles.sourceBadgeCache
+      : meta.tone === "demo"
+      ? styles.sourceBadgeDemo
+      : styles.sourceBadgeEmpty;
+
+  return (
+    <div style={{ ...styles.sourceBadge, ...toneStyle }}>
+      {labelPrefix ? `${labelPrefix}: ` : ""}
+      {meta.label}
+    </div>
+  );
+}
+
+function StatRow({ label, value }) {
+  return (
+    <div style={styles.rowCard}>
+      <span>{label}</span>
+      <strong>{value}</strong>
+    </div>
+  );
+}
+
 export default function Page() {
   const [lang, setLang] = useState("fi");
   const t = TEXT[lang];
@@ -385,6 +433,7 @@ export default function Page() {
   const [sendingFeedback, setSendingFeedback] = useState(false);
 
   const [infoOpen, setInfoOpen] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
 
   const bankroll = useMemo(() => {
     const parsed = Number(String(bankrollInput).replace(",", "."));
@@ -642,92 +691,93 @@ export default function Page() {
   return (
     <main style={styles.page}>
       <div style={styles.container}>
-        <div style={styles.headerRow}>
-          <div>
-            <h1 style={styles.title}>{t.title}</h1>
-            <p style={styles.subtitle}>{t.subtitle}</p>
-          </div>
+        <section style={styles.heroCard}>
+          <div style={styles.heroGlowOne} />
+          <div style={styles.heroGlowTwo} />
 
-          <button type="button" style={styles.infoButton} onClick={() => setInfoOpen(true)}>
-            ?
-          </button>
-        </div>
-
-        <section style={styles.card}>
-          <div style={styles.cardHeaderInline}>
-            <div>
-              <h2 style={styles.cardTitle}>{t.simulatorPreview}</h2>
-              <p style={styles.cardSub}>{t.simulatorPreviewSub}</p>
+          <div style={styles.headerRow}>
+            <div style={{ position: "relative", zIndex: 1 }}>
+              <h1 style={styles.title}>{t.title}</h1>
+              <p style={styles.subtitle}>{t.subtitle}</p>
             </div>
-            <div style={{ ...styles.sourceBadge, ...styles.sourceBadgeCache }}>
-              Preview
+
+            <button type="button" style={styles.infoButton} onClick={() => setInfoOpen(true)}>
+              ?
+            </button>
+          </div>
+        </section>
+
+        <SectionCard
+          title={t.simulatorPreview}
+          subtitle={t.simulatorPreviewSub}
+          rightSlot={<div style={{ ...styles.sourceBadge, ...styles.sourceBadgeCache }}>Preview</div>}
+        >
+          {simLoading ? <p style={styles.muted}>{t.loading}</p> : null}
+
+          {!simLoading && simPreview.length > 0 ? (
+            <div style={styles.stack}>
+              {simPreview.map((team, index) => (
+                <div key={team.team} style={styles.rowCard}>
+                  <span>
+                    #{index + 1} {team.team}
+                  </span>
+                  <strong>{(team.championProbability * 100).toFixed(2)}%</strong>
+                </div>
+              ))}
             </div>
-          </div>
-
-          {simLoading && <p style={styles.muted}>{t.loading}</p>}
-
-          <div style={styles.stack}>
-            {simPreview.map((team, index) => (
-              <div key={team.team} style={styles.rowCard}>
-                <span>
-                  #{index + 1} {team.team}
-                </span>
-                <strong>{(team.championProbability * 100).toFixed(2)}%</strong>
-              </div>
-            ))}
-          </div>
+          ) : null}
 
           <Link href="/simulator" style={styles.linkButton}>
             {t.openSimulator}
           </Link>
-        </section>
+        </SectionCard>
 
-        <section style={styles.section}>
-          <div style={styles.field}>
-            <label style={styles.label}>{t.language}</label>
-            <select
-              value={lang}
-              onChange={(e) => setLang(e.target.value)}
-              style={styles.input}
-            >
-              <option value="fi">Suomi</option>
-              <option value="en">English</option>
-            </select>
+        <SectionCard title="Controls">
+          <div style={styles.controlsGrid}>
+            <div style={styles.field}>
+              <label style={styles.label}>{t.language}</label>
+              <select
+                value={lang}
+                onChange={(e) => setLang(e.target.value)}
+                style={styles.input}
+              >
+                <option value="fi">Suomi</option>
+                <option value="en">English</option>
+              </select>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.sport}</label>
+              <select
+                value={selectedGroup}
+                onChange={(e) => setSelectedGroup(e.target.value)}
+                style={styles.input}
+              >
+                <option value="icehockey">{SPORT_GROUPS[lang].icehockey}</option>
+                <option value="basketball">{SPORT_GROUPS[lang].basketball}</option>
+                <option value="soccer">{SPORT_GROUPS[lang].soccer}</option>
+                <option value="americanfootball">{SPORT_GROUPS[lang].americanfootball}</option>
+              </select>
+            </div>
+
+            <div style={styles.field}>
+              <label style={styles.label}>{t.league}</label>
+              <select
+                value={selectedLeague}
+                onChange={(e) => setSelectedLeague(e.target.value)}
+                style={styles.input}
+              >
+                {currentLeagues.map((league) => (
+                  <option key={league.key} value={league.key}>
+                    {getLeagueLabel(league, lang)}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+        </SectionCard>
 
-          <div style={styles.field}>
-            <label style={styles.label}>{t.sport}</label>
-            <select
-              value={selectedGroup}
-              onChange={(e) => setSelectedGroup(e.target.value)}
-              style={styles.input}
-            >
-              <option value="icehockey">{SPORT_GROUPS[lang].icehockey}</option>
-              <option value="basketball">{SPORT_GROUPS[lang].basketball}</option>
-              <option value="soccer">{SPORT_GROUPS[lang].soccer}</option>
-              <option value="americanfootball">{SPORT_GROUPS[lang].americanfootball}</option>
-            </select>
-          </div>
-
-          <div style={styles.field}>
-            <label style={styles.label}>{t.league}</label>
-            <select
-              value={selectedLeague}
-              onChange={(e) => setSelectedLeague(e.target.value)}
-              style={styles.input}
-            >
-              {currentLeagues.map((league) => (
-                <option key={league.key} value={league.key}>
-                  {getLeagueLabel(league, lang)}
-                </option>
-              ))}
-            </select>
-          </div>
-        </section>
-
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.filters}</h2>
-
+        <SectionCard title={t.filters}>
           <div style={styles.filterGrid}>
             <div style={styles.field}>
               <label style={styles.label}>{t.minEdge}</label>
@@ -775,15 +825,14 @@ export default function Page() {
           <button type="button" style={styles.secondaryButton} onClick={resetFilters}>
             {t.resetFilters}
           </button>
-        </section>
+        </SectionCard>
 
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.topPicks}</h2>
+        <SectionCard title={t.topPicks}>
+          {topPicksLoading ? <p style={styles.muted}>{t.loading}</p> : null}
 
-          {topPicksLoading && <p style={styles.muted}>{t.loading}</p>}
-          {!topPicksLoading && filteredTopPicks.length === 0 && (
+          {!topPicksLoading && filteredTopPicks.length === 0 ? (
             <p style={styles.muted}>{t.topPicksEmpty}</p>
-          )}
+          ) : null}
 
           <div style={styles.stack}>
             {filteredTopPicks.map((pick) => (
@@ -806,96 +855,52 @@ export default function Page() {
                 <details style={styles.details}>
                   <summary style={styles.summary}>{t.calcDetails}</summary>
                   <div style={styles.detailsContent}>
-                    <div style={styles.rowCard}>
-                      <span>{t.outcome}</span>
-                      <strong>{pick.outcome}</strong>
-                    </div>
-                    <div style={styles.rowCard}>
-                      <span>{t.odds}</span>
-                      <strong>{pick.odds}</strong>
-                    </div>
-                    <div style={styles.rowCard}>
-                      <span>{t.bookmaker}</span>
-                      <strong>{pick.bookmaker}</strong>
-                    </div>
-                    <div style={styles.rowCard}>
-                      <span>{t.edge}</span>
-                      <strong>{(pick.edge * 100).toFixed(2)}%</strong>
-                    </div>
-                    <div style={styles.rowCard}>
-                      <span>{t.expectedValue}</span>
-                      <strong>{(pick.ev * 100).toFixed(2)}%</strong>
-                    </div>
-                    <div style={styles.rowCard}>
-                      <span>{t.suggestedStake}</span>
-                      <strong>
-                        {getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €
-                      </strong>
-                    </div>
+                    <StatRow label={t.outcome} value={pick.outcome} />
+                    <StatRow label={t.odds} value={pick.odds} />
+                    <StatRow label={t.bookmaker} value={pick.bookmaker} />
+                    <StatRow label={t.edge} value={`${(pick.edge * 100).toFixed(2)}%`} />
+                    <StatRow label={t.expectedValue} value={`${(pick.ev * 100).toFixed(2)}%`} />
+                    <StatRow
+                      label={t.suggestedStake}
+                      value={`${getStakeFromKelly(bankroll, pick.kelly, 0.25).toFixed(2)} €`}
+                    />
                   </div>
                 </details>
               </div>
             ))}
           </div>
-        </section>
+        </SectionCard>
 
-        <section style={styles.card}>
-          <div style={styles.cardHeaderInline}>
-            <h2 style={styles.cardTitle}>{t.games}</h2>
-            <div
-              style={{
-                ...styles.sourceBadge,
-                ...(sourceMeta.tone === "live"
-                  ? styles.sourceBadgeLive
-                  : sourceMeta.tone === "cache"
-                  ? styles.sourceBadgeCache
-                  : sourceMeta.tone === "demo"
-                  ? styles.sourceBadgeDemo
-                  : styles.sourceBadgeEmpty),
-              }}
-            >
-              {t.sourceLabel}: {sourceMeta.label}
-            </div>
-          </div>
-
-          {sourceMeta.description ? (
-            <p style={styles.noteText}>{sourceMeta.description}</p>
-          ) : null}
-
+        <SectionCard
+          title={t.games}
+          subtitle={sourceMeta.description || undefined}
+          rightSlot={<SourceBadge meta={sourceMeta} labelPrefix={t.sourceLabel} />}
+        >
           {oddsMessage ? <p style={styles.noteText}>{oddsMessage}</p> : null}
 
-          {showQuotaWarning && (
+          {showQuotaWarning ? (
             <WarningBox
               title={t.quotaTitle}
               message={t.quotaMessage}
               hint={t.refreshHint}
             />
-          )}
+          ) : null}
 
-          {showEmptyWarning && (
+          {showEmptyWarning ? (
             <WarningBox
               title={t.emptyTitle}
               message={t.emptyMessage}
               hint={t.refreshHint}
             />
-          )}
-
-          {loading && <p style={styles.muted}>{t.loading}</p>}
-
-          {!loading && !oddsEmpty && filteredGames.length === 0 && (
-            <p style={styles.muted}>{t.noGames}</p>
-          )}
-
-          {oddsDebug ? (
-            <div>
-              <div style={styles.subTitle}>{t.debugTitle}</div>
-              <pre style={styles.debugBox}>
-                {JSON.stringify(oddsDebug, null, 2)}
-              </pre>
-            </div>
           ) : null}
 
-          {!oddsEmpty && (
+          {loading ? <p style={styles.muted}>{t.loading}</p> : null}
+
+          {!loading && !oddsEmpty && filteredGames.length === 0 ? (
+            <p style={styles.muted}>{t.noGames}</p>
+          ) : null}
+
+          {!oddsEmpty ? (
             <div style={styles.gamesList}>
               {groupedGames.map(([day, dayGames]) => (
                 <div key={day} style={styles.dayGroup}>
@@ -927,28 +932,13 @@ export default function Page() {
                 </div>
               ))}
             </div>
-          )}
-        </section>
+          ) : null}
+        </SectionCard>
 
-        <section style={styles.card}>
-          <div style={styles.cardHeaderInline}>
-            <h2 style={styles.cardTitle}>{t.analysis}</h2>
-            <div
-              style={{
-                ...styles.sourceBadge,
-                ...(sourceMeta.tone === "live"
-                  ? styles.sourceBadgeLive
-                  : sourceMeta.tone === "cache"
-                  ? styles.sourceBadgeCache
-                  : sourceMeta.tone === "demo"
-                  ? styles.sourceBadgeDemo
-                  : styles.sourceBadgeEmpty),
-              }}
-            >
-              {sourceMeta.label}
-            </div>
-          </div>
-
+        <SectionCard
+          title={t.analysis}
+          rightSlot={<SourceBadge meta={sourceMeta} />}
+        >
           {oddsEmpty ? (
             <WarningBox
               title={quotaExceeded ? t.quotaTitle : t.emptyTitle}
@@ -971,7 +961,7 @@ export default function Page() {
                 </div>
               </div>
 
-              <div style={{ marginTop: 14 }}>
+              <div style={{ marginTop: 18 }}>
                 <div style={styles.subTitle}>{t.bestOdds}</div>
 
                 {bestOdds.length === 0 ? (
@@ -990,7 +980,7 @@ export default function Page() {
                 )}
               </div>
 
-              <div style={{ marginTop: 14 }}>
+              <div style={{ marginTop: 18 }}>
                 <div style={styles.subTitle}>{t.valueBetList}</div>
 
                 {analysisLoading ? (
@@ -1010,61 +1000,54 @@ export default function Page() {
 
                       return (
                         <div
-                          key={`${bet.outcome}-${index}`}
+                          key={`${bet.outcome || bet.outcomeName}-${index}`}
                           style={{
                             ...styles.legacyCard,
                             ...cardStyle,
                           }}
                         >
-                          <div style={styles.rowCard}>
-                            <span>{t.outcome}</span>
-                            <strong>{bet.outcome}</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.bookmaker}</span>
-                            <strong>{bet.bookmaker}</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.odds}</span>
-                            <strong>{Number(bet.odds || 0).toFixed(2)}</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.probability}</span>
-                            <strong>{(Number(bet.modelProb || 0) * 100).toFixed(1)}%</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.marketProbability}</span>
-                            <strong>{(Number(bet.marketProb || 0) * 100).toFixed(1)}%</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.edge}</span>
-                            <strong>{(Number(bet.edge || 0) * 100).toFixed(2)}%</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.expectedValue}</span>
-                            <strong>{(Number(bet.ev || 0) * 100).toFixed(2)}%</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.quarterKelly}</span>
-                            <strong>{(Number(bet.kelly || 0) * 0.25 * 100).toFixed(2)}%</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.suggestedStake}</span>
-                            <strong>{Number(bet.stake || 0).toFixed(2)} €</strong>
-                          </div>
-
-                          <div style={styles.rowCard}>
-                            <span>{t.level}</span>
-                            <strong>{bet.level}</strong>
-                          </div>
+                          <StatRow label={t.outcome} value={bet.outcome || bet.outcomeName || "-"} />
+                          <StatRow label={t.bookmaker} value={bet.bookmaker} />
+                          <StatRow label={t.odds} value={Number(bet.odds || 0).toFixed(2)} />
+                          <StatRow
+                            label={t.probability}
+                            value={`${(
+                              Number(
+                                bet.modelProb ??
+                                  bet.modelProbability ??
+                                  0
+                              ) * 100
+                            ).toFixed(1)}%`}
+                          />
+                          <StatRow
+                            label={t.marketProbability}
+                            value={`${(
+                              Number(
+                                bet.marketProb ??
+                                  bet.marketProbability ??
+                                  0
+                              ) * 100
+                            ).toFixed(1)}%`}
+                          />
+                          <StatRow
+                            label={t.edge}
+                            value={`${(Number(bet.edge || 0) * 100).toFixed(2)}%`}
+                          />
+                          <StatRow
+                            label={t.expectedValue}
+                            value={`${(Number(bet.ev || 0) * 100).toFixed(2)}%`}
+                          />
+                          <StatRow
+                            label={t.quarterKelly}
+                            value={`${(
+                              Number(bet.kelly || 0) * 0.25 * 100
+                            ).toFixed(2)}%`}
+                          />
+                          <StatRow
+                            label={t.suggestedStake}
+                            value={`${Number(bet.stake || 0).toFixed(2)} €`}
+                          />
+                          <StatRow label={t.level} value={bet.level || "-"} />
                         </div>
                       );
                     })}
@@ -1072,7 +1055,7 @@ export default function Page() {
                 )}
               </div>
 
-              <div style={{ marginTop: 14 }}>
+              <div style={{ marginTop: 18 }}>
                 <div style={styles.subTitle}>{t.bestBet} · Legacy</div>
 
                 {!bestBet ? (
@@ -1088,44 +1071,33 @@ export default function Page() {
 
                     <div style={styles.legacyCard}>
                       <div style={styles.stack}>
-                        <div style={styles.rowCard}>
-                          <span>{t.outcome}</span>
-                          <strong>{bestBet.outcome}</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.probability}</span>
-                          <strong>{(bestBet.modelProb * 100).toFixed(1)}%</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.marketProbability}</span>
-                          <strong>{(bestBet.marketProb * 100).toFixed(1)}%</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.odds}</span>
-                          <strong>{bestBet.odds}</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.bookmaker}</span>
-                          <strong>{bestBet.bookmaker}</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.edge}</span>
-                          <strong>{(bestBet.edge * 100).toFixed(2)}%</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.expectedValue}</span>
-                          <strong>{(bestBet.ev * 100).toFixed(2)}%</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.quarterKelly}</span>
-                          <strong>{(bestBet.kelly * 0.25 * 100).toFixed(2)}%</strong>
-                        </div>
-                        <div style={styles.rowCard}>
-                          <span>{t.suggestedStake}</span>
-                          <strong>
-                            {getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €
-                          </strong>
-                        </div>
+                        <StatRow label={t.outcome} value={bestBet.outcome} />
+                        <StatRow
+                          label={t.probability}
+                          value={`${(bestBet.modelProb * 100).toFixed(1)}%`}
+                        />
+                        <StatRow
+                          label={t.marketProbability}
+                          value={`${(bestBet.marketProb * 100).toFixed(1)}%`}
+                        />
+                        <StatRow label={t.odds} value={bestBet.odds} />
+                        <StatRow label={t.bookmaker} value={bestBet.bookmaker} />
+                        <StatRow
+                          label={t.edge}
+                          value={`${(bestBet.edge * 100).toFixed(2)}%`}
+                        />
+                        <StatRow
+                          label={t.expectedValue}
+                          value={`${(bestBet.ev * 100).toFixed(2)}%`}
+                        />
+                        <StatRow
+                          label={t.quarterKelly}
+                          value={`${(bestBet.kelly * 0.25 * 100).toFixed(2)}%`}
+                        />
+                        <StatRow
+                          label={t.suggestedStake}
+                          value={`${getStakeFromKelly(bankroll, bestBet.kelly, 0.25).toFixed(2)} €`}
+                        />
                       </div>
                     </div>
                   </>
@@ -1133,11 +1105,9 @@ export default function Page() {
               </div>
             </>
           )}
-        </section>
+        </SectionCard>
 
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.bankroll}</h2>
-
+        <SectionCard title={t.bankroll}>
           <div style={styles.field}>
             <label style={styles.label}>{t.bankrollLabel}</label>
             <input
@@ -1152,11 +1122,9 @@ export default function Page() {
           <div style={styles.parsedText}>
             {t.parsedBankroll}: {bankroll.toFixed(2)} €
           </div>
-        </section>
+        </SectionCard>
 
-        <section style={styles.card}>
-          <h2 style={styles.cardTitle}>{t.feedback}</h2>
-
+        <SectionCard title={t.feedback}>
           <textarea
             value={feedback}
             onChange={(e) => setFeedback(e.target.value)}
@@ -1174,9 +1142,34 @@ export default function Page() {
           </button>
 
           {feedbackStatus ? <div style={styles.status}>{feedbackStatus}</div> : null}
-        </section>
+        </SectionCard>
 
-        {infoOpen && (
+        <SectionCard
+          title={t.debugTitle}
+          rightSlot={
+            <button
+              type="button"
+              style={styles.secondaryButton}
+              onClick={() => setDebugOpen((v) => !v)}
+            >
+              {debugOpen ? t.hideDebug : t.showDebug}
+            </button>
+          }
+        >
+          {debugOpen ? (
+            oddsDebug ? (
+              <pre style={styles.debugBox}>
+                {JSON.stringify(oddsDebug, null, 2)}
+              </pre>
+            ) : (
+              <p style={styles.muted}>No debug data</p>
+            )
+          ) : (
+            <p style={styles.muted}>Debug on piilotettu normaalikäytössä.</p>
+          )}
+        </SectionCard>
+
+        {infoOpen ? (
           <div style={styles.modalOverlay} onClick={() => setInfoOpen(false)}>
             <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
               <h3 style={{ marginTop: 0 }}>{t.info}</h3>
@@ -1186,7 +1179,7 @@ export default function Page() {
               </button>
             </div>
           </div>
-        )}
+        ) : null}
       </div>
     </main>
   );
@@ -1195,49 +1188,123 @@ export default function Page() {
 const styles = {
   page: {
     minHeight: "100vh",
-    background: "#020617",
+    background:
+      "radial-gradient(circle at top, #07143c 0%, #020617 45%, #01030b 100%)",
     color: "#ffffff",
     padding: 16,
     fontFamily:
       'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   container: {
-    maxWidth: 720,
+    maxWidth: 760,
     margin: "0 auto",
+  },
+  heroCard: {
+    position: "relative",
+    overflow: "hidden",
+    background: "#08183E",
+    border: "1px solid #1e293b",
+    borderRadius: 28,
+    padding: 20,
+    marginBottom: 20,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+  },
+  heroGlowOne: {
+    position: "absolute",
+    top: -50,
+    right: -30,
+    width: 180,
+    height: 180,
+    borderRadius: 999,
+    background: "rgba(56,189,248,0.18)",
+    filter: "blur(60px)",
+  },
+  heroGlowTwo: {
+    position: "absolute",
+    bottom: -40,
+    left: -20,
+    width: 140,
+    height: 140,
+    borderRadius: 999,
+    background: "rgba(37,99,235,0.18)",
+    filter: "blur(60px)",
   },
   headerRow: {
     display: "flex",
     justifyContent: "space-between",
     alignItems: "flex-start",
     gap: 12,
+    position: "relative",
+    zIndex: 1,
   },
   title: {
-    fontSize: 48,
-    lineHeight: 1,
+    fontSize: 50,
+    lineHeight: 0.95,
     fontWeight: 900,
     margin: "0 0 12px 0",
+    letterSpacing: "0.08em",
+    fontFamily:
+      '"Space Grotesk", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
   },
   subtitle: {
-    margin: "0 0 24px 0",
+    margin: "0 0 6px 0",
     color: "#94a3b8",
     fontSize: 18,
+    maxWidth: 560,
   },
   infoButton: {
-    width: 42,
-    height: 42,
+    width: 48,
+    height: 48,
     borderRadius: 999,
     border: "1px solid #334155",
     background: "#0f172a",
     color: "#fff",
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 800,
     cursor: "pointer",
     marginTop: 4,
+    flexShrink: 0,
   },
-  section: {
+  card: {
+    background: "#0f172a",
+    border: "1px solid #1e293b",
+    borderRadius: 24,
+    padding: 16,
+    marginBottom: 20,
+    boxShadow: "0 10px 30px rgba(0,0,0,0.18)",
+  },
+  cardHeaderInline: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+    flexWrap: "wrap",
+    marginBottom: 10,
+  },
+  cardTitle: {
+    margin: 0,
+    fontSize: 24,
+    fontWeight: 900,
+  },
+  cardSub: {
+    margin: "8px 0 0 0",
+    color: "#94a3b8",
+    fontSize: 14,
+    lineHeight: 1.5,
+  },
+  subTitle: {
+    margin: "0 0 10px 0",
+    fontSize: 18,
+    fontWeight: 800,
+  },
+  muted: {
+    color: "#94a3b8",
+    fontSize: 16,
+    margin: 0,
+  },
+  controlsGrid: {
     display: "grid",
     gap: 12,
-    marginBottom: 20,
   },
   field: {
     display: "grid",
@@ -1251,7 +1318,7 @@ const styles = {
   input: {
     width: "100%",
     padding: "14px 16px",
-    borderRadius: 14,
+    borderRadius: 16,
     border: "1px solid #334155",
     background: "#0b1730",
     color: "#ffffff",
@@ -1272,49 +1339,14 @@ const styles = {
     fontSize: 15,
   },
   secondaryButton: {
-    marginTop: 14,
     padding: "12px 16px",
-    borderRadius: 12,
+    borderRadius: 14,
     background: "#1e293b",
     color: "#ffffff",
     border: "1px solid #334155",
     fontSize: 15,
-    fontWeight: 700,
-    cursor: "pointer",
-  },
-  card: {
-    background: "#0f172a",
-    border: "1px solid #1e293b",
-    borderRadius: 20,
-    padding: 16,
-    marginBottom: 20,
-  },
-  cardHeaderInline: {
-    display: "flex",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    gap: 12,
-    flexWrap: "wrap",
-  },
-  cardTitle: {
-    margin: "0 0 10px 0",
-    fontSize: 24,
     fontWeight: 800,
-  },
-  cardSub: {
-    margin: "0 0 16px 0",
-    color: "#94a3b8",
-    fontSize: 14,
-  },
-  subTitle: {
-    margin: "0 0 10px 0",
-    fontSize: 18,
-    fontWeight: 700,
-  },
-  muted: {
-    color: "#94a3b8",
-    fontSize: 16,
-    margin: 0,
+    cursor: "pointer",
   },
   stack: {
     display: "grid",
@@ -1324,24 +1356,25 @@ const styles = {
     display: "flex",
     justifyContent: "space-between",
     gap: 12,
-    padding: "12px 14px",
-    border: "1px solid #1f2937",
-    borderRadius: 14,
+    padding: "14px 16px",
+    border: "1px solid #22304a",
+    borderRadius: 16,
     background: "#0b1730",
   },
   linkButton: {
     display: "inline-block",
     marginTop: 14,
-    padding: "12px 16px",
-    borderRadius: 12,
+    padding: "14px 20px",
+    borderRadius: 16,
     background: "#16a34a",
     color: "#fff",
     textDecoration: "none",
-    fontWeight: 800,
+    fontWeight: 900,
+    fontSize: 17,
   },
   topPickCard: {
     padding: 14,
-    borderRadius: 16,
+    borderRadius: 18,
     background: "#13203d",
     border: "1px solid #334155",
   },
@@ -1370,8 +1403,8 @@ const styles = {
     color: "#f8fafc",
     background: "#1e293b",
     border: "1px solid #334155",
-    borderRadius: 12,
-    padding: "10px 12px",
+    borderRadius: 14,
+    padding: "12px 14px",
     textTransform: "capitalize",
   },
   dayGames: {
@@ -1379,8 +1412,8 @@ const styles = {
     gap: 12,
   },
   gameCard: {
-    padding: 16,
-    borderRadius: 16,
+    padding: 18,
+    borderRadius: 18,
     background: "#13203d",
     color: "#fff",
     textAlign: "left",
@@ -1388,7 +1421,7 @@ const styles = {
   },
   gameTitleText: {
     fontSize: 18,
-    fontWeight: 800,
+    fontWeight: 900,
     lineHeight: 1.3,
   },
   gameDate: {
@@ -1397,9 +1430,9 @@ const styles = {
     fontSize: 14,
   },
   analysisBox: {
-    padding: 14,
+    padding: 16,
     background: "#13203d",
-    borderRadius: 16,
+    borderRadius: 20,
     border: "1px solid #334155",
   },
   analysisDay: {
@@ -1411,22 +1444,16 @@ const styles = {
   },
   analysisMatch: {
     fontSize: 20,
-    fontWeight: 800,
-  },
-  greenCard: {
-    border: "1px solid #166534",
-    borderRadius: 16,
-    padding: 14,
-    background: "#0d1f18",
+    fontWeight: 900,
   },
   legacyCard: {
     border: "1px solid #334155",
-    borderRadius: 16,
+    borderRadius: 18,
     padding: 14,
     background: "#101827",
   },
   parsedText: {
-    marginTop: 8,
+    marginTop: 10,
     color: "#cbd5e1",
     fontSize: 16,
   },
@@ -1434,7 +1461,7 @@ const styles = {
     width: "100%",
     minHeight: 140,
     padding: "14px 16px",
-    borderRadius: 16,
+    borderRadius: 18,
     border: "1px solid #334155",
     background: "#0b1730",
     color: "#ffffff",
@@ -1445,12 +1472,12 @@ const styles = {
   button: {
     marginTop: 14,
     padding: "14px 20px",
-    borderRadius: 14,
+    borderRadius: 16,
     background: "#16a34a",
     color: "#ffffff",
     border: "none",
     fontSize: 18,
-    fontWeight: 700,
+    fontWeight: 800,
     cursor: "pointer",
   },
   status: {
@@ -1461,25 +1488,26 @@ const styles = {
   modalOverlay: {
     position: "fixed",
     inset: 0,
-    background: "rgba(0,0,0,0.6)",
+    background: "rgba(0,0,0,0.65)",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     padding: 20,
+    zIndex: 50,
   },
   modal: {
     width: "100%",
     maxWidth: 520,
     background: "#0f172a",
     border: "1px solid #334155",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 22,
   },
   sourceBadge: {
-    padding: "8px 12px",
+    padding: "8px 14px",
     borderRadius: 999,
     fontSize: 13,
-    fontWeight: 800,
+    fontWeight: 900,
     border: "1px solid",
     whiteSpace: "nowrap",
   },
@@ -1505,14 +1533,14 @@ const styles = {
   },
   transparentBox: {
     marginTop: 14,
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: 16,
     background: "#111827",
     border: "1px solid #334155",
   },
   transparentTitle: {
     fontSize: 16,
-    fontWeight: 800,
+    fontWeight: 900,
     marginBottom: 8,
   },
   transparentText: {
@@ -1524,7 +1552,7 @@ const styles = {
   details: {
     marginTop: 14,
     border: "1px solid #334155",
-    borderRadius: 14,
+    borderRadius: 16,
     background: "#0b1730",
     overflow: "hidden",
   },
@@ -1539,28 +1567,6 @@ const styles = {
     display: "grid",
     gap: 14,
   },
-  calcBox: {
-    border: "1px solid #334155",
-    borderRadius: 14,
-    padding: 14,
-    background: "#111827",
-  },
-  calcTitle: {
-    fontSize: 16,
-    fontWeight: 800,
-    marginBottom: 8,
-  },
-  calcList: {
-    margin: 0,
-    paddingLeft: 18,
-    color: "#cbd5e1",
-    lineHeight: 1.7,
-  },
-  formulaLine: {
-    color: "#cbd5e1",
-    lineHeight: 1.7,
-    marginBottom: 8,
-  },
   noteText: {
     margin: "0 0 14px 0",
     color: "#94a3b8",
@@ -1569,13 +1575,13 @@ const styles = {
   warningBox: {
     marginBottom: 14,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     background: "#3b0a0a",
     border: "1px solid #7f1d1d",
   },
   warningTitle: {
     fontSize: 16,
-    fontWeight: 800,
+    fontWeight: 900,
     color: "#fecaca",
     marginBottom: 8,
   },
@@ -1590,9 +1596,9 @@ const styles = {
     fontSize: 14,
   },
   debugBox: {
-    marginTop: 12,
+    marginTop: 6,
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 14,
     background: "#111827",
     border: "1px solid #334155",
     color: "#93c5fd",
