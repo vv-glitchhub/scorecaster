@@ -1,42 +1,89 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "../../../lib/supabase-admin";
-import { buildQuickModel } from "../../../lib/model-engine-v1";
+import { getModelProbabilitiesForMatch } from "../../../lib/model-engine-v1";
 import { getTeamProfile } from "../../../lib/team-ratings";
+
+function safeNumber(value, fallback = 0) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : fallback;
+}
 
 export async function GET(req) {
   try {
     const { searchParams } = new URL(req.url);
 
-    const homeTeam = searchParams.get("homeTeam");
-    const awayTeam = searchParams.get("awayTeam");
+    const homeTeam = searchParams.get("homeTeam") || "";
+    const awayTeam = searchParams.get("awayTeam") || "";
+    const sportKey = searchParams.get("sportKey") || "icehockey_liiga";
 
-    let teamRatings = null;
+    if (!homeTeam || !awayTeam) {
+      return NextResponse.json(
+        { ok: false, error: "Missing homeTeam or awayTeam" },
+        { status: 400 }
+      );
+    }
 
-    if (homeTeam && awayTeam && supabaseAdmin) {
+    const homeProfile = getTeamProfile(homeTeam);
+    const awayProfile = getTeamProfile(awayTeam);
+
+    const match = {
+      id: `${homeTeam}-${awayTeam}`,
+      sport_key: sportKey,
+      home_team: homeTeam,
+      away_team: awayTeam,
+      commence_time: null,
+      bookmakers: [],
+    };
+
+    const teamRatings = {
+      [homeTeam]: {
+        rating: safeNumber(homeProfile?.overallRating, 75),
+      },
+      [awayTeam]: {
+        rating: safeNumber(awayProfile?.overallRating, 75),
+      },
+    };
+
+    const model = await getModelProbabilitiesForMatch({
+      match,
+      oddsData: match,
+      teamRatings,
+    });
+
+    let saved = null;
+
+    if (supabaseAdmin) {
+      const payload = {
+        home_team: homeTeam,
+        away_team: awayTeam,
+        sport_key: sportKey,
+        home_probability: safeNumber(model?.[homeTeam], null),
+        away_probability: safeNumber(model?.[awayTeam], null),
+        draw_probability: safeNumber(model?.Draw, null),
+        debug: model?.debug ?? null,
+      };
+
       const { data, error } = await supabaseAdmin
-        .from("team_ratings")
-        .select("*")
-        .in("team_name", [homeTeam, awayTeam]);
+        .from("model_analysis_v1")
+        .insert(payload)
+        .select()
+        .limit(1)
+        .maybeSingle();
 
-      if (!error && Array.isArray(data)) {
-        teamRatings = data;
+      if (!error) {
+        saved = data;
       }
     }
 
-    const model = buildQuickModel({});
-    const profiles =
-      homeTeam && awayTeam
-        ? {
-            home: getTeamProfile(homeTeam, teamRatings),
-            away: getTeamProfile(awayTeam, teamRatings),
-          }
-        : null;
-
     return NextResponse.json({
       ok: true,
+      match: {
+        homeTeam,
+        awayTeam,
+        sportKey,
+      },
       model,
-      teamRatings,
-      profiles,
+      saved,
     });
   } catch (error) {
     return NextResponse.json(
