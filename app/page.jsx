@@ -5,6 +5,7 @@ import { getBaseUrl } from "@/lib/app-url";
 async function getTopPicks() {
   try {
     const baseUrl = getBaseUrl();
+
     const res = await fetch(
       `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=3`,
       {
@@ -25,6 +26,7 @@ async function getTopPicks() {
 async function getOddsPreview() {
   try {
     const baseUrl = getBaseUrl();
+
     const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
       cache: "no-store",
     });
@@ -82,7 +84,14 @@ export default async function HomePage() {
             betting-sivulla ja simulaatiot simulator-sivulla.
           </p>
 
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "24px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "12px",
+              flexWrap: "wrap",
+              marginTop: "24px",
+            }}
+          >
             <Link
               href="/betting"
               style={{
@@ -160,13 +169,21 @@ export default async function HomePage() {
                       <p style={{ margin: 0, fontWeight: 700 }}>
                         {pick.home_team} vs {pick.away_team}
                       </p>
-                      <p style={{ margin: "6px 0 0", color: "#94a3b8", fontSize: "14px" }}>
+                      <p
+                        style={{
+                          margin: "6px 0 0",
+                          color: "#94a3b8",
+                          fontSize: "14px",
+                        }}
+                      >
                         {pick.selection} • {pick.team}
                       </p>
                     </div>
 
                     <div style={{ textAlign: "right", fontSize: "14px" }}>
-                      <p style={{ margin: 0, color: "#6ee7b7" }}>EV {pick.edgePct}%</p>
+                      <p style={{ margin: 0, color: "#6ee7b7" }}>
+                        EV {pick.edgePct}%
+                      </p>
                       <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
                         Odds {pick.odds}
                       </p>
@@ -191,7 +208,9 @@ export default async function HomePage() {
                 padding: "16px",
               }}
             >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Odds source</p>
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                Odds source
+              </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.source || "unknown"}
               </p>
@@ -205,7 +224,9 @@ export default async function HomePage() {
                 padding: "16px",
               }}
             >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Cache status</p>
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                Cache status
+              </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.cached ? "cached" : "fresh"}
               </p>
@@ -219,7 +240,9 @@ export default async function HomePage() {
                 padding: "16px",
               }}
             >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Matches loaded</p>
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                Matches loaded
+              </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.matches?.length || 0}
               </p>
@@ -239,7 +262,9 @@ export default async function HomePage() {
               padding: "16px",
             }}
           >
-            <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Next step</p>
+            <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+              Next step
+            </p>
             <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
               Run tournament / season simulations separately
             </p>
@@ -302,7 +327,13 @@ export default async function HomePage() {
               <p style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
                 {previewMatch.home_team} vs {previewMatch.away_team}
               </p>
-              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+              <p
+                style={{
+                  margin: "8px 0 0",
+                  fontSize: "14px",
+                  color: "#94a3b8",
+                }}
+              >
                 {previewMatch.sport_title}
               </p>
               <p style={{ marginTop: "16px", fontSize: "14px", color: "#cbd5e1" }}>
@@ -319,9 +350,18 @@ export default async function HomePage() {
                 padding: "16px",
               }}
             >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Best odds</p>
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                Best odds
+              </p>
 
-              <div style={{ marginTop: "12px", display: "grid", gap: "8px", fontSize: "14px" }}>
+              <div
+                style={{
+                  marginTop: "12px",
+                  display: "grid",
+                  gap: "8px",
+                  fontSize: "14px",
+                }}
+              >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
                   <span style={{ color: "#cbd5e1" }}>Home</span>
                   <span>{previewMatch.bestOdds?.home ?? "-"}</span>
