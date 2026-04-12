@@ -1,53 +1,48 @@
 import Link from "next/link";
 import PageSection from "@/app/components/PageSection";
-import { getBaseUrl } from "@/lib/app-url";
+import { getOddsData } from "@/lib/odds-service";
+import {
+  buildValueBetRows,
+  getModelProbabilitiesForMatch,
+} from "@/lib/model-engine-v1";
 
-async function getTopPicks() {
+async function getDashboardData() {
   try {
-    const baseUrl = getBaseUrl();
+    const oddsData = await getOddsData({ sport: "icehockey_liiga" });
+    const matches = oddsData?.matches || [];
 
-    const res = await fetch(
-      `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=3`,
-      {
-        cache: "no-store",
-      }
-    );
+    const picks = matches
+      .flatMap((match) => {
+        const model = getModelProbabilitiesForMatch(match);
+        return buildValueBetRows(match, model).map((row) => ({
+          matchId: match.id,
+          home_team: match.home_team,
+          away_team: match.away_team,
+          selection: row.side,
+          team: row.team,
+          odds: row.odds,
+          edgePct: row.edgePct,
+          expectedValue: row.expectedValue,
+        }));
+      })
+      .filter((pick) => pick.expectedValue > 0)
+      .sort((a, b) => b.expectedValue - a.expectedValue)
+      .slice(0, 3);
 
-    if (!res.ok) {
-      return { picks: [], source: "unknown", cached: false };
-    }
-
-    return res.json();
+    return {
+      oddsData,
+      picks,
+    };
   } catch {
-    return { picks: [], source: "unknown", cached: false };
-  }
-}
-
-async function getOddsPreview() {
-  try {
-    const baseUrl = getBaseUrl();
-
-    const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
-      cache: "no-store",
-    });
-
-    if (!res.ok) {
-      return { matches: [], source: "unknown", cached: false };
-    }
-
-    return res.json();
-  } catch {
-    return { matches: [], source: "unknown", cached: false };
+    return {
+      oddsData: { matches: [], source: "unknown", cached: false },
+      picks: [],
+    };
   }
 }
 
 export default async function HomePage() {
-  const [topPicksData, oddsData] = await Promise.all([
-    getTopPicks(),
-    getOddsPreview(),
-  ]);
-
-  const topPicks = topPicksData?.picks || [];
+  const { oddsData, picks } = await getDashboardData();
   const previewMatch = oddsData?.matches?.[0] || null;
 
   return (
@@ -134,7 +129,7 @@ export default async function HomePage() {
           description="Best backend-ranked value spots right now."
         >
           <div style={{ display: "grid", gap: "12px" }}>
-            {topPicks.length === 0 ? (
+            {picks.length === 0 ? (
               <div
                 style={{
                   border: "1px solid rgba(255,255,255,0.1)",
@@ -148,7 +143,7 @@ export default async function HomePage() {
                 No top picks available.
               </div>
             ) : (
-              topPicks.map((pick) => (
+              picks.map((pick) => (
                 <div
                   key={`${pick.matchId}-${pick.selection}`}
                   style={{
@@ -336,10 +331,6 @@ export default async function HomePage() {
               >
                 {previewMatch.sport_title}
               </p>
-              <p style={{ marginTop: "16px", fontSize: "14px", color: "#cbd5e1" }}>
-                Dashboard näyttää vain kevyen preview’n. Täysi analyysi löytyy
-                betting-sivulta.
-              </p>
             </div>
 
             <div
@@ -375,22 +366,6 @@ export default async function HomePage() {
                   <span>{previewMatch.bestOdds?.away ?? "-"}</span>
                 </div>
               </div>
-
-              <Link
-                href="/betting"
-                style={{
-                  display: "inline-block",
-                  marginTop: "16px",
-                  background: "#10b981",
-                  color: "#000",
-                  borderRadius: "12px",
-                  padding: "10px 14px",
-                  fontSize: "14px",
-                  fontWeight: 700,
-                }}
-              >
-                Open full betting analysis
-              </Link>
             </div>
           </div>
         )}
