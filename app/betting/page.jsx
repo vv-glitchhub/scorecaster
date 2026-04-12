@@ -3,19 +3,33 @@ import { getOddsData } from "@/lib/odds-service";
 
 async function getBettingPageData() {
   try {
-    const oddsData = await getOddsData({ sport: "icehockey_liiga" });
-    const matches = oddsData?.matches || [];
-    const selectedMatch = matches[0] || null;
+    const [h2hData, totalsData, spreadsData] = await Promise.all([
+      getOddsData({ sport: "icehockey_liiga", market: "h2h" }),
+      getOddsData({ sport: "icehockey_liiga", market: "totals" }),
+      getOddsData({ sport: "icehockey_liiga", market: "spreads" }),
+    ]);
+
+    const h2hMatches = h2hData?.matches || [];
+    const totalsMatches = totalsData?.matches || [];
+    const spreadsMatches = spreadsData?.matches || [];
 
     return {
-      matches,
-      initialSelectedMatchId: selectedMatch?.id || null,
-      source: oddsData?.source || "unknown",
-      cached: Boolean(oddsData?.cached),
+      marketMatches: {
+        h2h: h2hMatches,
+        totals: totalsMatches,
+        spreads: spreadsMatches,
+      },
+      initialSelectedMatchId: h2hMatches?.[0]?.id || null,
+      source: h2hData?.source || "unknown",
+      cached: Boolean(h2hData?.cached),
     };
   } catch {
     return {
-      matches: [],
+      marketMatches: {
+        h2h: [],
+        totals: [],
+        spreads: [],
+      },
       initialSelectedMatchId: null,
       source: "unknown",
       cached: false,
@@ -24,7 +38,7 @@ async function getBettingPageData() {
 }
 
 export default async function BettingPage() {
-  const { matches, initialSelectedMatchId, source, cached } =
+  const { marketMatches, initialSelectedMatchId, source, cached } =
     await getBettingPageData();
 
   return (
@@ -53,12 +67,12 @@ export default async function BettingPage() {
           Full betting analysis, odds comparison and value bet workflow.
         </h1>
         <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
-          Valitse ottelu vasemmalta ja analyysi päivittyy heti ilman uutta latausta.
+          Vaihda markettia H2H-, Totals- ja Handicap-tabien välillä.
         </p>
       </section>
 
       <BettingWorkspaceClient
-        matches={matches}
+        marketMatches={marketMatches}
         initialSelectedMatchId={initialSelectedMatchId}
         source={source}
         cached={cached}
