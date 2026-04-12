@@ -1,78 +1,67 @@
 import PageSection from "@/app/components/PageSection";
-import { getBaseUrl } from "@/lib/app-url";
+import { getOddsData } from "@/lib/odds-service";
+import {
+  buildValueBetRows,
+  getModelProbabilitiesForMatch,
+} from "@/lib/model-engine-v1";
 
-async function getOdds() {
+async function getBettingPageData() {
   try {
-    const baseUrl = getBaseUrl();
+    const oddsData = await getOddsData({ sport: "icehockey_liiga" });
+    const matches = oddsData?.matches || [];
+    const selectedMatch = matches[0] || null;
 
-    const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
-      cache: "no-store",
-    });
+    let model = null;
+    let valueBets = [];
+    let topPicks = [];
 
-    if (!res.ok) {
-      return { matches: [], source: "unknown", cached: false };
+    if (selectedMatch) {
+      model = getModelProbabilitiesForMatch(selectedMatch);
+      valueBets = buildValueBetRows(selectedMatch, model);
     }
 
-    return res.json();
+    topPicks = matches
+      .flatMap((match) => {
+        const matchModel = getModelProbabilitiesForMatch(match);
+        return buildValueBetRows(match, matchModel).map((row) => ({
+          matchId: match.id,
+          home_team: match.home_team,
+          away_team: match.away_team,
+          selection: row.side,
+          team: row.team,
+          odds: row.odds,
+          edgePct: row.edgePct,
+          expectedValue: row.expectedValue,
+          confidence: matchModel.confidence,
+        }));
+      })
+      .filter((pick) => pick.expectedValue > 0)
+      .sort((a, b) => b.expectedValue - a.expectedValue)
+      .slice(0, 8);
+
+    return {
+      oddsData,
+      matches,
+      selectedMatch,
+      model,
+      valueBets,
+      topPicks,
+    };
   } catch {
-    return { matches: [], source: "unknown", cached: false };
-  }
-}
-
-async function getTopPicks() {
-  try {
-    const baseUrl = getBaseUrl();
-
-    const res = await fetch(
-      `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=8`,
-      {
-        cache: "no-store",
-      }
-    );
-
-    if (!res.ok) {
-      return { picks: [], source: "unknown", cached: false };
-    }
-
-    return res.json();
-  } catch {
-    return { picks: [], source: "unknown", cached: false };
-  }
-}
-
-async function getModelAnalysis(matchId) {
-  try {
-    const baseUrl = getBaseUrl();
-
-    const url = matchId
-      ? `${baseUrl}/api/model-analysis-v1?sport=icehockey_liiga&matchId=${matchId}`
-      : `${baseUrl}/api/model-analysis-v1?sport=icehockey_liiga`;
-
-    const res = await fetch(url, { cache: "no-store" });
-
-    if (!res.ok) {
-      return null;
-    }
-
-    return res.json();
-  } catch {
-    return null;
+    return {
+      oddsData: { matches: [], source: "unknown", cached: false },
+      matches: [],
+      selectedMatch: null,
+      model: null,
+      valueBets: [],
+      topPicks: [],
+    };
   }
 }
 
 export default async function BettingPage() {
-  const oddsData = await getOdds();
-  const matches = oddsData?.matches || [];
-  const selectedMatch = matches[0] || null;
-
-  const [topPicksData, analysisData] = await Promise.all([
-    getTopPicks(),
-    getModelAnalysis(selectedMatch?.id),
-  ]);
-
-  const topPicks = topPicksData?.picks || [];
-  const valueBets = analysisData?.valueBets || [];
-  const model = analysisData?.model || null;
+  const { matches, selectedMatch, model, valueBets, topPicks } =
+    await getBettingPageData();
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
@@ -99,10 +88,6 @@ export default async function BettingPage() {
         <h1 style={{ margin: 0, fontSize: "36px", lineHeight: 1.1 }}>
           Full betting analysis, odds comparison and value bet workflow.
         </h1>
-        <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
-          Tälle sivulle jää kaikki raskas analyysi. Myöhemmin tähän voi lisätä
-          live bets, props, totals, handicap-markkinat ja lisää ranking-logiikkaa.
-        </p>
       </section>
 
       <div
@@ -247,15 +232,6 @@ export default async function BettingPage() {
                   <p style={{ margin: 0, fontSize: "24px", fontWeight: 700 }}>
                     {selectedMatch.home_team} vs {selectedMatch.away_team}
                   </p>
-                  <p
-                    style={{
-                      margin: "8px 0 0",
-                      fontSize: "14px",
-                      color: "#94a3b8",
-                    }}
-                  >
-                    {selectedMatch.sport_title}
-                  </p>
                 </div>
 
                 <div
@@ -265,49 +241,22 @@ export default async function BettingPage() {
                     gridTemplateColumns: "repeat(3, 1fr)",
                   }}
                 >
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Home odds
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Home odds</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.home ?? "-"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Draw odds
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Draw odds</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.draw ?? "-"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Away odds
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Away odds</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.away ?? "-"}
                     </p>
@@ -321,65 +270,29 @@ export default async function BettingPage() {
                     gridTemplateColumns: "repeat(4, 1fr)",
                   }}
                 >
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Model Home
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Home</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.home * 100).toFixed(1)}%` : "-"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Model Draw
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Draw</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.draw * 100).toFixed(1)}%` : "-"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Model Away
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Away</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.away * 100).toFixed(1)}%` : "-"}
                     </p>
                   </div>
 
-                  <div
-                    style={{
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      background: "rgba(0,0,0,0.2)",
-                      borderRadius: "16px",
-                      padding: "16px",
-                    }}
-                  >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                      Confidence
-                    </p>
+                  <div style={{ border: "1px solid rgba(255,255,255,0.1)", background: "rgba(0,0,0,0.2)", borderRadius: "16px", padding: "16px" }}>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Confidence</p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${model.confidence}%` : "-"}
                     </p>
@@ -429,13 +342,7 @@ export default async function BettingPage() {
                         <p style={{ margin: 0, fontWeight: 700 }}>
                           {row.side} • {row.team}
                         </p>
-                        <p
-                          style={{
-                            margin: "8px 0 0",
-                            fontSize: "14px",
-                            color: "#94a3b8",
-                          }}
-                        >
+                        <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
                           Bookmaker: {row.bookmaker || "-"}
                         </p>
                       </div>
@@ -495,13 +402,7 @@ export default async function BettingPage() {
                     <p style={{ margin: 0, fontWeight: 700 }}>
                       {pick.selection} @ {pick.odds}
                     </p>
-                    <p
-                      style={{
-                        margin: "8px 0 0",
-                        fontSize: "14px",
-                        color: "#94a3b8",
-                      }}
-                    >
+                    <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
                       {pick.home_team} vs {pick.away_team}
                     </p>
                     <p style={{ margin: "10px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
