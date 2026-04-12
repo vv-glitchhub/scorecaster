@@ -1,5 +1,5 @@
 import "./globals.css";
-import AppShellNav from "@/app/components/AppShellNav";
+import AppShellNav from "./components/AppShellNav";
 
 export const metadata = {
   title: "Scorecaster",
