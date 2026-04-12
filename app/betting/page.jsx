@@ -1,9 +1,5 @@
 import BettingWorkspaceClient from "@/app/components/BettingWorkspaceClient";
 import { getOddsData } from "@/lib/odds-service";
-import {
-  buildValueBetRows,
-  getModelProbabilitiesForMatch,
-} from "@/lib/model-engine-v1";
 
 async function getBettingPageData() {
   try {
@@ -11,54 +7,24 @@ async function getBettingPageData() {
     const matches = oddsData?.matches || [];
     const selectedMatch = matches[0] || null;
 
-    let model = null;
-    let valueBets = [];
-    let topPicks = [];
-
-    if (selectedMatch) {
-      model = getModelProbabilitiesForMatch(selectedMatch);
-      valueBets = buildValueBetRows(selectedMatch, model);
-    }
-
-    topPicks = matches
-      .flatMap((match) => {
-        const matchModel = getModelProbabilitiesForMatch(match);
-        return buildValueBetRows(match, matchModel).map((row) => ({
-          matchId: match.id,
-          home_team: match.home_team,
-          away_team: match.away_team,
-          selection: row.side,
-          team: row.team,
-          odds: row.odds,
-          edgePct: row.edgePct,
-          expectedValue: row.expectedValue,
-          confidence: matchModel.confidence,
-        }));
-      })
-      .filter((pick) => pick.expectedValue > 0)
-      .sort((a, b) => b.expectedValue - a.expectedValue)
-      .slice(0, 8);
-
     return {
       matches,
-      selectedMatch,
-      model,
-      valueBets,
-      topPicks,
+      initialSelectedMatchId: selectedMatch?.id || null,
+      source: oddsData?.source || "unknown",
+      cached: Boolean(oddsData?.cached),
     };
   } catch {
     return {
       matches: [],
-      selectedMatch: null,
-      model: null,
-      valueBets: [],
-      topPicks: [],
+      initialSelectedMatchId: null,
+      source: "unknown",
+      cached: false,
     };
   }
 }
 
 export default async function BettingPage() {
-  const { matches, selectedMatch, model, valueBets, topPicks } =
+  const { matches, initialSelectedMatchId, source, cached } =
     await getBettingPageData();
 
   return (
@@ -87,17 +53,15 @@ export default async function BettingPage() {
           Full betting analysis, odds comparison and value bet workflow.
         </h1>
         <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
-          Tälle sivulle jää kaikki raskas analyysi. Mobile-näkymässä layout
-          pinoutuu automaattisesti käytettävämpään järjestykseen.
+          Valitse ottelu vasemmalta ja analyysi päivittyy heti ilman uutta latausta.
         </p>
       </section>
 
       <BettingWorkspaceClient
         matches={matches}
-        selectedMatch={selectedMatch}
-        model={model}
-        valueBets={valueBets}
-        topPicks={topPicks}
+        initialSelectedMatchId={initialSelectedMatchId}
+        source={source}
+        cached={cached}
       />
     </div>
   );
