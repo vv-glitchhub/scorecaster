@@ -9,6 +9,8 @@ import {
   buildValueBetRows,
   getModelProbabilitiesForMatch,
 } from "@/lib/model-engine-v1";
+import { buildValueBetMetrics } from "@/lib/value-engine-v2";
+import { kellyStake } from "@/lib/kelly";
 
 function Card({ children, selected = false, onClick }) {
   const isClickable = typeof onClick === "function";
@@ -52,6 +54,16 @@ function StatCard({ label, value }) {
   );
 }
 
+function formatProbability(value) {
+  if (value == null) return "-";
+  return `${value.toFixed(2)}%`;
+}
+
+function formatEuro(value) {
+  if (!value || value <= 0) return "€0";
+  return `€${value.toFixed(2)}`;
+}
+
 export default function BettingWorkspaceClient({
   marketMatches,
   initialSelectedMatchId,
@@ -65,6 +77,9 @@ export default function BettingWorkspaceClient({
     initialSelectedMatchId || marketMatches?.h2h?.[0]?.id || null
   );
 
+  const bankroll = 1000;
+  const kellyFraction = 0.25;
+
   const matches = marketMatches?.[market] || [];
 
   const selectedMatch = useMemo(() => {
@@ -76,28 +91,91 @@ export default function BettingWorkspaceClient({
     return getModelProbabilitiesForMatch(selectedMatch, market);
   }, [selectedMatch, market]);
 
-  const valueBets = useMemo(() => {
+  const rawValueBets = useMemo(() => {
     if (!selectedMatch || !model) return [];
     return buildValueBetRows(selectedMatch, model, market);
   }, [selectedMatch, model, market]);
+
+  const valueBets = useMemo(() => {
+    return rawValueBets.map((row) => {
+      const probability =
+        market === "totals"
+          ? row.side === "OVER"
+            ? model?.over
+            : model?.under
+          : market === "spreads"
+          ? row.side === "SPREAD_HOME"
+            ? model?.spreadHome
+            : model?.spreadAway
+          : row.side === "HOME"
+          ? model?.home
+          : row.side === "DRAW"
+          ? model?.draw
+          : model?.away;
+
+      const metrics = buildValueBetMetrics({
+        odds: row.odds,
+        modelProbability: probability,
+        bookmaker: row.bookmaker,
+        side: row.side,
+        team: row.team,
+      });
+
+      return {
+        ...row,
+        ...metrics,
+        stake: kellyStake({
+          probability,
+          odds: row.odds,
+          bankroll,
+          fraction: kellyFraction,
+        }),
+      };
+    });
+  }, [rawValueBets, model, market]);
 
   const topPicks = useMemo(() => {
     return matches
       .flatMap((match) => {
         const matchModel = getModelProbabilitiesForMatch(match, market);
-        return buildValueBetRows(match, matchModel, market).map((row) => ({
-          matchId: match.id,
-          home_team: match.home_team,
-          away_team: match.away_team,
-          selection: row.side,
-          team: row.team,
-          odds: row.odds,
-          edgePct: row.edgePct,
-          expectedValue: row.expectedValue,
-          confidence: matchModel.confidence,
-        }));
+        const rows = buildValueBetRows(match, matchModel, market);
+
+        return rows.map((row) => {
+          const probability =
+            market === "totals"
+              ? row.side === "OVER"
+                ? matchModel?.over
+                : matchModel?.under
+              : market === "spreads"
+              ? row.side === "SPREAD_HOME"
+                ? matchModel?.spreadHome
+                : matchModel?.spreadAway
+              : row.side === "HOME"
+              ? matchModel?.home
+              : row.side === "DRAW"
+              ? matchModel?.draw
+              : matchModel?.away;
+
+          const metrics = buildValueBetMetrics({
+            odds: row.odds,
+            modelProbability: probability,
+            bookmaker: row.bookmaker,
+            side: row.side,
+            team: row.team,
+          });
+
+          return {
+            matchId: match.id,
+            home_team: match.home_team,
+            away_team: match.away_team,
+            selection: row.side,
+            team: row.team,
+            confidence: matchModel.confidence,
+            ...metrics,
+          };
+        });
       })
-      .filter((pick) => pick.expectedValue > 0)
+      .filter((pick) => pick.expectedValue != null)
       .sort((a, b) => b.expectedValue - a.expectedValue)
       .slice(0, 8);
   }, [matches, market]);
@@ -154,7 +232,13 @@ export default function BettingWorkspaceClient({
   const getModelCards = () => {
     if (market === "totals") {
       return (
-        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)" }}>
+        <div
+          style={{
+            display: "grid",
+            gap: "16px",
+            gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)",
+          }}
+        >
           <StatCard
             label="Model Over"
             value={model ? `${(model.over * 100).toFixed(1)}%` : "-"}
@@ -173,7 +257,13 @@ export default function BettingWorkspaceClient({
 
     if (market === "spreads") {
       return (
-        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)" }}>
+        <div
+          style={{
+            display: "grid",
+            gap: "16px",
+            gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)",
+          }}
+        >
           <StatCard
             label="Spread Home"
             value={model ? `${(model.spreadHome * 100).toFixed(1)}%` : "-"}
@@ -338,7 +428,10 @@ export default function BettingWorkspaceClient({
                 {bestValueBet.side} • {bestValueBet.team}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
-                Odds {bestValueBet.odds} • EV {bestValueBet.edgePct}%
+                Odds {bestValueBet.odds} • EV {bestValueBet.expectedValue}%
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#cbd5e1" }}>
+                Fair {bestValueBet.fairOdds} • Edge {bestValueBet.edge}%
               </p>
             </Card>
           ) : null}
@@ -386,6 +479,24 @@ export default function BettingWorkspaceClient({
                   >
                     Bookmaker: {row.bookmaker || "-"}
                   </p>
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: "14px",
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    Model {formatProbability(row.modelProbability)}
+                  </p>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      fontSize: "14px",
+                      color: "#cbd5e1",
+                    }}
+                  >
+                    Implied {formatProbability(row.impliedProbability)}
+                  </p>
                 </div>
 
                 <div
@@ -401,11 +512,29 @@ export default function BettingWorkspaceClient({
                   <p
                     style={{
                       margin: "6px 0 0",
-                      color: row.edgePct > 0 ? "#6ee7b7" : "#fda4af",
+                      color: row.edge > 0 ? "#6ee7b7" : "#fda4af",
                       fontWeight: 700,
                     }}
                   >
-                    EV {row.edgePct}%
+                    Edge {row.edge}%
+                  </p>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: row.expectedValue > 0 ? "#6ee7b7" : "#fda4af",
+                      fontWeight: 700,
+                    }}
+                  >
+                    EV {row.expectedValue}%
+                  </p>
+                  <p
+                    style={{
+                      margin: "6px 0 0",
+                      color: "#fcd34d",
+                      fontWeight: 700,
+                    }}
+                  >
+                    Stake {formatEuro(row.stake)}
                   </p>
                 </div>
               </div>
@@ -450,7 +579,7 @@ export default function BettingWorkspaceClient({
                   color: "#6ee7b7",
                 }}
               >
-                EV {pick.edgePct}% • Confidence {pick.confidence}%
+                EV {pick.expectedValue}% • Confidence {pick.confidence}%
               </p>
             </Card>
           ))
@@ -462,11 +591,12 @@ export default function BettingWorkspaceClient({
   const BankrollBlock = (
     <PageSection
       title="Bankroll"
-      description="Placeholder for staking and Kelly logic."
+      description="Quarter Kelly stake preview."
     >
       <div style={{ display: "grid", gap: "12px" }}>
         <StatCard label="Bankroll" value="€1,000" />
         <StatCard label="Staking model" value="Quarter Kelly" />
+        <StatCard label="Kelly fraction" value="25%" />
       </div>
     </PageSection>
   );
