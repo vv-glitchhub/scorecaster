@@ -13,18 +13,46 @@ export default function AppShellNav() {
   const pathname = usePathname();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0b1220]/90 backdrop-blur">
-      <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
+    <header
+      style={{
+        position: "sticky",
+        top: 0,
+        zIndex: 40,
+        borderBottom: "1px solid rgba(255,255,255,0.1)",
+        background: "rgba(11,18,32,0.9)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <div
+        style={{
+          maxWidth: "1200px",
+          margin: "0 auto",
+          padding: "16px 20px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          gap: "16px",
+        }}
+      >
         <div>
-          <Link href="/" className="text-xl font-bold text-white">
+          <Link href="/" style={{ fontSize: "24px", fontWeight: 700 }}>
             Scorecaster
           </Link>
-          <p className="text-xs text-slate-400">
+          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8" }}>
             Betting analytics & simulation workspace
           </p>
         </div>
 
-        <nav className="flex items-center gap-2 rounded-2xl border border-white/10 bg-white/5 p-1">
+        <nav
+          style={{
+            display: "flex",
+            gap: "8px",
+            padding: "6px",
+            borderRadius: "16px",
+            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(255,255,255,0.05)",
+          }}
+        >
           {navItems.map((item) => {
             const active = pathname === item.href;
 
@@ -32,11 +60,14 @@ export default function AppShellNav() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                  active
-                    ? "bg-emerald-500 text-black"
-                    : "text-slate-300 hover:bg-white/10 hover:text-white"
-                }`}
+                style={{
+                  padding: "10px 16px",
+                  borderRadius: "12px",
+                  fontSize: "14px",
+                  fontWeight: 600,
+                  background: active ? "#10b981" : "transparent",
+                  color: active ? "#000" : "#cbd5e1",
+                }}
               >
                 {item.label}
               </Link>
