@@ -1,29 +1,33 @@
-"use client";
+export default function SourceBadge({ source, cached }) {
+  const sourceLabel = String(source || "unknown").toUpperCase();
+  const sourceColor =
+    source === "api"
+      ? "#10b981"
+      : source === "fallback"
+      ? "#f59e0b"
+      : "#64748b";
 
-const styles = {
-  live: "border-green-700 bg-[#0E3B22] text-green-200",
-  cache: "border-yellow-700 bg-[#4A3708] text-yellow-200",
-  demo: "border-red-700 bg-[#5C0A0A] text-red-200",
-  unknown: "border-slate-700 bg-[#1E293B] text-slate-200",
-};
+  const cacheLabel = cached ? "CACHE" : "FRESH";
+  const cacheColor = cached ? "#38bdf8" : "#a78bfa";
 
-const labels = {
-  live: "Live-data",
-  cache: "Cache-data",
-  demo: "Demo-data",
-  unknown: "Unknown",
-};
-
-export default function SourceBadge({ source }) {
-  const key = String(source ?? "unknown").toLowerCase();
-  const className = styles[key] ?? styles.unknown;
-  const label = labels[key] ?? labels.unknown;
+  const badgeStyle = (bg) => ({
+    display: "inline-flex",
+    alignItems: "center",
+    gap: "8px",
+    borderRadius: "999px",
+    padding: "8px 12px",
+    fontSize: "12px",
+    fontWeight: 700,
+    letterSpacing: "0.04em",
+    border: `1px solid ${bg}55`,
+    background: `${bg}22`,
+    color: "#fff",
+  });
 
   return (
-    <span
-      className={`inline-flex rounded-full border px-4 py-2 text-sm font-extrabold ${className}`}
-    >
-      {label}
-    </span>
+    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+      <span style={badgeStyle(sourceColor)}>SOURCE: {sourceLabel}</span>
+      <span style={badgeStyle(cacheColor)}>STATUS: {cacheLabel}</span>
+    </div>
   );
 }
