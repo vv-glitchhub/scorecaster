@@ -1,11 +1,20 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import PageSection from "@/app/components/PageSection";
+import SourceBadge from "@/app/components/SourceBadge";
 import { useBreakpoint } from "@/lib/useBreakpoint";
+import {
+  buildValueBetRows,
+  getModelProbabilitiesForMatch,
+} from "@/lib/model-engine-v1";
 
-function Card({ children, selected = false }) {
+function Card({ children, selected = false, onClick }) {
+  const isClickable = typeof onClick === "function";
+
   return (
     <div
+      onClick={onClick}
       style={{
         border: selected
           ? "1px solid rgba(16,185,129,0.7)"
@@ -15,6 +24,8 @@ function Card({ children, selected = false }) {
           : "rgba(0,0,0,0.2)",
         borderRadius: "16px",
         padding: "16px",
+        cursor: isClickable ? "pointer" : "default",
+        transition: "0.2s ease",
       }}
     >
       {children}
@@ -42,12 +53,52 @@ function StatCard({ label, value }) {
 
 export default function BettingWorkspaceClient({
   matches,
-  selectedMatch,
-  model,
-  valueBets,
-  topPicks,
+  initialSelectedMatchId,
+  source,
+  cached,
 }) {
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
+
+  const [selectedMatchId, setSelectedMatchId] = useState(
+    initialSelectedMatchId || matches?.[0]?.id || null
+  );
+
+  const selectedMatch = useMemo(() => {
+    return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
+  }, [matches, selectedMatchId]);
+
+  const model = useMemo(() => {
+    if (!selectedMatch) return null;
+    return getModelProbabilitiesForMatch(selectedMatch);
+  }, [selectedMatch]);
+
+  const valueBets = useMemo(() => {
+    if (!selectedMatch || !model) return [];
+    return buildValueBetRows(selectedMatch, model);
+  }, [selectedMatch, model]);
+
+  const topPicks = useMemo(() => {
+    return matches
+      .flatMap((match) => {
+        const matchModel = getModelProbabilitiesForMatch(match);
+        return buildValueBetRows(match, matchModel).map((row) => ({
+          matchId: match.id,
+          home_team: match.home_team,
+          away_team: match.away_team,
+          selection: row.side,
+          team: row.team,
+          odds: row.odds,
+          edgePct: row.edgePct,
+          expectedValue: row.expectedValue,
+          confidence: matchModel.confidence,
+        }));
+      })
+      .filter((pick) => pick.expectedValue > 0)
+      .sort((a, b) => b.expectedValue - a.expectedValue)
+      .slice(0, 8);
+  }, [matches]);
+
+  const bestValueBet = valueBets[0] || null;
 
   const mainColumns = isDesktop ? "1.1fr 1.5fr 1fr" : "1fr";
   const statColsTop = isMobile ? "1fr" : "repeat(3, 1fr)";
@@ -58,6 +109,7 @@ export default function BettingWorkspaceClient({
     <PageSection
       title="Filters"
       description="Sport / league / market controls can expand here."
+      rightSlot={<SourceBadge source={source} cached={cached} />}
     >
       <div style={{ display: "grid", gap: "12px" }}>
         <Card>
@@ -81,7 +133,7 @@ export default function BettingWorkspaceClient({
   const MatchesBlock = (
     <PageSection
       title="Matches"
-      description="Available matches for the selected sport."
+      description="Tap a match to update the analysis instantly."
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {matches.length === 0 ? (
@@ -92,7 +144,11 @@ export default function BettingWorkspaceClient({
           </Card>
         ) : (
           matches.map((match) => (
-            <Card key={match.id} selected={selectedMatch?.id === match.id}>
+            <Card
+              key={match.id}
+              selected={selectedMatch?.id === match.id}
+              onClick={() => setSelectedMatchId(match.id)}
+            >
               <p style={{ margin: 0, fontWeight: 700 }}>
                 {match.home_team} vs {match.away_team}
               </p>
@@ -104,6 +160,17 @@ export default function BettingWorkspaceClient({
                 }}
               >
                 {match.sport_title}
+              </p>
+              <p
+                style={{
+                  margin: "10px 0 0",
+                  fontSize: "13px",
+                  color:
+                    selectedMatch?.id === match.id ? "#6ee7b7" : "#cbd5e1",
+                  fontWeight: 600,
+                }}
+              >
+                {selectedMatch?.id === match.id ? "Selected" : "Open analysis"}
               </p>
             </Card>
           ))
@@ -125,7 +192,7 @@ export default function BettingWorkspaceClient({
         </Card>
       ) : (
         <div style={{ display: "grid", gap: "16px" }}>
-          <Card>
+          <Card selected>
             <p style={{ margin: 0, fontSize: "24px", fontWeight: 700 }}>
               {selectedMatch.home_team} vs {selectedMatch.away_team}
             </p>
@@ -139,6 +206,20 @@ export default function BettingWorkspaceClient({
               {selectedMatch.sport_title}
             </p>
           </Card>
+
+          {bestValueBet ? (
+            <Card selected>
+              <p style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
+                Best current angle
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
+                {bestValueBet.side} • {bestValueBet.team}
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
+                Odds {bestValueBet.odds} • EV {bestValueBet.edgePct}%
+              </p>
+            </Card>
+          ) : null}
 
           <div
             style={{
@@ -194,8 +275,8 @@ export default function BettingWorkspaceClient({
             </p>
           </Card>
         ) : (
-          valueBets.map((row) => (
-            <Card key={`${row.side}-${row.team}`}>
+          valueBets.map((row, index) => (
+            <Card key={`${row.side}-${row.team}`} selected={index === 0}>
               <div
                 style={{
                   display: "flex",
@@ -233,6 +314,7 @@ export default function BettingWorkspaceClient({
                     style={{
                       margin: "6px 0 0",
                       color: row.edgePct > 0 ? "#6ee7b7" : "#fda4af",
+                      fontWeight: 700,
                     }}
                   >
                     EV {row.edgePct}%
@@ -249,7 +331,7 @@ export default function BettingWorkspaceClient({
   const TopPicksBlock = (
     <PageSection
       title="Backend Top Picks"
-      description="Ranked value opportunities."
+      description="Ranked value opportunities across loaded matches."
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {topPicks.length === 0 ? (
