@@ -10,14 +10,15 @@ export async function GET(request) {
     const { searchParams } = new URL(request.url);
 
     const sport = searchParams.get("sport") || "icehockey_liiga";
+    const market = searchParams.get("market") || "h2h";
     const limit = Number(searchParams.get("limit") || 5);
 
-    const oddsData = await getOddsData({ sport });
+    const oddsData = await getOddsData({ sport, market });
 
     const picks = (oddsData.matches || [])
       .flatMap((match) => {
-        const model = getModelProbabilitiesForMatch(match);
-        return buildValueBetRows(match, model).map((row) => ({
+        const model = getModelProbabilitiesForMatch(match, market);
+        return buildValueBetRows(match, model, market).map((row) => ({
           matchId: match.id,
           sport: match.sport_title,
           commence_time: match.commence_time,
@@ -31,6 +32,7 @@ export async function GET(request) {
           expectedValue: row.expectedValue,
           confidence: model.confidence,
           bookmaker: row.bookmaker,
+          market,
         }));
       })
       .filter((pick) => pick.expectedValue > 0)
@@ -40,6 +42,7 @@ export async function GET(request) {
     return NextResponse.json({
       source: oddsData.source,
       cached: oddsData.cached,
+      market,
       picks,
     });
   } catch (error) {
