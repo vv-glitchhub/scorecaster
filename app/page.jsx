@@ -1,11 +1,16 @@
 import Link from "next/link";
 import PageSection from "@/app/components/PageSection";
+import { getBaseUrl } from "@/lib/app-url";
 
 async function getTopPicks() {
   try {
-    const res = await fetch("http://localhost:3000/api/top-picks?sport=icehockey_liiga&limit=3", {
-      cache: "no-store",
-    });
+    const baseUrl = getBaseUrl();
+    const res = await fetch(
+      `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=3`,
+      {
+        cache: "no-store",
+      }
+    );
 
     if (!res.ok) {
       return { picks: [], source: "unknown", cached: false };
@@ -19,7 +24,8 @@ async function getTopPicks() {
 
 async function getOddsPreview() {
   try {
-    const res = await fetch("http://localhost:3000/api/odds?sport=icehockey_liiga", {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
       cache: "no-store",
     });
 
@@ -43,33 +49,63 @@ export default async function HomePage() {
   const previewMatch = oddsData?.matches?.[0] || null;
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 p-8">
-        <div className="max-w-3xl">
-          <p className="mb-3 text-sm font-medium uppercase tracking-[0.2em] text-emerald-300">
+    <div style={{ display: "grid", gap: "24px" }}>
+      <section
+        style={{
+          border: "1px solid rgba(16,185,129,0.25)",
+          borderRadius: "24px",
+          padding: "32px",
+          background:
+            "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.10))",
+        }}
+      >
+        <div style={{ maxWidth: "760px" }}>
+          <p
+            style={{
+              margin: "0 0 12px",
+              fontSize: "12px",
+              letterSpacing: "0.2em",
+              textTransform: "uppercase",
+              color: "#6ee7b7",
+              fontWeight: 700,
+            }}
+          >
             Scorecaster Dashboard
           </p>
 
-          <h1 className="text-4xl font-bold text-white">
+          <h1 style={{ margin: 0, fontSize: "42px", lineHeight: 1.1 }}>
             Clearer home view, dedicated betting workspace, dedicated simulator.
           </h1>
 
-          <p className="mt-4 text-slate-300">
-            Dashboard näyttää vain tärkeimmät asiat nopeasti. Raskas analyysi
-            on siirretty betting-sivulle ja simulaatiot simulator-sivulle.
+          <p style={{ marginTop: "16px", color: "#cbd5e1", fontSize: "16px" }}>
+            Dashboard näyttää vain tärkeimmät asiat nopeasti. Raskas analyysi on
+            betting-sivulla ja simulaatiot simulator-sivulla.
           </p>
 
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap", marginTop: "24px" }}>
             <Link
               href="/betting"
-              className="rounded-2xl bg-emerald-500 px-5 py-3 font-semibold text-black transition hover:opacity-90"
+              style={{
+                background: "#10b981",
+                color: "#000",
+                padding: "14px 18px",
+                borderRadius: "16px",
+                fontWeight: 700,
+              }}
             >
               Open Betting Workspace
             </Link>
 
             <Link
               href="/simulator"
-              className="rounded-2xl border border-white/15 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              style={{
+                border: "1px solid rgba(255,255,255,0.15)",
+                background: "rgba(255,255,255,0.05)",
+                color: "#fff",
+                padding: "14px 18px",
+                borderRadius: "16px",
+                fontWeight: 700,
+              }}
             >
               Open Simulator
             </Link>
@@ -77,37 +113,61 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div
+        style={{
+          display: "grid",
+          gap: "24px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        }}
+      >
         <PageSection
           title="Top Picks"
           description="Best backend-ranked value spots right now."
         >
-          <div className="space-y-3">
+          <div style={{ display: "grid", gap: "12px" }}>
             {topPicks.length === 0 ? (
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+              <div
+                style={{
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  background: "rgba(0,0,0,0.2)",
+                  borderRadius: "16px",
+                  padding: "16px",
+                  color: "#94a3b8",
+                  fontSize: "14px",
+                }}
+              >
                 No top picks available.
               </div>
             ) : (
               topPicks.map((pick) => (
                 <div
                   key={`${pick.matchId}-${pick.selection}`}
-                  className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    background: "rgba(0,0,0,0.2)",
+                    borderRadius: "16px",
+                    padding: "16px",
+                  }}
                 >
-                  <div className="flex items-center justify-between gap-3">
+                  <div
+                    style={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                    }}
+                  >
                     <div>
-                      <p className="font-semibold text-white">
+                      <p style={{ margin: 0, fontWeight: 700 }}>
                         {pick.home_team} vs {pick.away_team}
                       </p>
-                      <p className="text-sm text-slate-400">
+                      <p style={{ margin: "6px 0 0", color: "#94a3b8", fontSize: "14px" }}>
                         {pick.selection} • {pick.team}
                       </p>
                     </div>
 
-                    <div className="text-right">
-                      <p className="text-sm text-emerald-300">
-                        EV {pick.edgePct}%
-                      </p>
-                      <p className="text-sm text-slate-300">
+                    <div style={{ textAlign: "right", fontSize: "14px" }}>
+                      <p style={{ margin: 0, color: "#6ee7b7" }}>EV {pick.edgePct}%</p>
+                      <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
                         Odds {pick.odds}
                       </p>
                     </div>
@@ -122,24 +182,45 @@ export default async function HomePage() {
           title="Data Source Status"
           description="Quick source and cache visibility."
         >
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Odds source</p>
-              <p className="mt-1 text-lg font-semibold text-white">
+          <div style={{ display: "grid", gap: "12px" }}>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Odds source</p>
+              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.source || "unknown"}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Cache status</p>
-              <p className="mt-1 text-lg font-semibold text-white">
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Cache status</p>
+              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.cached ? "cached" : "fresh"}
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Matches loaded</p>
-              <p className="mt-1 text-lg font-semibold text-white">
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Matches loaded</p>
+              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.matches?.length || 0}
               </p>
             </div>
@@ -150,17 +231,34 @@ export default async function HomePage() {
           title="Simulator Preview"
           description="Quick look before opening the simulator."
         >
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-            <p className="text-sm text-slate-400">Next step</p>
-            <p className="mt-1 text-lg font-semibold text-white">
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "16px",
+              padding: "16px",
+            }}
+          >
+            <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Next step</p>
+            <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
               Run tournament / season simulations separately
             </p>
-            <p className="mt-3 text-sm text-slate-300">
+            <p style={{ marginTop: "12px", fontSize: "14px", color: "#cbd5e1" }}>
               Keep simulation logic isolated so betting workspace stays focused.
             </p>
+
             <Link
               href="/simulator"
-              className="mt-4 inline-flex rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-medium text-white hover:bg-white/10"
+              style={{
+                display: "inline-block",
+                marginTop: "16px",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(255,255,255,0.05)",
+                padding: "10px 14px",
+                fontSize: "14px",
+                fontWeight: 600,
+              }}
             >
               Go to simulator
             </Link>
@@ -173,50 +271,83 @@ export default async function HomePage() {
         description="Lightweight preview on the dashboard."
       >
         {!previewMatch ? (
-          <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-400">
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(0,0,0,0.2)",
+              borderRadius: "16px",
+              padding: "16px",
+              color: "#94a3b8",
+              fontSize: "14px",
+            }}
+          >
             No match preview available.
           </div>
         ) : (
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 md:col-span-2">
-              <p className="text-lg font-semibold text-white">
+          <div
+            style={{
+              display: "grid",
+              gap: "16px",
+              gridTemplateColumns: "2fr 1fr",
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
                 {previewMatch.home_team} vs {previewMatch.away_team}
               </p>
-              <p className="mt-1 text-sm text-slate-400">
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
                 {previewMatch.sport_title}
               </p>
-              <p className="mt-3 text-sm text-slate-300">
+              <p style={{ marginTop: "16px", fontSize: "14px", color: "#cbd5e1" }}>
                 Dashboard näyttää vain kevyen preview’n. Täysi analyysi löytyy
                 betting-sivulta.
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Best odds</p>
-              <div className="mt-3 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-slate-300">Home</span>
-                  <span className="font-medium text-white">
-                    {previewMatch.bestOdds?.home ?? "-"}
-                  </span>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Best odds</p>
+
+              <div style={{ marginTop: "12px", display: "grid", gap: "8px", fontSize: "14px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#cbd5e1" }}>Home</span>
+                  <span>{previewMatch.bestOdds?.home ?? "-"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-300">Draw</span>
-                  <span className="font-medium text-white">
-                    {previewMatch.bestOdds?.draw ?? "-"}
-                  </span>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#cbd5e1" }}>Draw</span>
+                  <span>{previewMatch.bestOdds?.draw ?? "-"}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-300">Away</span>
-                  <span className="font-medium text-white">
-                    {previewMatch.bestOdds?.away ?? "-"}
-                  </span>
+                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                  <span style={{ color: "#cbd5e1" }}>Away</span>
+                  <span>{previewMatch.bestOdds?.away ?? "-"}</span>
                 </div>
               </div>
 
               <Link
                 href="/betting"
-                className="mt-4 inline-flex rounded-xl bg-emerald-500 px-4 py-2 text-sm font-semibold text-black"
+                style={{
+                  display: "inline-block",
+                  marginTop: "16px",
+                  background: "#10b981",
+                  color: "#000",
+                  borderRadius: "12px",
+                  padding: "10px 14px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                }}
               >
                 Open full betting analysis
               </Link>
