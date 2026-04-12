@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
+import MarketTabs from "@/app/components/MarketTabs";
 import { useBreakpoint } from "@/lib/useBreakpoint";
 import {
   buildValueBetRows,
@@ -52,16 +53,19 @@ function StatCard({ label, value }) {
 }
 
 export default function BettingWorkspaceClient({
-  matches,
+  marketMatches,
   initialSelectedMatchId,
   source,
   cached,
 }) {
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
+  const [market, setMarket] = useState("h2h");
   const [selectedMatchId, setSelectedMatchId] = useState(
-    initialSelectedMatchId || matches?.[0]?.id || null
+    initialSelectedMatchId || marketMatches?.h2h?.[0]?.id || null
   );
+
+  const matches = marketMatches?.[market] || [];
 
   const selectedMatch = useMemo(() => {
     return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
@@ -69,19 +73,19 @@ export default function BettingWorkspaceClient({
 
   const model = useMemo(() => {
     if (!selectedMatch) return null;
-    return getModelProbabilitiesForMatch(selectedMatch);
-  }, [selectedMatch]);
+    return getModelProbabilitiesForMatch(selectedMatch, market);
+  }, [selectedMatch, market]);
 
   const valueBets = useMemo(() => {
     if (!selectedMatch || !model) return [];
-    return buildValueBetRows(selectedMatch, model);
-  }, [selectedMatch, model]);
+    return buildValueBetRows(selectedMatch, model, market);
+  }, [selectedMatch, model, market]);
 
   const topPicks = useMemo(() => {
     return matches
       .flatMap((match) => {
-        const matchModel = getModelProbabilitiesForMatch(match);
-        return buildValueBetRows(match, matchModel).map((row) => ({
+        const matchModel = getModelProbabilitiesForMatch(match, market);
+        return buildValueBetRows(match, matchModel, market).map((row) => ({
           matchId: match.id,
           home_team: match.home_team,
           away_team: match.away_team,
@@ -96,7 +100,7 @@ export default function BettingWorkspaceClient({
       .filter((pick) => pick.expectedValue > 0)
       .sort((a, b) => b.expectedValue - a.expectedValue)
       .slice(0, 8);
-  }, [matches]);
+  }, [matches, market]);
 
   const bestValueBet = valueBets[0] || null;
 
@@ -104,6 +108,115 @@ export default function BettingWorkspaceClient({
   const statColsTop = isMobile ? "1fr" : "repeat(3, 1fr)";
   const statColsBottom = isMobile ? "1fr 1fr" : "repeat(4, 1fr)";
   const mobileSectionGap = isMobile ? "16px" : "24px";
+
+  const getOddsCards = () => {
+    if (!selectedMatch) return null;
+
+    if (market === "totals") {
+      return (
+        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: statColsTop }}>
+          <StatCard
+            label={`Over ${selectedMatch.bestOdds?.point ?? "-"}`}
+            value={selectedMatch.bestOdds?.over ?? "-"}
+          />
+          <StatCard
+            label={`Under ${selectedMatch.bestOdds?.point ?? "-"}`}
+            value={selectedMatch.bestOdds?.under ?? "-"}
+          />
+        </div>
+      );
+    }
+
+    if (market === "spreads") {
+      return (
+        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: statColsTop }}>
+          <StatCard
+            label={`${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome ?? ""}`}
+            value={selectedMatch.bestOdds?.spreadHome ?? "-"}
+          />
+          <StatCard
+            label={`${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway ?? ""}`}
+            value={selectedMatch.bestOdds?.spreadAway ?? "-"}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div style={{ display: "grid", gap: "16px", gridTemplateColumns: statColsTop }}>
+        <StatCard label="Home odds" value={selectedMatch.bestOdds?.home ?? "-"} />
+        <StatCard label="Draw odds" value={selectedMatch.bestOdds?.draw ?? "-"} />
+        <StatCard label="Away odds" value={selectedMatch.bestOdds?.away ?? "-"} />
+      </div>
+    );
+  };
+
+  const getModelCards = () => {
+    if (market === "totals") {
+      return (
+        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)" }}>
+          <StatCard
+            label="Model Over"
+            value={model ? `${(model.over * 100).toFixed(1)}%` : "-"}
+          />
+          <StatCard
+            label="Model Under"
+            value={model ? `${(model.under * 100).toFixed(1)}%` : "-"}
+          />
+          <StatCard
+            label="Confidence"
+            value={model ? `${model.confidence}%` : "-"}
+          />
+        </div>
+      );
+    }
+
+    if (market === "spreads") {
+      return (
+        <div style={{ display: "grid", gap: "16px", gridTemplateColumns: isMobile ? "1fr 1fr 1fr" : "repeat(3, 1fr)" }}>
+          <StatCard
+            label="Spread Home"
+            value={model ? `${(model.spreadHome * 100).toFixed(1)}%` : "-"}
+          />
+          <StatCard
+            label="Spread Away"
+            value={model ? `${(model.spreadAway * 100).toFixed(1)}%` : "-"}
+          />
+          <StatCard
+            label="Confidence"
+            value={model ? `${model.confidence}%` : "-"}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div
+        style={{
+          display: "grid",
+          gap: "16px",
+          gridTemplateColumns: statColsBottom,
+        }}
+      >
+        <StatCard
+          label="Model Home"
+          value={model ? `${(model.home * 100).toFixed(1)}%` : "-"}
+        />
+        <StatCard
+          label="Model Draw"
+          value={model ? `${(model.draw * 100).toFixed(1)}%` : "-"}
+        />
+        <StatCard
+          label="Model Away"
+          value={model ? `${(model.away * 100).toFixed(1)}%` : "-"}
+        />
+        <StatCard
+          label="Confidence"
+          value={model ? `${model.confidence}%` : "-"}
+        />
+      </div>
+    );
+  };
 
   const FiltersBlock = (
     <PageSection
@@ -123,8 +236,17 @@ export default function BettingWorkspaceClient({
         </Card>
 
         <Card>
-          <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Market</p>
-          <p style={{ margin: "8px 0 0", fontWeight: 700 }}>H2H</p>
+          <p style={{ margin: "0 0 10px", fontSize: "14px", color: "#94a3b8" }}>
+            Market
+          </p>
+          <MarketTabs
+            market={market}
+            onChange={(nextMarket) => {
+              setMarket(nextMarket);
+              const nextMatches = marketMatches?.[nextMarket] || [];
+              setSelectedMatchId(nextMatches?.[0]?.id || null);
+            }}
+          />
         </Card>
       </div>
     </PageSection>
@@ -145,7 +267,7 @@ export default function BettingWorkspaceClient({
         ) : (
           matches.map((match) => (
             <Card
-              key={match.id}
+              key={`${market}-${match.id}`}
               selected={selectedMatch?.id === match.id}
               onClick={() => setSelectedMatchId(match.id)}
             >
@@ -182,7 +304,7 @@ export default function BettingWorkspaceClient({
   const SelectedMatchBlock = (
     <PageSection
       title="Selected Match Analysis"
-      description="Main match view, best odds and model output."
+      description="Main match view, market odds and model output."
     >
       {!selectedMatch ? (
         <Card>
@@ -203,7 +325,7 @@ export default function BettingWorkspaceClient({
                 color: "#94a3b8",
               }}
             >
-              {selectedMatch.sport_title}
+              Market: {market.toUpperCase()}
             </p>
           </Card>
 
@@ -221,42 +343,8 @@ export default function BettingWorkspaceClient({
             </Card>
           ) : null}
 
-          <div
-            style={{
-              display: "grid",
-              gap: "16px",
-              gridTemplateColumns: statColsTop,
-            }}
-          >
-            <StatCard label="Home odds" value={selectedMatch.bestOdds?.home ?? "-"} />
-            <StatCard label="Draw odds" value={selectedMatch.bestOdds?.draw ?? "-"} />
-            <StatCard label="Away odds" value={selectedMatch.bestOdds?.away ?? "-"} />
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gap: "16px",
-              gridTemplateColumns: statColsBottom,
-            }}
-          >
-            <StatCard
-              label="Model Home"
-              value={model ? `${(model.home * 100).toFixed(1)}%` : "-"}
-            />
-            <StatCard
-              label="Model Draw"
-              value={model ? `${(model.draw * 100).toFixed(1)}%` : "-"}
-            />
-            <StatCard
-              label="Model Away"
-              value={model ? `${(model.away * 100).toFixed(1)}%` : "-"}
-            />
-            <StatCard
-              label="Confidence"
-              value={model ? `${model.confidence}%` : "-"}
-            />
-          </div>
+          {getOddsCards()}
+          {getModelCards()}
         </div>
       )}
     </PageSection>
@@ -265,7 +353,7 @@ export default function BettingWorkspaceClient({
   const ValueBetsBlock = (
     <PageSection
       title="Value Bets"
-      description="Model edge versus current best odds."
+      description="Model edge versus current market odds."
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {valueBets.length === 0 ? (
@@ -276,7 +364,7 @@ export default function BettingWorkspaceClient({
           </Card>
         ) : (
           valueBets.map((row, index) => (
-            <Card key={`${row.side}-${row.team}`} selected={index === 0}>
+            <Card key={`${market}-${row.side}-${row.team}`} selected={index === 0}>
               <div
                 style={{
                   display: "flex",
@@ -342,7 +430,7 @@ export default function BettingWorkspaceClient({
           </Card>
         ) : (
           topPicks.map((pick) => (
-            <Card key={`${pick.matchId}-${pick.selection}`}>
+            <Card key={`${market}-${pick.matchId}-${pick.selection}`}>
               <p style={{ margin: 0, fontWeight: 700 }}>
                 {pick.selection} @ {pick.odds}
               </p>
