@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PageSection from "@/app/components/PageSection";
+import SourceBadge from "@/app/components/SourceBadge";
 import { getOddsData } from "@/lib/odds-service";
 import {
   buildValueBetRows,
@@ -190,10 +191,16 @@ export default async function HomePage() {
           </div>
         </PageSection>
 
-        <PageSection
-          title="Data Source Status"
-          description="Quick source and cache visibility."
-        >
+      <PageSection
+  title="Data Source Status"
+  description="Quick source and cache visibility."
+  rightSlot={
+    <SourceBadge
+      source={oddsData?.source}
+      cached={oddsData?.cached}
+    />
+  }
+>
           <div style={{ display: "grid", gap: "12px" }}>
             <div
               style={{
