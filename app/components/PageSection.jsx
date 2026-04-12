@@ -5,12 +5,32 @@ export default function PageSection({
   children,
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-white/5 p-6 shadow-[0_10px_40px_rgba(0,0,0,0.25)]">
-      <div className="mb-5 flex flex-col gap-3 border-b border-white/10 pb-4 md:flex-row md:items-start md:justify-between">
+    <section
+      style={{
+        border: "1px solid rgba(255,255,255,0.1)",
+        background: "rgba(255,255,255,0.05)",
+        borderRadius: "24px",
+        padding: "24px",
+      }}
+    >
+      <div
+        style={{
+          marginBottom: "20px",
+          paddingBottom: "16px",
+          borderBottom: "1px solid rgba(255,255,255,0.1)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          gap: "16px",
+          flexWrap: "wrap",
+        }}
+      >
         <div>
-          <h2 className="text-xl font-semibold text-white">{title}</h2>
+          <h2 style={{ margin: 0, fontSize: "22px" }}>{title}</h2>
           {description ? (
-            <p className="mt-1 text-sm text-slate-400">{description}</p>
+            <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+              {description}
+            </p>
           ) : null}
         </div>
 
