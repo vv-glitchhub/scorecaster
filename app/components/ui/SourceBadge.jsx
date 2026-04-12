@@ -1,5 +1,6 @@
 export default function SourceBadge({ source, cached }) {
   const sourceLabel = String(source || "unknown").toUpperCase();
+
   const sourceColor =
     source === "api"
       ? "#10b981"
