@@ -2,39 +2,82 @@ import PageSection from "@/app/components/PageSection";
 
 export default function SimulatorPage() {
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-white/10 bg-white/5 p-8">
-        <p className="mb-3 text-sm font-medium uppercase tracking-[0.2em] text-cyan-300">
+    <div style={{ display: "grid", gap: "24px" }}>
+      <section
+        style={{
+          border: "1px solid rgba(255,255,255,0.1)",
+          background: "rgba(255,255,255,0.05)",
+          borderRadius: "24px",
+          padding: "32px",
+        }}
+      >
+        <p
+          style={{
+            margin: "0 0 12px",
+            fontSize: "12px",
+            letterSpacing: "0.2em",
+            textTransform: "uppercase",
+            color: "#67e8f9",
+            fontWeight: 700,
+          }}
+        >
           Simulator Workspace
         </p>
-        <h1 className="text-3xl font-bold text-white">
+        <h1 style={{ margin: 0, fontSize: "36px", lineHeight: 1.1 }}>
           Dedicated area for tournament and season simulations.
         </h1>
-        <p className="mt-3 text-slate-300">
+        <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
           Tällä sivulla pidetään kaikki simulaatiologiikka erillään bettingistä,
           jotta vedonlyöntisivu pysyy nopeana ja selkeänä.
         </p>
       </section>
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div
+        style={{
+          display: "grid",
+          gap: "24px",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+        }}
+      >
         <PageSection
           title="Simulation Setup"
           description="Competition, model and iteration settings."
         >
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Competition</p>
-              <p className="mt-1 font-semibold text-white">World Cup / League</p>
+          <div style={{ display: "grid", gap: "12px" }}>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Competition</p>
+              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>World Cup / League</p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Iterations</p>
-              <p className="mt-1 font-semibold text-white">10,000</p>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Iterations</p>
+              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>10,000</p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="text-sm text-slate-400">Mode</p>
-              <p className="mt-1 font-semibold text-white">Monte Carlo</p>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Mode</p>
+              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Monte Carlo</p>
             </div>
           </div>
         </PageSection>
@@ -43,20 +86,47 @@ export default function SimulatorPage() {
           title="Outcome Preview"
           description="Example result cards for future simulation output."
         >
-          <div className="space-y-3">
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="font-semibold text-white">Team A</p>
-              <p className="mt-1 text-sm text-slate-400">Win title: 24.5%</p>
+          <div style={{ display: "grid", gap: "12px" }}>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 700 }}>Team A</p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                Win title: 24.5%
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="font-semibold text-white">Team B</p>
-              <p className="mt-1 text-sm text-slate-400">Reach final: 38.2%</p>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 700 }}>Team B</p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                Reach final: 38.2%
+              </p>
             </div>
 
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-              <p className="font-semibold text-white">Team C</p>
-              <p className="mt-1 text-sm text-slate-400">Top 4: 51.7%</p>
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(0,0,0,0.2)",
+                borderRadius: "16px",
+                padding: "16px",
+              }}
+            >
+              <p style={{ margin: 0, fontWeight: 700 }}>Team C</p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                Top 4: 51.7%
+              </p>
             </div>
           </div>
         </PageSection>
@@ -65,13 +135,13 @@ export default function SimulatorPage() {
           title="Planned Extensions"
           description="Features that belong here, not on the betting page."
         >
-          <ul className="space-y-2 text-sm text-slate-300">
-            <li>• tournament brackets</li>
-            <li>• season table simulations</li>
-            <li>• top 4 / top 8 probabilities</li>
-            <li>• final and champion probabilities</li>
-            <li>• scenario comparison</li>
-          </ul>
+          <div style={{ display: "grid", gap: "10px", fontSize: "14px", color: "#cbd5e1" }}>
+            <div>• tournament brackets</div>
+            <div>• season table simulations</div>
+            <div>• top 4 / top 8 probabilities</div>
+            <div>• final and champion probabilities</div>
+            <div>• scenario comparison</div>
+          </div>
         </PageSection>
       </div>
     </div>
