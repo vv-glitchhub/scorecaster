@@ -32,6 +32,7 @@ export default function AppShellNav() {
           alignItems: "center",
           justifyContent: "space-between",
           gap: "16px",
+          flexWrap: "wrap",
         }}
       >
         <div>
