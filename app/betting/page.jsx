@@ -4,6 +4,7 @@ import { getBaseUrl } from "@/lib/app-url";
 async function getOdds() {
   try {
     const baseUrl = getBaseUrl();
+
     const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
       cache: "no-store",
     });
@@ -21,6 +22,7 @@ async function getOdds() {
 async function getTopPicks() {
   try {
     const baseUrl = getBaseUrl();
+
     const res = await fetch(
       `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=8`,
       {
@@ -41,6 +43,7 @@ async function getTopPicks() {
 async function getModelAnalysis(matchId) {
   try {
     const baseUrl = getBaseUrl();
+
     const url = matchId
       ? `${baseUrl}/api/model-analysis-v1?sport=icehockey_liiga&matchId=${matchId}`
       : `${baseUrl}/api/model-analysis-v1?sport=icehockey_liiga`;
@@ -123,7 +126,9 @@ export default async function BettingPage() {
                   padding: "16px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Sport</p>
+                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                  Sport
+                </p>
                 <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Ice Hockey</p>
               </div>
 
@@ -135,7 +140,9 @@ export default async function BettingPage() {
                   padding: "16px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>League</p>
+                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                  League
+                </p>
                 <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Liiga</p>
               </div>
 
@@ -147,7 +154,9 @@ export default async function BettingPage() {
                   padding: "16px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Market</p>
+                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                  Market
+                </p>
                 <p style={{ margin: "8px 0 0", fontWeight: 700 }}>H2H</p>
               </div>
             </div>
@@ -191,7 +200,13 @@ export default async function BettingPage() {
                     <p style={{ margin: 0, fontWeight: 700 }}>
                       {match.home_team} vs {match.away_team}
                     </p>
-                    <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        fontSize: "14px",
+                        color: "#94a3b8",
+                      }}
+                    >
                       {match.sport_title}
                     </p>
                   </div>
@@ -232,7 +247,13 @@ export default async function BettingPage() {
                   <p style={{ margin: 0, fontSize: "24px", fontWeight: 700 }}>
                     {selectedMatch.home_team} vs {selectedMatch.away_team}
                   </p>
-                  <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                  <p
+                    style={{
+                      margin: "8px 0 0",
+                      fontSize: "14px",
+                      color: "#94a3b8",
+                    }}
+                  >
                     {selectedMatch.sport_title}
                   </p>
                 </div>
@@ -252,7 +273,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Home odds</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Home odds
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.home ?? "-"}
                     </p>
@@ -266,7 +289,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Draw odds</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Draw odds
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.draw ?? "-"}
                     </p>
@@ -280,7 +305,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Away odds</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Away odds
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {selectedMatch.bestOdds?.away ?? "-"}
                     </p>
@@ -302,7 +329,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Home</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Model Home
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.home * 100).toFixed(1)}%` : "-"}
                     </p>
@@ -316,7 +345,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Draw</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Model Draw
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.draw * 100).toFixed(1)}%` : "-"}
                     </p>
@@ -330,7 +361,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Model Away</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Model Away
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${(model.away * 100).toFixed(1)}%` : "-"}
                     </p>
@@ -344,7 +377,9 @@ export default async function BettingPage() {
                       padding: "16px",
                     }}
                   >
-                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Confidence</p>
+                    <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                      Confidence
+                    </p>
                     <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                       {model ? `${model.confidence}%` : "-"}
                     </p>
@@ -394,7 +429,13 @@ export default async function BettingPage() {
                         <p style={{ margin: 0, fontWeight: 700 }}>
                           {row.side} • {row.team}
                         </p>
-                        <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                        <p
+                          style={{
+                            margin: "8px 0 0",
+                            fontSize: "14px",
+                            color: "#94a3b8",
+                          }}
+                        >
                           Bookmaker: {row.bookmaker || "-"}
                         </p>
                       </div>
@@ -454,7 +495,13 @@ export default async function BettingPage() {
                     <p style={{ margin: 0, fontWeight: 700 }}>
                       {pick.selection} @ {pick.odds}
                     </p>
-                    <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+                    <p
+                      style={{
+                        margin: "8px 0 0",
+                        fontSize: "14px",
+                        color: "#94a3b8",
+                      }}
+                    >
                       {pick.home_team} vs {pick.away_team}
                     </p>
                     <p style={{ margin: "10px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
@@ -479,7 +526,9 @@ export default async function BettingPage() {
                   padding: "16px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Bankroll</p>
+                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                  Bankroll
+                </p>
                 <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                   €1,000
                 </p>
@@ -493,7 +542,9 @@ export default async function BettingPage() {
                   padding: "16px",
                 }}
               >
-                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Staking model</p>
+                <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
+                  Staking model
+                </p>
                 <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                   Quarter Kelly
                 </p>
