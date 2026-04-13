@@ -1,81 +1,74 @@
-"use client";
-
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import LanguageSwitcher from "@/app/components/LanguageSwitcher";
+import { getDictionary } from "@/lib/i18n";
 
-const navItems = [
-  { href: "/", label: "Dashboard" },
-  { href: "/betting", label: "Betting" },
-  { href: "/simulator", label: "Simulator" },
-];
+export default function AppShellNav({ lang = "en" }) {
+  const t = getDictionary(lang);
 
-export default function AppShellNav() {
-  const pathname = usePathname();
+  const navStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: "16px",
+    padding: "16px 24px",
+    borderBottom: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(2,6,23,0.85)",
+    position: "sticky",
+    top: 0,
+    zIndex: 50,
+    backdropFilter: "blur(12px)",
+  };
+
+  const pillWrap = {
+    display: "flex",
+    alignItems: "center",
+    gap: "12px",
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  };
+
+  const navPill = {
+    display: "flex",
+    gap: "8px",
+    flexWrap: "wrap",
+    padding: "8px",
+    borderRadius: "20px",
+    border: "1px solid rgba(255,255,255,0.08)",
+    background: "rgba(255,255,255,0.04)",
+  };
+
+  const linkStyle = {
+    padding: "12px 18px",
+    borderRadius: "14px",
+    color: "#cbd5e1",
+    fontWeight: 700,
+    textDecoration: "none",
+  };
 
   return (
-    <header
-      style={{
-        position: "sticky",
-        top: 0,
-        zIndex: 40,
-        borderBottom: "1px solid rgba(255,255,255,0.1)",
-        background: "rgba(11,18,32,0.9)",
-        backdropFilter: "blur(8px)",
-      }}
-    >
-      <div
-        style={{
-          maxWidth: "1200px",
-          margin: "0 auto",
-          padding: "16px 20px",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-        }}
-      >
-        <div>
-          <Link href="/" style={{ fontSize: "24px", fontWeight: 700 }}>
-            Scorecaster
-          </Link>
-          <p style={{ margin: "4px 0 0", fontSize: "12px", color: "#94a3b8" }}>
-            Betting analytics & simulation workspace
-          </p>
+    <nav style={navStyle}>
+      <div>
+        <div style={{ fontSize: "22px", fontWeight: 800, color: "#fff" }}>Scorecaster</div>
+        <div style={{ fontSize: "13px", color: "#94a3b8", marginTop: "4px" }}>
+          {t.brandTagline}
         </div>
-
-        <nav
-          style={{
-            display: "flex",
-            gap: "8px",
-            padding: "6px",
-            borderRadius: "16px",
-            border: "1px solid rgba(255,255,255,0.1)",
-            background: "rgba(255,255,255,0.05)",
-          }}
-        >
-          {navItems.map((item) => {
-            const active = pathname === item.href;
-
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                style={{
-                  padding: "10px 16px",
-                  borderRadius: "12px",
-                  fontSize: "14px",
-                  fontWeight: 600,
-                  background: active ? "#10b981" : "transparent",
-                  color: active ? "#000" : "#cbd5e1",
-                }}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
       </div>
-    </header>
+
+      <div style={pillWrap}>
+        <LanguageSwitcher lang={lang} />
+
+        <div style={navPill}>
+          <Link href="/" style={linkStyle}>
+            {t.navDashboard}
+          </Link>
+          <Link href="/betting" style={linkStyle}>
+            {t.navBetting}
+          </Link>
+          <Link href="/simulator" style={linkStyle}>
+            {t.navSimulator}
+          </Link>
+        </div>
+      </div>
+    </nav>
   );
 }
