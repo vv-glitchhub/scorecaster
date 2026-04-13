@@ -1,5 +1,5 @@
 import "./globals.css";
-import AppShellNav from "./components/AppShellNav";
+import AppShellNavClient from "./components/AppShellNavClient";
 import { cookies } from "next/headers";
 import { normalizeLang } from "@/lib/i18n";
 
@@ -24,7 +24,7 @@ export default async function RootLayout({ children }) {
             'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
         }}
       >
-        <AppShellNav lang={lang} />
+        <AppShellNavClient lang={lang} />
         <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px" }}>
           {children}
         </main>
