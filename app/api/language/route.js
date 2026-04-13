@@ -6,6 +6,7 @@ export async function POST(request) {
     const lang = body?.lang === "fi" ? "fi" : "en";
 
     const response = NextResponse.json({ ok: true, lang });
+
     response.cookies.set("scorecaster_lang", lang, {
       path: "/",
       httpOnly: false,
