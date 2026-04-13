@@ -12,6 +12,7 @@ import {
 } from "@/lib/model-engine-v1";
 import { buildValueBetMetrics } from "@/lib/value-engine-v2";
 import { kellyStake } from "@/lib/kelly";
+import { getDictionary } from "@/lib/i18n";
 
 const SPORT_KEY = "icehockey_liiga";
 const REFRESH_MS = 15000;
@@ -110,7 +111,9 @@ export default function BettingWorkspaceClient({
   initialSelectedMatchId,
   initialSource,
   initialCached,
+  lang = "en",
 }) {
+  const t = getDictionary(lang);
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
   const [market, setMarket] = useState("h2h");
@@ -405,9 +408,9 @@ export default function BettingWorkspaceClient({
 
     return (
       <div style={{ display: "grid", gap: "16px", gridTemplateColumns: statColsTop }}>
-        <StatCard label="Home odds" value={selectedMatch.bestOdds?.home ?? "-"} />
-        <StatCard label="Draw odds" value={selectedMatch.bestOdds?.draw ?? "-"} />
-        <StatCard label="Away odds" value={selectedMatch.bestOdds?.away ?? "-"} />
+        <StatCard label={t.home} value={selectedMatch.bestOdds?.home ?? "-"} />
+        <StatCard label={t.draw} value={selectedMatch.bestOdds?.draw ?? "-"} />
+        <StatCard label={t.away} value={selectedMatch.bestOdds?.away ?? "-"} />
       </div>
     );
   };
@@ -423,15 +426,15 @@ export default function BettingWorkspaceClient({
           }}
         >
           <StatCard
-            label="Model Over"
+            label={t.modelOver}
             value={model ? `${(model.over * 100).toFixed(1)}%` : "-"}
           />
           <StatCard
-            label="Model Under"
+            label={t.modelUnder}
             value={model ? `${(model.under * 100).toFixed(1)}%` : "-"}
           />
           <StatCard
-            label="Confidence"
+            label={t.confidence}
             value={model ? `${model.confidence}%` : "-"}
           />
         </div>
@@ -448,15 +451,15 @@ export default function BettingWorkspaceClient({
           }}
         >
           <StatCard
-            label="Spread Home"
+            label={t.spreadHome}
             value={model ? `${(model.spreadHome * 100).toFixed(1)}%` : "-"}
           />
           <StatCard
-            label="Spread Away"
+            label={t.spreadAway}
             value={model ? `${(model.spreadAway * 100).toFixed(1)}%` : "-"}
           />
           <StatCard
-            label="Confidence"
+            label={t.confidence}
             value={model ? `${model.confidence}%` : "-"}
           />
         </div>
@@ -472,19 +475,19 @@ export default function BettingWorkspaceClient({
         }}
       >
         <StatCard
-          label="Model Home"
+          label={t.modelHome}
           value={model ? `${(model.home * 100).toFixed(1)}%` : "-"}
         />
         <StatCard
-          label="Model Draw"
+          label={t.modelDraw}
           value={model ? `${(model.draw * 100).toFixed(1)}%` : "-"}
         />
         <StatCard
-          label="Model Away"
+          label={t.modelAway}
           value={model ? `${(model.away * 100).toFixed(1)}%` : "-"}
         />
         <StatCard
-          label="Confidence"
+          label={t.confidence}
           value={model ? `${model.confidence}%` : "-"}
         />
       </div>
@@ -514,13 +517,13 @@ export default function BettingWorkspaceClient({
 
   const FiltersBlock = (
     <PageSection
-      title="Filters"
-      description="Sport / league / market controls can expand here."
-      rightSlot={<SourceBadge source={currentSource} cached={currentCached} />}
+      title={t.filters}
+      description={t.filtersDescription}
+      rightSlot={<SourceBadge source={currentSource} cached={currentCached} lang={lang} />}
     >
       <div style={{ display: "grid", gap: "12px" }}>
         <Card>
-          <LivePulse isRefreshing={isRefreshing} lastUpdatedAt={lastUpdatedAt} />
+          <LivePulse isRefreshing={isRefreshing} lastUpdatedAt={lastUpdatedAt} lang={lang} />
           <button
             type="button"
             onClick={handleManualRefresh}
@@ -536,23 +539,23 @@ export default function BettingWorkspaceClient({
               cursor: "pointer",
             }}
           >
-            Refresh now
+            {t.refreshNow}
           </button>
         </Card>
 
         <Card>
-          <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Sport</p>
-          <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Ice Hockey</p>
+          <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>{t.sport}</p>
+          <p style={{ margin: "8px 0 0", fontWeight: 700 }}>{t.iceHockey}</p>
         </Card>
 
         <Card>
-          <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>League</p>
+          <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>{t.league}</p>
           <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Liiga</p>
         </Card>
 
         <Card>
           <p style={{ margin: "0 0 10px", fontSize: "14px", color: "#94a3b8" }}>
-            Market
+            {t.market}
           </p>
           <MarketTabs
             market={market}
@@ -561,13 +564,14 @@ export default function BettingWorkspaceClient({
               const nextMatches = marketMatches?.[nextMarket] || [];
               setSelectedMatchId(nextMatches?.[0]?.id || null);
             }}
+            lang={lang}
           />
         </Card>
 
         <Card onClick={() => setOnlyValue((prev) => !prev)} selected={onlyValue}>
-          <p style={{ margin: 0, fontWeight: 700 }}>Only Value Bets</p>
+          <p style={{ margin: 0, fontWeight: 700 }}>{t.onlyValueBets}</p>
           <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
-            {onlyValue ? "Showing positive EV only" : "Showing all rows"}
+            {onlyValue ? t.showingPositiveOnly : t.showingAllRows}
           </p>
         </Card>
       </div>
@@ -576,14 +580,14 @@ export default function BettingWorkspaceClient({
 
   const MatchesBlock = (
     <PageSection
-      title="Matches"
-      description="Tap a match to update the analysis instantly."
+      title={t.matches}
+      description={t.matchesDescription}
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {matches.length === 0 ? (
           <Card>
             <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
-              No matches found.
+              {t.noMatches}
             </p>
           </Card>
         ) : (
@@ -614,7 +618,7 @@ export default function BettingWorkspaceClient({
                   fontWeight: 600,
                 }}
               >
-                {selectedMatch?.id === match.id ? "Selected" : "Open analysis"}
+                {selectedMatch?.id === match.id ? t.selected : t.openAnalysis}
               </p>
             </Card>
           ))
@@ -625,13 +629,13 @@ export default function BettingWorkspaceClient({
 
   const SelectedMatchBlock = (
     <PageSection
-      title="Selected Match Analysis"
-      description="Main match view, market odds and model output."
+      title={t.selectedMatchAnalysis}
+      description={t.selectedMatchAnalysisDescription}
     >
       {!selectedMatch ? (
         <Card>
           <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
-            No selected match.
+            {t.noSelectedMatch}
           </p>
         </Card>
       ) : (
@@ -647,7 +651,7 @@ export default function BettingWorkspaceClient({
                 color: "#94a3b8",
               }}
             >
-              Market: {market.toUpperCase()}
+              {t.market}: {market === "h2h" ? t.h2h : market === "totals" ? t.totals : t.handicap}
             </p>
             {confidenceBar}
           </Card>
@@ -655,19 +659,19 @@ export default function BettingWorkspaceClient({
           {bestValueBet ? (
             <Card selected positive>
               <p style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
-                Best Bet Right Now
+                {t.bestBetRightNow}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: isMobile ? "18px" : "20px", fontWeight: 700 }}>
                 {bestValueBet.side} • {bestValueBet.team}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
-                Odds {bestValueBet.odds} • EV {formatSignedPercent(bestValueBet.expectedValue)}
+                Odds {bestValueBet.odds} • {t.ev} {formatSignedPercent(bestValueBet.expectedValue)}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#cbd5e1" }}>
-                Fair {bestValueBet.fairOdds} • Edge {formatSignedPercent(bestValueBet.edge)}
+                {t.fair} {bestValueBet.fairOdds} • {t.edge} {formatSignedPercent(bestValueBet.edge)}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#fcd34d" }}>
-                Stake {formatEuro(bestValueBet.stake)}
+                {t.stake} {formatEuro(bestValueBet.stake)}
               </p>
             </Card>
           ) : null}
@@ -681,14 +685,14 @@ export default function BettingWorkspaceClient({
 
   const ValueBetsBlock = (
     <PageSection
-      title="Value Bets"
-      description="Model edge versus current market odds."
+      title={t.valueBets}
+      description={t.valueBetsDescription}
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {filteredValueBets.length === 0 ? (
           <Card>
             <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
-              No value bet rows available.
+              {t.noValueBets}
             </p>
           </Card>
         ) : (
@@ -719,7 +723,7 @@ export default function BettingWorkspaceClient({
                       color: "#94a3b8",
                     }}
                   >
-                    Bookmaker: {row.bookmaker || "-"}
+                    {t.bookmaker}: {row.bookmaker || "-"}
                   </p>
                   <p
                     style={{
@@ -737,7 +741,7 @@ export default function BettingWorkspaceClient({
                       color: "#cbd5e1",
                     }}
                   >
-                    Implied {formatProbability(row.impliedProbability)}
+                    {t.implied} {formatProbability(row.impliedProbability)}
                   </p>
                 </div>
 
@@ -749,7 +753,7 @@ export default function BettingWorkspaceClient({
                 >
                   <p style={{ margin: 0 }}>Odds {row.odds}</p>
                   <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
-                    Fair {row.fairOdds}
+                    {t.fair} {row.fairOdds}
                   </p>
                   <p
                     style={{
@@ -758,7 +762,7 @@ export default function BettingWorkspaceClient({
                       fontWeight: 700,
                     }}
                   >
-                    Edge {formatSignedPercent(row.edge)}
+                    {t.edge} {formatSignedPercent(row.edge)}
                   </p>
                   <p
                     style={{
@@ -767,7 +771,7 @@ export default function BettingWorkspaceClient({
                       fontWeight: 700,
                     }}
                   >
-                    EV {formatSignedPercent(row.expectedValue)}
+                    {t.ev} {formatSignedPercent(row.expectedValue)}
                   </p>
                   <p
                     style={{
@@ -776,7 +780,7 @@ export default function BettingWorkspaceClient({
                       fontWeight: 700,
                     }}
                   >
-                    Stake {formatEuro(row.stake)}
+                    {t.stake} {formatEuro(row.stake)}
                   </p>
                 </div>
               </div>
@@ -789,14 +793,14 @@ export default function BettingWorkspaceClient({
 
   const TopPicksBlock = (
     <PageSection
-      title="Backend Top Picks"
-      description="Ranked value opportunities across loaded matches."
+      title={t.backendTopPicks}
+      description={t.backendTopPicksDescription}
     >
       <div style={{ display: "grid", gap: "12px" }}>
         {visibleTopPicks.length === 0 ? (
           <Card>
             <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
-              No backend picks available.
+              {t.noBackendPicks}
             </p>
           </Card>
         ) : (
@@ -826,7 +830,7 @@ export default function BettingWorkspaceClient({
                   color: pick.expectedValue > 0 ? "#6ee7b7" : "#fda4af",
                 }}
               >
-                EV {formatSignedPercent(pick.expectedValue)} • Confidence {pick.confidence}%
+                {t.ev} {formatSignedPercent(pick.expectedValue)} • {t.confidence} {pick.confidence}%
               </p>
             </Card>
           ))
@@ -836,12 +840,12 @@ export default function BettingWorkspaceClient({
   );
 
   const BankrollBlock = (
-    <PageSection title="Bankroll" description="Quarter Kelly stake preview.">
+    <PageSection title={t.bankroll} description={t.bankrollDescription}>
       <div style={{ display: "grid", gap: "12px" }}>
-        <StatCard label="Bankroll" value="€1,000" />
-        <StatCard label="Staking model" value="Quarter Kelly" />
-        <StatCard label="Kelly fraction" value="25%" />
-        <StatCard label="Refresh interval" value="15s" />
+        <StatCard label={t.bankroll} value="€1,000" />
+        <StatCard label={t.stakingModel} value={t.quarterKelly} />
+        <StatCard label={t.kellyFraction} value="25%" />
+        <StatCard label={t.refreshInterval} value="15s" />
       </div>
     </PageSection>
   );
