@@ -14,32 +14,36 @@ async function getBettingPageData() {
     const spreadsMatches = spreadsData?.matches || [];
 
     return {
-      marketMatches: {
+      initialMarketMatches: {
         h2h: h2hMatches,
         totals: totalsMatches,
         spreads: spreadsMatches,
       },
       initialSelectedMatchId: h2hMatches?.[0]?.id || null,
-      source: h2hData?.source || "unknown",
-      cached: Boolean(h2hData?.cached),
+      initialSource: h2hData?.source || "unknown",
+      initialCached: Boolean(h2hData?.cached),
     };
   } catch {
     return {
-      marketMatches: {
+      initialMarketMatches: {
         h2h: [],
         totals: [],
         spreads: [],
       },
       initialSelectedMatchId: null,
-      source: "unknown",
-      cached: false,
+      initialSource: "unknown",
+      initialCached: false,
     };
   }
 }
 
 export default async function BettingPage() {
-  const { marketMatches, initialSelectedMatchId, source, cached } =
-    await getBettingPageData();
+  const {
+    initialMarketMatches,
+    initialSelectedMatchId,
+    initialSource,
+    initialCached,
+  } = await getBettingPageData();
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
@@ -67,15 +71,15 @@ export default async function BettingPage() {
           Full betting analysis, odds comparison and value bet workflow.
         </h1>
         <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
-          Vaihda markettia H2H-, Totals- ja Handicap-tabien välillä.
+          Live-refresh, market tabs, EV, edge, fair odds and Kelly preview samassa näkymässä.
         </p>
       </section>
 
       <BettingWorkspaceClient
-        marketMatches={marketMatches}
+        initialMarketMatches={initialMarketMatches}
         initialSelectedMatchId={initialSelectedMatchId}
-        source={source}
-        cached={cached}
+        initialSource={initialSource}
+        initialCached={initialCached}
       />
     </div>
   );
