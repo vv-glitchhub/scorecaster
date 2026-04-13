@@ -1,5 +1,14 @@
-export default function SourceBadge({ source, cached }) {
-  const sourceLabel = String(source || "unknown").toUpperCase();
+import { getDictionary } from "@/lib/i18n";
+
+export default function SourceBadge({ source, cached, lang = "en" }) {
+  const t = getDictionary(lang);
+
+  const sourceLabel =
+    source === "api"
+      ? t.sourceApi
+      : source === "fallback"
+      ? t.sourceFallback
+      : t.sourceUnknown;
 
   const sourceColor =
     source === "api"
@@ -8,7 +17,7 @@ export default function SourceBadge({ source, cached }) {
       ? "#f59e0b"
       : "#64748b";
 
-  const cacheLabel = cached ? "CACHE" : "FRESH";
+  const cacheLabel = cached ? t.statusCache : t.statusFresh;
   const cacheColor = cached ? "#38bdf8" : "#a78bfa";
 
   const badgeStyle = (bg) => ({
@@ -27,8 +36,12 @@ export default function SourceBadge({ source, cached }) {
 
   return (
     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-      <span style={badgeStyle(sourceColor)}>SOURCE: {sourceLabel}</span>
-      <span style={badgeStyle(cacheColor)}>STATUS: {cacheLabel}</span>
+      <span style={badgeStyle(sourceColor)}>
+        {t.sourceLabel}: {sourceLabel}
+      </span>
+      <span style={badgeStyle(cacheColor)}>
+        {t.statusLabel}: {cacheLabel}
+      </span>
     </div>
   );
 }
