@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
 import MarketTabs from "@/app/components/MarketTabs";
+import LivePulse from "@/app/components/LivePulse";
 import { useBreakpoint } from "@/lib/useBreakpoint";
 import {
   buildValueBetRows,
@@ -12,25 +13,42 @@ import {
 import { buildValueBetMetrics } from "@/lib/value-engine-v2";
 import { kellyStake } from "@/lib/kelly";
 
-function Card({ children, selected = false, onClick }) {
-  const isClickable = typeof onClick === "function";
+const SPORT_KEY = "icehockey_liiga";
+const REFRESH_MS = 15000;
+
+function getCardStyle({ selected = false, positive = null, clickable = false } = {}) {
+  let border = selected
+    ? "1px solid rgba(16,185,129,0.7)"
+    : "1px solid rgba(255,255,255,0.1)";
+  let background = selected
+    ? "rgba(16,185,129,0.12)"
+    : "rgba(0,0,0,0.2)";
+
+  if (positive === true) {
+    border = "1px solid rgba(16,185,129,0.55)";
+    background = "rgba(16,185,129,0.08)";
+  }
+
+  if (positive === false) {
+    border = "1px solid rgba(239,68,68,0.28)";
+    background = "rgba(239,68,68,0.05)";
+  }
+
+  return {
+    border,
+    background,
+    borderRadius: "16px",
+    padding: "16px",
+    cursor: clickable ? "pointer" : "default",
+    transition: "0.2s ease",
+  };
+}
+
+function Card({ children, selected = false, positive = null, onClick }) {
+  const clickable = typeof onClick === "function";
 
   return (
-    <div
-      onClick={onClick}
-      style={{
-        border: selected
-          ? "1px solid rgba(16,185,129,0.7)"
-          : "1px solid rgba(255,255,255,0.1)",
-        background: selected
-          ? "rgba(16,185,129,0.12)"
-          : "rgba(0,0,0,0.2)",
-        borderRadius: "16px",
-        padding: "16px",
-        cursor: isClickable ? "pointer" : "default",
-        transition: "0.2s ease",
-      }}
-    >
+    <div onClick={onClick} style={getCardStyle({ selected, positive, clickable })}>
       {children}
     </div>
   );
@@ -56,31 +74,72 @@ function StatCard({ label, value }) {
 
 function formatProbability(value) {
   if (value == null) return "-";
-  return `${value.toFixed(2)}%`;
+  return `${Number(value).toFixed(2)}%`;
+}
+
+function formatSignedPercent(value) {
+  if (value == null) return "-";
+  const num = Number(value);
+  const sign = num > 0 ? "+" : "";
+  return `${sign}${num.toFixed(2)}%`;
 }
 
 function formatEuro(value) {
   if (!value || value <= 0) return "€0";
-  return `€${value.toFixed(2)}`;
+  return `€${Number(value).toFixed(2)}`;
+}
+
+function getProbabilityForRow(row, model, market) {
+  if (!model) return null;
+
+  if (market === "totals") {
+    return row.side === "OVER" ? model.over : model.under;
+  }
+
+  if (market === "spreads") {
+    return row.side === "SPREAD_HOME" ? model.spreadHome : model.spreadAway;
+  }
+
+  if (row.side === "HOME") return model.home;
+  if (row.side === "DRAW") return model.draw;
+  return model.away;
 }
 
 export default function BettingWorkspaceClient({
-  marketMatches,
+  initialMarketMatches,
   initialSelectedMatchId,
-  source,
-  cached,
+  initialSource,
+  initialCached,
 }) {
   const { isMobile, isTablet, isDesktop } = useBreakpoint();
 
   const [market, setMarket] = useState("h2h");
-  const [selectedMatchId, setSelectedMatchId] = useState(
-    initialSelectedMatchId || marketMatches?.h2h?.[0]?.id || null
+  const [marketMatches, setMarketMatches] = useState(
+    initialMarketMatches || { h2h: [], totals: [], spreads: [] }
   );
+  const [selectedMatchId, setSelectedMatchId] = useState(
+    initialSelectedMatchId || initialMarketMatches?.h2h?.[0]?.id || null
+  );
+  const [sourceByMarket, setSourceByMarket] = useState({
+    h2h: initialSource || "unknown",
+    totals: initialSource || "unknown",
+    spreads: initialSource || "unknown",
+  });
+  const [cachedByMarket, setCachedByMarket] = useState({
+    h2h: Boolean(initialCached),
+    totals: Boolean(initialCached),
+    spreads: Boolean(initialCached),
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
+  const [onlyValue, setOnlyValue] = useState(false);
 
   const bankroll = 1000;
   const kellyFraction = 0.25;
 
   const matches = marketMatches?.[market] || [];
+  const currentSource = sourceByMarket?.[market] || "unknown";
+  const currentCached = Boolean(cachedByMarket?.[market]);
 
   const selectedMatch = useMemo(() => {
     return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
@@ -98,20 +157,7 @@ export default function BettingWorkspaceClient({
 
   const valueBets = useMemo(() => {
     return rawValueBets.map((row) => {
-      const probability =
-        market === "totals"
-          ? row.side === "OVER"
-            ? model?.over
-            : model?.under
-          : market === "spreads"
-          ? row.side === "SPREAD_HOME"
-            ? model?.spreadHome
-            : model?.spreadAway
-          : row.side === "HOME"
-          ? model?.home
-          : row.side === "DRAW"
-          ? model?.draw
-          : model?.away;
+      const probability = getProbabilityForRow(row, model, market);
 
       const metrics = buildValueBetMetrics({
         odds: row.odds,
@@ -134,6 +180,11 @@ export default function BettingWorkspaceClient({
     });
   }, [rawValueBets, model, market]);
 
+  const filteredValueBets = useMemo(() => {
+    if (!onlyValue) return valueBets;
+    return valueBets.filter((row) => row.expectedValue != null && row.expectedValue > 0);
+  }, [onlyValue, valueBets]);
+
   const topPicks = useMemo(() => {
     return matches
       .flatMap((match) => {
@@ -141,20 +192,7 @@ export default function BettingWorkspaceClient({
         const rows = buildValueBetRows(match, matchModel, market);
 
         return rows.map((row) => {
-          const probability =
-            market === "totals"
-              ? row.side === "OVER"
-                ? matchModel?.over
-                : matchModel?.under
-              : market === "spreads"
-              ? row.side === "SPREAD_HOME"
-                ? matchModel?.spreadHome
-                : matchModel?.spreadAway
-              : row.side === "HOME"
-              ? matchModel?.home
-              : row.side === "DRAW"
-              ? matchModel?.draw
-              : matchModel?.away;
+          const probability = getProbabilityForRow(row, matchModel, market);
 
           const metrics = buildValueBetMetrics({
             odds: row.odds,
@@ -180,7 +218,147 @@ export default function BettingWorkspaceClient({
       .slice(0, 8);
   }, [matches, market]);
 
-  const bestValueBet = valueBets[0] || null;
+  const bestValueBet = filteredValueBets[0] || null;
+
+  useEffect(() => {
+    const nextMatches = marketMatches?.[market] || [];
+    if (!nextMatches.length) {
+      setSelectedMatchId(null);
+      return;
+    }
+
+    const exists = nextMatches.some((match) => match.id === selectedMatchId);
+    if (!exists) {
+      setSelectedMatchId(nextMatches[0].id);
+    }
+  }, [market, marketMatches, selectedMatchId]);
+
+  useEffect(() => {
+    let active = true;
+
+    async function refreshAllMarkets() {
+      try {
+        setIsRefreshing(true);
+
+        const markets = ["h2h", "totals", "spreads"];
+        const results = await Promise.all(
+          markets.map(async (marketKey) => {
+            const res = await fetch(
+              `/api/odds?sport=${SPORT_KEY}&market=${marketKey}&refresh=1`,
+              {
+                method: "GET",
+                cache: "no-store",
+              }
+            );
+
+            if (!res.ok) {
+              throw new Error(`Refresh failed for ${marketKey}`);
+            }
+
+            const json = await res.json();
+            return { marketKey, json };
+          })
+        );
+
+        if (!active) return;
+
+        setMarketMatches((prev) => {
+          const next = { ...prev };
+          for (const item of results) {
+            next[item.marketKey] = item.json?.matches || [];
+          }
+          return next;
+        });
+
+        setSourceByMarket((prev) => {
+          const next = { ...prev };
+          for (const item of results) {
+            next[item.marketKey] = item.json?.source || "unknown";
+          }
+          return next;
+        });
+
+        setCachedByMarket((prev) => {
+          const next = { ...prev };
+          for (const item of results) {
+            next[item.marketKey] = Boolean(item.json?.cached);
+          }
+          return next;
+        });
+
+        setLastUpdatedAt(Date.now());
+      } catch (error) {
+        console.error(error);
+      } finally {
+        if (active) {
+          setIsRefreshing(false);
+        }
+      }
+    }
+
+    const timer = setInterval(refreshAllMarkets, REFRESH_MS);
+
+    return () => {
+      active = false;
+      clearInterval(timer);
+    };
+  }, []);
+
+  const handleManualRefresh = async () => {
+    try {
+      setIsRefreshing(true);
+
+      const markets = ["h2h", "totals", "spreads"];
+      const results = await Promise.all(
+        markets.map(async (marketKey) => {
+          const res = await fetch(
+            `/api/odds?sport=${SPORT_KEY}&market=${marketKey}&refresh=1`,
+            {
+              method: "GET",
+              cache: "no-store",
+            }
+          );
+
+          if (!res.ok) {
+            throw new Error(`Refresh failed for ${marketKey}`);
+          }
+
+          const json = await res.json();
+          return { marketKey, json };
+        })
+      );
+
+      setMarketMatches((prev) => {
+        const next = { ...prev };
+        for (const item of results) {
+          next[item.marketKey] = item.json?.matches || [];
+        }
+        return next;
+      });
+
+      setSourceByMarket((prev) => {
+        const next = { ...prev };
+        for (const item of results) {
+          next[item.marketKey] = item.json?.source || "unknown";
+        }
+        return next;
+      });
+
+      setCachedByMarket((prev) => {
+        const next = { ...prev };
+        for (const item of results) {
+          next[item.marketKey] = Boolean(item.json?.cached);
+        }
+        return next;
+      });
+
+      setLastUpdatedAt(Date.now());
+    } catch (error) {
+      console.error(error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const mainColumns = isDesktop ? "1.1fr 1.5fr 1fr" : "1fr";
   const statColsTop = isMobile ? "1fr" : "repeat(3, 1fr)";
@@ -308,13 +486,55 @@ export default function BettingWorkspaceClient({
     );
   };
 
+  const confidenceBar = (
+    <div
+      style={{
+        height: "8px",
+        background: "rgba(255,255,255,0.08)",
+        borderRadius: "999px",
+        overflow: "hidden",
+        marginTop: "10px",
+      }}
+    >
+      <div
+        style={{
+          width: `${model?.confidence || 0}%`,
+          height: "100%",
+          borderRadius: "999px",
+          background: "linear-gradient(90deg, #10b981, #34d399)",
+        }}
+      />
+    </div>
+  );
+
   const FiltersBlock = (
     <PageSection
       title="Filters"
       description="Sport / league / market controls can expand here."
-      rightSlot={<SourceBadge source={source} cached={cached} />}
+      rightSlot={<SourceBadge source={currentSource} cached={currentCached} />}
     >
       <div style={{ display: "grid", gap: "12px" }}>
+        <Card>
+          <LivePulse isRefreshing={isRefreshing} lastUpdatedAt={lastUpdatedAt} />
+          <button
+            type="button"
+            onClick={handleManualRefresh}
+            style={{
+              marginTop: "12px",
+              border: "1px solid rgba(255,255,255,0.12)",
+              background: "rgba(255,255,255,0.06)",
+              color: "#fff",
+              borderRadius: "12px",
+              padding: "10px 12px",
+              fontSize: "14px",
+              fontWeight: 700,
+              cursor: "pointer",
+            }}
+          >
+            Refresh now
+          </button>
+        </Card>
+
         <Card>
           <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Sport</p>
           <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Ice Hockey</p>
@@ -337,6 +557,13 @@ export default function BettingWorkspaceClient({
               setSelectedMatchId(nextMatches?.[0]?.id || null);
             }}
           />
+        </Card>
+
+        <Card onClick={() => setOnlyValue((prev) => !prev)} selected={onlyValue}>
+          <p style={{ margin: 0, fontWeight: 700 }}>Only Value Bets</p>
+          <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
+            {onlyValue ? "Showing positive EV only" : "Showing all rows"}
+          </p>
         </Card>
       </div>
     </PageSection>
@@ -417,21 +644,25 @@ export default function BettingWorkspaceClient({
             >
               Market: {market.toUpperCase()}
             </p>
+            {confidenceBar}
           </Card>
 
           {bestValueBet ? (
-            <Card selected>
+            <Card selected positive={bestValueBet.expectedValue > 0}>
               <p style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
-                Best current angle
+                Best Bet Right Now
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {bestValueBet.side} • {bestValueBet.team}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
-                Odds {bestValueBet.odds} • EV {bestValueBet.expectedValue}%
+                Odds {bestValueBet.odds} • EV {formatSignedPercent(bestValueBet.expectedValue)}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#cbd5e1" }}>
-                Fair {bestValueBet.fairOdds} • Edge {bestValueBet.edge}%
+                Fair {bestValueBet.fairOdds} • Edge {formatSignedPercent(bestValueBet.edge)}
+              </p>
+              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#fcd34d" }}>
+                Stake {formatEuro(bestValueBet.stake)}
               </p>
             </Card>
           ) : null}
@@ -449,15 +680,19 @@ export default function BettingWorkspaceClient({
       description="Model edge versus current market odds."
     >
       <div style={{ display: "grid", gap: "12px" }}>
-        {valueBets.length === 0 ? (
+        {filteredValueBets.length === 0 ? (
           <Card>
             <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
               No value bet rows available.
             </p>
           </Card>
         ) : (
-          valueBets.map((row, index) => (
-            <Card key={`${market}-${row.side}-${row.team}`} selected={index === 0}>
+          filteredValueBets.map((row, index) => (
+            <Card
+              key={`${market}-${row.side}-${row.team}`}
+              selected={index === 0}
+              positive={row.expectedValue > 0 ? true : row.expectedValue < 0 ? false : null}
+            >
               <div
                 style={{
                   display: "flex",
@@ -516,7 +751,7 @@ export default function BettingWorkspaceClient({
                       fontWeight: 700,
                     }}
                   >
-                    Edge {row.edge}%
+                    Edge {formatSignedPercent(row.edge)}
                   </p>
                   <p
                     style={{
@@ -525,7 +760,7 @@ export default function BettingWorkspaceClient({
                       fontWeight: 700,
                     }}
                   >
-                    EV {row.expectedValue}%
+                    EV {formatSignedPercent(row.expectedValue)}
                   </p>
                   <p
                     style={{
@@ -559,7 +794,10 @@ export default function BettingWorkspaceClient({
           </Card>
         ) : (
           topPicks.map((pick) => (
-            <Card key={`${market}-${pick.matchId}-${pick.selection}`}>
+            <Card
+              key={`${market}-${pick.matchId}-${pick.selection}`}
+              positive={pick.expectedValue > 0 ? true : pick.expectedValue < 0 ? false : null}
+            >
               <p style={{ margin: 0, fontWeight: 700 }}>
                 {pick.selection} @ {pick.odds}
               </p>
@@ -576,10 +814,10 @@ export default function BettingWorkspaceClient({
                 style={{
                   margin: "10px 0 0",
                   fontSize: "14px",
-                  color: "#6ee7b7",
+                  color: pick.expectedValue > 0 ? "#6ee7b7" : "#fda4af",
                 }}
               >
-                EV {pick.expectedValue}% • Confidence {pick.confidence}%
+                EV {formatSignedPercent(pick.expectedValue)} • Confidence {pick.confidence}%
               </p>
             </Card>
           ))
@@ -597,6 +835,7 @@ export default function BettingWorkspaceClient({
         <StatCard label="Bankroll" value="€1,000" />
         <StatCard label="Staking model" value="Quarter Kelly" />
         <StatCard label="Kelly fraction" value="25%" />
+        <StatCard label="Refresh interval" value="15s" />
       </div>
     </PageSection>
   );
