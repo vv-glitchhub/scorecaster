@@ -6,6 +6,8 @@ import {
   buildValueBetRows,
   getModelProbabilitiesForMatch,
 } from "@/lib/model-engine-v1";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeLang } from "@/lib/i18n";
 
 async function getDashboardData() {
   try {
@@ -43,6 +45,10 @@ async function getDashboardData() {
 }
 
 export default async function HomePage() {
+  const cookieStore = await cookies();
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
+  const t = getDictionary(lang);
+
   const { oddsData, picks } = await getDashboardData();
   const previewMatch = oddsData?.matches?.[0] || null;
 
@@ -68,16 +74,15 @@ export default async function HomePage() {
               fontWeight: 700,
             }}
           >
-            Scorecaster Dashboard
+            {t.dashboardEyebrow}
           </p>
 
           <h1 style={{ margin: 0, fontSize: "42px", lineHeight: 1.1 }}>
-            Clearer home view, dedicated betting workspace, dedicated simulator.
+            {t.dashboardTitle}
           </h1>
 
           <p style={{ marginTop: "16px", color: "#cbd5e1", fontSize: "16px" }}>
-            Dashboard näyttää vain tärkeimmät asiat nopeasti. Raskas analyysi on
-            betting-sivulla ja simulaatiot simulator-sivulla.
+            {t.dashboardDescription}
           </p>
 
           <div
@@ -96,9 +101,10 @@ export default async function HomePage() {
                 padding: "14px 18px",
                 borderRadius: "16px",
                 fontWeight: 700,
+                textDecoration: "none",
               }}
             >
-              Open Betting Workspace
+              {t.openBettingWorkspace}
             </Link>
 
             <Link
@@ -110,9 +116,10 @@ export default async function HomePage() {
                 padding: "14px 18px",
                 borderRadius: "16px",
                 fontWeight: 700,
+                textDecoration: "none",
               }}
             >
-              Open Simulator
+              {t.openSimulator}
             </Link>
           </div>
         </div>
@@ -125,10 +132,7 @@ export default async function HomePage() {
           gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
         }}
       >
-        <PageSection
-          title="Top Picks"
-          description="Best backend-ranked value spots right now."
-        >
+        <PageSection title={t.topPicks} description={t.topPicksDescription}>
           <div style={{ display: "grid", gap: "12px" }}>
             {picks.length === 0 ? (
               <div
@@ -141,7 +145,7 @@ export default async function HomePage() {
                   fontSize: "14px",
                 }}
               >
-                No top picks available.
+                {t.noTopPicks}
               </div>
             ) : (
               picks.map((pick) => (
@@ -178,7 +182,7 @@ export default async function HomePage() {
 
                     <div style={{ textAlign: "right", fontSize: "14px" }}>
                       <p style={{ margin: 0, color: "#6ee7b7" }}>
-                        EV {pick.edgePct}%
+                        {t.ev} {pick.edgePct}%
                       </p>
                       <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
                         Odds {pick.odds}
@@ -191,16 +195,11 @@ export default async function HomePage() {
           </div>
         </PageSection>
 
-      <PageSection
-  title="Data Source Status"
-  description="Quick source and cache visibility."
-  rightSlot={
-    <SourceBadge
-      source={oddsData?.source}
-      cached={oddsData?.cached}
-    />
-  }
->
+        <PageSection
+          title={t.dataSourceStatus}
+          description={t.dataSourceStatusDescription}
+          rightSlot={<SourceBadge source={oddsData?.source} cached={oddsData?.cached} lang={lang} />}
+        >
           <div style={{ display: "grid", gap: "12px" }}>
             <div
               style={{
@@ -211,7 +210,7 @@ export default async function HomePage() {
               }}
             >
               <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                Odds source
+                {t.oddsSource}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.source || "unknown"}
@@ -227,10 +226,10 @@ export default async function HomePage() {
               }}
             >
               <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                Cache status
+                {t.cacheStatus}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.cached ? "cached" : "fresh"}
+                {oddsData?.cached ? t.statusCache.toLowerCase() : t.statusFresh.toLowerCase()}
               </p>
             </div>
 
@@ -243,7 +242,7 @@ export default async function HomePage() {
               }}
             >
               <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                Matches loaded
+                {t.matchesLoaded}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
                 {oddsData?.matches?.length || 0}
@@ -253,8 +252,8 @@ export default async function HomePage() {
         </PageSection>
 
         <PageSection
-          title="Simulator Preview"
-          description="Quick look before opening the simulator."
+          title={t.simulatorPreview}
+          description={t.simulatorPreviewDescription}
         >
           <div
             style={{
@@ -265,13 +264,13 @@ export default async function HomePage() {
             }}
           >
             <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-              Next step
+              {t.nextStep}
             </p>
             <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-              Run tournament / season simulations separately
+              {t.simulatorPreviewText}
             </p>
             <p style={{ marginTop: "12px", fontSize: "14px", color: "#cbd5e1" }}>
-              Keep simulation logic isolated so betting workspace stays focused.
+              {t.simulatorPreviewSubtext}
             </p>
 
             <Link
@@ -285,18 +284,17 @@ export default async function HomePage() {
                 padding: "10px 14px",
                 fontSize: "14px",
                 fontWeight: 600,
+                color: "#fff",
+                textDecoration: "none",
               }}
             >
-              Go to simulator
+              {t.goToSimulator}
             </Link>
           </div>
         </PageSection>
       </div>
 
-      <PageSection
-        title="Match Preview"
-        description="Lightweight preview on the dashboard."
-      >
+      <PageSection title={t.matchPreview} description={t.matchPreviewDescription}>
         {!previewMatch ? (
           <div
             style={{
@@ -308,7 +306,7 @@ export default async function HomePage() {
               fontSize: "14px",
             }}
           >
-            No match preview available.
+            {t.noMatchPreview}
           </div>
         ) : (
           <div
@@ -349,7 +347,7 @@ export default async function HomePage() {
               }}
             >
               <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                Best odds
+                {t.bestOdds}
               </p>
 
               <div
@@ -361,15 +359,15 @@ export default async function HomePage() {
                 }}
               >
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>Home</span>
+                  <span style={{ color: "#cbd5e1" }}>{t.home}</span>
                   <span>{previewMatch.bestOdds?.home ?? "-"}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>Draw</span>
+                  <span style={{ color: "#cbd5e1" }}>{t.draw}</span>
                   <span>{previewMatch.bestOdds?.draw ?? "-"}</span>
                 </div>
                 <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>Away</span>
+                  <span style={{ color: "#cbd5e1" }}>{t.away}</span>
                   <span>{previewMatch.bestOdds?.away ?? "-"}</span>
                 </div>
               </div>
