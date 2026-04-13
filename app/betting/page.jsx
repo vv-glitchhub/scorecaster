@@ -1,5 +1,7 @@
 import BettingWorkspaceClient from "@/app/components/BettingWorkspaceClient";
 import { getOddsData } from "@/lib/odds-service";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeLang } from "@/lib/i18n";
 
 async function getBettingPageData() {
   try {
@@ -38,6 +40,10 @@ async function getBettingPageData() {
 }
 
 export default async function BettingPage() {
+  const cookieStore = await cookies();
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
+  const t = getDictionary(lang);
+
   const {
     initialMarketMatches,
     initialSelectedMatchId,
@@ -65,7 +71,7 @@ export default async function BettingPage() {
             fontWeight: 700,
           }}
         >
-          Betting Workspace
+          {t.bettingEyebrow}
         </p>
 
         <h1
@@ -75,7 +81,7 @@ export default async function BettingPage() {
             lineHeight: 1.05,
           }}
         >
-          Full betting analysis, odds comparison and value bet workflow.
+          {t.bettingTitle}
         </h1>
 
         <p
@@ -87,7 +93,7 @@ export default async function BettingPage() {
             maxWidth: "900px",
           }}
         >
-          Live-refresh, market tabs, EV, edge, fair odds and Kelly preview samassa näkymässä.
+          {t.bettingDescription}
         </p>
       </section>
 
@@ -96,6 +102,7 @@ export default async function BettingPage() {
         initialSelectedMatchId={initialSelectedMatchId}
         initialSource={initialSource}
         initialCached={initialCached}
+        lang={lang}
       />
     </div>
   );
