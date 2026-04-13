@@ -1,12 +1,14 @@
-"use client";
+import { getDictionary } from "@/lib/i18n";
 
-const tabs = [
-  { key: "h2h", label: "H2H" },
-  { key: "totals", label: "Totals" },
-  { key: "spreads", label: "Handicap" },
-];
+export default function MarketTabs({ market, onChange, lang = "en" }) {
+  const t = getDictionary(lang);
 
-export default function MarketTabs({ market, onChange }) {
+  const tabs = [
+    { key: "h2h", label: t.h2h },
+    { key: "totals", label: t.totals },
+    { key: "spreads", label: t.handicap },
+  ];
+
   return (
     <div
       style={{
