@@ -46,18 +46,18 @@ export default async function BettingPage() {
   } = await getBettingPageData();
 
   return (
-    <div style={{ display: "grid", gap: "24px" }}>
+    <div style={{ display: "grid", gap: "20px" }}>
       <section
         style={{
           border: "1px solid rgba(255,255,255,0.1)",
           background: "rgba(255,255,255,0.05)",
           borderRadius: "24px",
-          padding: "32px",
+          padding: "24px",
         }}
       >
         <p
           style={{
-            margin: "0 0 12px",
+            margin: "0 0 10px",
             fontSize: "12px",
             letterSpacing: "0.2em",
             textTransform: "uppercase",
@@ -67,10 +67,26 @@ export default async function BettingPage() {
         >
           Betting Workspace
         </p>
-        <h1 style={{ margin: 0, fontSize: "36px", lineHeight: 1.1 }}>
+
+        <h1
+          style={{
+            margin: 0,
+            fontSize: "clamp(32px, 8vw, 56px)",
+            lineHeight: 1.05,
+          }}
+        >
           Full betting analysis, odds comparison and value bet workflow.
         </h1>
-        <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
+
+        <p
+          style={{
+            marginTop: "14px",
+            color: "#cbd5e1",
+            fontSize: "clamp(15px, 3.8vw, 18px)",
+            lineHeight: 1.5,
+            maxWidth: "900px",
+          }}
+        >
           Live-refresh, market tabs, EV, edge, fair odds and Kelly preview samassa näkymässä.
         </p>
       </section>
