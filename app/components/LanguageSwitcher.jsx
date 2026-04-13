@@ -45,10 +45,19 @@ export default function LanguageSwitcher({ lang = "en" }) {
 
   return (
     <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-      <button type="button" onClick={() => changeLanguage("en")} style={buttonStyle(lang === "en")}>
+      <button
+        type="button"
+        onClick={() => changeLanguage("en")}
+        style={buttonStyle(lang === "en")}
+      >
         EN
       </button>
-      <button type="button" onClick={() => changeLanguage("fi")} style={buttonStyle(lang === "fi")}>
+
+      <button
+        type="button"
+        onClick={() => changeLanguage("fi")}
+        style={buttonStyle(lang === "fi")}
+      >
         FI
       </button>
     </div>
