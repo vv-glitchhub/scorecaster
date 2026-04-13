@@ -218,7 +218,12 @@ export default function BettingWorkspaceClient({
       .slice(0, 8);
   }, [matches, market]);
 
-  const bestValueBet = filteredValueBets[0] || null;
+  const visibleTopPicks = isMobile ? topPicks.slice(0, 4) : topPicks;
+
+  const bestValueBet =
+    filteredValueBets.find(
+      (row) => row.expectedValue != null && row.expectedValue > 0
+    ) || null;
 
   useEffect(() => {
     const nextMatches = marketMatches?.[market] || [];
@@ -632,7 +637,7 @@ export default function BettingWorkspaceClient({
       ) : (
         <div style={{ display: "grid", gap: "16px" }}>
           <Card selected>
-            <p style={{ margin: 0, fontSize: "24px", fontWeight: 700 }}>
+            <p style={{ margin: 0, fontSize: isMobile ? "22px" : "24px", fontWeight: 700 }}>
               {selectedMatch.home_team} vs {selectedMatch.away_team}
             </p>
             <p
@@ -648,11 +653,11 @@ export default function BettingWorkspaceClient({
           </Card>
 
           {bestValueBet ? (
-            <Card selected positive={bestValueBet.expectedValue > 0}>
+            <Card selected positive>
               <p style={{ margin: 0, fontSize: "13px", color: "#94a3b8" }}>
                 Best Bet Right Now
               </p>
-              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
+              <p style={{ margin: "8px 0 0", fontSize: isMobile ? "18px" : "20px", fontWeight: 700 }}>
                 {bestValueBet.side} • {bestValueBet.team}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#6ee7b7" }}>
@@ -691,14 +696,16 @@ export default function BettingWorkspaceClient({
             <Card
               key={`${market}-${row.side}-${row.team}`}
               selected={index === 0}
-              positive={row.expectedValue > 0 ? true : row.expectedValue < 0 ? false : null}
+              positive={
+                row.expectedValue > 0 ? true : row.expectedValue < 0 ? false : null
+              }
             >
               <div
                 style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  gap: "16px",
-                  flexDirection: isMobile ? "column" : "row",
+                  display: "grid",
+                  gap: "12px",
+                  gridTemplateColumns: isMobile ? "1fr" : "1fr auto",
+                  alignItems: "start",
                 }}
               >
                 <div>
@@ -786,17 +793,19 @@ export default function BettingWorkspaceClient({
       description="Ranked value opportunities across loaded matches."
     >
       <div style={{ display: "grid", gap: "12px" }}>
-        {topPicks.length === 0 ? (
+        {visibleTopPicks.length === 0 ? (
           <Card>
             <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>
               No backend picks available.
             </p>
           </Card>
         ) : (
-          topPicks.map((pick) => (
+          visibleTopPicks.map((pick) => (
             <Card
               key={`${market}-${pick.matchId}-${pick.selection}`}
-              positive={pick.expectedValue > 0 ? true : pick.expectedValue < 0 ? false : null}
+              positive={
+                pick.expectedValue > 0 ? true : pick.expectedValue < 0 ? false : null
+              }
             >
               <p style={{ margin: 0, fontWeight: 700 }}>
                 {pick.selection} @ {pick.odds}
@@ -827,10 +836,7 @@ export default function BettingWorkspaceClient({
   );
 
   const BankrollBlock = (
-    <PageSection
-      title="Bankroll"
-      description="Quarter Kelly stake preview."
-    >
+    <PageSection title="Bankroll" description="Quarter Kelly stake preview.">
       <div style={{ display: "grid", gap: "12px" }}>
         <StatCard label="Bankroll" value="€1,000" />
         <StatCard label="Staking model" value="Quarter Kelly" />
@@ -881,6 +887,7 @@ export default function BettingWorkspaceClient({
           {MatchesBlock}
           {TopPicksBlock}
         </div>
+        {FiltersBlock}
         {ValueBetsBlock}
         <div
           style={{
@@ -889,8 +896,8 @@ export default function BettingWorkspaceClient({
             gridTemplateColumns: "1fr 1fr",
           }}
         >
-          {FiltersBlock}
           {BankrollBlock}
+          <div />
         </div>
       </div>
     );
@@ -900,10 +907,10 @@ export default function BettingWorkspaceClient({
     <div style={{ display: "grid", gap: mobileSectionGap }}>
       {SelectedMatchBlock}
       {MatchesBlock}
+      {FiltersBlock}
       {ValueBetsBlock}
       {TopPicksBlock}
       {BankrollBlock}
-      {FiltersBlock}
     </div>
   );
 }
