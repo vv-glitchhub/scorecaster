@@ -1,6 +1,30 @@
 import PageSection from "@/app/components/PageSection";
+import { cookies } from "next/headers";
+import { getDictionary, normalizeLang } from "@/lib/i18n";
 
-export default function SimulatorPage() {
+function StatCard({ label, value }) {
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.1)",
+        background: "rgba(0,0,0,0.2)",
+        borderRadius: "16px",
+        padding: "16px",
+      }}
+    >
+      <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>{label}</p>
+      <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
+        {value}
+      </p>
+    </div>
+  );
+}
+
+export default async function SimulatorPage() {
+  const cookieStore = await cookies();
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
+  const t = getDictionary(lang);
+
   return (
     <div style={{ display: "grid", gap: "24px" }}>
       <section
@@ -21,14 +45,13 @@ export default function SimulatorPage() {
             fontWeight: 700,
           }}
         >
-          Simulator Workspace
+          {t.simulatorEyebrow}
         </p>
         <h1 style={{ margin: 0, fontSize: "36px", lineHeight: 1.1 }}>
-          Dedicated area for tournament and season simulations.
+          {t.simulatorTitle}
         </h1>
         <p style={{ marginTop: "16px", color: "#cbd5e1" }}>
-          Tällä sivulla pidetään kaikki simulaatiologiikka erillään bettingistä,
-          jotta vedonlyöntisivu pysyy nopeana ja selkeänä.
+          {t.simulatorDescription}
         </p>
       </section>
 
@@ -40,107 +63,37 @@ export default function SimulatorPage() {
         }}
       >
         <PageSection
-          title="Simulation Setup"
-          description="Competition, model and iteration settings."
+          title={t.simulationSetup}
+          description={t.simulationSetupDescription}
         >
           <div style={{ display: "grid", gap: "12px" }}>
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Competition</p>
-              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>World Cup / League</p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Iterations</p>
-              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>10,000</p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>Mode</p>
-              <p style={{ margin: "8px 0 0", fontWeight: 700 }}>Monte Carlo</p>
-            </div>
+            <StatCard label={t.competition} value={t.worldCupLeague} />
+            <StatCard label={t.iterations} value="10,000" />
+            <StatCard label={t.mode} value={t.monteCarlo} />
           </div>
         </PageSection>
 
         <PageSection
-          title="Outcome Preview"
-          description="Example result cards for future simulation output."
+          title={t.outcomePreview}
+          description={t.outcomePreviewDescription}
         >
           <div style={{ display: "grid", gap: "12px" }}>
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontWeight: 700 }}>Team A</p>
-              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
-                Win title: 24.5%
-              </p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontWeight: 700 }}>Team B</p>
-              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
-                Reach final: 38.2%
-              </p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontWeight: 700 }}>Team C</p>
-              <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#94a3b8" }}>
-                Top 4: 51.7%
-              </p>
-            </div>
+            <StatCard label="Team A" value={`${t.winTitle}: 24.5%`} />
+            <StatCard label="Team B" value={`${t.reachFinal}: 38.2%`} />
+            <StatCard label="Team C" value={`${t.top4}: 51.7%`} />
           </div>
         </PageSection>
 
         <PageSection
-          title="Planned Extensions"
-          description="Features that belong here, not on the betting page."
+          title={t.plannedExtensions}
+          description={t.plannedExtensionsDescription}
         >
-          <div style={{ display: "grid", gap: "10px", fontSize: "14px", color: "#cbd5e1" }}>
-            <div>• tournament brackets</div>
-            <div>• season table simulations</div>
-            <div>• top 4 / top 8 probabilities</div>
-            <div>• final and champion probabilities</div>
-            <div>• scenario comparison</div>
+          <div style={{ color: "#cbd5e1", lineHeight: 1.8 }}>
+            <div>• {t.ext1}</div>
+            <div>• {t.ext2}</div>
+            <div>• {t.ext3}</div>
+            <div>• {t.ext4}</div>
+            <div>• {t.ext5}</div>
           </div>
         </PageSection>
       </div>
