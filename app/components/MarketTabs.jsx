@@ -21,16 +21,16 @@ export default function MarketTabs({ market, onChange }) {
         return (
           <button
             key={tab.key}
-            onClick={() => onChange(tab.key)}
             type="button"
+            onClick={() => onChange(tab.key)}
             style={{
               border: active
                 ? "1px solid rgba(16,185,129,0.7)"
-                : "1px solid rgba(255,255,255,0.1)",
+                : "1px solid rgba(255,255,255,0.12)",
               background: active
-                ? "rgba(16,185,129,0.16)"
-                : "rgba(255,255,255,0.05)",
-              color: active ? "#6ee7b7" : "#fff",
+                ? "rgba(16,185,129,0.14)"
+                : "rgba(255,255,255,0.06)",
+              color: active ? "#6ee7b7" : "#ffffff",
               borderRadius: "999px",
               padding: "10px 14px",
               fontSize: "14px",
