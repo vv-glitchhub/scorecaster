@@ -2,7 +2,7 @@ import Link from "next/link";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import { getDictionary } from "@/lib/i18n";
 
-export default function AppShellNav({ lang = "en" }) {
+export default function AppShellNav({ lang = "en", pathname = "/" }) {
   const t = getDictionary(lang);
 
   const navStyle = {
@@ -17,6 +17,7 @@ export default function AppShellNav({ lang = "en" }) {
     top: 0,
     zIndex: 50,
     backdropFilter: "blur(12px)",
+    flexWrap: "wrap",
   };
 
   const pillWrap = {
@@ -37,18 +38,26 @@ export default function AppShellNav({ lang = "en" }) {
     background: "rgba(255,255,255,0.04)",
   };
 
-  const linkStyle = {
-    padding: "12px 18px",
-    borderRadius: "14px",
-    color: "#cbd5e1",
-    fontWeight: 700,
-    textDecoration: "none",
+  const getLinkStyle = (href) => {
+    const active = pathname === href;
+
+    return {
+      padding: "12px 18px",
+      borderRadius: "14px",
+      color: active ? "#081018" : "#cbd5e1",
+      background: active ? "#22c55e" : "transparent",
+      fontWeight: 700,
+      textDecoration: "none",
+      transition: "0.2s ease",
+    };
   };
 
   return (
     <nav style={navStyle}>
       <div>
-        <div style={{ fontSize: "22px", fontWeight: 800, color: "#fff" }}>Scorecaster</div>
+        <div style={{ fontSize: "22px", fontWeight: 800, color: "#fff" }}>
+          Scorecaster
+        </div>
         <div style={{ fontSize: "13px", color: "#94a3b8", marginTop: "4px" }}>
           {t.brandTagline}
         </div>
@@ -58,13 +67,13 @@ export default function AppShellNav({ lang = "en" }) {
         <LanguageSwitcher lang={lang} />
 
         <div style={navPill}>
-          <Link href="/" style={linkStyle}>
+          <Link href="/" style={getLinkStyle("/")}>
             {t.navDashboard}
           </Link>
-          <Link href="/betting" style={linkStyle}>
+          <Link href="/betting" style={getLinkStyle("/betting")}>
             {t.navBetting}
           </Link>
-          <Link href="/simulator" style={linkStyle}>
+          <Link href="/simulator" style={getLinkStyle("/simulator")}>
             {t.navSimulator}
           </Link>
         </div>
