@@ -1,8 +1,10 @@
-"use client";
+import { getDictionary } from "@/lib/i18n";
 
-export default function LivePulse({ isRefreshing, lastUpdatedAt }) {
+export default function LivePulse({ isRefreshing, lastUpdatedAt, lang = "en" }) {
+  const t = getDictionary(lang);
+
   const formatted = lastUpdatedAt
-    ? new Date(lastUpdatedAt).toLocaleTimeString("fi-FI", {
+    ? new Date(lastUpdatedAt).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
         hour: "2-digit",
         minute: "2-digit",
         second: "2-digit",
@@ -43,7 +45,7 @@ export default function LivePulse({ isRefreshing, lastUpdatedAt }) {
               : "0 0 10px rgba(16,185,129,0.6)",
           }}
         />
-        {isRefreshing ? "UPDATING" : "LIVE"}
+        {isRefreshing ? t.updating : t.live}
       </div>
 
       <div
@@ -59,7 +61,7 @@ export default function LivePulse({ isRefreshing, lastUpdatedAt }) {
           color: "#cbd5e1",
         }}
       >
-        Updated {formatted}
+        {t.updatedAt} {formatted}
       </div>
     </div>
   );
