@@ -2,6 +2,7 @@
 
 import { useBetStore } from "@/lib/useBetStore";
 import { getBetStats } from "@/lib/betStats";
+import ProfitChart from "@/app/components/ProfitChart";
 
 function Stat({ label, value }) {
   return (
@@ -64,7 +65,10 @@ export default function BetHistory() {
         <Stat label="ROI" value={`${stats.roi.toFixed(2)}%`} />
         <Stat label="W/L" value={`${stats.wins}/${stats.losses}`} />
         <Stat label="Pending" value={stats.pending} />
+        <Stat label="Void" value={stats.voids} />
       </div>
+
+      <ProfitChart bets={bets} />
 
       {bets.length > 0 ? (
         <div>
