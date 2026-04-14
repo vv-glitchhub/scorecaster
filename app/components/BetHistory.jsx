@@ -39,8 +39,21 @@ function resultBadge(result) {
   return { label: "PENDING", color: "#64748b" };
 }
 
+function actionButtonStyle() {
+  return {
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    borderRadius: "10px",
+    padding: "8px 12px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+  };
+}
+
 export default function BetHistory() {
-  const { bets, updateResult } = useBetStore();
+  const { bets, updateResult, removeBet, clearBets } = useBetStore();
   const stats = getBetStats(bets);
 
   return (
@@ -50,7 +63,16 @@ export default function BetHistory() {
         <Stat label="Profit" value={`€${stats.totalProfit.toFixed(2)}`} />
         <Stat label="ROI" value={`${stats.roi.toFixed(2)}%`} />
         <Stat label="W/L" value={`${stats.wins}/${stats.losses}`} />
+        <Stat label="Pending" value={stats.pending} />
       </div>
+
+      {bets.length > 0 ? (
+        <div>
+          <button type="button" onClick={clearBets} style={actionButtonStyle()}>
+            Clear All Bets
+          </button>
+        </div>
+      ) : null}
 
       {bets.length === 0 ? (
         <div
@@ -93,7 +115,7 @@ export default function BetHistory() {
                       {bet.selection}
                     </p>
                     <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
-                      Odds {bet.odds} • Stake €{bet.stake.toFixed(2)}
+                      Odds {bet.odds} • Stake €{Number(bet.stake).toFixed(2)}
                     </p>
                   </div>
 
@@ -116,10 +138,15 @@ export default function BetHistory() {
                       style={{
                         margin: "10px 0 0",
                         fontWeight: 700,
-                        color: bet.profit > 0 ? "#10b981" : bet.profit < 0 ? "#ef4444" : "#cbd5e1",
+                        color:
+                          bet.profit > 0
+                            ? "#10b981"
+                            : bet.profit < 0
+                            ? "#ef4444"
+                            : "#cbd5e1",
                       }}
                     >
-                      Profit €{bet.profit.toFixed(2)}
+                      Profit €{Number(bet.profit).toFixed(2)}
                     </p>
                   </div>
                 </div>
@@ -132,33 +159,20 @@ export default function BetHistory() {
                     marginTop: "14px",
                   }}
                 >
-                  <button
-                    type="button"
-                    onClick={() => updateResult(bet.id, "win")}
-                    style={buttonStyle()}
-                  >
+                  <button type="button" onClick={() => updateResult(bet.id, "win")} style={actionButtonStyle()}>
                     Win
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => updateResult(bet.id, "lose")}
-                    style={buttonStyle()}
-                  >
+                  <button type="button" onClick={() => updateResult(bet.id, "lose")} style={actionButtonStyle()}>
                     Lose
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => updateResult(bet.id, "void")}
-                    style={buttonStyle()}
-                  >
+                  <button type="button" onClick={() => updateResult(bet.id, "void")} style={actionButtonStyle()}>
                     Void
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => updateResult(bet.id, "pending")}
-                    style={buttonStyle()}
-                  >
+                  <button type="button" onClick={() => updateResult(bet.id, "pending")} style={actionButtonStyle()}>
                     Pending
+                  </button>
+                  <button type="button" onClick={() => removeBet(bet.id)} style={actionButtonStyle()}>
+                    Delete
                   </button>
                 </div>
               </div>
@@ -168,17 +182,4 @@ export default function BetHistory() {
       )}
     </div>
   );
-}
-
-function buttonStyle() {
-  return {
-    border: "1px solid rgba(255,255,255,0.12)",
-    background: "rgba(255,255,255,0.06)",
-    color: "#fff",
-    borderRadius: "10px",
-    padding: "8px 12px",
-    fontSize: "13px",
-    fontWeight: 700,
-    cursor: "pointer",
-  };
 }
