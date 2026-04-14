@@ -2,6 +2,8 @@ import { cookies } from "next/headers";
 import { normalizeLang, getDictionary } from "@/lib/i18n";
 import { getOddsData } from "@/lib/odds-service";
 import BettingWorkspaceClient from "@/app/components/BettingWorkspaceClient";
+import PageSection from "@/app/components/PageSection";
+import BetHistory from "@/app/components/BetHistory";
 
 export default async function BettingPage() {
   const cookieStore = await cookies();
@@ -12,7 +14,6 @@ export default async function BettingPage() {
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
-      {/* HERO */}
       <section
         style={{
           border: "1px solid rgba(16,185,129,0.25)",
@@ -22,9 +23,7 @@ export default async function BettingPage() {
             "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.10))",
         }}
       >
-        <h1 style={{ margin: 0, fontSize: "32px" }}>
-          {t.navBetting}
-        </h1>
+        <h1 style={{ margin: 0, fontSize: "32px" }}>{t.navBetting}</h1>
 
         <p style={{ marginTop: "12px", color: "#cbd5e1" }}>
           {lang === "fi"
@@ -33,11 +32,18 @@ export default async function BettingPage() {
         </p>
       </section>
 
-      {/* WORKSPACE */}
-      <BettingWorkspaceClient
-        oddsData={oddsData}
-        lang={lang}
-      />
+      <BettingWorkspaceClient oddsData={oddsData} lang={lang} />
+
+      <PageSection
+        title={lang === "fi" ? "Omat vedot" : "My Bets"}
+        description={
+          lang === "fi"
+            ? "Seuraa vetoja, tuloksia, voittoa ja ROI:ta."
+            : "Track bets, results, profit and ROI."
+        }
+      >
+        <BetHistory />
+      </PageSection>
     </div>
   );
 }
