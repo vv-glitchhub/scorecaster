@@ -47,8 +47,18 @@ canvas {
   color: #ffffff;
 }
 
+.app-shell-nav {
+  position: sticky;
+  top: 0;
+}
+
 @media (max-width: 767px) {
   body {
     overflow-x: hidden;
+  }
+
+  .app-shell-nav {
+    position: relative;
+    top: auto;
   }
 }
