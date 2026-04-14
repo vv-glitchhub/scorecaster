@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cookies } from "next/headers";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
 import { getOddsData } from "@/lib/odds-service";
@@ -6,7 +7,6 @@ import {
   buildValueBetRows,
   getModelProbabilitiesForMatch,
 } from "@/lib/model-engine-v1";
-import { cookies } from "next/headers";
 import { getDictionary, normalizeLang } from "@/lib/i18n";
 
 async function getDashboardData() {
@@ -198,7 +198,13 @@ export default async function HomePage() {
         <PageSection
           title={t.dataSourceStatus}
           description={t.dataSourceStatusDescription}
-          rightSlot={<SourceBadge source={oddsData?.source} cached={oddsData?.cached} lang={lang} />}
+          rightSlot={
+            <SourceBadge
+              source={oddsData?.source}
+              cached={oddsData?.cached}
+              lang={lang}
+            />
+          }
         >
           <div style={{ display: "grid", gap: "12px" }}>
             <div
@@ -229,7 +235,9 @@ export default async function HomePage() {
                 {t.cacheStatus}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.cached ? t.statusCache.toLowerCase() : t.statusFresh.toLowerCase()}
+                {oddsData?.cached
+                  ? t.statusCache.toLowerCase()
+                  : t.statusFresh.toLowerCase()}
               </p>
             </div>
 
