@@ -12,9 +12,7 @@ export default function AppShellNav({ lang = "en", pathname = "/" }) {
     gap: "16px",
     padding: "16px 24px",
     borderBottom: "1px solid rgba(255,255,255,0.08)",
-    background: "rgba(2,6,23,0.85)",
-    position: "sticky",
-    top: 0,
+    background: "rgba(2,6,23,0.92)",
     zIndex: 50,
     backdropFilter: "blur(12px)",
     flexWrap: "wrap",
@@ -36,6 +34,8 @@ export default function AppShellNav({ lang = "en", pathname = "/" }) {
     borderRadius: "20px",
     border: "1px solid rgba(255,255,255,0.08)",
     background: "rgba(255,255,255,0.04)",
+    width: "100%",
+    maxWidth: "fit-content",
   };
 
   const getLinkStyle = (href) => {
@@ -49,11 +49,12 @@ export default function AppShellNav({ lang = "en", pathname = "/" }) {
       fontWeight: 700,
       textDecoration: "none",
       transition: "0.2s ease",
+      whiteSpace: "nowrap",
     };
   };
 
   return (
-    <nav style={navStyle}>
+    <nav className="app-shell-nav" style={navStyle}>
       <div>
         <div style={{ fontSize: "22px", fontWeight: 800, color: "#fff" }}>
           Scorecaster
