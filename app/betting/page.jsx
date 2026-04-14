@@ -27,8 +27,8 @@ export default async function BettingPage() {
 
         <p style={{ marginTop: "12px", color: "#cbd5e1" }}>
           {lang === "fi"
-            ? "Analysoi ottelut, löydä value betit ja hallitse pelikassa."
-            : "Analyze matches, find value bets and manage bankroll."}
+            ? "Analysoi ottelut, löydä value betit, hallitse panoksia ja seuraa tuloksia."
+            : "Analyze matches, find value bets, manage stakes and track results."}
         </p>
       </section>
 
@@ -38,8 +38,8 @@ export default async function BettingPage() {
         title={lang === "fi" ? "Omat vedot" : "My Bets"}
         description={
           lang === "fi"
-            ? "Seuraa vetoja, tuloksia, voittoa ja ROI:ta."
-            : "Track bets, results, profit and ROI."
+            ? "Seuraa vetoja, tuloksia, voittoa, ROI:ta ja profit-käyrää."
+            : "Track bets, results, profit, ROI and the profit curve."
         }
       >
         <BetHistory />
