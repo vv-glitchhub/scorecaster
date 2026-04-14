@@ -77,6 +77,9 @@ export default function AppShellNav({ lang = "en", pathname = "/" }) {
           <Link href="/simulator" style={getLinkStyle("/simulator")}>
             {t.navSimulator}
           </Link>
+          <Link href="/about" style={getLinkStyle("/about")}>
+            {t.navAbout}
+          </Link>
         </div>
       </div>
     </nav>
