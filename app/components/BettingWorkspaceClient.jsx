@@ -7,6 +7,7 @@ import MarketTabs from "@/app/components/MarketTabs";
 import LivePulse from "@/app/components/LivePulse";
 import { getDictionary } from "@/lib/i18n";
 import { useBetStore } from "@/lib/useBetStore";
+import { kellyStake } from "@/lib/kelly";
 
 export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const t = getDictionary(lang);
@@ -16,6 +17,10 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const [selectedMatchId, setSelectedMatchId] = useState(
     oddsData?.matches?.[0]?.id || null
   );
+  const [stakeMode, setStakeMode] = useState("manual");
+  const [manualStake, setManualStake] = useState("10");
+  const [bankroll, setBankroll] = useState("1000");
+  const [kellyFraction, setKellyFraction] = useState("0.25");
 
   const matches = oddsData?.matches || [];
 
@@ -27,16 +32,19 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
     if (!selectedMatch) return [];
 
     if (market === "totals") {
+      const point = selectedMatch.bestOdds?.point ?? "-";
       return [
         {
           key: "over",
-          label: `Over ${selectedMatch.bestOdds?.point ?? "-"}`,
+          label: `Over ${point}`,
           odds: selectedMatch.bestOdds?.over ?? null,
+          probability: 0.52,
         },
         {
           key: "under",
-          label: `Under ${selectedMatch.bestOdds?.point ?? "-"}`,
+          label: `Under ${point}`,
           odds: selectedMatch.bestOdds?.under ?? null,
+          probability: 0.48,
         },
       ].filter((row) => row.odds);
     }
@@ -47,11 +55,13 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
           key: "spread-home",
           label: `${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome ?? ""}`,
           odds: selectedMatch.bestOdds?.spreadHome ?? null,
+          probability: 0.52,
         },
         {
           key: "spread-away",
           label: `${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway ?? ""}`,
           odds: selectedMatch.bestOdds?.spreadAway ?? null,
+          probability: 0.48,
         },
       ].filter((row) => row.odds);
     }
@@ -61,33 +71,84 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
         key: "home",
         label: selectedMatch.home_team,
         odds: selectedMatch.bestOdds?.home ?? null,
+        probability: 0.45,
       },
       {
         key: "draw",
         label: t.draw,
         odds: selectedMatch.bestOdds?.draw ?? null,
+        probability: 0.23,
       },
       {
         key: "away",
         label: selectedMatch.away_team,
         odds: selectedMatch.bestOdds?.away ?? null,
+        probability: 0.32,
       },
     ].filter((row) => row.odds);
   }, [selectedMatch, market, t.draw]);
 
+  const currentMarketLabel =
+    market === "h2h" ? t.h2h : market === "totals" ? t.totals : t.handicap;
+
+  function getStakeForRow(row) {
+    if (stakeMode === "kelly") {
+      return kellyStake({
+        probability: row.probability,
+        odds: Number(row.odds),
+        bankroll: Number(bankroll) || 0,
+        fraction: Number(kellyFraction) || 0.25,
+      });
+    }
+
+    return Number(manualStake) || 0;
+  }
+
   function handleAddBet(row) {
     if (!selectedMatch || !row?.odds) return;
+
+    const stake = getStakeForRow(row);
+    if (!stake || stake <= 0) return;
 
     addBet({
       match: `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
       selection: `${currentMarketLabel} • ${row.label}`,
       odds: Number(row.odds),
-      stake: 10,
+      stake: Number(stake),
     });
   }
 
-  const currentMarketLabel =
-    market === "h2h" ? t.h2h : market === "totals" ? t.totals : t.handicap;
+  const panelStyle = {
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "16px",
+    padding: "16px",
+    background: "rgba(0,0,0,0.2)",
+  };
+
+  const inputStyle = {
+    width: "100%",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    fontSize: "14px",
+  };
+
+  const smallButton = (active) => ({
+    border: active
+      ? "1px solid rgba(16,185,129,0.7)"
+      : "1px solid rgba(255,255,255,0.12)",
+    background: active
+      ? "rgba(16,185,129,0.14)"
+      : "rgba(255,255,255,0.06)",
+    color: active ? "#6ee7b7" : "#fff",
+    borderRadius: "10px",
+    padding: "10px 12px",
+    fontSize: "13px",
+    fontWeight: 700,
+    cursor: "pointer",
+  });
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
@@ -117,11 +178,87 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
             : "Select market for analysis"
         }
       >
-        <MarketTabs
-          market={market}
-          onChange={setMarket}
-          lang={lang}
-        />
+        <MarketTabs market={market} onChange={setMarket} lang={lang} />
+      </PageSection>
+
+      <PageSection
+        title={lang === "fi" ? "Panostus" : "Staking"}
+        description={
+          lang === "fi"
+            ? "Valitse käsin panos tai käytä Kelly-ehdotusta."
+            : "Choose manual stake or use Kelly recommendation."
+        }
+      >
+        <div style={{ display: "grid", gap: "16px" }}>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setStakeMode("manual")}
+              style={smallButton(stakeMode === "manual")}
+            >
+              {lang === "fi" ? "Manuaalinen panos" : "Manual Stake"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setStakeMode("kelly")}
+              style={smallButton(stakeMode === "kelly")}
+            >
+              Kelly
+            </button>
+          </div>
+
+          {stakeMode === "manual" ? (
+            <div style={{ maxWidth: "240px" }}>
+              <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+                {lang === "fi" ? "Panos (€)" : "Stake (€)"}
+              </p>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={manualStake}
+                onChange={(e) => setManualStake(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+          ) : (
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+              }}
+            >
+              <div>
+                <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+                  {lang === "fi" ? "Kassa (€)" : "Bankroll (€)"}
+                </p>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={bankroll}
+                  onChange={(e) => setBankroll(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+
+              <div>
+                <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+                  {lang === "fi" ? "Kelly-osuus" : "Kelly Fraction"}
+                </p>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={kellyFraction}
+                  onChange={(e) => setKellyFraction(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+          )}
+        </div>
       </PageSection>
 
       <PageSection
@@ -142,9 +279,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
                 color: "#94a3b8",
               }}
             >
-              {lang === "fi"
-                ? "Ei otteluita saatavilla"
-                : "No matches available"}
+              {lang === "fi" ? "Ei otteluita saatavilla" : "No matches available"}
             </div>
           ) : (
             matches.map((match) => (
@@ -180,7 +315,6 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
                     <p style={{ margin: 0, fontWeight: 700 }}>
                       {match.home_team} vs {match.away_team}
                     </p>
-
                     <p
                       style={{
                         margin: "6px 0 0",
@@ -219,28 +353,12 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
         }
       >
         {!selectedMatch ? (
-          <div
-            style={{
-              padding: "16px",
-              borderRadius: "16px",
-              background: "rgba(0,0,0,0.2)",
-              color: "#94a3b8",
-            }}
-          >
-            {lang === "fi"
-              ? "Valitse ensin ottelu"
-              : "Select a match first"}
+          <div style={panelStyle}>
+            {lang === "fi" ? "Valitse ensin ottelu" : "Select a match first"}
           </div>
         ) : (
           <div style={{ display: "grid", gap: "12px" }}>
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                borderRadius: "16px",
-                padding: "16px",
-                background: "rgba(0,0,0,0.2)",
-              }}
-            >
+            <div style={panelStyle}>
               <p style={{ margin: 0, fontWeight: 700, fontSize: "18px" }}>
                 {selectedMatch.home_team} vs {selectedMatch.away_team}
               </p>
@@ -250,59 +368,58 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
             </div>
 
             {marketRows.length === 0 ? (
-              <div
-                style={{
-                  padding: "16px",
-                  borderRadius: "16px",
-                  background: "rgba(0,0,0,0.2)",
-                  color: "#94a3b8",
-                }}
-              >
+              <div style={panelStyle}>
                 {lang === "fi"
                   ? "Tälle markkinalle ei löytynyt rivejä."
                   : "No rows found for this market."}
               </div>
             ) : (
-              marketRows.map((row) => (
-                <div
-                  key={row.key}
-                  style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "16px",
-                    padding: "16px",
-                    background: "rgba(0,0,0,0.2)",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    gap: "16px",
-                    flexWrap: "wrap",
-                    alignItems: "center",
-                  }}
-                >
-                  <div>
-                    <p style={{ margin: 0, fontWeight: 700 }}>{row.label}</p>
-                    <p style={{ margin: "8px 0 0", color: "#cbd5e1", fontSize: "14px" }}>
-                      Odds {row.odds}
-                    </p>
-                  </div>
+              marketRows.map((row) => {
+                const recommendedStake = getStakeForRow(row);
 
-                  <button
-                    type="button"
-                    onClick={() => handleAddBet(row)}
+                return (
+                  <div
+                    key={row.key}
                     style={{
-                      border: "1px solid rgba(16,185,129,0.6)",
-                      background: "rgba(16,185,129,0.14)",
-                      color: "#6ee7b7",
-                      borderRadius: "12px",
-                      padding: "10px 14px",
-                      fontSize: "14px",
-                      fontWeight: 700,
-                      cursor: "pointer",
+                      ...panelStyle,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "16px",
+                      flexWrap: "wrap",
+                      alignItems: "center",
                     }}
                   >
-                    {lang === "fi" ? "Lisää veto" : "Add Bet"}
-                  </button>
-                </div>
-              ))
+                    <div>
+                      <p style={{ margin: 0, fontWeight: 700 }}>{row.label}</p>
+                      <p style={{ margin: "8px 0 0", color: "#cbd5e1", fontSize: "14px" }}>
+                        Odds {row.odds}
+                      </p>
+                      <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "13px" }}>
+                        {stakeMode === "kelly"
+                          ? `${lang === "fi" ? "Kelly-ehdotus" : "Kelly Suggestion"}: €${recommendedStake.toFixed(2)}`
+                          : `${lang === "fi" ? "Valittu panos" : "Selected Stake"}: €${(Number(manualStake) || 0).toFixed(2)}`}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleAddBet(row)}
+                      style={{
+                        border: "1px solid rgba(16,185,129,0.6)",
+                        background: "rgba(16,185,129,0.14)",
+                        color: "#6ee7b7",
+                        borderRadius: "12px",
+                        padding: "10px 14px",
+                        fontSize: "14px",
+                        fontWeight: 700,
+                        cursor: "pointer",
+                      }}
+                    >
+                      {lang === "fi" ? "Lisää veto" : "Add Bet"}
+                    </button>
+                  </div>
+                );
+              })
             )}
           </div>
         )}
