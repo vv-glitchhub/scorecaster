@@ -2,6 +2,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
+import PendingBetsPreview from "@/app/components/PendingBetsPreview";
 import { getOddsData } from "@/lib/odds-service";
 import {
   buildValueBetRows,
@@ -257,6 +258,17 @@ export default async function HomePage() {
               </p>
             </div>
           </div>
+        </PageSection>
+
+        <PageSection
+          title={lang === "fi" ? "Avoimet vedot" : "Pending Bets"}
+          description={
+            lang === "fi"
+              ? "Nopea esikatselu avoimista vedoista."
+              : "Quick preview of open bets."
+          }
+        >
+          <PendingBetsPreview lang={lang} />
         </PageSection>
 
         <PageSection
