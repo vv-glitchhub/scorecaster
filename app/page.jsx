@@ -78,11 +78,24 @@ export default async function HomePage() {
             {t.dashboardEyebrow}
           </p>
 
-          <h1 style={{ margin: 0, fontSize: "42px", lineHeight: 1.1 }}>
+          <h1
+            style={{
+              margin: 0,
+              fontSize: "clamp(34px, 8vw, 56px)",
+              lineHeight: 1.05,
+            }}
+          >
             {t.dashboardTitle}
           </h1>
 
-          <p style={{ marginTop: "16px", color: "#cbd5e1", fontSize: "16px" }}>
+          <p
+            style={{
+              marginTop: "16px",
+              color: "#cbd5e1",
+              fontSize: "clamp(15px, 3.2vw, 18px)",
+              lineHeight: 1.6,
+            }}
+          >
             {t.dashboardDescription}
           </p>
 
@@ -125,6 +138,25 @@ export default async function HomePage() {
           </div>
         </div>
       </section>
+
+      <PageSection
+        title={t.disclaimerTitle}
+        description={t.disclaimerDescription}
+      >
+        <div
+          style={{
+            border: "1px solid rgba(245,158,11,0.25)",
+            background: "rgba(245,158,11,0.08)",
+            borderRadius: "16px",
+            padding: "16px",
+            color: "#f8fafc",
+            lineHeight: 1.7,
+            fontSize: "15px",
+          }}
+        >
+          {t.disclaimerText}
+        </div>
+      </PageSection>
 
       <div
         style={{
@@ -333,7 +365,7 @@ export default async function HomePage() {
             style={{
               display: "grid",
               gap: "16px",
-              gridTemplateColumns: "2fr 1fr",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
             }}
           >
             <div
