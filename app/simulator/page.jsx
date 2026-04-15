@@ -1,6 +1,8 @@
 import PageSection from "@/app/components/PageSection";
+import MatchSimulatorPanel from "@/app/components/MatchSimulatorPanel";
 import { cookies } from "next/headers";
 import { getDictionary, normalizeLang } from "@/lib/i18n";
+import { getOddsData } from "@/lib/odds-service";
 
 function StatCard({ label, value }) {
   return (
@@ -24,6 +26,14 @@ export default async function SimulatorPage() {
   const cookieStore = await cookies();
   const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
   const t = getDictionary(lang);
+
+  let matches = [];
+  try {
+    const oddsData = await getOddsData({ sport: "icehockey_liiga" });
+    matches = oddsData?.matches || [];
+  } catch {
+    matches = [];
+  }
 
   return (
     <div style={{ display: "grid", gap: "24px" }}>
@@ -54,6 +64,17 @@ export default async function SimulatorPage() {
           {t.simulatorDescription}
         </p>
       </section>
+
+      <PageSection
+        title={lang === "fi" ? "Ottelusimulaatio" : "Match Simulation"}
+        description={
+          lang === "fi"
+            ? "Aja yksittäisen ottelun simulaatio markkinatodennäköisyyksien pohjalta."
+            : "Run a single match simulation based on market probabilities."
+        }
+      >
+        <MatchSimulatorPanel matches={matches} lang={lang} />
+      </PageSection>
 
       <div
         style={{
