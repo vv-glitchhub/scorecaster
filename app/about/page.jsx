@@ -6,7 +6,14 @@ function BulletList({ items }) {
   return (
     <div style={{ display: "grid", gap: "10px", color: "#cbd5e1" }}>
       {items.map((item, index) => (
-        <div key={index} style={{ display: "flex", gap: "10px", alignItems: "flex-start" }}>
+        <div
+          key={index}
+          style={{
+            display: "flex",
+            gap: "10px",
+            alignItems: "flex-start",
+          }}
+        >
           <span style={{ color: "#6ee7b7", fontWeight: 700 }}>•</span>
           <span>{item}</span>
         </div>
@@ -29,6 +36,49 @@ function InfoBlock({ title, text }) {
       <p style={{ margin: "10px 0 0", color: "#cbd5e1", lineHeight: 1.6 }}>
         {text}
       </p>
+    </div>
+  );
+}
+
+function FormulaBlock({ items }) {
+  return (
+    <div style={{ display: "grid", gap: "12px" }}>
+      {items.map((item, index) => (
+        <div
+          key={index}
+          style={{
+            border: "1px solid rgba(255,255,255,0.08)",
+            background: "rgba(0,0,0,0.18)",
+            borderRadius: "16px",
+            padding: "16px",
+            fontFamily:
+              'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+            color: "#e2e8f0",
+            fontSize: "14px",
+            lineHeight: 1.7,
+            overflowX: "auto",
+          }}
+        >
+          {item}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ExampleStep({ text }) {
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.08)",
+        background: "rgba(0,0,0,0.18)",
+        borderRadius: "16px",
+        padding: "16px",
+        color: "#e2e8f0",
+        lineHeight: 1.7,
+      }}
+    >
+      {text}
     </div>
   );
 }
@@ -95,6 +145,21 @@ export default async function AboutPage() {
       </PageSection>
 
       <PageSection
+        title={t.aboutNowTitle}
+        description={t.aboutNowDescription}
+      >
+        <BulletList
+          items={[
+            t.aboutNow1,
+            t.aboutNow2,
+            t.aboutNow3,
+            t.aboutNow4,
+            t.aboutNow5,
+          ]}
+        />
+      </PageSection>
+
+      <PageSection
         title={t.aboutCalcTitle}
         description={t.aboutCalcDescription}
       >
@@ -111,6 +176,37 @@ export default async function AboutPage() {
           <InfoBlock title={t.aboutCalc4Title} text={t.aboutCalc4Text} />
           <InfoBlock title={t.aboutCalc5Title} text={t.aboutCalc5Text} />
           <InfoBlock title={t.aboutCalc6Title} text={t.aboutCalc6Text} />
+        </div>
+      </PageSection>
+
+      <PageSection
+        title={t.aboutFormulaTitle}
+        description={t.aboutFormulaDescription}
+      >
+        <FormulaBlock
+          items={[
+            t.formulaImplied,
+            t.formulaFair,
+            t.formulaEdge,
+            t.formulaEv,
+            t.formulaKelly,
+            t.formulaStake,
+          ]}
+        />
+      </PageSection>
+
+      <PageSection
+        title={t.aboutExampleTitle}
+        description={t.aboutExampleDescription}
+      >
+        <div style={{ display: "grid", gap: "12px" }}>
+          <ExampleStep text={`${t.exampleInputTitle}: ${t.exampleInputText}`} />
+          <ExampleStep text={t.exampleStep1} />
+          <ExampleStep text={t.exampleStep2} />
+          <ExampleStep text={t.exampleStep3} />
+          <ExampleStep text={t.exampleStep4} />
+          <ExampleStep text={t.exampleStep5} />
+          <ExampleStep text={t.exampleStep6} />
         </div>
       </PageSection>
 
