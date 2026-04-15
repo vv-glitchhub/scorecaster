@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
 import MarketTabs from "@/app/components/MarketTabs";
@@ -16,11 +16,17 @@ import {
 import ConfidenceBreakdown from "@/app/components/ConfidenceBreakdown";
 import RiskFlags from "@/app/components/RiskFlags";
 import FavoritesPanel from "@/app/components/FavoritesPanel";
+import MarketMovementPanel from "@/app/components/MarketMovementPanel";
+import {
+  useOddsHistoryStore,
+  useMatchOddsMovements,
+} from "@/lib/odds-history-store";
 
 export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const t = getDictionary(lang);
   const { addBet } = useBetStore();
   const { toggleFavorite, isFavorite } = useFavoritesStore();
+  const { addSnapshot, getSnapshots } = useOddsHistoryStore();
 
   const [market, setMarket] = useState("h2h");
   const [selectedMatchId, setSelectedMatchId] = useState(
@@ -33,9 +39,19 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
 
   const matches = oddsData?.matches || [];
 
+  useEffect(() => {
+    addSnapshot({
+      market,
+      matches,
+    });
+  }, [market, matches, addSnapshot]);
+
   const selectedMatch = useMemo(() => {
     return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
   }, [matches, selectedMatchId]);
+
+  const snapshots = selectedMatch ? getSnapshots(market, selectedMatch.id) : [];
+  const movements = useMatchOddsMovements({ snapshots, market });
 
   const marketRows = useMemo(() => {
     if (!selectedMatch) return [];
@@ -491,8 +507,8 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
         title={lang === "fi" ? "Analyysin tarkennus" : "Analysis Detail"}
         description={
           lang === "fi"
-            ? "Confidence breakdown, riskiliput ja tallennetut kohteet."
-            : "Confidence breakdown, risk flags and saved picks."
+            ? "Confidence breakdown, riskiliput, tallennetut kohteet ja markkinaliike."
+            : "Confidence breakdown, risk flags, saved picks and market movement."
         }
       >
         <div
@@ -505,6 +521,12 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
           <ConfidenceBreakdown breakdown={confidenceBreakdown} lang={lang} />
           <RiskFlags flags={riskFlags} lang={lang} />
           <FavoritesPanel lang={lang} />
+          <MarketMovementPanel
+            market={market}
+            selectedMatch={selectedMatch}
+            movements={movements}
+            lang={lang}
+          />
         </div>
       </PageSection>
     </div>
