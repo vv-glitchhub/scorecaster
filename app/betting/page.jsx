@@ -38,11 +38,11 @@ export default async function BettingPage() {
         title={lang === "fi" ? "Omat vedot" : "My Bets"}
         description={
           lang === "fi"
-            ? "Seuraa vetoja, tuloksia, voittoa, ROI:ta ja profit-käyrää."
-            : "Track bets, results, profit, ROI and the profit curve."
+            ? "Seuraa vetoja, tuloksia, voittoa, ROI:ta, bankroll-käyrää ja päiväerittelyä."
+            : "Track bets, results, profit, ROI, bankroll curve and daily breakdown."
         }
       >
-        <BetHistory />
+        <BetHistory lang={lang} />
       </PageSection>
     </div>
   );
