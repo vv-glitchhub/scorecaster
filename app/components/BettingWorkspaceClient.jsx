@@ -7,11 +7,20 @@ import MarketTabs from "@/app/components/MarketTabs";
 import LivePulse from "@/app/components/LivePulse";
 import { getDictionary } from "@/lib/i18n";
 import { useBetStore } from "@/lib/useBetStore";
+import { useFavoritesStore } from "@/lib/favorites-store";
 import { kellyStake } from "@/lib/kelly";
+import {
+  buildConfidenceBreakdown,
+  buildRiskFlags,
+} from "@/lib/confidence-engine";
+import ConfidenceBreakdown from "@/app/components/ConfidenceBreakdown";
+import RiskFlags from "@/app/components/RiskFlags";
+import FavoritesPanel from "@/app/components/FavoritesPanel";
 
 export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const t = getDictionary(lang);
   const { addBet } = useBetStore();
+  const { toggleFavorite, isFavorite } = useFavoritesStore();
 
   const [market, setMarket] = useState("h2h");
   const [selectedMatchId, setSelectedMatchId] = useState(
@@ -91,6 +100,16 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const currentMarketLabel =
     market === "h2h" ? t.h2h : market === "totals" ? t.totals : t.handicap;
 
+  const confidenceBreakdown = useMemo(() => {
+    if (!selectedMatch) return null;
+    return buildConfidenceBreakdown(selectedMatch, market);
+  }, [selectedMatch, market]);
+
+  const riskFlags = useMemo(() => {
+    if (!selectedMatch) return [];
+    return buildRiskFlags(selectedMatch, market);
+  }, [selectedMatch, market]);
+
   function getStakeForRow(row) {
     if (stakeMode === "kelly") {
       return kellyStake({
@@ -115,6 +134,18 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
       selection: `${currentMarketLabel} • ${row.label}`,
       odds: Number(row.odds),
       stake: Number(stake),
+    });
+  }
+
+  function handleToggleFavorite(row) {
+    if (!selectedMatch || !row?.odds) return;
+
+    toggleFavorite({
+      id: `${selectedMatch.id}-${market}-${row.key}`,
+      match: `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
+      selection: `${currentMarketLabel} • ${row.label}`,
+      odds: Number(row.odds),
+      market,
     });
   }
 
@@ -376,6 +407,8 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
             ) : (
               marketRows.map((row) => {
                 const recommendedStake = getStakeForRow(row);
+                const favoriteId = `${selectedMatch.id}-${market}-${row.key}`;
+                const favored = isFavorite(favoriteId);
 
                 return (
                   <div
@@ -401,28 +434,78 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
                       </p>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleAddBet(row)}
-                      style={{
-                        border: "1px solid rgba(16,185,129,0.6)",
-                        background: "rgba(16,185,129,0.14)",
-                        color: "#6ee7b7",
-                        borderRadius: "12px",
-                        padding: "10px 14px",
-                        fontSize: "14px",
-                        fontWeight: 700,
-                        cursor: "pointer",
-                      }}
-                    >
-                      {lang === "fi" ? "Lisää veto" : "Add Bet"}
-                    </button>
+                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => handleToggleFavorite(row)}
+                        style={{
+                          border: favored
+                            ? "1px solid rgba(245,158,11,0.6)"
+                            : "1px solid rgba(255,255,255,0.12)",
+                          background: favored
+                            ? "rgba(245,158,11,0.14)"
+                            : "rgba(255,255,255,0.06)",
+                          color: favored ? "#fcd34d" : "#fff",
+                          borderRadius: "12px",
+                          padding: "10px 14px",
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {favored
+                          ? lang === "fi"
+                            ? "Tallennettu"
+                            : "Saved"
+                          : lang === "fi"
+                          ? "Tallenna"
+                          : "Save"}
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleAddBet(row)}
+                        style={{
+                          border: "1px solid rgba(16,185,129,0.6)",
+                          background: "rgba(16,185,129,0.14)",
+                          color: "#6ee7b7",
+                          borderRadius: "12px",
+                          padding: "10px 14px",
+                          fontSize: "14px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {lang === "fi" ? "Lisää veto" : "Add Bet"}
+                      </button>
+                    </div>
                   </div>
                 );
               })
             )}
           </div>
         )}
+      </PageSection>
+
+      <PageSection
+        title={lang === "fi" ? "Analyysin tarkennus" : "Analysis Detail"}
+        description={
+          lang === "fi"
+            ? "Confidence breakdown, riskiliput ja tallennetut kohteet."
+            : "Confidence breakdown, risk flags and saved picks."
+        }
+      >
+        <div
+          style={{
+            display: "grid",
+            gap: "16px",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          }}
+        >
+          <ConfidenceBreakdown breakdown={confidenceBreakdown} lang={lang} />
+          <RiskFlags flags={riskFlags} lang={lang} />
+          <FavoritesPanel lang={lang} />
+        </div>
       </PageSection>
     </div>
   );
