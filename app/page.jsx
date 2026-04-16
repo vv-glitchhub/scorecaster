@@ -59,9 +59,10 @@ export default async function HomePage() {
         style={{
           border: "1px solid rgba(16,185,129,0.25)",
           borderRadius: "24px",
-          padding: "32px",
+          padding: "32px 24px",
           background:
             "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.10))",
+          overflow: "hidden",
         }}
       >
         <div style={{ maxWidth: "760px" }}>
@@ -81,8 +82,9 @@ export default async function HomePage() {
           <h1
             style={{
               margin: 0,
-              fontSize: "clamp(34px, 9vw, 60px)",
-              lineHeight: 1.02,
+              fontSize: "clamp(34px, 9vw, 56px)",
+              lineHeight: 1.03,
+              wordBreak: "break-word",
             }}
           >
             {t.dashboardTitle}
