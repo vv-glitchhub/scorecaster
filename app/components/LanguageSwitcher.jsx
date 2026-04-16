@@ -1,29 +1,18 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
 
-export default function LanguageSwitcher({ lang = "en" }) {
+export default function LanguageSwitcher({ lang = "fi" }) {
   const router = useRouter();
-  const [loading, setLoading] = useState(false);
+  const pathname = usePathname();
 
-  async function changeLanguage(nextLang) {
-    if (nextLang === lang || loading) return;
-
+  async function setLang(nextLang) {
     try {
-      setLoading(true);
-
-      await fetch("/api/language", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ lang: nextLang }),
-      });
-
+      document.cookie = `scorecaster_lang=${nextLang}; path=/; max-age=31536000; SameSite=Lax`;
       router.refresh();
-    } finally {
-      setLoading(false);
+      router.push(pathname);
+    } catch (error) {
+      console.error("Language switch failed", error);
     }
   }
 
@@ -31,33 +20,29 @@ export default function LanguageSwitcher({ lang = "en" }) {
     border: active
       ? "1px solid rgba(16,185,129,0.7)"
       : "1px solid rgba(255,255,255,0.12)",
-    background: active
-      ? "rgba(16,185,129,0.14)"
-      : "rgba(255,255,255,0.06)",
+    background: active ? "rgba(16,185,129,0.12)" : "rgba(255,255,255,0.04)",
     color: active ? "#6ee7b7" : "#fff",
     borderRadius: "999px",
-    padding: "8px 12px",
-    fontSize: "12px",
+    padding: "10px 14px",
+    minWidth: "64px",
+    fontSize: "14px",
     fontWeight: 700,
-    cursor: loading ? "default" : "pointer",
-    opacity: loading ? 0.7 : 1,
+    cursor: "pointer",
   });
 
   return (
-    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-      <button
-        type="button"
-        onClick={() => changeLanguage("en")}
-        style={buttonStyle(lang === "en")}
-      >
+    <div
+      style={{
+        display: "flex",
+        gap: "10px",
+        alignItems: "center",
+        flexWrap: "wrap",
+      }}
+    >
+      <button type="button" onClick={() => setLang("en")} style={buttonStyle(lang === "en")}>
         EN
       </button>
-
-      <button
-        type="button"
-        onClick={() => changeLanguage("fi")}
-        style={buttonStyle(lang === "fi")}
-      >
+      <button type="button" onClick={() => setLang("fi")} style={buttonStyle(lang === "fi")}>
         FI
       </button>
     </div>
