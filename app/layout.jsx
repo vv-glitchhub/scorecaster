@@ -31,6 +31,7 @@ export default async function RootLayout({ children }) {
             maxWidth: "1280px",
             margin: "0 auto",
             padding: "24px 16px 40px",
+            overflowX: "hidden",
           }}
         >
           {children}
