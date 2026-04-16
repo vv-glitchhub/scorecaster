@@ -47,7 +47,7 @@ async function getDashboardData() {
 
 export default async function HomePage() {
   const cookieStore = await cookies();
-  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "fi");
   const t = getDictionary(lang);
 
   const { oddsData, picks } = await getDashboardData();
@@ -81,8 +81,8 @@ export default async function HomePage() {
           <h1
             style={{
               margin: 0,
-              fontSize: "clamp(34px, 8vw, 56px)",
-              lineHeight: 1.05,
+              fontSize: "clamp(34px, 9vw, 60px)",
+              lineHeight: 1.02,
             }}
           >
             {t.dashboardTitle}
@@ -92,7 +92,7 @@ export default async function HomePage() {
             style={{
               marginTop: "16px",
               color: "#cbd5e1",
-              fontSize: "clamp(15px, 3.2vw, 18px)",
+              fontSize: "clamp(16px, 4vw, 20px)",
               lineHeight: 1.6,
             }}
           >
@@ -139,10 +139,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <PageSection
-        title={t.disclaimerTitle}
-        description={t.disclaimerDescription}
-      >
+      <PageSection title={t.disclaimerTitle} description={t.disclaimerDescription}>
         <div
           style={{
             border: "1px solid rgba(245,158,11,0.25)",
@@ -215,7 +212,7 @@ export default async function HomePage() {
 
                     <div style={{ textAlign: "right", fontSize: "14px" }}>
                       <p style={{ margin: 0, color: "#6ee7b7" }}>
-                        {t.ev} {pick.edgePct}%
+                        EV {pick.edgePct}%
                       </p>
                       <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
                         Odds {pick.odds}
@@ -268,9 +265,7 @@ export default async function HomePage() {
                 {t.cacheStatus}
               </p>
               <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.cached
-                  ? t.statusCache.toLowerCase()
-                  : t.statusFresh.toLowerCase()}
+                {oddsData?.cached ? t.statusCache.toLowerCase() : t.statusFresh.toLowerCase()}
               </p>
             </div>
 
