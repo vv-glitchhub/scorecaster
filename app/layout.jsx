@@ -5,12 +5,12 @@ import { normalizeLang } from "@/lib/i18n";
 
 export const metadata = {
   title: "Scorecaster",
-  description: "Betting analytics & simulation workspace",
+  description: "Betting analytics and simulation workspace",
 };
 
 export default async function RootLayout({ children }) {
   const cookieStore = await cookies();
-  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "fi");
 
   return (
     <html lang={lang}>
@@ -25,7 +25,14 @@ export default async function RootLayout({ children }) {
         }}
       >
         <AppShellNavClient lang={lang} />
-        <main style={{ maxWidth: "1280px", margin: "0 auto", padding: "24px" }}>
+
+        <main
+          style={{
+            maxWidth: "1280px",
+            margin: "0 auto",
+            padding: "24px 16px 40px",
+          }}
+        >
           {children}
         </main>
       </body>
