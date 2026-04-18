@@ -18,24 +18,36 @@ export default async function RootLayout({ children }) {
         style={{
           margin: 0,
           background: "linear-gradient(180deg, #020617 0%, #001233 100%)",
-          color: "#fff",
+          color: "#ffffff",
           minHeight: "100vh",
           fontFamily:
             'Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          overflowX: "hidden",
         }}
       >
-        <AppShellNavClient lang={lang} />
-
-        <main
+        <div
           style={{
-            maxWidth: "1280px",
-            margin: "0 auto",
-            padding: "24px 16px 40px",
-            overflowX: "hidden",
+            minHeight: "100vh",
+            display: "flex",
+            flexDirection: "column",
           }}
         >
-          {children}
-        </main>
+          <AppShellNavClient lang={lang} />
+
+          <main
+            style={{
+              flex: 1,
+              width: "100%",
+              maxWidth: "1280px",
+              margin: "0 auto",
+              padding: "20px 16px 40px",
+              boxSizing: "border-box",
+              overflowX: "hidden",
+            }}
+          >
+            {children}
+          </main>
+        </div>
       </body>
     </html>
   );
