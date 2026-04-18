@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
@@ -14,45 +14,61 @@ export default function AppShellNavClient({ lang = "fi" }) {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
-    function checkViewport() {
+    const checkViewport = () => {
       setIsMobile(window.innerWidth < 900);
-    }
+    };
 
     checkViewport();
     window.addEventListener("resize", checkViewport);
-    return () => window.removeEventListener("resize", checkViewport);
+
+    return () => {
+      window.removeEventListener("resize", checkViewport);
+    };
   }, []);
 
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
 
-  const navItems = [
-    { href: "/", label: t.navDashboard },
-    { href: "/betting", label: t.navBetting },
-    { href: "/simulator", label: t.navSimulator },
-    { href: "/about", label: t.navAbout },
-  ];
+  useEffect(() => {
+    if (!isMobile && menuOpen) {
+      setMenuOpen(false);
+    }
+  }, [isMobile, menuOpen]);
+
+  const navItems = useMemo(
+    () => [
+      { href: "/", label: t.navDashboard },
+      { href: "/betting", label: t.navBetting },
+      { href: "/simulator", label: t.navSimulator },
+      { href: "/about", label: t.navAbout },
+    ],
+    [t]
+  );
 
   const isActive = (href) => pathname === href;
 
-  const linkStyle = (active) => ({
+  const linkStyle = (active, mobile = false) => ({
     display: "flex",
     alignItems: "center",
-    justifyContent: "center",
-    minHeight: isMobile ? "54px" : "48px",
-    borderRadius: isMobile ? "18px" : "16px",
+    justifyContent: mobile ? "flex-start" : "center",
+    width: "100%",
+    minHeight: mobile ? "48px" : "44px",
+    padding: mobile ? "0 14px" : "0 16px",
+    borderRadius: mobile ? "14px" : "14px",
     textDecoration: "none",
     fontWeight: 800,
-    fontSize: isMobile ? "20px" : "16px",
+    fontSize: mobile ? "16px" : "15px",
+    lineHeight: 1.2,
     color: active ? "#041016" : "#dbe4f0",
     background: active ? "#22c55e" : "transparent",
     border: active
-      ? "1px solid rgba(34,197,94,0.8)"
+      ? "1px solid rgba(34,197,94,0.85)"
       : "1px solid rgba(255,255,255,0.08)",
-    transition: "0.2s ease",
+    transition: "all 0.2s ease",
     WebkitTapHighlightColor: "transparent",
-    padding: "0 16px",
+    boxSizing: "border-box",
+    whiteSpace: "nowrap",
   });
 
   return (
@@ -60,9 +76,10 @@ export default function AppShellNavClient({ lang = "fi" }) {
       style={{
         position: "sticky",
         top: 0,
-        zIndex: 100,
-        background: "rgba(2,6,23,0.94)",
+        zIndex: 1000,
+        background: "rgba(2,6,23,0.92)",
         backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
       }}
     >
@@ -70,35 +87,46 @@ export default function AppShellNavClient({ lang = "fi" }) {
         style={{
           maxWidth: "1280px",
           margin: "0 auto",
-          padding: "18px 16px",
+          padding: isMobile ? "12px 14px" : "16px 20px",
         }}
       >
         <div
           style={{
             display: "flex",
+            alignItems: "center",
             justifyContent: "space-between",
-            alignItems: "flex-start",
-            gap: "16px",
+            gap: "12px",
           }}
         >
-          <div style={{ minWidth: 0 }}>
-            <div
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <Link
+              href="/"
               style={{
-                fontSize: "clamp(28px, 7vw, 48px)",
-                fontWeight: 800,
-                lineHeight: 1,
-                color: "#fff",
+                display: "inline-block",
+                textDecoration: "none",
               }}
             >
-              Scorecaster
-            </div>
+              <div
+                style={{
+                  fontSize: isMobile ? "24px" : "32px",
+                  fontWeight: 900,
+                  lineHeight: 1,
+                  color: "#ffffff",
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Scorecaster
+              </div>
+            </Link>
 
             <div
               style={{
-                fontSize: "clamp(14px, 3vw, 18px)",
+                fontSize: isMobile ? "12px" : "14px",
                 color: "#94a3b8",
-                marginTop: "10px",
-                lineHeight: 1.4,
+                marginTop: "6px",
+                lineHeight: 1.35,
+                maxWidth: isMobile ? "220px" : "100%",
+                whiteSpace: "normal",
               }}
             >
               {t.brandTagline}
@@ -108,9 +136,9 @@ export default function AppShellNavClient({ lang = "fi" }) {
           <div
             style={{
               display: "flex",
-              flexDirection: "column",
-              alignItems: "flex-end",
-              gap: "12px",
+              alignItems: "center",
+              gap: "10px",
+              flexShrink: 0,
             }}
           >
             <LanguageSwitcher lang={lang} />
@@ -120,16 +148,22 @@ export default function AppShellNavClient({ lang = "fi" }) {
                 type="button"
                 onClick={() => setMenuOpen((prev) => !prev)}
                 aria-label={menuOpen ? "Close menu" : "Open menu"}
+                aria-expanded={menuOpen}
+                aria-controls="mobile-navigation"
                 style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  width: "44px",
+                  height: "44px",
                   border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.04)",
-                  color: "#fff",
-                  borderRadius: "14px",
-                  padding: "10px 14px",
-                  fontSize: "16px",
-                  fontWeight: 700,
+                  background: "rgba(255,255,255,0.05)",
+                  color: "#ffffff",
+                  borderRadius: "12px",
+                  fontSize: "18px",
+                  fontWeight: 800,
                   cursor: "pointer",
-                  minWidth: "64px",
+                  flexShrink: 0,
                 }}
               >
                 {menuOpen ? "✕" : "☰"}
@@ -138,57 +172,67 @@ export default function AppShellNavClient({ lang = "fi" }) {
           </div>
         </div>
 
-        {isMobile ? (
-          menuOpen ? (
-            <nav
-              style={{
-                marginTop: "16px",
-                border: "1px solid rgba(255,255,255,0.08)",
-                background: "rgba(255,255,255,0.04)",
-                borderRadius: "24px",
-                padding: "14px",
-              }}
-            >
-              <div
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: "1fr",
-                  gap: "12px",
-                }}
-              >
-                {navItems.map((item) => (
-                  <Link key={item.href} href={item.href} style={linkStyle(isActive(item.href))}>
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </nav>
-          ) : null
-        ) : (
+        {!isMobile ? (
           <nav
             style={{
-              marginTop: "16px",
+              marginTop: "14px",
               border: "1px solid rgba(255,255,255,0.08)",
               background: "rgba(255,255,255,0.04)",
-              borderRadius: "22px",
-              padding: "10px",
+              borderRadius: "18px",
+              padding: "8px",
             }}
           >
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
-                gap: "10px",
+                gap: "8px",
               }}
             >
               {navItems.map((item) => (
-                <Link key={item.href} href={item.href} style={linkStyle(isActive(item.href))}>
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={linkStyle(isActive(item.href), false)}
+                >
                   {item.label}
                 </Link>
               ))}
             </div>
           </nav>
-        )}
+        ) : null}
+
+        {isMobile && menuOpen ? (
+          <nav
+            id="mobile-navigation"
+            style={{
+              marginTop: "12px",
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(15,23,42,0.98)",
+              borderRadius: "18px",
+              padding: "10px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "1fr",
+                gap: "8px",
+              }}
+            >
+              {navItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  style={linkStyle(isActive(item.href), true)}
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
+          </nav>
+        ) : null}
       </div>
     </header>
   );
