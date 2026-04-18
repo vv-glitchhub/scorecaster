@@ -6,14 +6,10 @@ export default function LanguageSwitcher({ lang = "fi" }) {
   const router = useRouter();
   const pathname = usePathname();
 
-  async function setLang(nextLang) {
-    try {
-      document.cookie = `scorecaster_lang=${nextLang}; path=/; max-age=31536000; SameSite=Lax`;
-      router.refresh();
-      router.push(pathname);
-    } catch (error) {
-      console.error("Language switch failed", error);
-    }
+  function setLang(nextLang) {
+    document.cookie = `scorecaster_lang=${nextLang}; path=/; max-age=31536000; SameSite=Lax`;
+    router.refresh();
+    router.push(pathname);
   }
 
   const buttonStyle = (active) => ({
@@ -42,6 +38,7 @@ export default function LanguageSwitcher({ lang = "fi" }) {
       <button type="button" onClick={() => setLang("en")} style={buttonStyle(lang === "en")}>
         EN
       </button>
+
       <button type="button" onClick={() => setLang("fi")} style={buttonStyle(lang === "fi")}>
         FI
       </button>
