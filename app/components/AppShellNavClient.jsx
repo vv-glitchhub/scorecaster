@@ -2,13 +2,12 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import { getDictionary } from "@/lib/i18n";
 
 export default function AppShellNavClient({ lang = "fi" }) {
   const pathname = usePathname();
-  const router = useRouter();
   const t = getDictionary(lang);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -51,7 +50,7 @@ export default function AppShellNavClient({ lang = "fi" }) {
 
   function handleMobileNavigate(href) {
     setMenuOpen(false);
-    router.push(href);
+    window.location.href = href;
   }
 
   const desktopLinkStyle = (active) => ({
