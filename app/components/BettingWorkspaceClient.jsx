@@ -1,57 +1,132 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
 import MarketTabs from "@/app/components/MarketTabs";
-import LivePulse from "@/app/components/LivePulse";
-import { getDictionary } from "@/lib/i18n";
-import { useBetStore } from "@/lib/useBetStore";
-import { useFavoritesStore } from "@/lib/favorites-store";
-import { kellyStake } from "@/lib/kelly";
+import FavoritesPanel from "@/app/components/FavoritesPanel";
+import ConfidenceBreakdown from "@/app/components/ConfidenceBreakdown";
+import RiskFlags from "@/app/components/RiskFlags";
+import MarketMovementPanel from "@/app/components/MarketMovementPanel";
 import {
   buildConfidenceBreakdown,
   buildRiskFlags,
 } from "@/lib/confidence-engine";
-import ConfidenceBreakdown from "@/app/components/ConfidenceBreakdown";
-import RiskFlags from "@/app/components/RiskFlags";
-import FavoritesPanel from "@/app/components/FavoritesPanel";
-import MarketMovementPanel from "@/app/components/MarketMovementPanel";
+import { useFavoritesStore } from "@/lib/favorites-store";
 import {
   useOddsHistoryStore,
   useMatchOddsMovements,
 } from "@/lib/odds-history-store";
+import { getDictionary } from "@/lib/i18n";
+import { useBetStore } from "@/lib/useBetStore";
+import { kellyStake } from "@/lib/kelly";
 
-export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
+function formatClock(timestamp, lang) {
+  if (!timestamp) return "-";
+
+  return new Date(timestamp).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
+}
+
+export default function BettingWorkspaceClient({
+  initialOddsData,
+  lang = "fi",
+}) {
   const t = getDictionary(lang);
+
   const { addBet } = useBetStore();
   const { toggleFavorite, isFavorite } = useFavoritesStore();
   const { addSnapshot, getSnapshots } = useOddsHistoryStore();
 
+  const [oddsData, setOddsData] = useState(initialOddsData);
   const [market, setMarket] = useState("h2h");
   const [selectedMatchId, setSelectedMatchId] = useState(
-    oddsData?.matches?.[0]?.id || null
+    initialOddsData?.matches?.[0]?.id || null
   );
   const [stakeMode, setStakeMode] = useState("manual");
   const [manualStake, setManualStake] = useState("10");
   const [bankroll, setBankroll] = useState("1000");
   const [kellyFraction, setKellyFraction] = useState("0.25");
+  const [refreshInterval, setRefreshInterval] = useState(15);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
 
   const matches = oddsData?.matches || [];
-
-  useEffect(() => {
-    addSnapshot({
-      market,
-      matches,
-    });
-  }, [market, matches, addSnapshot]);
 
   const selectedMatch = useMemo(() => {
     return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
   }, [matches, selectedMatchId]);
 
+  useEffect(() => {
+    if (!selectedMatch && matches.length > 0) {
+      setSelectedMatchId(matches[0].id);
+    }
+  }, [matches, selectedMatch]);
+
+  const refreshOdds = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+
+      const response = await fetch("/api/odds?sport=icehockey_liiga", {
+        method: "GET",
+        cache: "no-store",
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to refresh odds");
+      }
+
+      const nextData = await response.json();
+      setOddsData(nextData);
+      setLastUpdatedAt(Date.now());
+
+      if (Array.isArray(nextData?.matches)) {
+        addSnapshot({
+          market,
+          matches: nextData.matches,
+        });
+      }
+    } catch (error) {
+      console.error("Auto refresh failed", error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [addSnapshot, market]);
+
+  useEffect(() => {
+    if (Array.isArray(matches) && matches.length > 0) {
+      addSnapshot({
+        market,
+        matches,
+      });
+    }
+  }, [market, matches, addSnapshot]);
+
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) return undefined;
+
+    const timer = setInterval(() => {
+      refreshOdds();
+    }, refreshInterval * 1000);
+
+    return () => clearInterval(timer);
+  }, [refreshInterval, refreshOdds]);
+
   const snapshots = selectedMatch ? getSnapshots(market, selectedMatch.id) : [];
   const movements = useMatchOddsMovements({ snapshots, market });
+
+  const confidenceBreakdown = useMemo(() => {
+    if (!selectedMatch) return null;
+    return buildConfidenceBreakdown(selectedMatch, market);
+  }, [selectedMatch, market]);
+
+  const riskFlags = useMemo(() => {
+    if (!selectedMatch) return [];
+    return buildRiskFlags(selectedMatch, market);
+  }, [selectedMatch, market]);
 
   const marketRows = useMemo(() => {
     if (!selectedMatch) return [];
@@ -116,16 +191,6 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   const currentMarketLabel =
     market === "h2h" ? t.h2h : market === "totals" ? t.totals : t.handicap;
 
-  const confidenceBreakdown = useMemo(() => {
-    if (!selectedMatch) return null;
-    return buildConfidenceBreakdown(selectedMatch, market);
-  }, [selectedMatch, market]);
-
-  const riskFlags = useMemo(() => {
-    if (!selectedMatch) return [];
-    return buildRiskFlags(selectedMatch, market);
-  }, [selectedMatch, market]);
-
   function getStakeForRow(row) {
     if (stakeMode === "kelly") {
       return kellyStake({
@@ -180,6 +245,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
     borderRadius: "10px",
     padding: "10px 12px",
     fontSize: "14px",
+    boxSizing: "border-box",
   };
 
   const smallButton = (active) => ({
@@ -200,7 +266,12 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
   return (
     <div style={{ display: "grid", gap: "24px" }}>
       <PageSection
-        title={t.dataStatus}
+        title={lang === "fi" ? "Datan tila" : "Data Status"}
+        description={
+          lang === "fi"
+            ? "Lähde, välimuisti ja automaattinen päivitys."
+            : "Source, cache and automatic refresh."
+        }
         rightSlot={
           <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
             <SourceBadge
@@ -208,21 +279,101 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
               cached={oddsData?.cached}
               lang={lang}
             />
-            <LivePulse
-              isRefreshing={false}
-              lastUpdatedAt={Date.now()}
-              lang={lang}
-            />
           </div>
         }
-      />
+      >
+        <div style={{ display: "grid", gap: "16px" }}>
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid rgba(16,185,129,0.35)",
+                background: "rgba(16,185,129,0.10)",
+                color: "#6ee7b7",
+                borderRadius: "999px",
+                padding: "8px 12px",
+                fontSize: "13px",
+                fontWeight: 800,
+              }}
+            >
+              {isRefreshing ? (lang === "fi" ? "PÄIVITTYY" : "UPDATING") : t.live}
+            </div>
+
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.12)",
+                background: "rgba(255,255,255,0.06)",
+                color: "#dbe4f0",
+                borderRadius: "999px",
+                padding: "8px 12px",
+                fontSize: "13px",
+                fontWeight: 800,
+              }}
+            >
+              {t.updatedAt} {formatClock(lastUpdatedAt, lang)}
+            </div>
+          </div>
+
+          <div
+            style={{
+              display: "grid",
+              gap: "16px",
+              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
+            }}
+          >
+            <div>
+              <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+                {lang === "fi" ? "Päivitysväli" : "Refresh interval"}
+              </p>
+              <select
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                style={inputStyle}
+              >
+                {[5, 10, 15, 30, 60].map((value) => (
+                  <option key={value} value={value} style={{ color: "#000" }}>
+                    {value}s
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <button
+                type="button"
+                onClick={refreshOdds}
+                disabled={isRefreshing}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#fff",
+                  borderRadius: "12px",
+                  padding: "12px 16px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  cursor: isRefreshing ? "not-allowed" : "pointer",
+                  opacity: isRefreshing ? 0.7 : 1,
+                }}
+              >
+                {t.refreshNow}
+              </button>
+            </div>
+          </div>
+        </div>
+      </PageSection>
 
       <PageSection
-        title={t.marketSelection}
+        title={lang === "fi" ? "Markkinan valinta" : "Market Selection"}
         description={
           lang === "fi"
-            ? "Valitse markkina analyysiä varten"
-            : "Select market for analysis"
+            ? "Valitse markkina analyysiä varten."
+            : "Select the market for analysis."
         }
       >
         <MarketTabs market={market} onChange={setMarket} lang={lang} />
@@ -233,7 +384,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
         description={
           lang === "fi"
             ? "Valitse käsin panos tai käytä Kelly-ehdotusta."
-            : "Choose manual stake or use Kelly recommendation."
+            : "Choose a manual stake or use Kelly suggestion."
         }
       >
         <div style={{ display: "grid", gap: "16px" }}>
@@ -245,6 +396,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
             >
               {lang === "fi" ? "Manuaalinen panos" : "Manual Stake"}
             </button>
+
             <button
               type="button"
               onClick={() => setStakeMode("kelly")}
@@ -255,7 +407,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
           </div>
 
           {stakeMode === "manual" ? (
-            <div style={{ maxWidth: "240px" }}>
+            <div style={{ maxWidth: "260px" }}>
               <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
                 {lang === "fi" ? "Panos (€)" : "Stake (€)"}
               </p>
@@ -309,11 +461,11 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
       </PageSection>
 
       <PageSection
-        title={t.matches}
+        title={lang === "fi" ? "Ottelut" : "Matches"}
         description={
           lang === "fi"
-            ? "Kaikki saatavilla olevat ottelut"
-            : "All available matches"
+            ? "Kaikki saatavilla olevat ottelut."
+            : "All available matches."
         }
       >
         <div style={{ display: "grid", gap: "12px" }}>
@@ -326,7 +478,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
                 color: "#94a3b8",
               }}
             >
-              {lang === "fi" ? "Ei otteluita saatavilla" : "No matches available"}
+              {lang === "fi" ? "Ei otteluita saatavilla." : "No matches available."}
             </div>
           ) : (
             matches.map((match) => (
@@ -396,12 +548,12 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
         description={
           lang === "fi"
             ? "Valitun ottelun markkinat ja vedon tallennus."
-            : "Selected match markets and quick bet saving."
+            : "Selected match markets and bet actions."
         }
       >
         {!selectedMatch ? (
           <div style={panelStyle}>
-            {lang === "fi" ? "Valitse ensin ottelu" : "Select a match first"}
+            {lang === "fi" ? "Valitse ensin ottelu." : "Select a match first."}
           </div>
         ) : (
           <div style={{ display: "grid", gap: "12px" }}>
@@ -410,7 +562,7 @@ export default function BettingWorkspaceClient({ oddsData, lang = "en" }) {
                 {selectedMatch.home_team} vs {selectedMatch.away_team}
               </p>
               <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
-                {t.market}: {currentMarketLabel}
+                {lang === "fi" ? "Markkina" : "Market"}: {currentMarketLabel}
               </p>
             </div>
 
