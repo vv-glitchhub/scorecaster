@@ -24,11 +24,14 @@ import { kellyStake } from "@/lib/kelly";
 function formatClock(timestamp, lang) {
   if (!timestamp) return "-";
 
-  return new Date(timestamp).toLocaleTimeString(lang === "fi" ? "fi-FI" : "en-GB", {
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-  });
+  return new Date(timestamp).toLocaleTimeString(
+    lang === "fi" ? "fi-FI" : "en-GB",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    }
+  );
 }
 
 export default function BettingWorkspaceClient({
@@ -36,7 +39,6 @@ export default function BettingWorkspaceClient({
   lang = "fi",
 }) {
   const t = getDictionary(lang);
-
   const { addBet } = useBetStore();
   const { toggleFavorite, isFavorite } = useFavoritesStore();
   const { addSnapshot, getSnapshots } = useOddsHistoryStore();
@@ -46,10 +48,12 @@ export default function BettingWorkspaceClient({
   const [selectedMatchId, setSelectedMatchId] = useState(
     initialOddsData?.matches?.[0]?.id || null
   );
+
   const [stakeMode, setStakeMode] = useState("manual");
   const [manualStake, setManualStake] = useState("10");
   const [bankroll, setBankroll] = useState("1000");
   const [kellyFraction, setKellyFraction] = useState("0.25");
+
   const [refreshInterval, setRefreshInterval] = useState(15);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
@@ -80,10 +84,11 @@ export default function BettingWorkspaceClient({
       }
 
       const nextData = await response.json();
+
       setOddsData(nextData);
       setLastUpdatedAt(Date.now());
 
-      if (Array.isArray(nextData?.matches)) {
+      if (Array.isArray(nextData?.matches) && nextData.matches.length > 0) {
         addSnapshot({
           market,
           matches: nextData.matches,
@@ -133,6 +138,7 @@ export default function BettingWorkspaceClient({
 
     if (market === "totals") {
       const point = selectedMatch.bestOdds?.point ?? "-";
+
       return [
         {
           key: "over",
@@ -252,9 +258,7 @@ export default function BettingWorkspaceClient({
     border: active
       ? "1px solid rgba(16,185,129,0.7)"
       : "1px solid rgba(255,255,255,0.12)",
-    background: active
-      ? "rgba(16,185,129,0.14)"
-      : "rgba(255,255,255,0.06)",
+    background: active ? "rgba(16,185,129,0.14)" : "rgba(255,255,255,0.06)",
     color: active ? "#6ee7b7" : "#fff",
     borderRadius: "10px",
     padding: "10px 12px",
@@ -264,421 +268,485 @@ export default function BettingWorkspaceClient({
   });
 
   return (
-    <div style={{ display: "grid", gap: "24px" }}>
+    <div style={{ display: "grid", gap: "16px" }}>
       <PageSection
-        title={lang === "fi" ? "Datan tila" : "Data Status"}
-        description={
+        title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
+        subtitle={
           lang === "fi"
-            ? "Lähde, välimuisti ja automaattinen päivitys."
-            : "Source, cache and automatic refresh."
-        }
-        rightSlot={
-          <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
-            <SourceBadge
-              source={oddsData?.source}
-              cached={oddsData?.cached}
-              lang={lang}
-            />
-          </div>
+            ? "Live-oddsit, panoksenhallinta ja markkinaliikkeet yhdessä näkymässä."
+            : "Live odds, staking controls and market movement in one workspace."
         }
       >
-        <div style={{ display: "grid", gap: "16px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(12, minmax(0, 1fr))",
+            gap: "16px",
+          }}
+        >
           <div
             style={{
+              gridColumn: "span 12",
               display: "flex",
-              gap: "10px",
               flexWrap: "wrap",
+              gap: "10px",
               alignItems: "center",
+              justifyContent: "space-between",
             }}
           >
-            <div
-              style={{
-                border: "1px solid rgba(16,185,129,0.35)",
-                background: "rgba(16,185,129,0.10)",
-                color: "#6ee7b7",
-                borderRadius: "999px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                fontWeight: 800,
-              }}
-            >
+            <SourceBadge>
               {isRefreshing ? (lang === "fi" ? "PÄIVITTYY" : "UPDATING") : t.live}
-            </div>
+            </SourceBadge>
 
             <div
               style={{
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.06)",
-                color: "#dbe4f0",
-                borderRadius: "999px",
-                padding: "8px 12px",
-                fontSize: "13px",
-                fontWeight: 800,
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                alignItems: "center",
               }}
             >
-              {t.updatedAt} {formatClock(lastUpdatedAt, lang)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              display: "grid",
-              gap: "16px",
-              gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-            }}
-          >
-            <div>
-              <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
-                {lang === "fi" ? "Päivitysväli" : "Refresh interval"}
-              </p>
-              <select
-                value={refreshInterval}
-                onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                style={inputStyle}
+              <div
+                style={{
+                  color: "#94a3b8",
+                  fontSize: "13px",
+                  fontWeight: 600,
+                }}
               >
-                {[5, 10, 15, 30, 60].map((value) => (
-                  <option key={value} value={value} style={{ color: "#000" }}>
-                    {value}s
-                  </option>
-                ))}
-              </select>
-            </div>
+                {t.updatedAt} {formatClock(lastUpdatedAt, lang)}
+              </div>
 
-            <div style={{ display: "flex", alignItems: "flex-end" }}>
+              <div style={{ minWidth: "150px" }}>
+                <label
+                  style={{
+                    display: "block",
+                    color: "#94a3b8",
+                    fontSize: "12px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  {lang === "fi" ? "Päivitysväli" : "Refresh interval"}
+                </label>
+
+                <select
+                  value={refreshInterval}
+                  onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                  style={inputStyle}
+                >
+                  {[5, 10, 15, 30, 60].map((value) => (
+                    <option key={value} value={value}>
+                      {value}s
+                    </option>
+                  ))}
+                </select>
+              </div>
+
               <button
                 type="button"
                 onClick={refreshOdds}
                 disabled={isRefreshing}
                 style={{
-                  border: "1px solid rgba(255,255,255,0.12)",
-                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(34,197,94,0.5)",
+                  background: isRefreshing
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(34,197,94,0.14)",
                   color: "#fff",
                   borderRadius: "12px",
-                  padding: "12px 16px",
+                  padding: "12px 14px",
                   fontSize: "14px",
-                  fontWeight: 700,
-                  cursor: isRefreshing ? "not-allowed" : "pointer",
-                  opacity: isRefreshing ? 0.7 : 1,
+                  fontWeight: 800,
+                  cursor: isRefreshing ? "default" : "pointer",
+                  minWidth: "140px",
                 }}
               >
                 {t.refreshNow}
               </button>
             </div>
           </div>
-        </div>
-      </PageSection>
 
-      <PageSection
-        title={lang === "fi" ? "Markkinan valinta" : "Market Selection"}
-        description={
-          lang === "fi"
-            ? "Valitse markkina analyysiä varten."
-            : "Select the market for analysis."
-        }
-      >
-        <MarketTabs market={market} onChange={setMarket} lang={lang} />
-      </PageSection>
-
-      <PageSection
-        title={lang === "fi" ? "Panostus" : "Staking"}
-        description={
-          lang === "fi"
-            ? "Valitse käsin panos tai käytä Kelly-ehdotusta."
-            : "Choose a manual stake or use Kelly suggestion."
-        }
-      >
-        <div style={{ display: "grid", gap: "16px" }}>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            <button
-              type="button"
-              onClick={() => setStakeMode("manual")}
-              style={smallButton(stakeMode === "manual")}
-            >
-              {lang === "fi" ? "Manuaalinen panos" : "Manual Stake"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setStakeMode("kelly")}
-              style={smallButton(stakeMode === "kelly")}
-            >
-              Kelly
-            </button>
+          <div style={{ gridColumn: "span 12" }}>
+            <MarketTabs market={market} onChange={setMarket} lang={lang} />
           </div>
 
-          {stakeMode === "manual" ? (
-            <div style={{ maxWidth: "260px" }}>
-              <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
-                {lang === "fi" ? "Panos (€)" : "Stake (€)"}
-              </p>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={manualStake}
-                onChange={(e) => setManualStake(e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          ) : (
-            <div
-              style={{
-                display: "grid",
-                gap: "16px",
-                gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
-              }}
-            >
-              <div>
-                <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
-                  {lang === "fi" ? "Kassa (€)" : "Bankroll (€)"}
-                </p>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={bankroll}
-                  onChange={(e) => setBankroll(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-
-              <div>
-                <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
-                  {lang === "fi" ? "Kelly-osuus" : "Kelly Fraction"}
-                </p>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={kellyFraction}
-                  onChange={(e) => setKellyFraction(e.target.value)}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      </PageSection>
-
-      <PageSection
-        title={lang === "fi" ? "Ottelut" : "Matches"}
-        description={
-          lang === "fi"
-            ? "Kaikki saatavilla olevat ottelut."
-            : "All available matches."
-        }
-      >
-        <div style={{ display: "grid", gap: "12px" }}>
-          {matches.length === 0 ? (
-            <div
-              style={{
-                padding: "16px",
-                borderRadius: "16px",
-                background: "rgba(0,0,0,0.2)",
-                color: "#94a3b8",
-              }}
-            >
-              {lang === "fi" ? "Ei otteluita saatavilla." : "No matches available."}
-            </div>
-          ) : (
-            matches.map((match) => (
-              <button
-                key={match.id}
-                type="button"
-                onClick={() => setSelectedMatchId(match.id)}
+          <div
+            style={{
+              gridColumn: "span 12",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              gap: "16px",
+            }}
+          >
+            <div style={panelStyle}>
+              <div
                 style={{
-                  border:
-                    selectedMatch?.id === match.id
-                      ? "1px solid rgba(16,185,129,0.7)"
-                      : "1px solid rgba(255,255,255,0.1)",
-                  borderRadius: "16px",
-                  padding: "16px",
-                  background:
-                    selectedMatch?.id === match.id
-                      ? "rgba(16,185,129,0.10)"
-                      : "rgba(0,0,0,0.2)",
-                  color: "#fff",
-                  textAlign: "left",
-                  cursor: "pointer",
+                  fontWeight: 800,
+                  marginBottom: "12px",
+                  fontSize: "16px",
                 }}
               >
+                {lang === "fi" ? "Panostus" : "Staking"}
+              </div>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: "8px",
+                  marginBottom: "14px",
+                }}
+              >
+                <button
+                  type="button"
+                  onClick={() => setStakeMode("manual")}
+                  style={smallButton(stakeMode === "manual")}
+                >
+                  {lang === "fi" ? "Manuaalinen panos" : "Manual Stake"}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setStakeMode("kelly")}
+                  style={smallButton(stakeMode === "kelly")}
+                >
+                  Kelly
+                </button>
+              </div>
+
+              {stakeMode === "manual" ? (
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      color: "#94a3b8",
+                      fontSize: "12px",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {lang === "fi" ? "Panos (€)" : "Stake (€)"}
+                  </label>
+                  <input
+                    value={manualStake}
+                    onChange={(e) => setManualStake(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              ) : (
                 <div
                   style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    flexWrap: "wrap",
+                    display: "grid",
                     gap: "12px",
                   }}
                 >
                   <div>
-                    <p style={{ margin: 0, fontWeight: 700 }}>
-                      {match.home_team} vs {match.away_team}
-                    </p>
-                    <p
+                    <label
                       style={{
-                        margin: "6px 0 0",
-                        fontSize: "13px",
+                        display: "block",
                         color: "#94a3b8",
+                        fontSize: "12px",
+                        marginBottom: "6px",
                       }}
                     >
-                      {match.sport_title}
-                    </p>
+                      {lang === "fi" ? "Kassa (€)" : "Bankroll (€)"}
+                    </label>
+                    <input
+                      value={bankroll}
+                      onChange={(e) => setBankroll(e.target.value)}
+                      style={inputStyle}
+                    />
                   </div>
 
-                  <div style={{ fontSize: "14px" }}>
-                    <div>
-                      {t.home}: {match.bestOdds?.home ?? "-"}
-                    </div>
-                    <div>
-                      {t.draw}: {match.bestOdds?.draw ?? "-"}
-                    </div>
-                    <div>
-                      {t.away}: {match.bestOdds?.away ?? "-"}
-                    </div>
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {lang === "fi" ? "Kelly-osuus" : "Kelly Fraction"}
+                    </label>
+                    <input
+                      value={kellyFraction}
+                      onChange={(e) => setKellyFraction(e.target.value)}
+                      style={inputStyle}
+                    />
                   </div>
                 </div>
-              </button>
-            ))
-          )}
-        </div>
-      </PageSection>
-
-      <PageSection
-        title={lang === "fi" ? "Ottelun markkinat" : "Match Markets"}
-        description={
-          lang === "fi"
-            ? "Valitun ottelun markkinat ja vedon tallennus."
-            : "Selected match markets and bet actions."
-        }
-      >
-        {!selectedMatch ? (
-          <div style={panelStyle}>
-            {lang === "fi" ? "Valitse ensin ottelu." : "Select a match first."}
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div style={panelStyle}>
-              <p style={{ margin: 0, fontWeight: 700, fontSize: "18px" }}>
-                {selectedMatch.home_team} vs {selectedMatch.away_team}
-              </p>
-              <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
-                {lang === "fi" ? "Markkina" : "Market"}: {currentMarketLabel}
-              </p>
+              )}
             </div>
 
-            {marketRows.length === 0 ? (
-              <div style={panelStyle}>
-                {lang === "fi"
-                  ? "Tälle markkinalle ei löytynyt rivejä."
-                  : "No rows found for this market."}
-              </div>
-            ) : (
-              marketRows.map((row) => {
-                const recommendedStake = getStakeForRow(row);
-                const favoriteId = `${selectedMatch.id}-${market}-${row.key}`;
-                const favored = isFavorite(favoriteId);
+            <FavoritesPanel lang={lang} />
+          </div>
 
-                return (
-                  <div
-                    key={row.key}
-                    style={{
-                      ...panelStyle,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "16px",
-                      flexWrap: "wrap",
-                      alignItems: "center",
-                    }}
-                  >
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 700 }}>{row.label}</p>
-                      <p style={{ margin: "8px 0 0", color: "#cbd5e1", fontSize: "14px" }}>
-                        Odds {row.odds}
-                      </p>
-                      <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "13px" }}>
-                        {stakeMode === "kelly"
-                          ? `${lang === "fi" ? "Kelly-ehdotus" : "Kelly Suggestion"}: €${recommendedStake.toFixed(2)}`
-                          : `${lang === "fi" ? "Valittu panos" : "Selected Stake"}: €${(Number(manualStake) || 0).toFixed(2)}`}
-                      </p>
+          <div
+            style={{
+              gridColumn: "span 12",
+              display: "grid",
+              gridTemplateColumns: "minmax(0, 1.1fr) minmax(0, 1.4fr)",
+              gap: "16px",
+            }}
+          >
+            <div style={panelStyle}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                }}
+              >
+                {lang === "fi" ? "Ottelut" : "Matches"}
+              </div>
+
+              {matches.length === 0 ? (
+                <div style={{ color: "#94a3b8" }}>
+                  {lang === "fi" ? "Ei otteluita saatavilla." : "No matches available."}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "10px",
+                  }}
+                >
+                  {matches.map((match) => (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => setSelectedMatchId(match.id)}
+                      style={{
+                        border:
+                          selectedMatch?.id === match.id
+                            ? "1px solid rgba(16,185,129,0.7)"
+                            : "1px solid rgba(255,255,255,0.1)",
+                        borderRadius: "16px",
+                        padding: "16px",
+                        background:
+                          selectedMatch?.id === match.id
+                            ? "rgba(16,185,129,0.10)"
+                            : "rgba(0,0,0,0.2)",
+                        color: "#fff",
+                        textAlign: "left",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div style={{ fontWeight: 800, fontSize: "15px" }}>
+                        {match.home_team} vs {match.away_team}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {match.sport_title}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          display: "grid",
+                          gap: "4px",
+                          fontSize: "13px",
+                          color: "#dbe4f0",
+                        }}
+                      >
+                        <div>
+                          {t.home}: {match.bestOdds?.home ?? "-"}
+                        </div>
+                        <div>
+                          {t.draw}: {match.bestOdds?.draw ?? "-"}
+                        </div>
+                        <div>
+                          {t.away}: {match.bestOdds?.away ?? "-"}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div
+              style={{
+                display: "grid",
+                gap: "16px",
+                alignContent: "start",
+              }}
+            >
+              {!selectedMatch ? (
+                <div style={panelStyle}>
+                  <div style={{ color: "#94a3b8" }}>
+                    {lang === "fi" ? "Valitse ensin ottelu." : "Select a match first."}
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={panelStyle}>
+                    <div style={{ fontWeight: 800, fontSize: "18px" }}>
+                      {selectedMatch.home_team} vs {selectedMatch.away_team}
                     </div>
 
-                    <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleFavorite(row)}
-                        style={{
-                          border: favored
-                            ? "1px solid rgba(245,158,11,0.6)"
-                            : "1px solid rgba(255,255,255,0.12)",
-                          background: favored
-                            ? "rgba(245,158,11,0.14)"
-                            : "rgba(255,255,255,0.06)",
-                          color: favored ? "#fcd34d" : "#fff",
-                          borderRadius: "12px",
-                          padding: "10px 14px",
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {favored
-                          ? lang === "fi"
-                            ? "Tallennettu"
-                            : "Saved"
-                          : lang === "fi"
-                          ? "Tallenna"
-                          : "Save"}
-                      </button>
+                    <div
+                      style={{
+                        marginTop: "8px",
+                        color: "#94a3b8",
+                        fontSize: "14px",
+                      }}
+                    >
+                      {lang === "fi" ? "Markkina" : "Market"}: {currentMarketLabel}
+                    </div>
 
-                      <button
-                        type="button"
-                        onClick={() => handleAddBet(row)}
-                        style={{
-                          border: "1px solid rgba(16,185,129,0.6)",
-                          background: "rgba(16,185,129,0.14)",
-                          color: "#6ee7b7",
-                          borderRadius: "12px",
-                          padding: "10px 14px",
-                          fontSize: "14px",
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                      >
-                        {lang === "fi" ? "Lisää veto" : "Add Bet"}
-                      </button>
+                    <div
+                      style={{
+                        marginTop: "16px",
+                        display: "grid",
+                        gap: "12px",
+                      }}
+                    >
+                      {marketRows.length === 0 ? (
+                        <div style={{ color: "#94a3b8" }}>
+                          {lang === "fi"
+                            ? "Tälle markkinalle ei löytynyt rivejä."
+                            : "No rows found for this market."}
+                        </div>
+                      ) : (
+                        marketRows.map((row) => {
+                          const recommendedStake = getStakeForRow(row);
+                          const favoriteId = `${selectedMatch.id}-${market}-${row.key}`;
+                          const favored = isFavorite(favoriteId);
+
+                          return (
+                            <div
+                              key={row.key}
+                              style={{
+                                border: "1px solid rgba(255,255,255,0.08)",
+                                borderRadius: "14px",
+                                padding: "14px",
+                                background: "rgba(255,255,255,0.03)",
+                              }}
+                            >
+                              <div
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  alignItems: "center",
+                                  gap: "12px",
+                                  flexWrap: "wrap",
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 800, fontSize: "15px" }}>
+                                    {row.label}
+                                  </div>
+                                  <div
+                                    style={{
+                                      marginTop: "6px",
+                                      color: "#dbe4f0",
+                                      fontSize: "14px",
+                                    }}
+                                  >
+                                    Odds {row.odds}
+                                  </div>
+                                  <div
+                                    style={{
+                                      marginTop: "6px",
+                                      color: "#94a3b8",
+                                      fontSize: "13px",
+                                    }}
+                                  >
+                                    {stakeMode === "kelly"
+                                      ? `${
+                                          lang === "fi"
+                                            ? "Kelly-ehdotus"
+                                            : "Kelly Suggestion"
+                                        }: €${recommendedStake.toFixed(2)}`
+                                      : `${
+                                          lang === "fi"
+                                            ? "Valittu panos"
+                                            : "Selected Stake"
+                                        }: €${(Number(manualStake) || 0).toFixed(2)}`}
+                                  </div>
+                                </div>
+
+                                <div
+                                  style={{
+                                    display: "flex",
+                                    gap: "8px",
+                                    flexWrap: "wrap",
+                                  }}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleToggleFavorite(row)}
+                                    style={{
+                                      border: favored
+                                        ? "1px solid rgba(245,158,11,0.6)"
+                                        : "1px solid rgba(255,255,255,0.12)",
+                                      background: favored
+                                        ? "rgba(245,158,11,0.14)"
+                                        : "rgba(255,255,255,0.06)",
+                                      color: favored ? "#fcd34d" : "#fff",
+                                      borderRadius: "12px",
+                                      padding: "10px 14px",
+                                      fontSize: "14px",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    {favored
+                                      ? lang === "fi"
+                                        ? "Tallennettu"
+                                        : "Saved"
+                                      : lang === "fi"
+                                      ? "Tallenna"
+                                      : "Save"}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddBet(row)}
+                                    style={{
+                                      border: "1px solid rgba(16,185,129,0.6)",
+                                      background: "rgba(16,185,129,0.14)",
+                                      color: "#6ee7b7",
+                                      borderRadius: "12px",
+                                      padding: "10px 14px",
+                                      fontSize: "14px",
+                                      fontWeight: 700,
+                                      cursor: "pointer",
+                                    }}
+                                  >
+                                    {lang === "fi" ? "Lisää veto" : "Add Bet"}
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        )}
-      </PageSection>
 
-      <PageSection
-        title={lang === "fi" ? "Analyysin tarkennus" : "Analysis Detail"}
-        description={
-          lang === "fi"
-            ? "Confidence breakdown, riskiliput, tallennetut kohteet ja markkinaliike."
-            : "Confidence breakdown, risk flags, saved picks and market movement."
-        }
-      >
-        <div
-          style={{
-            display: "grid",
-            gap: "16px",
-            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          }}
-        >
-          <ConfidenceBreakdown breakdown={confidenceBreakdown} lang={lang} />
-          <RiskFlags flags={riskFlags} lang={lang} />
-          <FavoritesPanel lang={lang} />
-          <MarketMovementPanel
-            market={market}
-            selectedMatch={selectedMatch}
-            movements={movements}
-            lang={lang}
-          />
+                  <ConfidenceBreakdown
+                    breakdown={confidenceBreakdown}
+                    lang={lang}
+                  />
+
+                  <RiskFlags flags={riskFlags} lang={lang} />
+
+                  <MarketMovementPanel
+                    market={market}
+                    selectedMatch={selectedMatch}
+                    movements={movements}
+                    lang={lang}
+                  />
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </PageSection>
     </div>
