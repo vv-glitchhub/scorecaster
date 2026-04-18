@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
@@ -9,7 +9,23 @@ import { getDictionary } from "@/lib/i18n";
 export default function AppShellNavClient({ lang = "fi" }) {
   const pathname = usePathname();
   const t = getDictionary(lang);
+
   const [menuOpen, setMenuOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    function checkViewport() {
+      setIsMobile(window.innerWidth < 900);
+    }
+
+    checkViewport();
+    window.addEventListener("resize", checkViewport);
+    return () => window.removeEventListener("resize", checkViewport);
+  }, []);
+
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
 
   const navItems = [
     { href: "/", label: t.navDashboard },
@@ -20,9 +36,24 @@ export default function AppShellNavClient({ lang = "fi" }) {
 
   const isActive = (href) => pathname === href;
 
-  function closeMenu() {
-    setMenuOpen(false);
-  }
+  const linkStyle = (active) => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: isMobile ? "54px" : "48px",
+    borderRadius: isMobile ? "18px" : "16px",
+    textDecoration: "none",
+    fontWeight: 800,
+    fontSize: isMobile ? "20px" : "16px",
+    color: active ? "#041016" : "#dbe4f0",
+    background: active ? "#22c55e" : "transparent",
+    border: active
+      ? "1px solid rgba(34,197,94,0.8)"
+      : "1px solid rgba(255,255,255,0.08)",
+    transition: "0.2s ease",
+    WebkitTapHighlightColor: "transparent",
+    padding: "0 16px",
+  });
 
   return (
     <header
@@ -84,73 +115,80 @@ export default function AppShellNavClient({ lang = "fi" }) {
           >
             <LanguageSwitcher lang={lang} />
 
-            <button
-              type="button"
-              onClick={() => setMenuOpen((prev) => !prev)}
-              aria-label={menuOpen ? "Close menu" : "Open menu"}
-              style={{
-                border: "1px solid rgba(255,255,255,0.12)",
-                background: "rgba(255,255,255,0.04)",
-                color: "#fff",
-                borderRadius: "14px",
-                padding: "10px 14px",
-                fontSize: "16px",
-                fontWeight: 700,
-                cursor: "pointer",
-                minWidth: "64px",
-              }}
-            >
-              {menuOpen ? "✕" : "☰"}
-            </button>
+            {isMobile ? (
+              <button
+                type="button"
+                onClick={() => setMenuOpen((prev) => !prev)}
+                aria-label={menuOpen ? "Close menu" : "Open menu"}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.04)",
+                  color: "#fff",
+                  borderRadius: "14px",
+                  padding: "10px 14px",
+                  fontSize: "16px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                  minWidth: "64px",
+                }}
+              >
+                {menuOpen ? "✕" : "☰"}
+              </button>
+            ) : null}
           </div>
         </div>
 
-        {menuOpen ? (
+        {isMobile ? (
+          menuOpen ? (
+            <nav
+              style={{
+                marginTop: "16px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.04)",
+                borderRadius: "24px",
+                padding: "14px",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr",
+                  gap: "12px",
+                }}
+              >
+                {navItems.map((item) => (
+                  <Link key={item.href} href={item.href} style={linkStyle(isActive(item.href))}>
+                    {item.label}
+                  </Link>
+                ))}
+              </div>
+            </nav>
+          ) : null
+        ) : (
           <nav
             style={{
               marginTop: "16px",
               border: "1px solid rgba(255,255,255,0.08)",
               background: "rgba(255,255,255,0.04)",
-              borderRadius: "24px",
-              padding: "14px",
+              borderRadius: "22px",
+              padding: "10px",
             }}
           >
             <div
               style={{
                 display: "grid",
-                gridTemplateColumns: "1fr",
-                gap: "12px",
+                gridTemplateColumns: "repeat(4, minmax(0, 1fr))",
+                gap: "10px",
               }}
             >
               {navItems.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={closeMenu}
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    minHeight: "54px",
-                    borderRadius: "18px",
-                    textDecoration: "none",
-                    fontWeight: 800,
-                    fontSize: "20px",
-                    color: isActive(item.href) ? "#041016" : "#dbe4f0",
-                    background: isActive(item.href) ? "#22c55e" : "transparent",
-                    border: isActive(item.href)
-                      ? "1px solid rgba(34,197,94,0.8)"
-                      : "1px solid rgba(255,255,255,0.08)",
-                    transition: "0.2s ease",
-                    WebkitTapHighlightColor: "transparent",
-                  }}
-                >
+                <Link key={item.href} href={item.href} style={linkStyle(isActive(item.href))}>
                   {item.label}
                 </Link>
               ))}
             </div>
           </nav>
-        ) : null}
+        )}
       </div>
     </header>
   );
