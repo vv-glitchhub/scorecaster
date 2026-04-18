@@ -55,7 +55,7 @@ export default function AppShellNavClient({ lang = "fi" }) {
     width: "100%",
     minHeight: mobile ? "48px" : "44px",
     padding: mobile ? "0 14px" : "0 16px",
-    borderRadius: mobile ? "14px" : "14px",
+    borderRadius: "14px",
     textDecoration: "none",
     fontWeight: 800,
     fontSize: mobile ? "16px" : "15px",
