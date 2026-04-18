@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import LanguageSwitcher from "@/app/components/LanguageSwitcher";
 import { getDictionary } from "@/lib/i18n";
 
 export default function AppShellNavClient({ lang = "fi" }) {
   const pathname = usePathname();
+  const router = useRouter();
   const t = getDictionary(lang);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -48,17 +49,22 @@ export default function AppShellNavClient({ lang = "fi" }) {
 
   const isActive = (href) => pathname === href;
 
-  const linkStyle = (active, mobile = false) => ({
+  function handleMobileNavigate(href) {
+    setMenuOpen(false);
+    router.push(href);
+  }
+
+  const desktopLinkStyle = (active) => ({
     display: "flex",
     alignItems: "center",
-    justifyContent: mobile ? "flex-start" : "center",
+    justifyContent: "center",
     width: "100%",
-    minHeight: mobile ? "48px" : "44px",
-    padding: mobile ? "0 14px" : "0 16px",
+    minHeight: "44px",
+    padding: "0 16px",
     borderRadius: "14px",
     textDecoration: "none",
     fontWeight: 800,
-    fontSize: mobile ? "16px" : "15px",
+    fontSize: "15px",
     lineHeight: 1.2,
     color: active ? "#041016" : "#dbe4f0",
     background: active ? "#22c55e" : "transparent",
@@ -71,13 +77,37 @@ export default function AppShellNavClient({ lang = "fi" }) {
     whiteSpace: "nowrap",
   });
 
+  const mobileButtonStyle = (active) => ({
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "flex-start",
+    width: "100%",
+    minHeight: "54px",
+    padding: "0 18px",
+    borderRadius: "16px",
+    fontWeight: 800,
+    fontSize: "18px",
+    lineHeight: 1.2,
+    color: active ? "#041016" : "#e5eef9",
+    background: active ? "#22c55e" : "rgba(255,255,255,0.02)",
+    border: active
+      ? "1px solid rgba(34,197,94,0.85)"
+      : "1px solid rgba(255,255,255,0.08)",
+    transition: "all 0.2s ease",
+    boxSizing: "border-box",
+    cursor: "pointer",
+    WebkitTapHighlightColor: "transparent",
+    appearance: "none",
+    WebkitAppearance: "none",
+  });
+
   return (
     <header
       style={{
         position: "sticky",
         top: 0,
         zIndex: 1000,
-        background: "rgba(2,6,23,0.92)",
+        background: "rgba(2,6,23,0.96)",
         backdropFilter: "blur(12px)",
         WebkitBackdropFilter: "blur(12px)",
         borderBottom: "1px solid rgba(255,255,255,0.08)",
@@ -93,7 +123,7 @@ export default function AppShellNavClient({ lang = "fi" }) {
         <div
           style={{
             display: "flex",
-            alignItems: "center",
+            alignItems: "flex-start",
             justifyContent: "space-between",
             gap: "12px",
           }}
@@ -123,9 +153,9 @@ export default function AppShellNavClient({ lang = "fi" }) {
               style={{
                 fontSize: isMobile ? "12px" : "14px",
                 color: "#94a3b8",
-                marginTop: "6px",
+                marginTop: "8px",
                 lineHeight: 1.35,
-                maxWidth: isMobile ? "220px" : "100%",
+                maxWidth: isMobile ? "240px" : "100%",
                 whiteSpace: "normal",
               }}
             >
@@ -164,6 +194,8 @@ export default function AppShellNavClient({ lang = "fi" }) {
                   fontWeight: 800,
                   cursor: "pointer",
                   flexShrink: 0,
+                  appearance: "none",
+                  WebkitAppearance: "none",
                 }}
               >
                 {menuOpen ? "✕" : "☰"}
@@ -193,7 +225,7 @@ export default function AppShellNavClient({ lang = "fi" }) {
                 <Link
                   key={item.href}
                   href={item.href}
-                  style={linkStyle(isActive(item.href), false)}
+                  style={desktopLinkStyle(isActive(item.href))}
                 >
                   {item.label}
                 </Link>
@@ -206,29 +238,30 @@ export default function AppShellNavClient({ lang = "fi" }) {
           <nav
             id="mobile-navigation"
             style={{
-              marginTop: "12px",
+              marginTop: "14px",
               border: "1px solid rgba(255,255,255,0.08)",
               background: "rgba(15,23,42,0.98)",
-              borderRadius: "18px",
-              padding: "10px",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+              borderRadius: "22px",
+              padding: "12px",
+              boxShadow: "0 10px 30px rgba(0,0,0,0.28)",
             }}
           >
             <div
               style={{
                 display: "grid",
                 gridTemplateColumns: "1fr",
-                gap: "8px",
+                gap: "10px",
               }}
             >
               {navItems.map((item) => (
-                <Link
+                <button
                   key={item.href}
-                  href={item.href}
-                  style={linkStyle(isActive(item.href), true)}
+                  type="button"
+                  onClick={() => handleMobileNavigate(item.href)}
+                  style={mobileButtonStyle(isActive(item.href))}
                 >
                   {item.label}
-                </Link>
+                </button>
               ))}
             </div>
           </nav>
