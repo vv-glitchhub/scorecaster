@@ -19,13 +19,15 @@ export default function MarketMovementPanel({
       <div
         style={{
           border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(0,0,0,0.2)",
           borderRadius: "16px",
           padding: "16px",
-          color: "#94a3b8",
+          background: "rgba(0,0,0,0.2)",
         }}
       >
-        {empty}
+        <div style={{ fontWeight: 800, fontSize: "18px", marginBottom: "12px" }}>
+          {title}
+        </div>
+        <div style={{ color: "#94a3b8", fontSize: "14px" }}>{empty}</div>
       </div>
     );
   }
@@ -54,61 +56,88 @@ export default function MarketMovementPanel({
           },
         ]
       : [
-          { label: selectedMatch.home_team, movement: movements.home },
-          { label: lang === "fi" ? "Tasapeli" : "Draw", movement: movements.draw },
-          { label: selectedMatch.away_team, movement: movements.away },
+          {
+            label: selectedMatch.home_team,
+            movement: movements.home,
+          },
+          {
+            label: lang === "fi" ? "Tasapeli" : "Draw",
+            movement: movements.draw,
+          },
+          {
+            label: selectedMatch.away_team,
+            movement: movements.away,
+          },
         ];
 
   const hasMovement = rows.some((row) => row.movement?.delta != null);
 
-  if (!hasMovement) {
-    return (
-      <div
-        style={{
-          border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(0,0,0,0.2)",
-          borderRadius: "16px",
-          padding: "16px",
-          color: "#94a3b8",
-        }}
-      >
-        <p style={{ margin: "0 0 8px", fontWeight: 700, color: "#fff" }}>{title}</p>
-        <p style={{ margin: 0 }}>{empty}</p>
-      </div>
-    );
-  }
-
   return (
-    <div style={{ display: "grid", gap: "12px" }}>
-      <p style={{ margin: 0, fontWeight: 700 }}>{title}</p>
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: "16px",
+        padding: "16px",
+        background: "rgba(0,0,0,0.2)",
+      }}
+    >
+      <div style={{ fontWeight: 800, fontSize: "18px", marginBottom: "12px" }}>
+        {title}
+      </div>
 
-      {rows.map((row) => (
+      {!hasMovement ? (
+        <div style={{ color: "#94a3b8", fontSize: "14px" }}>{empty}</div>
+      ) : (
         <div
-          key={row.label}
           style={{
-            border: "1px solid rgba(255,255,255,0.1)",
-            background: "rgba(0,0,0,0.2)",
-            borderRadius: "16px",
-            padding: "14px",
-            display: "flex",
-            justifyContent: "space-between",
-            gap: "12px",
-            alignItems: "center",
-            flexWrap: "wrap",
+            display: "grid",
+            gap: "10px",
           }}
         >
-          <div>
-            <p style={{ margin: 0, fontWeight: 700 }}>{row.label}</p>
-            <p style={{ margin: "8px 0 0", fontSize: "13px", color: "#94a3b8" }}>
-              {row.movement?.previous != null && row.movement?.current != null
-                ? `${row.movement.previous} → ${row.movement.current}`
-                : empty}
-            </p>
-          </div>
+          {rows.map((row) => (
+            <div
+              key={row.label}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                gap: "12px",
+                padding: "12px 14px",
+                borderRadius: "12px",
+                border: "1px solid rgba(255,255,255,0.08)",
+                background: "rgba(255,255,255,0.03)",
+                flexWrap: "wrap",
+              }}
+            >
+              <div style={{ minWidth: 0 }}>
+                <div
+                  style={{
+                    fontWeight: 700,
+                    color: "#ffffff",
+                    fontSize: "14px",
+                  }}
+                >
+                  {row.label}
+                </div>
 
-          <OddsMovementBadge movement={row.movement} lang={lang} />
+                <div
+                  style={{
+                    marginTop: "4px",
+                    color: "#94a3b8",
+                    fontSize: "13px",
+                  }}
+                >
+                  {row.movement?.previous != null && row.movement?.current != null
+                    ? `${row.movement.previous} → ${row.movement.current}`
+                    : empty}
+                </div>
+              </div>
+
+              <OddsMovementBadge movement={row.movement} lang={lang} />
+            </div>
+          ))}
         </div>
-      ))}
+      )}
     </div>
   );
 }
