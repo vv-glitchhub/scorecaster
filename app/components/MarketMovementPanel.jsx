@@ -14,16 +14,16 @@ export default function MarketMovementPanel({
       ? "Ei vielä riittävästi historiadataa liikkeen näyttämiseen."
       : "Not enough history yet to show movement.";
 
+  const panelStyle = {
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "16px",
+    padding: "16px",
+    background: "rgba(0,0,0,0.2)",
+  };
+
   if (!selectedMatch || !movements) {
     return (
-      <div
-        style={{
-          border: "1px solid rgba(255,255,255,0.1)",
-          borderRadius: "16px",
-          padding: "16px",
-          background: "rgba(0,0,0,0.2)",
-        }}
-      >
+      <div style={panelStyle}>
         <div style={{ fontWeight: 800, fontSize: "18px", marginBottom: "12px" }}>
           {title}
         </div>
@@ -36,28 +36,32 @@ export default function MarketMovementPanel({
     market === "totals"
       ? [
           {
-            label: `Over ${selectedMatch.bestOdds?.point ?? "-"}`,
+            label: `Over ${selectedMatch?.bestOdds?.point ?? "-"}`,
             movement: movements.over,
           },
           {
-            label: `Under ${selectedMatch.bestOdds?.point ?? "-"}`,
+            label: `Under ${selectedMatch?.bestOdds?.point ?? "-"}`,
             movement: movements.under,
           },
         ]
       : market === "spreads"
       ? [
           {
-            label: `${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome ?? ""}`,
+            label: `${selectedMatch?.home_team || "Home"} ${
+              selectedMatch?.bestOdds?.spreadPointHome ?? ""
+            }`,
             movement: movements.spreadHome,
           },
           {
-            label: `${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway ?? ""}`,
+            label: `${selectedMatch?.away_team || "Away"} ${
+              selectedMatch?.bestOdds?.spreadPointAway ?? ""
+            }`,
             movement: movements.spreadAway,
           },
         ]
       : [
           {
-            label: selectedMatch.home_team,
+            label: selectedMatch?.home_team || "Home",
             movement: movements.home,
           },
           {
@@ -65,7 +69,7 @@ export default function MarketMovementPanel({
             movement: movements.draw,
           },
           {
-            label: selectedMatch.away_team,
+            label: selectedMatch?.away_team || "Away",
             movement: movements.away,
           },
         ];
@@ -73,14 +77,7 @@ export default function MarketMovementPanel({
   const hasMovement = rows.some((row) => row.movement?.delta != null);
 
   return (
-    <div
-      style={{
-        border: "1px solid rgba(255,255,255,0.1)",
-        borderRadius: "16px",
-        padding: "16px",
-        background: "rgba(0,0,0,0.2)",
-      }}
-    >
+    <div style={panelStyle}>
       <div style={{ fontWeight: 800, fontSize: "18px", marginBottom: "12px" }}>
         {title}
       </div>
