@@ -1,271 +1,231 @@
 import { cookies } from "next/headers";
 import PageSection from "@/app/components/PageSection";
-import { getDictionary, normalizeLang } from "@/lib/i18n";
-
-function BulletList({ items }) {
-  return (
-    <div style={{ display: "grid", gap: "10px", color: "#cbd5e1" }}>
-      {items.map((item, index) => (
-        <div
-          key={index}
-          style={{
-            display: "flex",
-            gap: "10px",
-            alignItems: "flex-start",
-          }}
-        >
-          <span style={{ color: "#6ee7b7", fontWeight: 700 }}>•</span>
-          <span>{item}</span>
-        </div>
-      ))}
-    </div>
-  );
-}
+import { normalizeLang } from "@/lib/i18n";
 
 function InfoBlock({ title, text }) {
   return (
     <div
       style={{
         border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(0,0,0,0.18)",
-        borderRadius: "16px",
-        padding: "16px",
+        borderRadius: "20px",
+        padding: "20px",
+        background: "rgba(255,255,255,0.03)",
       }}
     >
-      <p style={{ margin: 0, fontWeight: 700, fontSize: "16px" }}>{title}</p>
-      <p style={{ margin: "10px 0 0", color: "#cbd5e1", lineHeight: 1.6 }}>
+      <div
+        style={{
+          fontSize: "22px",
+          fontWeight: 900,
+          color: "#ffffff",
+          marginBottom: "10px",
+        }}
+      >
+        {title}
+      </div>
+      <div
+        style={{
+          color: "#94a3b8",
+          fontSize: "16px",
+          lineHeight: 1.7,
+        }}
+      >
         {text}
-      </p>
+      </div>
+    </div>
+  );
+}
+
+function BulletList({ items }) {
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "20px",
+        padding: "20px",
+        background: "rgba(255,255,255,0.03)",
+      }}
+    >
+      <div style={{ display: "grid", gap: "12px" }}>
+        {items.map((item) => (
+          <div
+            key={item}
+            style={{
+              display: "flex",
+              gap: "12px",
+              alignItems: "flex-start",
+              color: "#dbe4f0",
+              fontSize: "16px",
+              lineHeight: 1.6,
+            }}
+          >
+            <span style={{ color: "#86efac", fontWeight: 900 }}>•</span>
+            <span>{item}</span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 function FormulaBlock({ items }) {
   return (
-    <div style={{ display: "grid", gap: "12px" }}>
-      {items.map((item, index) => (
-        <div
-          key={index}
-          style={{
-            border: "1px solid rgba(255,255,255,0.08)",
-            background: "rgba(0,0,0,0.18)",
-            borderRadius: "16px",
-            padding: "16px",
-            fontFamily:
-              'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
-            color: "#e2e8f0",
-            fontSize: "14px",
-            lineHeight: 1.7,
-            overflowX: "auto",
-          }}
-        >
-          {item}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ExampleStep({ text }) {
-  return (
     <div
       style={{
         border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(0,0,0,0.18)",
-        borderRadius: "16px",
-        padding: "16px",
-        color: "#e2e8f0",
-        lineHeight: 1.7,
+        borderRadius: "20px",
+        padding: "20px",
+        background: "rgba(255,255,255,0.03)",
       }}
     >
-      {text}
+      <div style={{ display: "grid", gap: "12px" }}>
+        {items.map((item) => (
+          <div
+            key={item}
+            style={{
+              fontFamily:
+                'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
+              fontSize: "15px",
+              color: "#e2e8f0",
+              padding: "14px 16px",
+              borderRadius: "14px",
+              background: "rgba(0,0,0,0.18)",
+              border: "1px solid rgba(255,255,255,0.06)",
+              overflowX: "auto",
+            }}
+          >
+            {item}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
 
 export default async function AboutPage() {
   const cookieStore = await cookies();
-  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "en");
-  const t = getDictionary(lang);
+  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "fi");
+
+  const copy =
+    lang === "fi"
+      ? {
+          eyebrow: "Tietoa",
+          title: "Mitä Scorecaster tekee",
+          subtitle:
+            "Scorecaster on vedonlyönnin analyysi- ja simulaatiosovellus, joka kokoaa markkinadataa, näyttää parhaat kertoimet ja auttaa vertaamaan markkinanäkemystä omaan arvioon.",
+          blocks: [
+            {
+              title: "Mitä sovellus tekee",
+              text:
+                "Sovellus näyttää otteluita, eri markkinoita, parhaat saatavilla olevat kertoimet, yksinkertaisen confidence-näkymän, riskiliput sekä markkinaliikkeen historian.",
+            },
+            {
+              title: "Miten laskenta toimii",
+              text:
+                "Laskenta perustuu markkinan implied probability -ajatteluun, kertoimien vertailuun ja yksinkertaiseen stake-logiikkaan. Simulaattori normalisoi markkinakertoimet todennäköisyyksiksi ja ajaa iterointeja niiden pohjalta.",
+            },
+            {
+              title: "Data ja avoimuus",
+              text:
+                "Sovellus käyttää odds-dataa API:n kautta. Jos live-dataa ei ole saatavilla, sovellus voi näyttää fallback-dataa kehityksen ja käyttöliittymän jatkuvuuden varmistamiseksi.",
+            },
+            {
+              title: "Rajoitteet",
+              text:
+                "Sovellus ei takaa voitollisuutta eikä korvaa omaa harkintaa. Markkinat muuttuvat nopeasti, data voi viivästyä, ja mallin nykyinen logiikka on vielä kehitysvaiheessa.",
+            },
+          ],
+          formulas: [
+            "impliedProbability = 1 / odds",
+            "edge = modelProbability - impliedProbability",
+            "kellyFraction = ((odds * probability) - 1) / (odds - 1)",
+          ],
+          bullets: [
+            "Erota vedonlyönti ja simulointi omille sivuilleen.",
+            "Paranna live refresh -toimintaa betting-sivulla.",
+            "Kehitä market movement -historiaa snapshot-pohjaisesti.",
+            "Lisää vahvempi mallikerros value-kohteiden priorisointiin.",
+          ],
+        }
+      : {
+          eyebrow: "About",
+          title: "What Scorecaster does",
+          subtitle:
+            "Scorecaster is a betting analysis and simulation app that aggregates market data, shows the best odds and helps compare market pricing with your own view.",
+          blocks: [
+            {
+              title: "What the app does",
+              text:
+                "The app shows matches, markets, best available odds, a simple confidence view, risk flags and market-movement history.",
+            },
+            {
+              title: "How the calculations work",
+              text:
+                "The calculations are based on implied probability logic, odds comparison and simple stake logic. The simulator normalizes market odds into probabilities and runs iterations on that basis.",
+            },
+            {
+              title: "Data and transparency",
+              text:
+                "The app uses odds data via an API. If live data is unavailable, the app may show fallback data to preserve development flow and UI continuity.",
+            },
+            {
+              title: "Limitations",
+              text:
+                "The app does not guarantee profitability and does not replace your own judgment. Markets move quickly, data may lag, and the current model logic is still under development.",
+            },
+          ],
+          formulas: [
+            "impliedProbability = 1 / odds",
+            "edge = modelProbability - impliedProbability",
+            "kellyFraction = ((odds * probability) - 1) / (odds - 1)",
+          ],
+          bullets: [
+            "Keep betting and simulation on separate pages.",
+            "Improve live refresh on the betting page.",
+            "Build snapshot-based market-movement history.",
+            "Add a stronger model layer for value prioritization.",
+          ],
+        };
 
   return (
-    <div style={{ display: "grid", gap: "24px" }}>
-      <section
+    <div style={{ display: "grid", gap: "18px" }}>
+      <PageSection
+        eyebrow={copy.eyebrow}
+        title={copy.title}
+        subtitle={copy.subtitle}
+      />
+
+      <div
         style={{
-          border: "1px solid rgba(16,185,129,0.25)",
-          borderRadius: "24px",
-          padding: "32px",
-          background:
-            "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.10))",
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gap: "16px",
         }}
       >
-        <p
-          style={{
-            margin: "0 0 12px",
-            fontSize: "12px",
-            letterSpacing: "0.2em",
-            textTransform: "uppercase",
-            color: "#6ee7b7",
-            fontWeight: 700,
-          }}
-        >
-          {t.aboutEyebrow}
-        </p>
-
-        <h1 style={{ margin: 0, fontSize: "clamp(32px, 8vw, 56px)", lineHeight: 1.05 }}>
-          {t.aboutTitle}
-        </h1>
-
-        <p
-          style={{
-            marginTop: "16px",
-            color: "#cbd5e1",
-            fontSize: "clamp(15px, 3.5vw, 18px)",
-            lineHeight: 1.6,
-            maxWidth: "900px",
-          }}
-        >
-          {t.aboutDescription}
-        </p>
-      </section>
+        {copy.blocks.map((block) => (
+          <InfoBlock key={block.title} title={block.title} text={block.text} />
+        ))}
+      </div>
 
       <PageSection
-        title={t.aboutWhatTitle}
-        description={t.aboutWhatDescription}
+        title={lang === "fi" ? "Kaavat" : "Formulas"}
+        subtitle={
+          lang === "fi"
+            ? "Keskeiset laskennan osat nykyisessä versiossa."
+            : "Core calculation pieces in the current version."
+        }
       >
-        <BulletList
-          items={[
-            t.aboutWhat1,
-            t.aboutWhat2,
-            t.aboutWhat3,
-            t.aboutWhat4,
-            t.aboutWhat5,
-          ]}
-        />
+        <FormulaBlock items={copy.formulas} />
       </PageSection>
 
       <PageSection
-        title={t.aboutNowTitle}
-        description={t.aboutNowDescription}
+        title={lang === "fi" ? "Seuraavat kehitysaskeleet" : "Next development steps"}
+        subtitle={
+          lang === "fi"
+            ? "Nämä ovat luontevimmat seuraavat parannukset."
+            : "These are the most natural next improvements."
+        }
       >
-        <BulletList
-          items={[
-            t.aboutNow1,
-            t.aboutNow2,
-            t.aboutNow3,
-            t.aboutNow4,
-            t.aboutNow5,
-          ]}
-        />
-      </PageSection>
-
-      <PageSection
-        title={t.aboutCalcTitle}
-        description={t.aboutCalcDescription}
-      >
-        <div
-          style={{
-            display: "grid",
-            gap: "16px",
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          }}
-        >
-          <InfoBlock title={t.aboutCalc1Title} text={t.aboutCalc1Text} />
-          <InfoBlock title={t.aboutCalc2Title} text={t.aboutCalc2Text} />
-          <InfoBlock title={t.aboutCalc3Title} text={t.aboutCalc3Text} />
-          <InfoBlock title={t.aboutCalc4Title} text={t.aboutCalc4Text} />
-          <InfoBlock title={t.aboutCalc5Title} text={t.aboutCalc5Text} />
-          <InfoBlock title={t.aboutCalc6Title} text={t.aboutCalc6Text} />
-        </div>
-      </PageSection>
-
-      <PageSection
-        title={t.aboutFormulaTitle}
-        description={t.aboutFormulaDescription}
-      >
-        <FormulaBlock
-          items={[
-            t.formulaImplied,
-            t.formulaFair,
-            t.formulaEdge,
-            t.formulaEv,
-            t.formulaKelly,
-            t.formulaStake,
-          ]}
-        />
-      </PageSection>
-
-      <PageSection
-        title={t.aboutExampleTitle}
-        description={t.aboutExampleDescription}
-      >
-        <div style={{ display: "grid", gap: "12px" }}>
-          <ExampleStep text={`${t.exampleInputTitle}: ${t.exampleInputText}`} />
-          <ExampleStep text={t.exampleStep1} />
-          <ExampleStep text={t.exampleStep2} />
-          <ExampleStep text={t.exampleStep3} />
-          <ExampleStep text={t.exampleStep4} />
-          <ExampleStep text={t.exampleStep5} />
-          <ExampleStep text={t.exampleStep6} />
-        </div>
-      </PageSection>
-
-      <PageSection
-        title={t.aboutStatusTitle}
-        description={t.aboutStatusDescription}
-      >
-        <BulletList
-          items={[
-            t.aboutStatus1,
-            t.aboutStatus2,
-            t.aboutStatus3,
-            t.aboutStatus4,
-          ]}
-        />
-      </PageSection>
-
-      <PageSection
-        title={t.aboutLimitsTitle}
-        description={t.aboutLimitsDescription}
-      >
-        <BulletList
-          items={[
-            t.aboutLimit1,
-            t.aboutLimit2,
-            t.aboutLimit3,
-            t.aboutLimit4,
-            t.aboutLimit5,
-          ]}
-        />
-      </PageSection>
-
-      <PageSection
-        title={t.aboutUpdatesTitle}
-        description={t.aboutUpdatesDescription}
-      >
-        <BulletList
-          items={[
-            t.aboutUpdate1,
-            t.aboutUpdate2,
-            t.aboutUpdate3,
-            t.aboutUpdate4,
-            t.aboutUpdate5,
-          ]}
-        />
-      </PageSection>
-
-      <PageSection
-        title={t.aboutNextTitle}
-        description={t.aboutNextDescription}
-      >
-        <BulletList
-          items={[
-            t.aboutNext1,
-            t.aboutNext2,
-            t.aboutNext3,
-            t.aboutNext4,
-          ]}
-        />
+        <BulletList items={copy.bullets} />
       </PageSection>
     </div>
   );
