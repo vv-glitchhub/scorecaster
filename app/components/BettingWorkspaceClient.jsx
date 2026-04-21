@@ -33,6 +33,63 @@ function formatClock(timestamp, lang) {
   );
 }
 
+function normalizeOddsData(data) {
+  const matches = Array.isArray(data?.matches) ? data.matches : [];
+
+  return {
+    source: data?.source || data?.status || "unknown",
+    status: data?.status || "fresh",
+    reason: data?.reason || "",
+    matches: matches.map((match) => ({
+      ...match,
+      id:
+        match?.id ||
+        `${match?.sport_key || "sport"}:${match?.home_team || "home"}:${
+          match?.away_team || "away"
+        }:${match?.commence_time || "time"}`,
+      home_team: match?.home_team || "Home",
+      away_team: match?.away_team || "Away",
+      sport_title: match?.sport_title || match?.sport_key || "-",
+      bestOdds: {
+        home: match?.bestOdds?.home ?? null,
+        draw: match?.bestOdds?.draw ?? null,
+        away: match?.bestOdds?.away ?? null,
+        point: match?.bestOdds?.point ?? null,
+        over: match?.bestOdds?.over ?? null,
+        under: match?.bestOdds?.under ?? null,
+        spreadPointHome: match?.bestOdds?.spreadPointHome ?? null,
+        spreadPointAway: match?.bestOdds?.spreadPointAway ?? null,
+        spreadHome: match?.bestOdds?.spreadHome ?? null,
+        spreadAway: match?.bestOdds?.spreadAway ?? null,
+      },
+    })),
+  };
+}
+
+function computeImpliedProbability(odds) {
+  const n = Number(odds);
+  if (!Number.isFinite(n) || n <= 1) return null;
+  return 1 / n;
+}
+
+function buildTopPickMeta(row) {
+  const implied = computeImpliedProbability(row?.odds);
+  const model = row?.probability ?? null;
+  const edge =
+    implied != null && model != null ? Number((model - implied).toFixed(3)) : null;
+  const ev =
+    row?.odds && model != null
+      ? Number((Number(row.odds) * Number(model) - 1).toFixed(3))
+      : null;
+
+  return {
+    implied,
+    model,
+    edge,
+    ev,
+  };
+}
+
 export default function BettingWorkspaceClient({
   initialOddsData,
   lang = "fi",
@@ -40,9 +97,11 @@ export default function BettingWorkspaceClient({
   const t = getDictionary(lang);
   const { addBet } = useBetStore();
   const { toggleFavorite, isFavorite } = useFavoritesStore();
-  const { addSnapshot, getSnapshots } = useOddsHistoryStore();
+  const { addSnapshot, getSnapshots, clearHistory } = useOddsHistoryStore();
 
-  const [oddsData, setOddsData] = useState(initialOddsData || {});
+  const [oddsData, setOddsData] = useState(() =>
+    normalizeOddsData(initialOddsData || {})
+  );
   const [market, setMarket] = useState("h2h");
   const [stakeMode, setStakeMode] = useState("manual");
   const [manualStake, setManualStake] = useState("10");
@@ -51,12 +110,11 @@ export default function BettingWorkspaceClient({
   const [refreshInterval, setRefreshInterval] = useState(15);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
+  const [refreshError, setRefreshError] = useState("");
 
-  const matches = Array.isArray(oddsData?.matches) ? oddsData.matches : [];
+  const matches = oddsData.matches || [];
 
-  const [selectedMatchId, setSelectedMatchId] = useState(
-    matches[0]?.id || null
-  );
+  const [selectedMatchId, setSelectedMatchId] = useState(matches[0]?.id || null);
 
   const selectedMatch = useMemo(() => {
     if (!matches.length) return null;
@@ -72,6 +130,7 @@ export default function BettingWorkspaceClient({
   const refreshOdds = useCallback(async () => {
     try {
       setIsRefreshing(true);
+      setRefreshError("");
 
       const response = await fetch("/api/odds?sport=icehockey_liiga", {
         method: "GET",
@@ -79,31 +138,43 @@ export default function BettingWorkspaceClient({
       });
 
       if (!response.ok) {
-        throw new Error("Failed to refresh odds");
+        throw new Error(`Refresh failed with status ${response.status}`);
       }
 
-      const nextData = await response.json();
-      setOddsData(nextData || {});
+      const raw = await response.json();
+      const nextData = normalizeOddsData(raw);
+
+      setOddsData(nextData);
       setLastUpdatedAt(Date.now());
 
       if (Array.isArray(nextData?.matches) && nextData.matches.length > 0) {
         addSnapshot({
           market,
           matches: nextData.matches,
+          source: nextData.source,
         });
       }
     } catch (error) {
       console.error("Auto refresh failed", error);
+      setRefreshError(
+        lang === "fi"
+          ? "Datan päivitys epäonnistui."
+          : "Data refresh failed."
+      );
     } finally {
       setIsRefreshing(false);
     }
-  }, [addSnapshot, market]);
+  }, [addSnapshot, market, lang]);
 
   useEffect(() => {
     if (matches.length > 0) {
-      addSnapshot({ market, matches });
+      addSnapshot({
+        market,
+        matches,
+        source: oddsData.source,
+      });
     }
-  }, [market, matches, addSnapshot]);
+  }, [market, matches, addSnapshot, oddsData.source]);
 
   useEffect(() => {
     if (!refreshInterval || refreshInterval <= 0) return;
@@ -188,6 +259,60 @@ export default function BettingWorkspaceClient({
     ].filter((row) => row.odds);
   }, [selectedMatch, market, t.draw, lang]);
 
+  const topPickRows = useMemo(() => {
+    if (!matches.length) return [];
+
+    const rows = [];
+
+    for (const match of matches.slice(0, 12)) {
+      const candidates = [
+        {
+          matchId: match.id,
+          matchLabel: `${match.home_team} vs ${match.away_team}`,
+          market: "h2h",
+          key: "home",
+          label: match.home_team,
+          odds: match?.bestOdds?.home ?? null,
+          probability: 0.45,
+        },
+        {
+          matchId: match.id,
+          matchLabel: `${match.home_team} vs ${match.away_team}`,
+          market: "h2h",
+          key: "draw",
+          label: t.draw || (lang === "fi" ? "Tasapeli" : "Draw"),
+          odds: match?.bestOdds?.draw ?? null,
+          probability: 0.23,
+        },
+        {
+          matchId: match.id,
+          matchLabel: `${match.home_team} vs ${match.away_team}`,
+          market: "h2h",
+          key: "away",
+          label: match.away_team,
+          odds: match?.bestOdds?.away ?? null,
+          probability: 0.32,
+        },
+      ].filter((row) => row.odds);
+
+      for (const row of candidates) {
+        const meta = buildTopPickMeta(row);
+        rows.push({
+          ...row,
+          ...meta,
+        });
+      }
+    }
+
+    return rows
+      .filter((row) => row.edge != null && row.ev != null)
+      .sort((a, b) => {
+        if (b.edge !== a.edge) return b.edge - a.edge;
+        return b.ev - a.ev;
+      })
+      .slice(0, 5);
+  }, [matches, t.draw, lang]);
+
   const currentMarketLabel =
     market === "h2h"
       ? t.h2h || "H2H"
@@ -204,6 +329,7 @@ export default function BettingWorkspaceClient({
         fraction: Number(kellyFraction) || 0.25,
       });
     }
+
     return Number(manualStake) || 0;
   }
 
@@ -214,7 +340,9 @@ export default function BettingWorkspaceClient({
     if (!stake || stake <= 0) return;
 
     addBet({
-      match: `${selectedMatch?.home_team || "Home"} vs ${selectedMatch?.away_team || "Away"}`,
+      match: `${selectedMatch?.home_team || "Home"} vs ${
+        selectedMatch?.away_team || "Away"
+      }`,
       selection: `${currentMarketLabel} • ${row.label || "-"}`,
       odds: Number(row.odds),
       stake: Number(stake),
@@ -226,7 +354,9 @@ export default function BettingWorkspaceClient({
 
     toggleFavorite({
       id: `${selectedMatch.id}-${market}-${row.key}`,
-      match: `${selectedMatch?.home_team || "Home"} vs ${selectedMatch?.away_team || "Away"}`,
+      match: `${selectedMatch?.home_team || "Home"} vs ${
+        selectedMatch?.away_team || "Away"
+      }`,
       selection: `${currentMarketLabel} • ${row.label || "-"}`,
       odds: Number(row.odds),
       market,
@@ -270,16 +400,11 @@ export default function BettingWorkspaceClient({
         title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
         subtitle={
           lang === "fi"
-            ? "Live-oddsit, panoksenhallinta ja markkinaliikkeet yhdessä näkymässä."
-            : "Live odds, staking controls and market movement in one workspace."
+            ? "Live-oddsit, panoksenhallinta, top pickit ja markkinaliikkeet yhdessä näkymässä."
+            : "Live odds, staking controls, top picks and market movement in one workspace."
         }
       >
-        <div
-          style={{
-            display: "grid",
-            gap: "16px",
-          }}
-        >
+        <div style={{ display: "grid", gap: "16px" }}>
           <div
             style={{
               display: "flex",
@@ -289,9 +414,26 @@ export default function BettingWorkspaceClient({
               justifyContent: "space-between",
             }}
           >
-            <SourceBadge>
-              {String(oddsData?.source || "unknown").toUpperCase()}
-            </SourceBadge>
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: "10px",
+                alignItems: "center",
+              }}
+            >
+              <SourceBadge>
+                {String(oddsData?.source || "unknown").toUpperCase()}
+              </SourceBadge>
+
+              <SourceBadge>
+                {isRefreshing
+                  ? lang === "fi"
+                    ? "PÄIVITTYY"
+                    : "UPDATING"
+                  : String(oddsData?.status || "fresh").toUpperCase()}
+              </SourceBadge>
+            </div>
 
             <div
               style={{
@@ -344,10 +486,127 @@ export default function BettingWorkspaceClient({
               >
                 {t.refreshNow || (lang === "fi" ? "Päivitä nyt" : "Refresh now")}
               </button>
+
+              <button
+                type="button"
+                onClick={clearHistory}
+                style={{
+                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "#fff",
+                  borderRadius: "12px",
+                  padding: "12px 14px",
+                  fontSize: "14px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                {lang === "fi" ? "Tyhjennä historia" : "Clear history"}
+              </button>
             </div>
           </div>
 
+          {oddsData?.reason ? (
+            <div
+              style={{
+                ...panelStyle,
+                color: "#94a3b8",
+                fontSize: "14px",
+                lineHeight: 1.6,
+              }}
+            >
+              {oddsData.reason}
+            </div>
+          ) : null}
+
+          {refreshError ? (
+            <div
+              style={{
+                ...panelStyle,
+                color: "#fca5a5",
+                fontSize: "14px",
+                lineHeight: 1.6,
+              }}
+            >
+              {refreshError}
+            </div>
+          ) : null}
+
           <MarketTabs market={market} onChange={setMarket} lang={lang} />
+
+          {topPickRows.length > 0 ? (
+            <div style={panelStyle}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                }}
+              >
+                {lang === "fi" ? "Parhaat poiminnat" : "Top Picks"}
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gap: "10px",
+                }}
+              >
+                {topPickRows.map((row) => (
+                  <div
+                    key={`${row.matchId}-${row.key}`}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "minmax(0, 1.4fr) repeat(4, minmax(70px, auto))",
+                      gap: "12px",
+                      alignItems: "center",
+                      padding: "12px 14px",
+                      borderRadius: "12px",
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 800, fontSize: "14px", color: "#fff" }}>
+                        {row.matchLabel}
+                      </div>
+                      <div
+                        style={{
+                          marginTop: "4px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {row.label}
+                      </div>
+                    </div>
+
+                    <div style={{ color: "#dbe4f0", fontSize: "13px" }}>
+                      <strong>Odds</strong>
+                      <div>{row.odds}</div>
+                    </div>
+
+                    <div style={{ color: "#dbe4f0", fontSize: "13px" }}>
+                      <strong>EV</strong>
+                      <div>{row.ev != null ? row.ev : "-"}</div>
+                    </div>
+
+                    <div style={{ color: "#dbe4f0", fontSize: "13px" }}>
+                      <strong>Edge</strong>
+                      <div>{row.edge != null ? row.edge : "-"}</div>
+                    </div>
+
+                    <div style={{ color: "#dbe4f0", fontSize: "13px" }}>
+                      <strong>Model</strong>
+                      <div>
+                        {row.model != null ? `${(row.model * 100).toFixed(1)}%` : "-"}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           <div
             style={{
@@ -357,7 +616,13 @@ export default function BettingWorkspaceClient({
             }}
           >
             <div style={panelStyle}>
-              <div style={{ fontWeight: 800, marginBottom: "12px", fontSize: "16px" }}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                }}
+              >
                 {lang === "fi" ? "Panostus" : "Staking"}
               </div>
 
@@ -387,23 +652,60 @@ export default function BettingWorkspaceClient({
               </div>
 
               {stakeMode === "manual" ? (
-                <input
-                  value={manualStake}
-                  onChange={(e) => setManualStake(e.target.value)}
-                  style={inputStyle}
-                />
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      color: "#94a3b8",
+                      fontSize: "12px",
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {lang === "fi" ? "Panos (€)" : "Stake (€)"}
+                  </label>
+                  <input
+                    value={manualStake}
+                    onChange={(e) => setManualStake(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
               ) : (
                 <div style={{ display: "grid", gap: "12px" }}>
-                  <input
-                    value={bankroll}
-                    onChange={(e) => setBankroll(e.target.value)}
-                    style={inputStyle}
-                  />
-                  <input
-                    value={kellyFraction}
-                    onChange={(e) => setKellyFraction(e.target.value)}
-                    style={inputStyle}
-                  />
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {lang === "fi" ? "Kassa (€)" : "Bankroll (€)"}
+                    </label>
+                    <input
+                      value={bankroll}
+                      onChange={(e) => setBankroll(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      style={{
+                        display: "block",
+                        color: "#94a3b8",
+                        fontSize: "12px",
+                        marginBottom: "6px",
+                      }}
+                    >
+                      {lang === "fi" ? "Kelly-osuus" : "Kelly fraction"}
+                    </label>
+                    <input
+                      value={kellyFraction}
+                      onChange={(e) => setKellyFraction(e.target.value)}
+                      style={inputStyle}
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -419,7 +721,13 @@ export default function BettingWorkspaceClient({
             }}
           >
             <div style={panelStyle}>
-              <div style={{ fontWeight: 800, marginBottom: "12px", fontSize: "16px" }}>
+              <div
+                style={{
+                  fontWeight: 800,
+                  marginBottom: "12px",
+                  fontSize: "16px",
+                }}
+              >
                 {lang === "fi" ? "Ottelut" : "Matches"}
               </div>
 
@@ -451,7 +759,7 @@ export default function BettingWorkspaceClient({
                       }}
                     >
                       <div style={{ fontWeight: 800, fontSize: "15px" }}>
-                        {(match?.home_team || "Home") + " vs " + (match?.away_team || "Away")}
+                        {`${match.home_team} vs ${match.away_team}`}
                       </div>
 
                       <div
@@ -461,7 +769,33 @@ export default function BettingWorkspaceClient({
                           fontSize: "13px",
                         }}
                       >
-                        {match?.sport_title || "-"}
+                        {match.sport_title}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          display: "grid",
+                          gap: "4px",
+                          fontSize: "13px",
+                          color: "#dbe4f0",
+                        }}
+                      >
+                        <div>
+                          {(t.home || (lang === "fi" ? "Koti" : "Home")) +
+                            ": " +
+                            (match.bestOdds?.home ?? "-")}
+                        </div>
+                        <div>
+                          {(t.draw || (lang === "fi" ? "Tasapeli" : "Draw")) +
+                            ": " +
+                            (match.bestOdds?.draw ?? "-")}
+                        </div>
+                        <div>
+                          {(t.away || (lang === "fi" ? "Vieras" : "Away")) +
+                            ": " +
+                            (match.bestOdds?.away ?? "-")}
+                        </div>
                       </div>
                     </button>
                   ))}
@@ -482,9 +816,7 @@ export default function BettingWorkspaceClient({
                 <>
                   <div style={panelStyle}>
                     <div style={{ fontWeight: 800, fontSize: "18px" }}>
-                      {(selectedMatch?.home_team || "Home") +
-                        " vs " +
-                        (selectedMatch?.away_team || "Away")}
+                      {`${selectedMatch.home_team} vs ${selectedMatch.away_team}`}
                     </div>
 
                     <div
@@ -494,7 +826,9 @@ export default function BettingWorkspaceClient({
                         fontSize: "14px",
                       }}
                     >
-                      {(lang === "fi" ? "Markkina" : "Market") + ": " + currentMarketLabel}
+                      {(lang === "fi" ? "Markkina" : "Market") +
+                        ": " +
+                        currentMarketLabel}
                     </div>
 
                     <div style={{ marginTop: "16px", display: "grid", gap: "12px" }}>
@@ -509,6 +843,15 @@ export default function BettingWorkspaceClient({
                           const recommendedStake = getStakeForRow(row);
                           const favoriteId = `${selectedMatch.id}-${market}-${row.key}`;
                           const favored = isFavorite(favoriteId);
+                          const implied = computeImpliedProbability(row.odds);
+                          const edge =
+                            implied != null
+                              ? Number((row.probability - implied).toFixed(3))
+                              : null;
+                          const ev =
+                            row.odds != null
+                              ? Number((Number(row.odds) * row.probability - 1).toFixed(3))
+                              : null;
 
                           return (
                             <div
@@ -533,6 +876,7 @@ export default function BettingWorkspaceClient({
                                   <div style={{ fontWeight: 800, fontSize: "15px" }}>
                                     {row.label || "-"}
                                   </div>
+
                                   <div
                                     style={{
                                       marginTop: "6px",
@@ -542,6 +886,28 @@ export default function BettingWorkspaceClient({
                                   >
                                     Odds {row.odds}
                                   </div>
+
+                                  <div
+                                    style={{
+                                      marginTop: "6px",
+                                      color: "#94a3b8",
+                                      fontSize: "13px",
+                                      display: "flex",
+                                      gap: "12px",
+                                      flexWrap: "wrap",
+                                    }}
+                                  >
+                                    <span>
+                                      EV {ev != null ? ev : "-"}
+                                    </span>
+                                    <span>
+                                      Edge {edge != null ? edge : "-"}
+                                    </span>
+                                    <span>
+                                      Model {(row.probability * 100).toFixed(1)}%
+                                    </span>
+                                  </div>
+
                                   <div
                                     style={{
                                       marginTop: "6px",
