@@ -1,72 +1,96 @@
 export default function PageSection({
   title,
   description,
-  rightSlot = null,
+  subtitle,
+  eyebrow,
+  rightSlot,
   children,
 }) {
+  const text = description || subtitle || "";
+
   return (
     <section
       style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        background: "rgba(255,255,255,0.04)",
-        borderRadius: "24px",
-        padding: "24px",
+        display: "grid",
+        gap: "18px",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "space-between",
-          gap: "16px",
-          flexWrap: "wrap",
-          marginBottom: "20px",
-        }}
-      >
-        <div style={{ minWidth: 0, flex: "1 1 260px" }}>
-          <h2
-            style={{
-              margin: 0,
-              fontSize: "clamp(24px, 4vw, 32px)",
-              lineHeight: 1.1,
-              color: "#fff",
-            }}
-          >
-            {title}
-          </h2>
-
-          {description ? (
-            <p
+      {(eyebrow || title || text || rightSlot) ? (
+        <div
+          style={{
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: "20px",
+            padding: "20px",
+            background: "rgba(255,255,255,0.03)",
+          }}
+        >
+          {(eyebrow || title || text || rightSlot) ? (
+            <div
               style={{
-                margin: "12px 0 0",
-                fontSize: "clamp(14px, 2vw, 16px)",
-                lineHeight: 1.5,
-                color: "#94a3b8",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "flex-start",
+                gap: "16px",
+                flexWrap: "wrap",
               }}
             >
-              {description}
-            </p>
+              <div style={{ minWidth: 0 }}>
+                {eyebrow ? (
+                  <div
+                    style={{
+                      color: "#86efac",
+                      fontWeight: 800,
+                      letterSpacing: "0.16em",
+                      fontSize: "12px",
+                      textTransform: "uppercase",
+                      marginBottom: title ? "10px" : 0,
+                    }}
+                  >
+                    {eyebrow}
+                  </div>
+                ) : null}
+
+                {title ? (
+                  <h2
+                    style={{
+                      margin: 0,
+                      fontSize: "clamp(28px, 6vw, 44px)",
+                      lineHeight: 1.05,
+                      fontWeight: 900,
+                      color: "#ffffff",
+                    }}
+                  >
+                    {title}
+                  </h2>
+                ) : null}
+
+                {text ? (
+                  <p
+                    style={{
+                      margin: title ? "14px 0 0" : 0,
+                      fontSize: "clamp(15px, 2.8vw, 18px)",
+                      lineHeight: 1.6,
+                      color: "#94a3b8",
+                      maxWidth: "780px",
+                    }}
+                  >
+                    {text}
+                  </p>
+                ) : null}
+              </div>
+
+              {rightSlot ? (
+                <div style={{ flexShrink: 0 }}>{rightSlot}</div>
+              ) : null}
+            </div>
           ) : null}
         </div>
-
-        {rightSlot ? (
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "flex-end",
-              flex: "0 1 auto",
-            }}
-          >
-            {rightSlot}
-          </div>
-        ) : null}
-      </div>
+      ) : null}
 
       <div
         style={{
-          borderTop: "1px solid rgba(255,255,255,0.08)",
-          paddingTop: "20px",
+          display: "grid",
+          gap: "16px",
         }}
       >
         {children}
