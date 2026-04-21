@@ -3,25 +3,56 @@
 import { useMemo, useState } from "react";
 import { runMatchSimulation } from "@/lib/simulator-engine";
 
-export default function MatchSimulatorPanel({
-  matches = [],
-  lang = "en",
-}) {
-  const [selectedMatchId, setSelectedMatchId] = useState(matches?.[0]?.id || null);
+export default function MatchSimulatorPanel({ matches = [], lang = "en" }) {
+  const labels =
+    lang === "fi"
+      ? {
+          title: "Ottelusimulaatio",
+          desc: "Aja yksittäisen ottelun simulaatio markkinatodennäköisyyksien pohjalta.",
+          match: "Ottelu",
+          iterations: "Iteraatiot",
+          home: "Kotivoitto",
+          draw: "Tasapeli",
+          away: "Vierasvoitto",
+          noMatch: "Otteluita ei ole saatavilla simulaatioon.",
+          marketBase: "Perustuu nykyisiin markkinakertoimiin normalisoituna.",
+        }
+      : {
+          title: "Match Simulation",
+          desc: "Run a single-match simulation based on market probabilities.",
+          match: "Match",
+          iterations: "Iterations",
+          home: "Home Win",
+          draw: "Draw",
+          away: "Away Win",
+          noMatch: "No matches available for simulation.",
+          marketBase: "Based on current market odds normalized into probabilities.",
+        };
+
+  const safeMatches = Array.isArray(matches) ? matches : [];
+
+  const [selectedMatchId, setSelectedMatchId] = useState(
+    safeMatches[0]?.id || ""
+  );
   const [iterations, setIterations] = useState(10000);
 
   const selectedMatch = useMemo(() => {
-    return matches.find((match) => match.id === selectedMatchId) || matches[0] || null;
-  }, [matches, selectedMatchId]);
+    if (!safeMatches.length) return null;
+    return (
+      safeMatches.find((match) => match?.id === selectedMatchId) ||
+      safeMatches[0] ||
+      null
+    );
+  }, [safeMatches, selectedMatchId]);
 
   const baseProbabilities = useMemo(() => {
     if (!selectedMatch) {
-      return { home: 0.4, draw: 0.25, away: 0.35 };
+      return { home: 0.45, draw: 0.22, away: 0.33 };
     }
 
-    const homeOdds = Number(selectedMatch.bestOdds?.home || 0);
-    const drawOdds = Number(selectedMatch.bestOdds?.draw || 0);
-    const awayOdds = Number(selectedMatch.bestOdds?.away || 0);
+    const homeOdds = Number(selectedMatch?.bestOdds?.home || 0);
+    const drawOdds = Number(selectedMatch?.bestOdds?.draw || 0);
+    const awayOdds = Number(selectedMatch?.bestOdds?.away || 0);
 
     if (!homeOdds || !awayOdds) {
       return { home: 0.45, draw: 0.22, away: 0.33 };
@@ -45,147 +76,207 @@ export default function MatchSimulatorPanel({
     return runMatchSimulation({
       iterations: Number(iterations) || 10000,
       probabilities: baseProbabilities,
-      homeTeam: selectedMatch.home_team,
-      awayTeam: selectedMatch.away_team,
+      homeTeam: selectedMatch?.home_team || "Home",
+      awayTeam: selectedMatch?.away_team || "Away",
     });
   }, [selectedMatch, iterations, baseProbabilities]);
 
-  const labels =
-    lang === "fi"
-      ? {
-          title: "Ottelusimulaattori",
-          desc: "Aja yksittäisen ottelun simulaatio valitulla iteraatiomäärällä.",
-          match: "Ottelu",
-          iterations: "Iteraatiot",
-          home: "Kotivoitto",
-          draw: "Tasapeli",
-          away: "Vierasvoitto",
-          noMatch: "Otteluita ei ole saatavilla simulaatioon.",
-          marketBase: "Perustuu nykyisiin markkinakertoimiin normalisoituna.",
-        }
-      : {
-          title: "Match Simulator",
-          desc: "Run a single-match simulation with the selected number of iterations.",
-          match: "Match",
-          iterations: "Iterations",
-          home: "Home Win",
-          draw: "Draw",
-          away: "Away Win",
-          noMatch: "No matches available for simulation.",
-          marketBase: "Based on current market odds normalized into probabilities.",
-        };
+  const panelStyle = {
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "20px",
+    padding: "20px",
+    background: "rgba(255,255,255,0.03)",
+  };
 
   const selectStyle = {
     width: "100%",
     border: "1px solid rgba(255,255,255,0.12)",
     background: "rgba(255,255,255,0.06)",
     color: "#fff",
-    borderRadius: "10px",
-    padding: "10px 12px",
-    fontSize: "14px",
+    borderRadius: "14px",
+    padding: "14px 16px",
+    fontSize: "16px",
+    boxSizing: "border-box",
   };
 
   const statCard = (label, value) => (
     <div
+      key={label}
       style={{
-        border: "1px solid rgba(255,255,255,0.1)",
-        background: "rgba(0,0,0,0.2)",
+        border: "1px solid rgba(255,255,255,0.08)",
         borderRadius: "16px",
-        padding: "16px",
+        padding: "18px",
+        background: "rgba(0,0,0,0.18)",
       }}
     >
-      <p style={{ margin: 0, color: "#94a3b8", fontSize: "14px" }}>{label}</p>
-      <p style={{ margin: "8px 0 0", fontWeight: 800, fontSize: "22px" }}>{value}</p>
+      <div
+        style={{
+          fontSize: "14px",
+          color: "#94a3b8",
+          fontWeight: 700,
+          marginBottom: "10px",
+        }}
+      >
+        {label}
+      </div>
+      <div
+        style={{
+          fontSize: "clamp(30px, 7vw, 52px)",
+          lineHeight: 1,
+          fontWeight: 900,
+          color: "#ffffff",
+        }}
+      >
+        {value}
+      </div>
     </div>
   );
 
-  if (!matches.length) {
+  if (!safeMatches.length) {
     return (
-      <div
-        style={{
-          border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(0,0,0,0.2)",
-          borderRadius: "16px",
-          padding: "16px",
-          color: "#94a3b8",
-        }}
-      >
-        {labels.noMatch}
+      <div style={panelStyle}>
+        <div style={{ color: "#94a3b8", fontSize: "16px" }}>{labels.noMatch}</div>
       </div>
     );
   }
 
   return (
-    <div style={{ display: "grid", gap: "16px" }}>
+    <div style={panelStyle}>
       <div
         style={{
+          fontSize: "clamp(28px, 6vw, 42px)",
+          fontWeight: 900,
+          color: "#ffffff",
+          lineHeight: 1.05,
+        }}
+      >
+        {labels.title}
+      </div>
+
+      <div
+        style={{
+          marginTop: "12px",
+          color: "#94a3b8",
+          fontSize: "clamp(15px, 3vw, 18px)",
+          lineHeight: 1.6,
+          maxWidth: "760px",
+        }}
+      >
+        {labels.desc}
+      </div>
+
+      <div
+        style={{
+          marginTop: "22px",
           display: "grid",
           gap: "16px",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
         }}
       >
         <div>
-          <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "#94a3b8",
+              fontSize: "14px",
+              fontWeight: 700,
+            }}
+          >
             {labels.match}
-          </p>
+          </label>
           <select
-            value={selectedMatchId || ""}
+            value={selectedMatchId}
             onChange={(e) => setSelectedMatchId(e.target.value)}
             style={selectStyle}
           >
-            {matches.map((match) => (
-              <option key={match.id} value={match.id} style={{ color: "#000" }}>
-                {match.home_team} vs {match.away_team}
+            {safeMatches.map((match) => (
+              <option key={match.id} value={match.id}>
+                {(match?.home_team || "Home") + " vs " + (match?.away_team || "Away")}
               </option>
             ))}
           </select>
         </div>
 
         <div>
-          <p style={{ margin: "0 0 8px", color: "#94a3b8", fontSize: "14px" }}>
+          <label
+            style={{
+              display: "block",
+              marginBottom: "8px",
+              color: "#94a3b8",
+              fontSize: "14px",
+              fontWeight: 700,
+            }}
+          >
             {labels.iterations}
-          </p>
+          </label>
           <select
             value={iterations}
             onChange={(e) => setIterations(Number(e.target.value))}
             style={selectStyle}
           >
             {[1000, 5000, 10000, 25000].map((value) => (
-              <option key={value} value={value} style={{ color: "#000" }}>
-                {value.toLocaleString()}
+              <option key={value} value={value}>
+                {value.toLocaleString(lang === "fi" ? "fi-FI" : "en-US")}
               </option>
             ))}
           </select>
         </div>
       </div>
 
-      <div
-        style={{
-          border: "1px solid rgba(255,255,255,0.1)",
-          background: "rgba(0,0,0,0.2)",
-          borderRadius: "16px",
-          padding: "16px",
-        }}
-      >
-        <p style={{ margin: 0, fontWeight: 700 }}>
-          {selectedMatch?.home_team} vs {selectedMatch?.away_team}
-        </p>
-        <p style={{ margin: "8px 0 0", color: "#94a3b8", fontSize: "14px" }}>
-          {labels.marketBase}
-        </p>
-      </div>
-
-      {simulation ? (
+      {selectedMatch ? (
         <div
           style={{
+            marginTop: "22px",
             display: "grid",
             gap: "16px",
-            gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
           }}
         >
-          {statCard(labels.home, `${simulation.homeWinPct}%`)}
-          {statCard(labels.draw, `${simulation.drawPct}%`)}
-          {statCard(labels.away, `${simulation.awayWinPct}%`)}
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "16px",
+              padding: "18px",
+              background: "rgba(0,0,0,0.18)",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "clamp(24px, 5vw, 34px)",
+                fontWeight: 900,
+                color: "#ffffff",
+                lineHeight: 1.1,
+              }}
+            >
+              {(selectedMatch?.home_team || "Home") +
+                " vs " +
+                (selectedMatch?.away_team || "Away")}
+            </div>
+
+            <div
+              style={{
+                marginTop: "10px",
+                color: "#94a3b8",
+                fontSize: "16px",
+                lineHeight: 1.5,
+              }}
+            >
+              {labels.marketBase}
+            </div>
+          </div>
+
+          {simulation ? (
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+                gap: "16px",
+              }}
+            >
+              {statCard(labels.home, `${simulation.homeWinPct}%`)}
+              {statCard(labels.draw, `${simulation.drawPct}%`)}
+              {statCard(labels.away, `${simulation.awayWinPct}%`)}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
