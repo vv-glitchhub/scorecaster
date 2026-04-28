@@ -1,48 +1,52 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
 import PageSection from "@/app/components/PageSection";
 import SourceBadge from "@/app/components/SourceBadge";
-import PendingBetsPreview from "@/app/components/PendingBetsPreview";
-import { getOddsData } from "@/lib/odds-service";
-import {
-  buildValueBetRows,
-  getModelProbabilitiesForMatch,
-} from "@/lib/model-engine-v1";
+import { getBaseUrl } from "@/lib/app-url";
+import { cookies } from "next/headers";
 import { getDictionary, normalizeLang } from "@/lib/i18n";
 
-async function getDashboardData() {
+async function getTopPicks() {
   try {
-    const oddsData = await getOddsData({ sport: "icehockey_liiga" });
-    const matches = oddsData?.matches || [];
+    const baseUrl = getBaseUrl();
+    const res = await fetch(
+      `${baseUrl}/api/top-picks?sport=icehockey_liiga&limit=3`,
+      { cache: "no-store" }
+    );
 
-    const picks = matches
-      .flatMap((match) => {
-        const model = getModelProbabilitiesForMatch(match);
-        return buildValueBetRows(match, model).map((row) => ({
-          matchId: match.id,
-          home_team: match.home_team,
-          away_team: match.away_team,
-          selection: row.side,
-          team: row.team,
-          odds: row.odds,
-          edgePct: row.edgePct,
-          expectedValue: row.expectedValue,
-        }));
-      })
-      .filter((pick) => pick.expectedValue > 0)
-      .sort((a, b) => b.expectedValue - a.expectedValue)
-      .slice(0, 3);
+    if (!res.ok) {
+      return { picks: [], source: "unknown", cached: false };
+    }
 
-    return {
-      oddsData,
-      picks,
-    };
+    return res.json();
   } catch {
-    return {
-      oddsData: { matches: [], source: "unknown", cached: false },
-      picks: [],
-    };
+    return { picks: [], source: "unknown", cached: false };
   }
+}
+
+async function getOddsPreview() {
+  try {
+    const baseUrl = getBaseUrl();
+    const res = await fetch(`${baseUrl}/api/odds?sport=icehockey_liiga`, {
+      cache: "no-store",
+    });
+
+    if (!res.ok) {
+      return { matches: [], source: "unknown", cached: false, reason: "" };
+    }
+
+    return res.json();
+  } catch {
+    return { matches: [], source: "unknown", cached: false, reason: "" };
+  }
+}
+
+function cardStyle() {
+  return {
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: "20px",
+    padding: "20px",
+    background: "rgba(255,255,255,0.03)",
+  };
 }
 
 export default async function HomePage() {
@@ -50,380 +54,507 @@ export default async function HomePage() {
   const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "fi");
   const t = getDictionary(lang);
 
-  const { oddsData, picks } = await getDashboardData();
+  const [topPicksData, oddsData] = await Promise.all([
+    getTopPicks(),
+    getOddsPreview(),
+  ]);
+
+  const topPicks = Array.isArray(topPicksData?.picks) ? topPicksData.picks : [];
   const previewMatch = oddsData?.matches?.[0] || null;
 
   return (
-    <div style={{ display: "grid", gap: "24px" }}>
-      <section
-        style={{
-          border: "1px solid rgba(16,185,129,0.25)",
-          borderRadius: "24px",
-          padding: "32px 24px",
-          background:
-            "linear-gradient(135deg, rgba(16,185,129,0.12), rgba(34,211,238,0.10))",
-          overflow: "hidden",
-        }}
+    <div style={{ display: "grid", gap: "18px" }}>
+      <PageSection
+        eyebrow={t.dashboardEyebrow}
+        title={t.dashboardTitle}
+        subtitle={t.dashboardDescription}
       >
-        <div style={{ maxWidth: "760px" }}>
-          <p
-            style={{
-              margin: "0 0 12px",
-              fontSize: "12px",
-              letterSpacing: "0.2em",
-              textTransform: "uppercase",
-              color: "#6ee7b7",
-              fontWeight: 700,
-            }}
-          >
-            {t.dashboardEyebrow}
-          </p>
-
-          <h1
-            style={{
-              margin: 0,
-              fontSize: "clamp(34px, 9vw, 56px)",
-              lineHeight: 1.03,
-              wordBreak: "break-word",
-            }}
-          >
-            {t.dashboardTitle}
-          </h1>
-
-          <p
-            style={{
-              marginTop: "16px",
-              color: "#cbd5e1",
-              fontSize: "clamp(16px, 4vw, 20px)",
-              lineHeight: 1.6,
-            }}
-          >
-            {t.dashboardDescription}
-          </p>
-
-          <div
-            style={{
-              display: "flex",
-              gap: "12px",
-              flexWrap: "wrap",
-              marginTop: "24px",
-            }}
-          >
-            <Link
-              href="/betting"
-              style={{
-                background: "#10b981",
-                color: "#000",
-                padding: "14px 18px",
-                borderRadius: "16px",
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              {t.openBettingWorkspace}
-            </Link>
-
-            <Link
-              href="/simulator"
-              style={{
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: "rgba(255,255,255,0.05)",
-                color: "#fff",
-                padding: "14px 18px",
-                borderRadius: "16px",
-                fontWeight: 700,
-                textDecoration: "none",
-              }}
-            >
-              {t.openSimulator}
-            </Link>
-          </div>
-        </div>
-      </section>
-
-      <PageSection title={t.disclaimerTitle} description={t.disclaimerDescription}>
         <div
           style={{
-            border: "1px solid rgba(245,158,11,0.25)",
-            background: "rgba(245,158,11,0.08)",
-            borderRadius: "16px",
-            padding: "16px",
-            color: "#f8fafc",
-            lineHeight: 1.7,
-            fontSize: "15px",
+            display: "flex",
+            gap: "12px",
+            flexWrap: "wrap",
           }}
         >
-          {t.disclaimerText}
+          <Link
+            href="/betting"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "48px",
+              padding: "0 18px",
+              borderRadius: "14px",
+              textDecoration: "none",
+              fontWeight: 800,
+              background: "rgba(34,197,94,0.16)",
+              border: "1px solid rgba(34,197,94,0.45)",
+              color: "#dcfce7",
+            }}
+          >
+            {t.openBettingWorkspace}
+          </Link>
+
+          <Link
+            href="/simulator"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              minHeight: "48px",
+              padding: "0 18px",
+              borderRadius: "14px",
+              textDecoration: "none",
+              fontWeight: 800,
+              background: "rgba(255,255,255,0.06)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#ffffff",
+            }}
+          >
+            {t.openSimulator}
+          </Link>
+        </div>
+      </PageSection>
+
+      <PageSection
+        title={t.disclaimerTitle}
+        subtitle={t.disclaimerDescription}
+      >
+        <div style={cardStyle()}>
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: "16px",
+              lineHeight: 1.7,
+            }}
+          >
+            {t.disclaimerText}
+          </div>
         </div>
       </PageSection>
 
       <div
         style={{
           display: "grid",
-          gap: "24px",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+          gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.95fr)",
+          gap: "16px",
         }}
       >
-        <PageSection title={t.topPicks} description={t.topPicksDescription}>
-          <div style={{ display: "grid", gap: "12px" }}>
-            {picks.length === 0 ? (
-              <div
-                style={{
-                  border: "1px solid rgba(255,255,255,0.1)",
-                  background: "rgba(0,0,0,0.2)",
-                  borderRadius: "16px",
-                  padding: "16px",
-                  color: "#94a3b8",
-                  fontSize: "14px",
-                }}
-              >
-                {t.noTopPicks}
-              </div>
-            ) : (
-              picks.map((pick) => (
+        <div style={cardStyle()}>
+          <div
+            style={{
+              fontSize: "24px",
+              fontWeight: 900,
+              color: "#ffffff",
+              marginBottom: "8px",
+            }}
+          >
+            {t.topPicks}
+          </div>
+
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: "15px",
+              lineHeight: 1.6,
+              marginBottom: "16px",
+            }}
+          >
+            {t.topPicksDescription}
+          </div>
+
+          {topPicks.length === 0 ? (
+            <div style={{ color: "#94a3b8", fontSize: "14px" }}>{t.noTopPicks}</div>
+          ) : (
+            <div style={{ display: "grid", gap: "12px" }}>
+              {topPicks.map((pick, index) => (
                 <div
-                  key={`${pick.matchId}-${pick.selection}`}
+                  key={`${pick.match_id || pick.home_team}-${pick.team}-${index}`}
                   style={{
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    background: "rgba(0,0,0,0.2)",
-                    borderRadius: "16px",
-                    padding: "16px",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "14px",
+                    padding: "14px",
+                    background: "rgba(255,255,255,0.03)",
                   }}
                 >
                   <div
                     style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      gap: "12px",
+                      fontWeight: 800,
+                      color: "#ffffff",
+                      fontSize: "15px",
                     }}
                   >
-                    <div>
-                      <p style={{ margin: 0, fontWeight: 700 }}>
-                        {pick.home_team} vs {pick.away_team}
-                      </p>
-                      <p
-                        style={{
-                          margin: "6px 0 0",
-                          color: "#94a3b8",
-                          fontSize: "14px",
-                        }}
-                      >
-                        {pick.selection} • {pick.team}
-                      </p>
-                    </div>
+                    {pick.home_team} vs {pick.away_team}
+                  </div>
 
-                    <div style={{ textAlign: "right", fontSize: "14px" }}>
-                      <p style={{ margin: 0, color: "#6ee7b7" }}>
-                        EV {pick.edgePct}%
-                      </p>
-                      <p style={{ margin: "6px 0 0", color: "#cbd5e1" }}>
-                        Odds {pick.odds}
-                      </p>
-                    </div>
+                  <div
+                    style={{
+                      marginTop: "6px",
+                      color: "#94a3b8",
+                      fontSize: "13px",
+                    }}
+                  >
+                    {t.selection}: {pick.selection} • {pick.team}
+                  </div>
+
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      display: "flex",
+                      gap: "12px",
+                      flexWrap: "wrap",
+                      fontSize: "13px",
+                      color: "#dbe4f0",
+                    }}
+                  >
+                    <span>Odds {pick.odds ?? "-"}</span>
+                    <span>{t.edge} {pick.edgePct ?? "-"}%</span>
+                    <span>{t.confidence} {pick.confidence ?? "-"}</span>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        </PageSection>
-
-        <PageSection
-          title={t.dataSourceStatus}
-          description={t.dataSourceStatusDescription}
-          rightSlot={
-            <SourceBadge
-              source={oddsData?.source}
-              cached={oddsData?.cached}
-              lang={lang}
-            />
-          }
-        >
-          <div style={{ display: "grid", gap: "12px" }}>
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                {t.oddsSource}
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.source || "unknown"}
-              </p>
+              ))}
             </div>
+          )}
+        </div>
 
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                {t.cacheStatus}
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.cached ? t.statusCache.toLowerCase() : t.statusFresh.toLowerCase()}
-              </p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                {t.matchesLoaded}
-              </p>
-              <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-                {oddsData?.matches?.length || 0}
-              </p>
-            </div>
-          </div>
-        </PageSection>
-
-        <PageSection
-          title={lang === "fi" ? "Avoimet vedot" : "Pending Bets"}
-          description={
-            lang === "fi"
-              ? "Nopea esikatselu avoimista vedoista."
-              : "Quick preview of open bets."
-          }
-        >
-          <PendingBetsPreview lang={lang} />
-        </PageSection>
-
-        <PageSection
-          title={t.simulatorPreview}
-          description={t.simulatorPreviewDescription}
-        >
+        <div style={cardStyle()}>
           <div
             style={{
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: "16px",
-              padding: "16px",
+              fontSize: "24px",
+              fontWeight: 900,
+              color: "#ffffff",
+              marginBottom: "8px",
             }}
           >
-            <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-              {t.nextStep}
-            </p>
-            <p style={{ margin: "8px 0 0", fontSize: "20px", fontWeight: 700 }}>
-              {t.simulatorPreviewText}
-            </p>
-            <p style={{ marginTop: "12px", fontSize: "14px", color: "#cbd5e1" }}>
-              {t.simulatorPreviewSubtext}
-            </p>
+            {t.dataSourceStatus}
+          </div>
 
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: "15px",
+              lineHeight: 1.6,
+              marginBottom: "16px",
+            }}
+          >
+            {t.dataSourceStatusDescription}
+          </div>
+
+          <SourceBadge
+            source={oddsData?.source}
+            cached={oddsData?.cached}
+            status={oddsData?.cached ? "cache" : "fresh"}
+            lang={lang}
+          />
+
+          <div
+            style={{
+              marginTop: "16px",
+              display: "grid",
+              gap: "10px",
+            }}
+          >
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                {t.oddsSource}
+              </div>
+              <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                {oddsData?.source || "unknown"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                {t.cacheStatus}
+              </div>
+              <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                {oddsData?.cached ? "cached" : "fresh"}
+              </div>
+            </div>
+
+            <div
+              style={{
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderRadius: "12px",
+                padding: "12px 14px",
+                background: "rgba(255,255,255,0.03)",
+              }}
+            >
+              <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                {t.matchesLoaded}
+              </div>
+              <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                {oddsData?.matches?.length || 0}
+              </div>
+            </div>
+
+            {oddsData?.reason ? (
+              <div
+                style={{
+                  border: "1px solid rgba(255,255,255,0.08)",
+                  borderRadius: "12px",
+                  padding: "12px 14px",
+                  background: "rgba(255,255,255,0.03)",
+                }}
+              >
+                <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                  {t.dataReason}
+                </div>
+                <div style={{ color: "#dbe4f0", lineHeight: 1.6 }}>
+                  {oddsData.reason}
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "minmax(0, 0.9fr) minmax(0, 1.1fr)",
+          gap: "16px",
+        }}
+      >
+        <div style={cardStyle()}>
+          <div
+            style={{
+              fontSize: "24px",
+              fontWeight: 900,
+              color: "#ffffff",
+              marginBottom: "8px",
+            }}
+          >
+            {t.simulatorPreview}
+          </div>
+
+          <div
+            style={{
+              color: "#94a3b8",
+              fontSize: "15px",
+              lineHeight: 1.6,
+              marginBottom: "16px",
+            }}
+          >
+            {t.simulatorPreviewDescription}
+          </div>
+
+          <div
+            style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "14px",
+              padding: "14px",
+              background: "rgba(255,255,255,0.03)",
+            }}
+          >
+            <div
+              style={{
+                color: "#ffffff",
+                fontWeight: 800,
+                marginBottom: "8px",
+              }}
+            >
+              {t.nextStep}
+            </div>
+
+            <div
+              style={{
+                color: "#dbe4f0",
+                fontSize: "15px",
+                lineHeight: 1.6,
+              }}
+            >
+              {t.simulatorPreviewText}
+            </div>
+
+            <div
+              style={{
+                marginTop: "8px",
+                color: "#94a3b8",
+                fontSize: "14px",
+                lineHeight: 1.6,
+              }}
+            >
+              {t.simulatorPreviewSubtext}
+            </div>
+          </div>
+
+          <div style={{ marginTop: "16px" }}>
             <Link
               href="/simulator"
               style={{
-                display: "inline-block",
-                marginTop: "16px",
+                display: "inline-flex",
+                alignItems: "center",
+                justifyContent: "center",
+                minHeight: "46px",
+                padding: "0 16px",
                 borderRadius: "12px",
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(255,255,255,0.05)",
-                padding: "10px 14px",
-                fontSize: "14px",
-                fontWeight: 600,
-                color: "#fff",
                 textDecoration: "none",
+                fontWeight: 800,
+                background: "rgba(255,255,255,0.06)",
+                border: "1px solid rgba(255,255,255,0.12)",
+                color: "#ffffff",
               }}
             >
               {t.goToSimulator}
             </Link>
           </div>
-        </PageSection>
-      </div>
+        </div>
 
-      <PageSection title={t.matchPreview} description={t.matchPreviewDescription}>
-        {!previewMatch ? (
+        <div style={cardStyle()}>
           <div
             style={{
-              border: "1px solid rgba(255,255,255,0.1)",
-              background: "rgba(0,0,0,0.2)",
-              borderRadius: "16px",
-              padding: "16px",
-              color: "#94a3b8",
-              fontSize: "14px",
+              fontSize: "24px",
+              fontWeight: 900,
+              color: "#ffffff",
+              marginBottom: "8px",
             }}
           >
-            {t.noMatchPreview}
+            {t.matchPreview}
           </div>
-        ) : (
+
           <div
             style={{
-              display: "grid",
-              gap: "16px",
-              gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+              color: "#94a3b8",
+              fontSize: "15px",
+              lineHeight: 1.6,
+              marginBottom: "16px",
             }}
           >
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "22px", fontWeight: 700 }}>
-                {previewMatch.home_team} vs {previewMatch.away_team}
-              </p>
-              <p
+            {t.matchPreviewDescription}
+          </div>
+
+          {!previewMatch ? (
+            <div style={{ color: "#94a3b8", fontSize: "14px" }}>{t.noMatchPreview}</div>
+          ) : (
+            <>
+              <div
                 style={{
-                  margin: "8px 0 0",
-                  fontSize: "14px",
-                  color: "#94a3b8",
+                  fontSize: "22px",
+                  fontWeight: 900,
+                  color: "#ffffff",
+                  lineHeight: 1.2,
                 }}
               >
-                {previewMatch.sport_title}
-              </p>
-            </div>
-
-            <div
-              style={{
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: "rgba(0,0,0,0.2)",
-                borderRadius: "16px",
-                padding: "16px",
-              }}
-            >
-              <p style={{ margin: 0, fontSize: "14px", color: "#94a3b8" }}>
-                {t.bestOdds}
-              </p>
+                {previewMatch.home_team} vs {previewMatch.away_team}
+              </div>
 
               <div
                 style={{
-                  marginTop: "12px",
-                  display: "grid",
-                  gap: "8px",
+                  marginTop: "8px",
+                  color: "#94a3b8",
                   fontSize: "14px",
                 }}
               >
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>{t.home}</span>
-                  <span>{previewMatch.bestOdds?.home ?? "-"}</span>
+                {previewMatch.sport_title}
+              </div>
+
+              <div
+                style={{
+                  marginTop: "14px",
+                  color: "#dbe4f0",
+                  fontSize: "15px",
+                  lineHeight: 1.6,
+                }}
+              >
+                Dashboard näyttää vain kevyen preview’n. Täysi analyysi löytyy betting-sivulta.
+              </div>
+
+              <div
+                style={{
+                  marginTop: "16px",
+                  display: "grid",
+                  gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
+                  gap: "10px",
+                }}
+              >
+                <div
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                    {t.home}
+                  </div>
+                  <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                    {previewMatch.bestOdds?.home ?? "-"}
+                  </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>{t.draw}</span>
-                  <span>{previewMatch.bestOdds?.draw ?? "-"}</span>
+
+                <div
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                    {t.draw}
+                  </div>
+                  <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                    {previewMatch.bestOdds?.draw ?? "-"}
+                  </div>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between" }}>
-                  <span style={{ color: "#cbd5e1" }}>{t.away}</span>
-                  <span>{previewMatch.bestOdds?.away ?? "-"}</span>
+
+                <div
+                  style={{
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: "12px",
+                    padding: "12px",
+                    background: "rgba(255,255,255,0.03)",
+                  }}
+                >
+                  <div style={{ color: "#94a3b8", fontSize: "12px", marginBottom: "6px" }}>
+                    {t.away}
+                  </div>
+                  <div style={{ color: "#ffffff", fontWeight: 800 }}>
+                    {previewMatch.bestOdds?.away ?? "-"}
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
-      </PageSection>
+
+              <div style={{ marginTop: "16px" }}>
+                <Link
+                  href="/betting"
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    minHeight: "46px",
+                    padding: "0 16px",
+                    borderRadius: "12px",
+                    textDecoration: "none",
+                    fontWeight: 800,
+                    background: "rgba(34,197,94,0.14)",
+                    border: "1px solid rgba(34,197,94,0.45)",
+                    color: "#dcfce7",
+                  }}
+                >
+                  {t.openAnalysis}
+                </Link>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }
