@@ -1,5 +1,7 @@
 "use client";
 
+import { getDictionary } from "@/lib/i18n";
+
 function getStyles(level) {
   if (level === "high") {
     return {
@@ -25,31 +27,73 @@ function getStyles(level) {
 }
 
 export default function RiskFlags({ flags = [], lang = "en" }) {
-  const title = lang === "fi" ? "Riskiliput" : "Risk Flags";
+  const t = getDictionary(lang);
 
   return (
-    <div style={{ display: "grid", gap: "12px" }}>
-      <p style={{ margin: 0, fontWeight: 700 }}>{title}</p>
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.1)",
+        borderRadius: "16px",
+        padding: "16px",
+        background: "rgba(0,0,0,0.2)",
+      }}
+    >
+      <div
+        style={{
+          fontWeight: 800,
+          fontSize: "18px",
+          marginBottom: "12px",
+          color: "#ffffff",
+        }}
+      >
+        {t.riskFlags}
+      </div>
 
-      {flags.map((flag) => {
-        const styles = getStyles(flag.level);
+      {flags.length === 0 ? (
+        <div style={{ color: "#94a3b8", fontSize: "14px" }}>{t.noRiskFlags}</div>
+      ) : (
+        <div
+          style={{
+            display: "grid",
+            gap: "10px",
+          }}
+        >
+          {flags.map((flag) => {
+            const styles = getStyles(flag.level);
 
-        return (
-          <div
-            key={`${flag.level}-${flag.label}`}
-            style={{
-              ...styles,
-              borderRadius: "14px",
-              padding: "14px",
-            }}
-          >
-            <p style={{ margin: 0, fontWeight: 700 }}>{flag.label}</p>
-            <p style={{ margin: "8px 0 0", fontSize: "14px", color: "#e2e8f0" }}>
-              {flag.description}
-            </p>
-          </div>
-        );
-      })}
+            return (
+              <div
+                key={`${flag.level}-${flag.label}`}
+                style={{
+                  ...styles,
+                  borderRadius: "12px",
+                  padding: "12px 14px",
+                }}
+              >
+                <div
+                  style={{
+                    fontWeight: 800,
+                    fontSize: "14px",
+                    marginBottom: "6px",
+                  }}
+                >
+                  {flag.label}
+                </div>
+
+                <div
+                  style={{
+                    fontSize: "13px",
+                    lineHeight: 1.5,
+                    opacity: 0.95,
+                  }}
+                >
+                  {flag.description}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
