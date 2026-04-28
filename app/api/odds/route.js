@@ -1,32 +1,16 @@
-import { NextResponse } from "next/server";
-import { getOddsData } from "@/lib/odds-service";
+import { NextResponse }
+from "next/server";
 
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url);
+import {
+getOddsData
+}
+from "@/lib/odds-service";
 
-    const sport = searchParams.get("sport") || "icehockey_liiga";
-    const league = searchParams.get("league") || "";
-    const market = searchParams.get("market") || "h2h";
-    const region = searchParams.get("region") || "eu";
-    const forceRefresh = searchParams.get("refresh") === "1";
+export async function GET(){
 
-    const data = await getOddsData({
-      sport,
-      league,
-      market,
-      region,
-      forceRefresh,
-    });
+const data=
+await getOddsData();
 
-    return NextResponse.json(data);
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to fetch odds",
-        details: error?.message || "Unknown error",
-      },
-      { status: 500 }
-    );
-  }
+return NextResponse.json(data);
+
 }
