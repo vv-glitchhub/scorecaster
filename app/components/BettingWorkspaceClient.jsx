@@ -49,6 +49,8 @@ function normalizeOddsData(data) {
     source: data?.source || "unknown",
     status: data?.status || "fresh",
     reason: data?.reason || "",
+    cached: Boolean(data?.cached),
+    cacheAgeSeconds: data?.cacheAgeSeconds ?? null,
     matches: matches.map((match) => ({
       ...match,
       id:
@@ -106,7 +108,6 @@ export default function BettingWorkspaceClient({
 
   const { addBet } = useBetStore();
   const { toggleFavorite, isFavorite } = useFavoritesStore();
-
   const { addSnapshot, getSnapshots, clearHistory } = useOddsHistoryStore();
 
   const [oddsData, setOddsData] = useState(() =>
@@ -118,7 +119,6 @@ export default function BettingWorkspaceClient({
   const [manualStake, setManualStake] = useState("10");
   const [bankroll, setBankroll] = useState("1000");
   const [kellyFraction, setKellyFraction] = useState("0.25");
-  const [refreshInterval, setRefreshInterval] = useState(15);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
   const [refreshError, setRefreshError] = useState("");
@@ -150,7 +150,7 @@ export default function BettingWorkspaceClient({
       setIsRefreshing(true);
       setRefreshError("");
 
-      const response = await fetch("/api/odds?sport=icehockey_liiga", {
+      const response = await fetch("/api/odds", {
         method: "GET",
         cache: "no-store",
       });
@@ -162,23 +162,21 @@ export default function BettingWorkspaceClient({
       const raw = await response.json();
       const nextData = normalizeOddsData(raw);
 
-      if (!Array.isArray(nextData.matches) || nextData.matches.length === 0) {
-        throw new Error("No matches returned");
-      }
-
       setOddsData(nextData);
       setLastUpdatedAt(Date.now());
 
-      addSnapshot({
-        market,
-        matches: nextData.matches,
-        source: nextData.source,
-      });
+      if (nextData.matches.length > 0) {
+        addSnapshot({
+          market,
+          matches: nextData.matches,
+          source: nextData.source,
+        });
+      }
     } catch {
       setRefreshError(
         lang === "fi"
-          ? "Live-päivitys epäonnistui. Nykyinen data pidetään näkyvissä."
-          : "Live refresh failed. Current data remains visible."
+          ? "Datan päivitys epäonnistui. Nykyinen data pidetään näkyvissä."
+          : "Data refresh failed. Current data remains visible."
       );
     } finally {
       setIsRefreshing(false);
@@ -194,13 +192,6 @@ export default function BettingWorkspaceClient({
       });
     }
   }, [market, matches, oddsData.source, addSnapshot]);
-
-  useEffect(() => {
-    if (!refreshInterval || refreshInterval <= 0) return;
-
-    const timer = setInterval(refreshOdds, refreshInterval * 1000);
-    return () => clearInterval(timer);
-  }, [refreshInterval, refreshOdds]);
 
   const snapshots = selectedMatch ? getSnapshots(market, selectedMatch.id) : [];
 
@@ -356,8 +347,8 @@ export default function BettingWorkspaceClient({
         title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
         subtitle={
           lang === "fi"
-            ? "Live-oddsit, datan luotettavuus, riskiliput ja hallitut suositukset yhdessä näkymässä."
-            : "Live odds, data trust, risk flags and controlled recommendations in one view."
+            ? "Data päivittyy vain napista, jotta API-creditit eivät kulu automaattisesti."
+            : "Data updates only from the button, so API credits are not used automatically."
         }
       >
         <DataTrustPanel trust={trust} lang={lang} />
@@ -404,13 +395,17 @@ export default function BettingWorkspaceClient({
               alignItems: "center",
             }}
           >
-            <SourceBadge>{String(oddsData.source || "unknown").toUpperCase()}</SourceBadge>
+            <SourceBadge>
+              {String(oddsData.source || "unknown").toUpperCase()}
+            </SourceBadge>
 
             <SourceBadge>
               {isRefreshing
                 ? lang === "fi"
                   ? "PÄIVITTYY"
                   : "UPDATING"
+                : oddsData.cached
+                ? "CACHE"
                 : String(oddsData.status || "LIVE").toUpperCase()}
             </SourceBadge>
           </div>
@@ -427,40 +422,28 @@ export default function BettingWorkspaceClient({
             {formatClock(lastUpdatedAt, lang)}
           </div>
 
+          {oddsData.cached ? (
+            <div
+              style={{
+                marginTop: "8px",
+                color: "#94a3b8",
+                fontSize: "13px",
+              }}
+            >
+              {lang === "fi"
+                ? `Näytetään välimuistista. Ikä ${oddsData.cacheAgeSeconds}s.`
+                : `Showing cached data. Age ${oddsData.cacheAgeSeconds}s.`}
+            </div>
+          ) : null}
+
           <div
             style={{
               marginTop: "14px",
-              display: "grid",
-              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              display: "flex",
               gap: "12px",
-              alignItems: "end",
+              flexWrap: "wrap",
             }}
           >
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  color: "#94a3b8",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  marginBottom: "6px",
-                }}
-              >
-                {lang === "fi" ? "Päivitysväli" : "Refresh interval"}
-              </label>
-
-              <select
-                value={refreshInterval}
-                onChange={(e) => setRefreshInterval(Number(e.target.value))}
-                style={inputStyle}
-              >
-                <option value={5}>5s</option>
-                <option value={15}>15s</option>
-                <option value={30}>30s</option>
-                <option value={60}>60s</option>
-              </select>
-            </div>
-
             <button
               type="button"
               onClick={refreshOdds}
@@ -472,8 +455,8 @@ export default function BettingWorkspaceClient({
                   ? "Päivitetään..."
                   : "Refreshing..."
                 : lang === "fi"
-                ? "Päivitä"
-                : "Refresh"}
+                ? "Päivitä data"
+                : "Refresh data"}
             </button>
 
             <button type="button" onClick={clearHistory} style={buttonStyle()}>
@@ -512,8 +495,8 @@ export default function BettingWorkspaceClient({
                 }}
               >
                 {lang === "fi"
-                  ? "Otteluita ei ole saatavilla."
-                  : "No matches available."}
+                  ? "Otteluita ei ole saatavilla. Paina Päivitä data."
+                  : "No matches available. Press Refresh data."}
               </div>
             ) : (
               <div style={{ display: "grid", gap: "10px" }}>
@@ -682,7 +665,9 @@ export default function BettingWorkspaceClient({
                               }}
                             >
                               Edge{" "}
-                              {edge != null ? `${(edge * 100).toFixed(1)}%` : "-"}
+                              {edge != null
+                                ? `${(edge * 100).toFixed(1)}%`
+                                : "-"}
                             </div>
 
                             <div
