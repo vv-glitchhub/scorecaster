@@ -9,7 +9,6 @@ import FavoritesPanel from "@/app/components/FavoritesPanel";
 import ConfidenceBreakdown from "@/app/components/ConfidenceBreakdown";
 import RiskFlags from "@/app/components/RiskFlags";
 import MarketMovementPanel from "@/app/components/MarketMovementPanel";
-
 import DataTrustPanel from "@/app/components/DataTrustPanel";
 import PickExplanation from "@/app/components/PickExplanation";
 import TrustWarning from "@/app/components/TrustWarning";
@@ -25,694 +24,846 @@ import {
 } from "@/lib/odds-history-store";
 
 import { assessDataQuality } from "@/lib/data-quality";
-
 import { getDictionary } from "@/lib/i18n";
 import { useFavoritesStore } from "@/lib/favorites-store";
 import { useBetStore } from "@/lib/useBetStore";
 import { kellyStake } from "@/lib/kelly";
 
-function formatClock(ts, lang) {
-  if (!ts) return "-";
+function formatClock(timestamp, lang) {
+  if (!timestamp) return "-";
 
-  return new Date(ts).toLocaleTimeString(
+  return new Date(timestamp).toLocaleTimeString(
     lang === "fi" ? "fi-FI" : "en-GB",
     {
-      hour:"2-digit",
-      minute:"2-digit",
-      second:"2-digit"
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     }
   );
 }
 
 function normalizeOddsData(data) {
-
-  const matches = Array.isArray(data?.matches)
-    ? data.matches
-    : [];
+  const matches = Array.isArray(data?.matches) ? data.matches : [];
 
   return {
-    source:data?.source || "unknown",
-    status:data?.status || "fresh",
-    reason:data?.reason || "",
-    matches: matches.map((m)=>({
-      ...m,
+    source: data?.source || "unknown",
+    status: data?.status || "fresh",
+    reason: data?.reason || "",
+    matches: matches.map((match) => ({
+      ...match,
       id:
-        m?.id ||
-        `${m?.sport_key||"sport"}:${m?.home_team||"home"}:${m?.away_team||"away"}`,
-
-      home_team:m?.home_team || "Home",
-      away_team:m?.away_team || "Away",
-
-      bestOdds:{
-        home:m?.bestOdds?.home ?? null,
-        draw:m?.bestOdds?.draw ?? null,
-        away:m?.bestOdds?.away ?? null,
-
-        point:m?.bestOdds?.point ?? null,
-        over:m?.bestOdds?.over ?? null,
-        under:m?.bestOdds?.under ?? null,
-
-        spreadPointHome:m?.bestOdds?.spreadPointHome ?? null,
-        spreadPointAway:m?.bestOdds?.spreadPointAway ?? null,
-        spreadHome:m?.bestOdds?.spreadHome ?? null,
-        spreadAway:m?.bestOdds?.spreadAway ?? null,
-      }
-    }))
+        match?.id ||
+        `${match?.sport_key || "sport"}:${match?.home_team || "home"}:${
+          match?.away_team || "away"
+        }:${match?.commence_time || "time"}`,
+      sport_title: match?.sport_title || match?.sport_key || "Unknown",
+      home_team: match?.home_team || "Home",
+      away_team: match?.away_team || "Away",
+      bestOdds: {
+        home: match?.bestOdds?.home ?? null,
+        draw: match?.bestOdds?.draw ?? null,
+        away: match?.bestOdds?.away ?? null,
+        point: match?.bestOdds?.point ?? null,
+        over: match?.bestOdds?.over ?? null,
+        under: match?.bestOdds?.under ?? null,
+        spreadPointHome: match?.bestOdds?.spreadPointHome ?? null,
+        spreadPointAway: match?.bestOdds?.spreadPointAway ?? null,
+        spreadHome: match?.bestOdds?.spreadHome ?? null,
+        spreadAway: match?.bestOdds?.spreadAway ?? null,
+      },
+    })),
   };
 }
 
-function impliedProb(odds){
- const n=Number(odds);
- if(!n || n<=1) return null;
- return 1/n;
+function impliedProb(odds) {
+  const n = Number(odds);
+  if (!Number.isFinite(n) || n <= 1) return null;
+  return 1 / n;
+}
+
+function buttonStyle(variant = "default") {
+  const green = variant === "green";
+
+  return {
+    border: green
+      ? "1px solid rgba(34,197,94,0.55)"
+      : "1px solid rgba(255,255,255,0.14)",
+    background: green ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
+    color: green ? "#bbf7d0" : "#ffffff",
+    borderRadius: "12px",
+    padding: "12px 16px",
+    fontSize: "15px",
+    fontWeight: 800,
+    cursor: "pointer",
+  };
 }
 
 export default function BettingWorkspaceClient({
- initialOddsData,
- lang="fi"
-}){
+  initialOddsData,
+  lang = "fi",
+}) {
+  const t = getDictionary(lang);
 
- const t=getDictionary(lang);
+  const { addBet } = useBetStore();
+  const { toggleFavorite, isFavorite } = useFavoritesStore();
 
- const {addBet}=useBetStore();
+  const { addSnapshot, getSnapshots, clearHistory } = useOddsHistoryStore();
 
- const {toggleFavorite,isFavorite}=useFavoritesStore();
+  const [oddsData, setOddsData] = useState(() =>
+    normalizeOddsData(initialOddsData || {})
+  );
 
- const {
-   addSnapshot,
-   getSnapshots,
-   clearHistory
- }=useOddsHistoryStore();
+  const [market, setMarket] = useState("h2h");
+  const [stakeMode, setStakeMode] = useState("manual");
+  const [manualStake, setManualStake] = useState("10");
+  const [bankroll, setBankroll] = useState("1000");
+  const [kellyFraction, setKellyFraction] = useState("0.25");
+  const [refreshInterval, setRefreshInterval] = useState(15);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(Date.now());
+  const [refreshError, setRefreshError] = useState("");
 
- const [oddsData,setOddsData]=useState(
-   normalizeOddsData(initialOddsData || {})
- );
+  const matches = oddsData.matches || [];
 
- const [market,setMarket]=useState("h2h");
+  const [selectedMatchId, setSelectedMatchId] = useState(
+    matches[0]?.id || null
+  );
 
- const [stakeMode,setStakeMode]=useState("manual");
- const [manualStake,setManualStake]=useState("10");
+  const selectedMatch = useMemo(() => {
+    if (!matches.length) return null;
 
- const [bankroll,setBankroll]=useState("1000");
- const [kellyFraction,setKellyFraction]=useState("0.25");
+    return (
+      matches.find((match) => match.id === selectedMatchId) ||
+      matches[0] ||
+      null
+    );
+  }, [matches, selectedMatchId]);
 
- const [refreshInterval,setRefreshInterval]=useState(15);
-
- const [isRefreshing,setIsRefreshing]=useState(false);
-
- const [lastUpdatedAt,setLastUpdatedAt]=useState(Date.now());
-
- const matches=oddsData.matches || [];
-
- const [selectedMatchId,setSelectedMatchId]=useState(
-   matches[0]?.id || null
- );
-
- const selectedMatch=useMemo(()=>{
-   if(!matches.length) return null;
-
-   return (
-    matches.find(
-      x=>x.id===selectedMatchId
-    )
-    || matches[0]
-    || null
-   );
-
- },[
-   matches,
-   selectedMatchId
- ]);
-
- useEffect(()=>{
-   if(!selectedMatch && matches.length){
+  useEffect(() => {
+    if (!selectedMatch && matches.length > 0) {
       setSelectedMatchId(matches[0].id);
-   }
- },[
-   matches,
-   selectedMatch
- ]);
-
- const refreshOdds=useCallback(async()=>{
-
-   try{
-
-    setIsRefreshing(true);
-
-    const res=await fetch(
-      "/api/odds?sport=icehockey_liiga",
-      {
-        cache:"no-store"
-      }
-    );
-
-    if(!res.ok){
-      throw new Error("refresh fail");
     }
+  }, [matches, selectedMatch]);
 
-    const raw=await res.json();
+  const refreshOdds = useCallback(async () => {
+    try {
+      setIsRefreshing(true);
+      setRefreshError("");
 
-    const nextData=
-      normalizeOddsData(raw);
-
-    setOddsData(nextData);
-
-    setLastUpdatedAt(
-      Date.now()
-    );
-
-    if(nextData.matches?.length){
-
-      addSnapshot({
-       market,
-       matches:nextData.matches,
-       source:nextData.source
+      const response = await fetch("/api/odds?sport=icehockey_liiga", {
+        method: "GET",
+        cache: "no-store",
       });
 
+      if (!response.ok) {
+        throw new Error("Refresh failed");
+      }
+
+      const raw = await response.json();
+      const nextData = normalizeOddsData(raw);
+
+      if (!Array.isArray(nextData.matches) || nextData.matches.length === 0) {
+        throw new Error("No matches returned");
+      }
+
+      setOddsData(nextData);
+      setLastUpdatedAt(Date.now());
+
+      addSnapshot({
+        market,
+        matches: nextData.matches,
+        source: nextData.source,
+      });
+    } catch {
+      setRefreshError(
+        lang === "fi"
+          ? "Live-päivitys epäonnistui. Nykyinen data pidetään näkyvissä."
+          : "Live refresh failed. Current data remains visible."
+      );
+    } finally {
+      setIsRefreshing(false);
     }
+  }, [addSnapshot, market, lang]);
 
-   }catch(e){
-
-    console.error(e);
-
-   }finally{
-    setIsRefreshing(false);
-   }
-
- },[
-   addSnapshot,
-   market
- ]);
-
- useEffect(()=>{
-
-   if(matches.length){
-     addSnapshot({
-       market,
-       matches,
-       source:oddsData.source
-     });
-   }
-
- },[
-  market,
-  matches,
-  oddsData.source,
-  addSnapshot
- ]);
-
- useEffect(()=>{
-
-   if(!refreshInterval) return;
-
-   const timer=
-     setInterval(
-      refreshOdds,
-      refreshInterval*1000
-     );
-
-   return ()=>clearInterval(timer);
-
- },[
-  refreshInterval,
-  refreshOdds
- ]);
-
- const snapshots=
-   selectedMatch
-   ? getSnapshots(
-      market,
-      selectedMatch.id
-     )
-   : [];
-
- const movements=
-   useMatchOddsMovements({
-     snapshots,
-     market
-   });
-
- const trust=useMemo(()=>{
-
-   return assessDataQuality({
-     oddsData,
-     selectedMatch,
-     snapshots,
-     market
-   });
-
- },[
-  oddsData,
-  selectedMatch,
-  snapshots,
-  market
- ]);
-
- const confidenceBreakdown=
-  useMemo(()=>{
-
-   if(!selectedMatch) return null;
-
-   return buildConfidenceBreakdown(
-     selectedMatch,
-     market
-   );
-
- },[
-  selectedMatch,
-  market
- ]);
-
- const riskFlags=
-  useMemo(()=>{
-
-   if(!selectedMatch) return [];
-
-   return buildRiskFlags(
-     selectedMatch,
-     market
-   );
-
- },[
-  selectedMatch,
-  market
- ]);
-
- const marketRows=
- useMemo(()=>{
-
- if(!selectedMatch) return [];
-
- if(market==="totals"){
-
-   const point=
-     selectedMatch?.bestOdds?.point ?? "-";
-
-   return [
-     {
-       key:"over",
-       label:`Over ${point}`,
-       odds:selectedMatch?.bestOdds?.over,
-       probability:.52
-     },
-     {
-       key:"under",
-       label:`Under ${point}`,
-       odds:selectedMatch?.bestOdds?.under,
-       probability:.48
-     }
-   ].filter(x=>x.odds);
-
- }
-
- if(market==="spreads"){
-
-   return[
-    {
-      key:"spread-home",
-      label:
-       `${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome||""}`,
-      odds:selectedMatch.bestOdds?.spreadHome,
-      probability:.52
-    },
-    {
-      key:"spread-away",
-      label:
-       `${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway||""}`,
-      odds:selectedMatch.bestOdds?.spreadAway,
-      probability:.48
+  useEffect(() => {
+    if (matches.length > 0) {
+      addSnapshot({
+        market,
+        matches,
+        source: oddsData.source,
+      });
     }
-   ].filter(x=>x.odds);
+  }, [market, matches, oddsData.source, addSnapshot]);
 
- }
+  useEffect(() => {
+    if (!refreshInterval || refreshInterval <= 0) return;
 
- return[
-  {
-   key:"home",
-   label:selectedMatch.home_team,
-   odds:selectedMatch.bestOdds?.home,
-   probability:.45
-  },
-  {
-   key:"draw",
-   label:t.draw || "Draw",
-   odds:selectedMatch.bestOdds?.draw,
-   probability:.23
-  },
-  {
-   key:"away",
-   label:selectedMatch.away_team,
-   odds:selectedMatch.bestOdds?.away,
-   probability:.32
-  }
+    const timer = setInterval(refreshOdds, refreshInterval * 1000);
+    return () => clearInterval(timer);
+  }, [refreshInterval, refreshOdds]);
 
- ].filter(x=>x.odds);
+  const snapshots = selectedMatch ? getSnapshots(market, selectedMatch.id) : [];
 
- },[
-  selectedMatch,
-  market,
-  t.draw
- ]);
-
- function getStake(row){
-
-  if(stakeMode==="kelly"){
-
-   return kellyStake({
-     probability:row.probability,
-     odds:Number(row.odds),
-     bankroll:Number(bankroll),
-     fraction:Number(kellyFraction)
-   });
-
-  }
-
-  return Number(manualStake)||0;
-
- }
-
- function handleAddBet(row){
-
-  const stake=getStake(row);
-
-  if(!stake) return;
-
-  addBet({
-   match:
-    `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
-   selection:row.label,
-   odds:Number(row.odds),
-   stake:Number(stake)
+  const movements = useMatchOddsMovements({
+    snapshots,
+    market,
   });
 
- }
+  const trust = useMemo(() => {
+    return assessDataQuality({
+      oddsData,
+      selectedMatch,
+      snapshots,
+      market,
+    });
+  }, [oddsData, selectedMatch, snapshots, market]);
 
- const panelStyle={
-  border:"1px solid rgba(255,255,255,.1)",
-  borderRadius:"16px",
-  padding:"16px",
-  background:"rgba(0,0,0,.2)"
- };
+  const confidenceBreakdown = useMemo(() => {
+    if (!selectedMatch) return null;
+    return buildConfidenceBreakdown(selectedMatch, market);
+  }, [selectedMatch, market]);
 
- const inputStyle={
-  width:"100%",
-  border:"1px solid rgba(255,255,255,.12)",
-  background:"rgba(255,255,255,.06)",
-  color:"#fff",
-  borderRadius:"10px",
-  padding:"10px 12px"
- };
+  const riskFlags = useMemo(() => {
+    if (!selectedMatch) return [];
+    return buildRiskFlags(selectedMatch, market);
+  }, [selectedMatch, market]);
 
- return(
+  const marketRows = useMemo(() => {
+    if (!selectedMatch) return [];
 
-<div style={{display:"grid",gap:"16px"}}>
+    if (market === "totals") {
+      const point = selectedMatch.bestOdds?.point ?? "-";
 
-<PageSection
- title="Betting Workspace"
- subtitle="Live odds, trust signals and controlled recommendations."
->
+      return [
+        {
+          key: "over",
+          label: `Over ${point}`,
+          odds: selectedMatch.bestOdds?.over,
+          probability: 0.52,
+        },
+        {
+          key: "under",
+          label: `Under ${point}`,
+          odds: selectedMatch.bestOdds?.under,
+          probability: 0.48,
+        },
+      ].filter((row) => row.odds);
+    }
 
-<DataTrustPanel
- trust={trust}
- lang={lang}
-/>
+    if (market === "spreads") {
+      return [
+        {
+          key: "spread-home",
+          label: `${selectedMatch.home_team} ${
+            selectedMatch.bestOdds?.spreadPointHome || ""
+          }`,
+          odds: selectedMatch.bestOdds?.spreadHome,
+          probability: 0.52,
+        },
+        {
+          key: "spread-away",
+          label: `${selectedMatch.away_team} ${
+            selectedMatch.bestOdds?.spreadPointAway || ""
+          }`,
+          odds: selectedMatch.bestOdds?.spreadAway,
+          probability: 0.48,
+        },
+      ].filter((row) => row.odds);
+    }
 
-<TrustWarning
- trust={trust}
- lang={lang}
-/>
+    return [
+      {
+        key: "home",
+        label: selectedMatch.home_team,
+        odds: selectedMatch.bestOdds?.home,
+        probability: 0.45,
+      },
+      {
+        key: "draw",
+        label: t.draw || (lang === "fi" ? "Tasapeli" : "Draw"),
+        odds: selectedMatch.bestOdds?.draw,
+        probability: 0.23,
+      },
+      {
+        key: "away",
+        label: selectedMatch.away_team,
+        odds: selectedMatch.bestOdds?.away,
+        probability: 0.32,
+      },
+    ].filter((row) => row.odds);
+  }, [selectedMatch, market, t.draw, lang]);
 
-<div style={panelStyle}>
+  function getStake(row) {
+    if (stakeMode === "kelly") {
+      return kellyStake({
+        probability: row.probability,
+        odds: Number(row.odds),
+        bankroll: Number(bankroll) || 0,
+        fraction: Number(kellyFraction) || 0.25,
+      });
+    }
 
-<div
- style={{
-  display:"flex",
-  gap:"10px",
-  flexWrap:"wrap"
- }}
->
+    return Number(manualStake) || 0;
+  }
 
-<SourceBadge>
- {String(
-   oddsData.source || "unknown"
- ).toUpperCase()}
-</SourceBadge>
+  function handleAddBet(row) {
+    if (!selectedMatch || !row?.odds) return;
 
-<SourceBadge>
- {isRefreshing
-   ? "UPDATING"
-   : "LIVE"}
-</SourceBadge>
+    const stake = getStake(row);
+    if (!stake || stake <= 0) return;
 
-</div>
+    addBet({
+      match: `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
+      selection: row.label,
+      odds: Number(row.odds),
+      stake: Number(stake),
+    });
+  }
 
-<div
- style={{
-  marginTop:"14px",
-  color:"#94a3b8",
-  fontSize:"13px"
- }}
->
-Updated {formatClock(
- lastUpdatedAt,
- lang
-)}
-</div>
+  function handleToggleFavorite(row) {
+    if (!selectedMatch || !row?.odds) return;
 
-<div style={{marginTop:"14px"}}>
+    toggleFavorite({
+      id: `${selectedMatch.id}-${market}-${row.key}`,
+      match: `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
+      selection: row.label,
+      odds: Number(row.odds),
+      market,
+    });
+  }
 
-<select
- value={refreshInterval}
- onChange={e=>
-   setRefreshInterval(
-    Number(e.target.value)
-   )
- }
- style={inputStyle}
->
-<option value={5}>5s</option>
-<option value={15}>15s</option>
-<option value={30}>30s</option>
-<option value={60}>60s</option>
-</select>
+  const panelStyle = {
+    border: "1px solid rgba(255,255,255,0.1)",
+    borderRadius: "18px",
+    padding: "18px",
+    background: "rgba(0,0,0,0.2)",
+  };
 
-</div>
+  const inputStyle = {
+    width: "100%",
+    border: "1px solid rgba(255,255,255,0.12)",
+    background: "rgba(255,255,255,0.06)",
+    color: "#fff",
+    borderRadius: "12px",
+    padding: "12px 14px",
+    fontSize: "15px",
+    boxSizing: "border-box",
+  };
 
-<div
- style={{
-   marginTop:"12px",
-   display:"flex",
-   gap:"10px",
-   flexWrap:"wrap"
- }}
->
-<button
- onClick={refreshOdds}
->
-Refresh
-</button>
+  return (
+    <div style={{ display: "grid", gap: "18px" }}>
+      <PageSection
+        title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
+        subtitle={
+          lang === "fi"
+            ? "Live-oddsit, datan luotettavuus, riskiliput ja hallitut suositukset yhdessä näkymässä."
+            : "Live odds, data trust, risk flags and controlled recommendations in one view."
+        }
+      >
+        <DataTrustPanel trust={trust} lang={lang} />
+        <TrustWarning trust={trust} lang={lang} />
 
-<button
- onClick={clearHistory}
->
-Clear history
-</button>
+        {oddsData.reason ? (
+          <div
+            style={{
+              border: "1px solid rgba(245,158,11,0.25)",
+              background: "rgba(245,158,11,0.08)",
+              color: "#fde68a",
+              borderRadius: "16px",
+              padding: "14px 16px",
+              fontSize: "14px",
+              lineHeight: 1.5,
+            }}
+          >
+            {oddsData.reason}
+          </div>
+        ) : null}
 
-</div>
+        {refreshError ? (
+          <div
+            style={{
+              border: "1px solid rgba(239,68,68,0.3)",
+              background: "rgba(239,68,68,0.08)",
+              color: "#fecaca",
+              borderRadius: "16px",
+              padding: "14px 16px",
+              fontSize: "14px",
+              lineHeight: 1.5,
+            }}
+          >
+            {refreshError}
+          </div>
+        ) : null}
 
-</div>
+        <div style={panelStyle}>
+          <div
+            style={{
+              display: "flex",
+              gap: "10px",
+              flexWrap: "wrap",
+              alignItems: "center",
+            }}
+          >
+            <SourceBadge>{String(oddsData.source || "unknown").toUpperCase()}</SourceBadge>
 
-<MarketTabs
- market={market}
- onChange={setMarket}
- lang={lang}
-/>
+            <SourceBadge>
+              {isRefreshing
+                ? lang === "fi"
+                  ? "PÄIVITTYY"
+                  : "UPDATING"
+                : String(oddsData.status || "LIVE").toUpperCase()}
+            </SourceBadge>
+          </div>
 
-<div
- style={{
- display:"grid",
- gridTemplateColumns:
- "minmax(0,1fr) minmax(0,1.3fr)",
- gap:"16px"
- }}
->
+          <div
+            style={{
+              marginTop: "14px",
+              color: "#94a3b8",
+              fontSize: "14px",
+              fontWeight: 700,
+            }}
+          >
+            {lang === "fi" ? "Päivitetty" : "Updated"}{" "}
+            {formatClock(lastUpdatedAt, lang)}
+          </div>
 
-<div style={panelStyle}>
+          <div
+            style={{
+              marginTop: "14px",
+              display: "grid",
+              gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+              gap: "12px",
+              alignItems: "end",
+            }}
+          >
+            <div>
+              <label
+                style={{
+                  display: "block",
+                  color: "#94a3b8",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  marginBottom: "6px",
+                }}
+              >
+                {lang === "fi" ? "Päivitysväli" : "Refresh interval"}
+              </label>
 
-{matches.map(match=>(
+              <select
+                value={refreshInterval}
+                onChange={(e) => setRefreshInterval(Number(e.target.value))}
+                style={inputStyle}
+              >
+                <option value={5}>5s</option>
+                <option value={15}>15s</option>
+                <option value={30}>30s</option>
+                <option value={60}>60s</option>
+              </select>
+            </div>
 
-<button
- key={match.id}
- onClick={()=>
-  setSelectedMatchId(
-   match.id
-  )
- }
- style={{
-   display:"block",
-   width:"100%",
-   marginBottom:"10px",
-   padding:"14px",
-   textAlign:"left"
- }}
->
+            <button
+              type="button"
+              onClick={refreshOdds}
+              disabled={isRefreshing}
+              style={buttonStyle("green")}
+            >
+              {isRefreshing
+                ? lang === "fi"
+                  ? "Päivitetään..."
+                  : "Refreshing..."
+                : lang === "fi"
+                ? "Päivitä"
+                : "Refresh"}
+            </button>
 
-<div>
-{match.home_team}
- vs
- {match.away_team}
-</div>
+            <button type="button" onClick={clearHistory} style={buttonStyle()}>
+              {lang === "fi" ? "Tyhjennä historia" : "Clear history"}
+            </button>
+          </div>
+        </div>
 
-</button>
+        <MarketTabs market={market} onChange={setMarket} lang={lang} />
 
-))}
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          <div style={panelStyle}>
+            <div
+              style={{
+                fontWeight: 900,
+                color: "#ffffff",
+                fontSize: "22px",
+                marginBottom: "12px",
+              }}
+            >
+              {lang === "fi" ? "Ottelut" : "Matches"}
+            </div>
 
-</div>
+            {matches.length === 0 ? (
+              <div
+                style={{
+                  color: "#94a3b8",
+                  fontSize: "15px",
+                  lineHeight: 1.5,
+                }}
+              >
+                {lang === "fi"
+                  ? "Otteluita ei ole saatavilla."
+                  : "No matches available."}
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "10px" }}>
+                {matches.map((match) => {
+                  const active = selectedMatch?.id === match.id;
 
-<div style={{
- display:"grid",
- gap:"16px"
-}}>
+                  return (
+                    <button
+                      key={match.id}
+                      type="button"
+                      onClick={() => setSelectedMatchId(match.id)}
+                      style={{
+                        width: "100%",
+                        border: active
+                          ? "1px solid rgba(34,197,94,0.6)"
+                          : "1px solid rgba(255,255,255,0.1)",
+                        background: active
+                          ? "rgba(34,197,94,0.12)"
+                          : "rgba(255,255,255,0.04)",
+                        color: "#ffffff",
+                        borderRadius: "16px",
+                        padding: "14px",
+                        textAlign: "left",
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div
+                        style={{
+                          fontWeight: 900,
+                          fontSize: "16px",
+                          lineHeight: 1.25,
+                        }}
+                      >
+                        {match.home_team} vs {match.away_team}
+                      </div>
 
-<div style={panelStyle}>
+                      <div
+                        style={{
+                          marginTop: "6px",
+                          color: "#94a3b8",
+                          fontSize: "13px",
+                        }}
+                      >
+                        {match.sport_title}
+                      </div>
 
-{marketRows.map(row=>{
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          color: "#dbe4f0",
+                          fontSize: "13px",
+                          display: "flex",
+                          gap: "10px",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <span>
+                          {lang === "fi" ? "Koti" : "Home"}{" "}
+                          {match.bestOdds?.home ?? "-"}
+                        </span>
+                        <span>
+                          {lang === "fi" ? "Tasapeli" : "Draw"}{" "}
+                          {match.bestOdds?.draw ?? "-"}
+                        </span>
+                        <span>
+                          {lang === "fi" ? "Vieras" : "Away"}{" "}
+                          {match.bestOdds?.away ?? "-"}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
- const implied=
-   impliedProb(
-    row.odds
-   );
+          <div style={{ display: "grid", gap: "16px", alignContent: "start" }}>
+            <div style={panelStyle}>
+              <div
+                style={{
+                  fontWeight: 900,
+                  color: "#ffffff",
+                  fontSize: "22px",
+                  marginBottom: "12px",
+                }}
+              >
+                {selectedMatch
+                  ? `${selectedMatch.home_team} vs ${selectedMatch.away_team}`
+                  : lang === "fi"
+                  ? "Valitse ottelu"
+                  : "Select match"}
+              </div>
 
- const edge=
-   implied
-   ? row.probability-implied
-   : null;
+              {marketRows.length === 0 ? (
+                <div
+                  style={{
+                    color: "#94a3b8",
+                    fontSize: "15px",
+                    lineHeight: 1.5,
+                  }}
+                >
+                  {lang === "fi"
+                    ? "Tälle markkinalle ei löytynyt pelattavia rivejä."
+                    : "No playable rows found for this market."}
+                </div>
+              ) : (
+                <div style={{ display: "grid", gap: "14px" }}>
+                  {marketRows.map((row) => {
+                    const implied = impliedProb(row.odds);
+                    const edge =
+                      implied != null ? row.probability - implied : null;
+                    const stake = getStake(row);
+                    const favId = selectedMatch
+                      ? `${selectedMatch.id}-${market}-${row.key}`
+                      : row.key;
+                    const saved = isFavorite(favId);
 
- return(
+                    return (
+                      <div
+                        key={row.key}
+                        style={{
+                          border: "1px solid rgba(255,255,255,0.08)",
+                          background: "rgba(255,255,255,0.035)",
+                          borderRadius: "16px",
+                          padding: "14px",
+                        }}
+                      >
+                        <div
+                          style={{
+                            display: "flex",
+                            justifyContent: "space-between",
+                            gap: "12px",
+                            flexWrap: "wrap",
+                          }}
+                        >
+                          <div>
+                            <div
+                              style={{
+                                color: "#ffffff",
+                                fontSize: "18px",
+                                fontWeight: 900,
+                              }}
+                            >
+                              {row.label}
+                            </div>
 
-<div
- key={row.key}
- style={{
-  marginBottom:"16px",
-  paddingBottom:"16px",
-  borderBottom:
-   "1px solid rgba(255,255,255,.08)"
- }}
->
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                color: "#dbe4f0",
+                                fontSize: "14px",
+                              }}
+                            >
+                              Odds {row.odds}
+                            </div>
 
-<div
- style={{
- fontWeight:800,
- color:"#fff"
- }}
->
-{row.label}
-</div>
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                color:
+                                  edge != null && edge > 0
+                                    ? "#86efac"
+                                    : "#fca5a5",
+                                fontSize: "14px",
+                                fontWeight: 800,
+                              }}
+                            >
+                              Edge{" "}
+                              {edge != null ? `${(edge * 100).toFixed(1)}%` : "-"}
+                            </div>
 
-<div
- style={{
- marginTop:"6px",
- color:"#dbe4f0"
- }}
->
-Odds {row.odds}
-</div>
+                            <div
+                              style={{
+                                marginTop: "6px",
+                                color: "#94a3b8",
+                                fontSize: "13px",
+                              }}
+                            >
+                              {stakeMode === "kelly"
+                                ? `Kelly €${stake.toFixed(2)}`
+                                : `Panos €${(Number(manualStake) || 0).toFixed(
+                                    2
+                                  )}`}
+                            </div>
+                          </div>
 
-<div
- style={{
- marginTop:"6px",
- color:
-  edge>0
-   ? "#86efac"
-   : "#fca5a5"
- }}
->
-Edge {
- edge
- ? (edge*100).toFixed(1)
- : "-"
-}%
-</div>
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: "8px",
+                              flexWrap: "wrap",
+                              alignItems: "flex-start",
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleAddBet(row)}
+                              style={buttonStyle("green")}
+                            >
+                              {lang === "fi" ? "Lisää veto" : "Add bet"}
+                            </button>
 
-<div
- style={{
- marginTop:"8px"
- }}
->
+                            <button
+                              type="button"
+                              onClick={() => handleToggleFavorite(row)}
+                              style={buttonStyle()}
+                            >
+                              {saved
+                                ? lang === "fi"
+                                  ? "Tallennettu"
+                                  : "Saved"
+                                : lang === "fi"
+                                ? "Tallenna"
+                                : "Save"}
+                            </button>
+                          </div>
+                        </div>
 
-<button
- onClick={()=>
-  handleAddBet(row)
- }
->
-Add Bet
-</button>
+                        <PickExplanation row={row} trust={trust} lang={lang} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
 
-<button
- onClick={()=>
-  toggleFavorite({
-   id:
-   `${selectedMatch.id}-${row.key}`,
-   match:
-   `${selectedMatch.home_team} vs ${selectedMatch.away_team}`,
-   selection:row.label,
-   odds:row.odds
-  })
- }
- style={{
-  marginLeft:"10px"
- }}
->
-{
- isFavorite(
- `${selectedMatch.id}-${row.key}`
- )
- ? "Saved"
- : "Save"
-}
-</button>
+            <ConfidenceBreakdown breakdown={confidenceBreakdown} lang={lang} />
+            <RiskFlags flags={riskFlags} lang={lang} />
 
-</div>
+            <MarketMovementPanel
+              market={market}
+              selectedMatch={selectedMatch}
+              movements={movements}
+              lang={lang}
+            />
+          </div>
+        </div>
 
-<PickExplanation
- row={row}
- trust={trust}
- lang={lang}
-/>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
+            gap: "16px",
+          }}
+        >
+          <div style={panelStyle}>
+            <div
+              style={{
+                fontWeight: 900,
+                color: "#ffffff",
+                fontSize: "22px",
+                marginBottom: "12px",
+              }}
+            >
+              {lang === "fi" ? "Panostus" : "Staking"}
+            </div>
 
-</div>
+            <div
+              style={{
+                display: "flex",
+                gap: "8px",
+                flexWrap: "wrap",
+                marginBottom: "14px",
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => setStakeMode("manual")}
+                style={buttonStyle(stakeMode === "manual" ? "green" : "default")}
+              >
+                {lang === "fi" ? "Manuaalinen" : "Manual"}
+              </button>
 
-)
+              <button
+                type="button"
+                onClick={() => setStakeMode("kelly")}
+                style={buttonStyle(stakeMode === "kelly" ? "green" : "default")}
+              >
+                Kelly
+              </button>
+            </div>
 
-})}
+            {stakeMode === "manual" ? (
+              <div>
+                <label
+                  style={{
+                    display: "block",
+                    color: "#94a3b8",
+                    fontSize: "13px",
+                    fontWeight: 700,
+                    marginBottom: "6px",
+                  }}
+                >
+                  {lang === "fi" ? "Panos (€)" : "Stake (€)"}
+                </label>
 
-</div>
+                <input
+                  value={manualStake}
+                  onChange={(e) => setManualStake(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: "12px" }}>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      color: "#94a3b8",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      marginBottom: "6px",
+                    }}
+                  >
+                    {lang === "fi" ? "Kassa (€)" : "Bankroll (€)"}
+                  </label>
 
-<ConfidenceBreakdown
- breakdown={confidenceBreakdown}
- lang={lang}
-/>
+                  <input
+                    value={bankroll}
+                    onChange={(e) => setBankroll(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
 
-<RiskFlags
- flags={riskFlags}
- lang={lang}
-/>
+                <div>
+                  <label
+                    style={{
+                      display: "block",
+                      color: "#94a3b8",
+                      fontSize: "13px",
+                      fontWeight: 700,
+                      marginBottom: "6px",
+                    }}
+                  >
+                    Kelly fraction
+                  </label>
 
-<MarketMovementPanel
- market={market}
- selectedMatch={selectedMatch}
- movements={movements}
- lang={lang}
-/>
+                  <input
+                    value={kellyFraction}
+                    onChange={(e) => setKellyFraction(e.target.value)}
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
-</div>
-
-</div>
-
-</PageSection>
-
-</div>
-
- );
-
+          <FavoritesPanel lang={lang} />
+        </div>
+      </PageSection>
+    </div>
+  );
 }
