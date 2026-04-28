@@ -13,7 +13,7 @@ export default function MarketTabs({ market, onChange, lang = "en" }) {
     <div
       style={{
         display: "flex",
-        gap: "8px",
+        gap: "10px",
         flexWrap: "wrap",
       }}
     >
