@@ -8,12 +8,12 @@ let cachedAt = 0;
 const CACHE_MS = 10 * 60 * 1000;
 
 const DEMO_DATA = {
-  source: "fallback",
+  source: "demo",
   status: "demo",
   provider: "demo",
   cached: false,
   reason:
-    "Live-dataa ei saatu ladattua. Näytetään testidata, jotta käyttöliittymää voi testata.",
+    "Live-dataa ei saatu ladattua. Näytetään testidata, jotta käyttöliittymää voi käyttää.",
   matches: [
     {
       id: "demo-liiga-1",
@@ -58,57 +58,146 @@ const DEMO_DATA = {
   ],
 };
 
-function getBestH2hOdds(event) {
-  const bookmakers = Array.isArray(event?.bookmakers) ? event.bookmakers : [];
-
-  let bestHome = null;
-  let bestDraw = null;
-  let bestAway = null;
-
-  for (const bookmaker of bookmakers) {
-    for (const market of bookmaker?.markets || []) {
-      if (market?.key !== "h2h") continue;
-
-      for (const outcome of market?.outcomes || []) {
-        const price = Number(outcome?.price);
-        if (!Number.isFinite(price)) continue;
-
-        if (outcome?.name === event.home_team) {
-          bestHome = bestHome == null ? price : Math.max(bestHome, price);
-        }
-
-        if (outcome?.name === event.away_team) {
-          bestAway = bestAway == null ? price : Math.max(bestAway, price);
-        }
-
-        if (String(outcome?.name || "").toLowerCase() === "draw") {
-          bestDraw = bestDraw == null ? price : Math.max(bestDraw, price);
-        }
-      }
-    }
-  }
-
-  return {
-    home: bestHome,
-    draw: bestDraw,
-    away: bestAway,
-  };
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
 }
 
-function normalizeTheOddsApiMatch(event) {
-  const bestH2h = getBestH2hOdds(event);
+function firstDefined(...values) {
+  return values.find((value) => value !== undefined && value !== null && value !== "");
+}
+
+function getArrayFromPayload(payload) {
+  if (Array.isArray(payload)) return payload;
+  if (Array.isArray(payload?.data)) return payload.data;
+  if (Array.isArray(payload?.events)) return payload.events;
+  if (Array.isArray(payload?.results)) return payload.results;
+  return [];
+}
+
+function extractTeamName(value, fallback) {
+  if (!value) return fallback;
+  if (typeof value === "string") return value;
+
+  return (
+    value.name ||
+    value.displayName ||
+    value.fullName ||
+    value.teamName ||
+    value.abbreviation ||
+    fallback
+  );
+}
+
+function findOddsDeep(event, searchTerms = []) {
+  const terms = searchTerms.map((term) => String(term || "").toLowerCase());
+  const candidates = [];
+
+  function walk(obj) {
+    if (!obj || typeof obj !== "object") return;
+
+    if (Array.isArray(obj)) {
+      obj.forEach(walk);
+      return;
+    }
+
+    const name = String(
+      obj.name ||
+        obj.label ||
+        obj.outcome ||
+        obj.side ||
+        obj.betName ||
+        obj.selection ||
+        obj.team ||
+        ""
+    ).toLowerCase();
+
+    const price = toNumber(
+      obj.price ||
+        obj.odds ||
+        obj.decimalOdds ||
+        obj.value ||
+        obj.bookOdds ||
+        obj.currentOdds
+    );
+
+    if (price) {
+      candidates.push({ name, price });
+    }
+
+    Object.values(obj).forEach(walk);
+  }
+
+  walk(event);
+
+  for (const term of terms) {
+    const exact = candidates.find((candidate) => candidate.name === term);
+    if (exact) return exact.price;
+
+    const includes = candidates.find((candidate) => candidate.name.includes(term));
+    if (includes) return includes.price;
+  }
+
+  return null;
+}
+
+function normalizeSportsGameOddsEvent(event) {
+  const homeTeam = extractTeamName(
+    firstDefined(
+      event.homeTeam,
+      event.home_team,
+      event.home,
+      event.teams?.home,
+      event.competitors?.home
+    ),
+    "Home"
+  );
+
+  const awayTeam = extractTeamName(
+    firstDefined(
+      event.awayTeam,
+      event.away_team,
+      event.away,
+      event.teams?.away,
+      event.competitors?.away
+    ),
+    "Away"
+  );
+
+  const homeOdds = firstDefined(
+    toNumber(event.homeOdds),
+    toNumber(event.moneylineHome),
+    toNumber(event.odds?.home),
+    findOddsDeep(event, [homeTeam, "home"])
+  );
+
+  const awayOdds = firstDefined(
+    toNumber(event.awayOdds),
+    toNumber(event.moneylineAway),
+    toNumber(event.odds?.away),
+    findOddsDeep(event, [awayTeam, "away"])
+  );
+
+  const drawOdds = firstDefined(
+    toNumber(event.drawOdds),
+    toNumber(event.moneylineDraw),
+    toNumber(event.odds?.draw),
+    findOddsDeep(event, ["draw", "tie"])
+  );
 
   return {
-    id: event?.id,
-    sport_key: event?.sport_key,
-    sport_title: event?.sport_title || event?.sport_key || "Unknown",
-    commence_time: event?.commence_time,
-    home_team: event?.home_team || "Home",
-    away_team: event?.away_team || "Away",
+    id: String(
+      firstDefined(event.eventID, event.eventId, event.gameID, event.gameId, event.id)
+    ),
+    sport_key: String(firstDefined(event.sportID, event.sport, "sportsgameodds")),
+    sport_title: String(firstDefined(event.leagueID, event.league, "SportsGameOdds")),
+    commence_time: firstDefined(event.startTime, event.commence_time, event.startDate, null),
+    home_team: homeTeam,
+    away_team: awayTeam,
     bestOdds: {
-      home: bestH2h.home,
-      draw: bestH2h.draw,
-      away: bestH2h.away,
+      home: homeOdds,
+      draw: drawOdds,
+      away: awayOdds,
       point: null,
       over: null,
       under: null,
@@ -120,27 +209,23 @@ function normalizeTheOddsApiMatch(event) {
   };
 }
 
-async function fetchFromTheOddsApi() {
-  const apiKey = process.env.ODDS_API_KEY;
+async function fetchSportsGameOdds() {
+  const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
 
   if (!apiKey) {
     return {
       ok: false,
-      data: null,
-      error: "ODDS_API_KEY puuttuu Vercel Environment Variables -asetuksista.",
-      meta: {},
+      error: "SPORTSGAMEODDS_API_KEY puuttuu Vercelistä.",
     };
   }
 
-  const sport = "icehockey_liiga";
-
   const url =
-    `https://api.the-odds-api.com/v4/sports/${sport}/odds/` +
+    "https://api.sportsgameodds.com/v2/events" +
     `?apiKey=${apiKey}` +
-    "&regions=eu" +
-    "&markets=h2h" +
-    "&oddsFormat=decimal" +
-    "&dateFormat=iso";
+    "&leagueID=NHL" +
+    "&oddsAvailable=true" +
+    "&includeAltLines=false" +
+    "&limit=25";
 
   const response = await fetch(url, {
     cache: "no-store",
@@ -151,7 +236,64 @@ async function fetchFromTheOddsApi() {
 
   const text = await response.text();
 
-  const meta = {
+  if (!response.ok) {
+    return {
+      ok: false,
+      error: `SportsGameOdds error ${response.status}: ${text}`,
+    };
+  }
+
+  const payload = JSON.parse(text);
+  const events = getArrayFromPayload(payload);
+
+  const matches = events
+    .map(normalizeSportsGameOddsEvent)
+    .filter((match) => match.home_team && match.away_team);
+
+  if (matches.length === 0) {
+    return {
+      ok: false,
+      error: "SportsGameOdds vastasi, mutta pelejä ei löytynyt.",
+    };
+  }
+
+  return {
+    ok: true,
+    data: {
+      source: "live",
+      status: "fresh",
+      provider: "sportsgameodds",
+      cached: false,
+      reason: "",
+      matches,
+    },
+  };
+}
+
+async function fetchTheOddsApiFallback() {
+  const apiKey = process.env.ODDS_API_KEY;
+
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "ODDS_API_KEY puuttuu.",
+    };
+  }
+
+  const url =
+    "https://api.the-odds-api.com/v4/sports/icehockey_nhl/odds/" +
+    `?apiKey=${apiKey}` +
+    "&regions=us" +
+    "&markets=h2h" +
+    "&oddsFormat=decimal";
+
+  const response = await fetch(url, {
+    cache: "no-store",
+  });
+
+  const text = await response.text();
+
+  const quota = {
     requestsRemaining: response.headers.get("x-requests-remaining"),
     requestsUsed: response.headers.get("x-requests-used"),
     requestsLast: response.headers.get("x-requests-last"),
@@ -160,25 +302,67 @@ async function fetchFromTheOddsApi() {
   if (!response.ok) {
     return {
       ok: false,
-      data: null,
       error: `The Odds API error ${response.status}: ${text}`,
-      meta,
+      quota,
     };
   }
 
   const raw = JSON.parse(text);
 
   const matches = Array.isArray(raw)
-    ? raw.map(normalizeTheOddsApiMatch).filter(Boolean)
+    ? raw.map((event) => {
+        const bookmakers = Array.isArray(event.bookmakers) ? event.bookmakers : [];
+
+        let home = null;
+        let away = null;
+        let draw = null;
+
+        for (const bookmaker of bookmakers) {
+          for (const market of bookmaker.markets || []) {
+            if (market.key !== "h2h") continue;
+
+            for (const outcome of market.outcomes || []) {
+              const price = toNumber(outcome.price);
+              if (!price) continue;
+
+              if (outcome.name === event.home_team) home = home ? Math.max(home, price) : price;
+              if (outcome.name === event.away_team) away = away ? Math.max(away, price) : price;
+
+              if (String(outcome.name).toLowerCase() === "draw") {
+                draw = draw ? Math.max(draw, price) : price;
+              }
+            }
+          }
+        }
+
+        return {
+          id: event.id,
+          sport_key: event.sport_key,
+          sport_title: event.sport_title,
+          commence_time: event.commence_time,
+          home_team: event.home_team,
+          away_team: event.away_team,
+          bestOdds: {
+            home,
+            draw,
+            away,
+            point: null,
+            over: null,
+            under: null,
+            spreadPointHome: null,
+            spreadPointAway: null,
+            spreadHome: null,
+            spreadAway: null,
+          },
+        };
+      })
     : [];
 
   if (matches.length === 0) {
     return {
       ok: false,
-      data: null,
-      error:
-        "The Odds API vastasi onnistuneesti, mutta icehockey_liiga ei palauttanut pelejä juuri nyt.",
-      meta,
+      error: "The Odds API ei palauttanut pelejä.",
+      quota,
     };
   }
 
@@ -190,41 +374,9 @@ async function fetchFromTheOddsApi() {
       provider: "the-odds-api",
       cached: false,
       reason: "",
-      quota: meta,
+      quota,
       matches,
     },
-    error: "",
-    meta,
-  };
-}
-
-/**
- * Backup provider -valmius.
- *
- * SportsGameOdds vaatii oman API-avaimen ja sen response-rakenne on eri.
- * Pidämme tämän nyt turvallisena fallback-paikkana, jotta The Odds API ei pala
- * vahingossa monesta providerista samalla napinpainalluksella.
- *
- * Kun olet hankkinut SGO_API_KEY:n, rakennetaan tähän oikea normalisointi.
- */
-async function fetchFromBackupProvider() {
-  const apiKey = process.env.SGO_API_KEY;
-
-  if (!apiKey) {
-    return {
-      ok: false,
-      data: null,
-      error: "SGO_API_KEY puuttuu. Backup API ei ole vielä käytössä.",
-      meta: {},
-    };
-  }
-
-  return {
-    ok: false,
-    data: null,
-    error:
-      "SGO_API_KEY löytyy, mutta SportsGameOdds-normalisointia ei ole vielä aktivoitu.",
-    meta: {},
   };
 }
 
@@ -232,7 +384,6 @@ export async function GET(request) {
   const now = Date.now();
   const url = new URL(request.url);
   const force = url.searchParams.get("force") === "1";
-  const useBackup = url.searchParams.get("backup") === "1";
 
   if (!force && cachedData && now - cachedAt < CACHE_MS) {
     return NextResponse.json({
@@ -242,36 +393,29 @@ export async function GET(request) {
     });
   }
 
-  const primary = await fetchFromTheOddsApi();
+  const primary = await fetchSportsGameOdds();
 
   if (primary.ok) {
     cachedData = primary.data;
     cachedAt = now;
-
     return NextResponse.json(primary.data);
   }
 
-  if (useBackup) {
-    const backup = await fetchFromBackupProvider();
+  const fallback = await fetchTheOddsApiFallback();
 
-    if (backup.ok) {
-      cachedData = backup.data;
-      cachedAt = now;
-      return NextResponse.json(backup.data);
-    }
-
-    return NextResponse.json({
-      ...DEMO_DATA,
-      status: "backup_failed",
-      reason: `${primary.error} Backup: ${backup.error}`,
-      quota: primary.meta,
-    });
+  if (fallback.ok) {
+    cachedData = fallback.data;
+    cachedAt = now;
+    return NextResponse.json(fallback.data);
   }
 
   return NextResponse.json({
     ...DEMO_DATA,
     status: "api_error",
-    reason: primary.error,
-    quota: primary.meta,
+    reason: `Primary failed: ${primary.error} Fallback failed: ${fallback.error}`,
+    debug: {
+      primaryError: primary.error,
+      fallbackError: fallback.error,
+    },
   });
 }
