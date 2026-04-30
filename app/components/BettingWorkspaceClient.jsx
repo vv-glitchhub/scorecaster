@@ -53,6 +53,7 @@ function normalizeOddsData(data) {
     cached: Boolean(data?.cached),
     cacheAgeSeconds: data?.cacheAgeSeconds ?? null,
     quota: data?.quota || null,
+    debug: data?.debug || null,
     matches: matches.map((match) => ({
       ...match,
       id:
@@ -149,17 +150,12 @@ export default function BettingWorkspaceClient({
   }, [matches, selectedMatch]);
 
   const loadLiveGames = useCallback(
-    async ({ force = false, backup = false } = {}) => {
+    async ({ force = false } = {}) => {
       try {
         setIsRefreshing(true);
         setRefreshError("");
 
-        const params = new URLSearchParams();
-        if (force) params.set("force", "1");
-        if (backup) params.set("backup", "1");
-
-        const query = params.toString();
-        const endpoint = query ? `/api/odds?${query}` : "/api/odds";
+        const endpoint = force ? "/api/odds?force=1" : "/api/odds";
 
         const response = await fetch(endpoint, {
           method: "GET",
@@ -360,8 +356,8 @@ export default function BettingWorkspaceClient({
         title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
         subtitle={
           lang === "fi"
-            ? "Live-pelit haetaan vain napista, jotta API-krediittejä ei kulu automaattisesti."
-            : "Live games load only from the button, so API credits are not used automatically."
+            ? "Pelit haetaan vain napista, jotta API-krediittejä ei kulu automaattisesti."
+            : "Games load only from the button, so API credits are not used automatically."
         }
       >
         <DataTrustPanel trust={trust} lang={lang} />
@@ -408,10 +404,7 @@ export default function BettingWorkspaceClient({
               alignItems: "center",
             }}
           >
-            <SourceBadge>
-              {String(oddsData.source || "unknown").toUpperCase()}
-            </SourceBadge>
-
+            <SourceBadge>{String(oddsData.source || "unknown").toUpperCase()}</SourceBadge>
             <SourceBadge>
               {isRefreshing
                 ? lang === "fi"
@@ -468,6 +461,22 @@ export default function BettingWorkspaceClient({
             </div>
           ) : null}
 
+          {oddsData.debug ? (
+            <pre
+              style={{
+                marginTop: "12px",
+                padding: "12px",
+                borderRadius: "12px",
+                background: "rgba(0,0,0,0.25)",
+                color: "#94a3b8",
+                fontSize: "12px",
+                overflowX: "auto",
+              }}
+            >
+              {JSON.stringify(oddsData.debug, null, 2)}
+            </pre>
+          ) : null}
+
           <div
             style={{
               marginTop: "14px",
@@ -487,8 +496,8 @@ export default function BettingWorkspaceClient({
                   ? "Haetaan..."
                   : "Loading..."
                 : lang === "fi"
-                ? "Hae live-pelit"
-                : "Load live games"}
+                ? "Hae pelit"
+                : "Load games"}
             </button>
 
             <button
@@ -498,15 +507,6 @@ export default function BettingWorkspaceClient({
               style={buttonStyle("default", isRefreshing)}
             >
               {lang === "fi" ? "Pakota uusi haku" : "Force new fetch"}
-            </button>
-
-            <button
-              type="button"
-              onClick={() => loadLiveGames({ force: true, backup: true })}
-              disabled={isRefreshing}
-              style={buttonStyle("default", isRefreshing)}
-            >
-              {lang === "fi" ? "Kokeile backup API:a" : "Try backup API"}
             </button>
 
             <button type="button" onClick={clearHistory} style={buttonStyle()}>
@@ -545,8 +545,8 @@ export default function BettingWorkspaceClient({
                 }}
               >
                 {lang === "fi"
-                  ? "Pelejä ei ole vielä ladattu. Paina Hae live-pelit."
-                  : "Games have not been loaded yet. Press Load live games."}
+                  ? "Pelejä ei ole vielä ladattu. Paina Hae pelit."
+                  : "Games have not been loaded yet. Press Load games."}
               </div>
             ) : (
               <div style={{ display: "grid", gap: "10px" }}>
