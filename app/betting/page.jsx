@@ -5,9 +5,10 @@ import { normalizeLang } from "@/lib/i18n";
 const initialOddsData = {
   source: "manual",
   status: "waiting",
+  provider: "",
   cached: false,
   reason:
-    "Live-dataa ei haeta automaattisesti. Paina Hae live-pelit, kun haluat käyttää API:a.",
+    "Live-dataa ei haeta automaattisesti. Paina Hae pelit, kun haluat hakea oikeat ottelut.",
   matches: [],
 };
 
