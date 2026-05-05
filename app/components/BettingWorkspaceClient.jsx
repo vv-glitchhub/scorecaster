@@ -39,7 +39,6 @@ function normalizeOddsData(data) {
     reason: data?.reason || "",
     cached: Boolean(data?.cached),
     cacheAgeSeconds: data?.cacheAgeSeconds ?? null,
-    quota: data?.quota || null,
     debug: data?.debug || null,
     filters: data?.filters || null,
     matches: matches.map((match) => ({
@@ -75,22 +74,32 @@ function impliedProb(odds) {
 
 function buttonStyle(variant = "default", disabled = false) {
   const green = variant === "green";
+
   return {
-    border: green ? "1px solid rgba(34,197,94,0.55)" : "1px solid rgba(255,255,255,0.14)",
+    width: "100%",
+    maxWidth: "100%",
+    border: green
+      ? "1px solid rgba(34,197,94,0.55)"
+      : "1px solid rgba(255,255,255,0.14)",
     background: green ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.08)",
     color: green ? "#bbf7d0" : "#ffffff",
-    borderRadius: "12px",
-    padding: "12px 16px",
+    borderRadius: "14px",
+    padding: "13px 16px",
     fontSize: "15px",
     fontWeight: 800,
     cursor: disabled ? "not-allowed" : "pointer",
     opacity: disabled ? 0.65 : 1,
+    whiteSpace: "normal",
+    overflowWrap: "anywhere",
   };
 }
 
 function sliderButton(active) {
   return {
-    border: active ? "1px solid rgba(34,197,94,0.65)" : "1px solid rgba(255,255,255,0.12)",
+    flex: "0 0 auto",
+    border: active
+      ? "1px solid rgba(34,197,94,0.65)"
+      : "1px solid rgba(255,255,255,0.12)",
     background: active ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.06)",
     color: active ? "#bbf7d0" : "#ffffff",
     borderRadius: "999px",
@@ -124,7 +133,6 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
   const leagueOptions = useMemo(() => getLeaguesForSport(sportFilter), [sportFilter]);
   const matches = oddsData.matches || [];
-
   const [selectedMatchId, setSelectedMatchId] = useState(matches[0]?.id || null);
 
   const selectedMatch = useMemo(() => {
@@ -133,7 +141,9 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
   }, [matches, selectedMatchId]);
 
   useEffect(() => {
-    if (!selectedMatch && matches.length > 0) setSelectedMatchId(matches[0].id);
+    if (!selectedMatch && matches.length > 0) {
+      setSelectedMatchId(matches[0].id);
+    }
   }, [matches, selectedMatch]);
 
   const loadLiveGames = useCallback(
@@ -244,20 +254,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
     return matches
       .filter((match) => !match.fixturesOnly && (match.bestOdds?.home || match.bestOdds?.away))
       .flatMap((match) => [
-        {
-          match,
-          key: "home",
-          label: match.home_team,
-          odds: match.bestOdds.home,
-          probability: 0.45,
-        },
-        {
-          match,
-          key: "away",
-          label: match.away_team,
-          odds: match.bestOdds.away,
-          probability: 0.32,
-        },
+        { match, key: "home", label: match.home_team, odds: match.bestOdds.home, probability: 0.45 },
+        { match, key: "away", label: match.away_team, odds: match.bestOdds.away, probability: 0.32 },
       ])
       .filter((pick) => pick.odds)
       .map((pick) => {
@@ -313,6 +311,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
     borderRadius: "18px",
     padding: "18px",
     background: "rgba(0,0,0,0.2)",
+    maxWidth: "100%",
+    overflow: "hidden",
   };
 
   const inputStyle = {
@@ -326,13 +326,27 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
     boxSizing: "border-box",
   };
 
+  const scrollRowStyle = {
+    display: "flex",
+    gap: "8px",
+    overflowX: "auto",
+    maxWidth: "100%",
+    paddingBottom: "8px",
+    WebkitOverflowScrolling: "touch",
+  };
+
+  const safeTextStyle = {
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  };
+
   return (
-    <div style={{ display: "grid", gap: "18px" }}>
+    <div style={{ display: "grid", gap: "18px", maxWidth: "100%", overflow: "hidden" }}>
       <PageSection
         title={lang === "fi" ? "Vedonlyöntityötila" : "Betting Workspace"}
         subtitle={
           lang === "fi"
-            ? "Valitse laji ja liiga. Data haetaan vain napista, jotta API-krediittejä ei kulu automaattisesti."
+            ? "Valitse laji ja liiga. Data haetaan vain napista."
             : "Choose sport and league. Data loads only from the button."
         }
       >
@@ -340,20 +354,20 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         <TrustWarning trust={trust} lang={lang} />
 
         {oddsData.reason ? (
-          <div style={{ border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.08)", color: "#fde68a", borderRadius: "16px", padding: "14px 16px", fontSize: "14px", lineHeight: 1.5 }}>
+          <div style={{ border: "1px solid rgba(245,158,11,0.25)", background: "rgba(245,158,11,0.08)", color: "#fde68a", borderRadius: "16px", padding: "14px 16px", fontSize: "14px", lineHeight: 1.5, ...safeTextStyle }}>
             {oddsData.reason}
           </div>
         ) : null}
 
         {refreshError ? (
-          <div style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: "16px", padding: "14px 16px", fontSize: "14px", lineHeight: 1.5 }}>
+          <div style={{ border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#fecaca", borderRadius: "16px", padding: "14px 16px", fontSize: "14px", lineHeight: 1.5, ...safeTextStyle }}>
             {refreshError}
           </div>
         ) : null}
 
         <div style={panelStyle}>
           <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
-            <SourceBadge>{String(oddsData.source || "unknown").toUpperCase()}</SourceBadge>
+            <SourceBadge>{String(oddsData.source || "manual").toUpperCase()}</SourceBadge>
             <SourceBadge>{isRefreshing ? "HAETAAN" : oddsData.cached ? "CACHE" : String(oddsData.status || "WAITING").toUpperCase()}</SourceBadge>
             {oddsData.provider ? <SourceBadge>{String(oddsData.provider).toUpperCase()}</SourceBadge> : null}
           </div>
@@ -367,7 +381,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
               {lang === "fi" ? "Laji" : "Sport"}
             </div>
 
-            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px" }}>
+            <div style={scrollRowStyle}>
               {SPORT_OPTIONS.map((sport) => (
                 <button
                   key={sport.id}
@@ -389,7 +403,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
               {lang === "fi" ? "Liiga" : "League"}
             </div>
 
-            <div style={{ display: "flex", gap: "8px", overflowX: "auto", paddingBottom: "6px" }}>
+            <div style={scrollRowStyle}>
               <button type="button" onClick={() => setLeagueFilter("ALL")} style={sliderButton(leagueFilter === "ALL")}>
                 {lang === "fi" ? "Kaikki" : "All"}
               </button>
@@ -407,7 +421,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
             </div>
           </div>
 
-          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "12px" }}>
+          <div style={{ marginTop: "16px", display: "grid", gridTemplateColumns: "1fr", gap: "12px" }}>
             <div>
               <label style={{ color: "#94a3b8", fontSize: "13px", fontWeight: 800 }}>
                 {lang === "fi" ? "Tila" : "Status"}
@@ -430,7 +444,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
             </div>
           </div>
 
-          <div style={{ marginTop: "14px", display: "flex", gap: "12px", flexWrap: "wrap" }}>
+          <div style={{ marginTop: "14px", display: "grid", gridTemplateColumns: "1fr", gap: "10px" }}>
             <button type="button" onClick={() => loadLiveGames({ force: false })} disabled={isRefreshing} style={buttonStyle("green", isRefreshing)}>
               {isRefreshing ? "Haetaan..." : lang === "fi" ? "Hae pelit" : "Load games"}
             </button>
@@ -454,8 +468,12 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
             <div style={{ display: "grid", gap: "10px" }}>
               {dailyPicks.map((pick) => (
                 <div key={`${pick.match.id}-${pick.key}`} style={{ border: "1px solid rgba(255,255,255,0.08)", borderRadius: "14px", padding: "14px", background: "rgba(255,255,255,0.035)" }}>
-                  <div style={{ fontWeight: 900 }}>{pick.match.home_team} vs {pick.match.away_team}</div>
-                  <div style={{ color: "#94a3b8", marginTop: "4px" }}>{pick.label} • Odds {pick.odds}</div>
+                  <div style={{ fontWeight: 900, ...safeTextStyle }}>
+                    {pick.match.home_team} vs {pick.match.away_team}
+                  </div>
+                  <div style={{ color: "#94a3b8", marginTop: "4px" }}>
+                    {pick.label} • Odds {pick.odds}
+                  </div>
                   <div style={{ color: pick.edge > 0 ? "#86efac" : "#fca5a5", fontWeight: 900, marginTop: "6px" }}>
                     Edge {(pick.edge * 100).toFixed(1)}% • EV {pick.ev?.toFixed(2)}
                   </div>
@@ -467,14 +485,14 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
         <MarketTabs market={market} onChange={setMarket} lang={lang} />
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", maxWidth: "100%" }}>
           <div style={panelStyle}>
             <div style={{ fontWeight: 900, color: "#ffffff", fontSize: "22px", marginBottom: "12px" }}>
               {lang === "fi" ? "Ottelut" : "Matches"}
             </div>
 
             {matches.length === 0 ? (
-              <div style={{ color: "#94a3b8", fontSize: "15px", lineHeight: 1.5 }}>
+              <div style={{ color: "#94a3b8", fontSize: "15px", lineHeight: 1.5, ...safeTextStyle }}>
                 {lang === "fi" ? "Pelejä ei ole vielä ladattu. Valitse laji/liiga ja paina Hae pelit." : "No games loaded yet."}
               </div>
             ) : (
@@ -489,6 +507,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                       onClick={() => setSelectedMatchId(match.id)}
                       style={{
                         width: "100%",
+                        maxWidth: "100%",
                         border: active ? "1px solid rgba(34,197,94,0.6)" : "1px solid rgba(255,255,255,0.1)",
                         background: active ? "rgba(34,197,94,0.12)" : "rgba(255,255,255,0.04)",
                         color: "#ffffff",
@@ -496,9 +515,10 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                         padding: "14px",
                         textAlign: "left",
                         cursor: "pointer",
+                        overflow: "hidden",
                       }}
                     >
-                      <div style={{ fontWeight: 900, fontSize: "16px", lineHeight: 1.25 }}>
+                      <div style={{ fontWeight: 900, fontSize: "16px", lineHeight: 1.25, ...safeTextStyle }}>
                         {match.home_team} vs {match.away_team}
                       </div>
 
@@ -518,18 +538,18 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
             )}
           </div>
 
-          <div style={{ display: "grid", gap: "16px", alignContent: "start" }}>
+          <div style={{ display: "grid", gap: "16px", alignContent: "start", maxWidth: "100%" }}>
             <div style={panelStyle}>
-              <div style={{ fontWeight: 900, color: "#ffffff", fontSize: "22px", marginBottom: "12px" }}>
+              <div style={{ fontWeight: 900, color: "#ffffff", fontSize: "22px", marginBottom: "12px", ...safeTextStyle }}>
                 {selectedMatch ? `${selectedMatch.home_team} vs ${selectedMatch.away_team}` : lang === "fi" ? "Valitse ottelu" : "Select match"}
               </div>
 
               {selectedMatch?.fixturesOnly ? (
-                <div style={{ color: "#fde68a", fontSize: "15px", lineHeight: 1.5 }}>
+                <div style={{ color: "#fde68a", fontSize: "15px", lineHeight: 1.5, ...safeTextStyle }}>
                   Tämä ottelu tulee TheSportsDB:stä ottelulistana. Odds-dataa ei ole saatavilla tästä lähteestä.
                 </div>
               ) : marketRows.length === 0 ? (
-                <div style={{ color: "#94a3b8", fontSize: "15px", lineHeight: 1.5 }}>
+                <div style={{ color: "#94a3b8", fontSize: "15px", lineHeight: 1.5, ...safeTextStyle }}>
                   {lang === "fi" ? "Tälle markkinalle ei löytynyt pelattavia rivejä." : "No playable rows found."}
                 </div>
               ) : (
@@ -542,10 +562,10 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                     const saved = isFavorite(favId);
 
                     return (
-                      <div key={row.key} style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)", borderRadius: "16px", padding: "14px" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap" }}>
+                      <div key={row.key} style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.035)", borderRadius: "16px", padding: "14px", overflow: "hidden" }}>
+                        <div style={{ display: "grid", gap: "12px" }}>
                           <div>
-                            <div style={{ color: "#ffffff", fontSize: "18px", fontWeight: 900 }}>{row.label}</div>
+                            <div style={{ color: "#ffffff", fontSize: "18px", fontWeight: 900, ...safeTextStyle }}>{row.label}</div>
                             <div style={{ marginTop: "6px", color: "#dbe4f0", fontSize: "14px" }}>Odds {row.odds}</div>
                             <div style={{ marginTop: "6px", color: edge != null && edge > 0 ? "#86efac" : "#fca5a5", fontSize: "14px", fontWeight: 800 }}>
                               Edge {edge != null ? `${(edge * 100).toFixed(1)}%` : "-"}
@@ -555,7 +575,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                             </div>
                           </div>
 
-                          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", alignItems: "flex-start" }}>
+                          <div style={{ display: "grid", gap: "10px" }}>
                             <button type="button" onClick={() => handleAddBet(row)} style={buttonStyle("green")}>
                               {lang === "fi" ? "Lisää veto" : "Add bet"}
                             </button>
@@ -580,13 +600,13 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
           </div>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "16px" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr", gap: "16px", maxWidth: "100%" }}>
           <div style={panelStyle}>
             <div style={{ fontWeight: 900, color: "#ffffff", fontSize: "22px", marginBottom: "12px" }}>
               {lang === "fi" ? "Panostus" : "Staking"}
             </div>
 
-            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "14px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "8px", marginBottom: "14px" }}>
               <button type="button" onClick={() => setStakeMode("manual")} style={buttonStyle(stakeMode === "manual" ? "green" : "default")}>
                 Manuaalinen
               </button>
