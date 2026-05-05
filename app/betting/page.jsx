@@ -8,7 +8,7 @@ const initialOddsData = {
   provider: "",
   cached: false,
   reason:
-    "Live-dataa ei haeta automaattisesti. Paina Hae pelit, kun haluat hakea oikeat ottelut.",
+    "Live-dataa ei haeta automaattisesti. Valitse laji/liiga ja paina Hae pelit.",
   matches: [],
 };
 
