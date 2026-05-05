@@ -200,7 +200,7 @@ async function fetchSportsGameOddsLeague({ leagueID, oddsOnly }) {
   };
 }
 
-function normalizeTheSportsDbEvent(event, leagueKey, leagueInfo) {
+function normalizeTheSportsDbEvent(event, leagueID, leagueInfo) {
   return {
     id: String(event?.idEvent),
     sport_key: leagueInfo.sport,
@@ -212,7 +212,7 @@ function normalizeTheSportsDbEvent(event, leagueKey, leagueInfo) {
     away_team: event?.strAwayTeam || "Away",
     provider: "thesportsdb",
     fixturesOnly: true,
-    leagueKey,
+    leagueKey: leagueID,
     bestOdds: {
       home: null,
       draw: null,
@@ -283,7 +283,7 @@ export async function GET(request) {
   const url = new URL(request.url);
   const force = url.searchParams.get("force") === "1";
   const oddsOnly = url.searchParams.get("oddsOnly") !== "0";
-  const status = url.searchParams.get("status") || "all";
+  const status = url.searchParams.get("status") || "upcoming";
   const sport = url.searchParams.get("sport") || "all";
   const leagues = getLeagueSelection(url.searchParams);
 
@@ -299,22 +299,27 @@ export async function GET(request) {
     });
   }
 
-  const tasks = leagues.map((leagueID) => {
-    const league = getLeagueById(leagueID);
+  const results = await Promise.all(
+    leagues.map((leagueID) => {
+      const league = getLeagueById(leagueID);
 
-    if (league?.provider === "thesportsdb" || FINNISH_LEAGUE_IDS[leagueID]) {
-      return fetchTheSportsDbLeague({ leagueID });
-    }
+      if (league?.provider === "thesportsdb" || FINNISH_LEAGUE_IDS[leagueID]) {
+        return fetchTheSportsDbLeague({ leagueID });
+      }
 
-    return fetchSportsGameOddsLeague({ leagueID, oddsOnly });
-  });
-
-  const results = await Promise.all(tasks);
+      return fetchSportsGameOddsLeague({ leagueID, oddsOnly });
+    })
+  );
 
   let matches = results.flatMap((result) => result.matches);
 
-  if (status === "live") matches = matches.filter((match) => match.is_live);
-  if (status === "upcoming") matches = matches.filter((match) => !match.is_live && !match.is_completed);
+  if (status === "live") {
+    matches = matches.filter((match) => match.is_live);
+  }
+
+  if (status === "upcoming") {
+    matches = matches.filter((match) => !match.is_live && !match.is_completed);
+  }
 
   if (oddsOnly) {
     matches = matches.filter((match) => hasAnyOdds(match));
