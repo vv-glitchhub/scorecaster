@@ -12,30 +12,8 @@ const DEMO_DATA = {
   status: "demo",
   provider: "demo",
   cached: false,
-  reason:
-    "Live-dataa ei saatu normalisoitua. Näytetään testidata, jotta käyttöliittymää voi käyttää.",
-  matches: [
-    {
-      id: "demo-nhl-1",
-      sport_key: "icehockey_nhl",
-      sport_title: "NHL",
-      commence_time: new Date().toISOString(),
-      home_team: "Florida Panthers",
-      away_team: "Tampa Bay Lightning",
-      bestOdds: {
-        home: 2.05,
-        draw: null,
-        away: 1.82,
-        point: null,
-        over: null,
-        under: null,
-        spreadPointHome: null,
-        spreadPointAway: null,
-        spreadHome: null,
-        spreadAway: null,
-      },
-    },
-  ],
+  reason: "Live-dataa ei saatu ladattua. Näytetään testidata.",
+  matches: [],
 };
 
 function toNumber(value) {
@@ -43,88 +21,58 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : null;
 }
 
-function firstDefined(...values) {
-  return values.find((value) => value !== undefined && value !== null && value !== "");
+function americanToDecimal(value) {
+  const n = toNumber(value);
+  if (!n) return null;
+  if (n > 0) return Number((1 + n / 100).toFixed(2));
+  return Number((1 + 100 / Math.abs(n)).toFixed(2));
 }
 
-function getArrayFromPayload(payload) {
-  if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.events)) return payload.events;
-  if (Array.isArray(payload?.results)) return payload.results;
-  return [];
+function bestBookDecimal(odd) {
+  const direct =
+    americanToDecimal(odd?.bookOdds) ||
+    americanToDecimal(odd?.fairOdds) ||
+    toNumber(odd?.decimalOdds);
+
+  let best = direct;
+
+  if (odd?.byBookmaker && typeof odd.byBookmaker === "object") {
+    for (const book of Object.values(odd.byBookmaker)) {
+      if (book?.available === false) continue;
+
+      const decimal =
+        americanToDecimal(book?.odds) ||
+        americanToDecimal(book?.bookOdds) ||
+        toNumber(book?.decimalOdds);
+
+      if (decimal && (!best || decimal > best)) {
+        best = decimal;
+      }
+    }
+  }
+
+  return best;
 }
 
-function extractName(value, fallback) {
-  if (!value) return fallback;
-  if (typeof value === "string") return value;
-
+function getTeamName(event, side) {
   return (
-    value.name ||
-    value.displayName ||
-    value.fullName ||
-    value.teamName ||
-    value.shortName ||
-    value.abbreviation ||
-    value.id ||
-    fallback
+    event?.teams?.[side]?.names?.long ||
+    event?.teams?.[side]?.names?.medium ||
+    event?.teams?.[side]?.names?.short ||
+    event?.teams?.[side]?.teamID ||
+    (side === "home" ? "Home" : "Away")
   );
 }
 
-function getEventId(event) {
-  return String(
-    firstDefined(
-      event.eventID,
-      event.eventId,
-      event.gameID,
-      event.gameId,
-      event.id,
-      event.event_id
-    )
-  );
-}
+function normalizeEvent(event) {
+  const homeTeam = getTeamName(event, "home");
+  const awayTeam = getTeamName(event, "away");
 
-function normalizeEventBase(event) {
-  const eventID = getEventId(event);
-
-  const homeTeam = extractName(
-    firstDefined(
-      event.homeTeam,
-      event.home_team,
-      event.home,
-      event.teams?.home,
-      event.competitors?.home,
-      event.participants?.home,
-      event.homeCompetitor
-    ),
-    "Home"
-  );
-
-  const awayTeam = extractName(
-    firstDefined(
-      event.awayTeam,
-      event.away_team,
-      event.away,
-      event.teams?.away,
-      event.competitors?.away,
-      event.participants?.away,
-      event.awayCompetitor
-    ),
-    "Away"
-  );
-
-  return {
-    id: eventID,
-    sport_key: String(firstDefined(event.sportID, event.sport, "HOCKEY")),
-    sport_title: String(firstDefined(event.leagueID, event.league, "NHL")),
-    commence_time: firstDefined(
-      event.startTime,
-      event.startDate,
-      event.commence_time,
-      event.gameTime,
-      event.eventTime,
-      null
-    ),
+  const match = {
+    id: String(event?.eventID || event?.id),
+    sport_key: String(event?.sportID || "HOCKEY"),
+    sport_title: String(event?.leagueID || "NHL"),
+    commence_time: event?.status?.startsAt || event?.startTime || null,
     home_team: homeTeam,
     away_team: awayTeam,
     bestOdds: {
@@ -140,143 +88,83 @@ function normalizeEventBase(event) {
       spreadAway: null,
     },
   };
-}
 
-function classifyOutcome(outcome, match) {
-  const text = String(
-    firstDefined(
-      outcome.name,
-      outcome.label,
-      outcome.outcome,
-      outcome.side,
-      outcome.selection,
-      outcome.betName,
-      outcome.participant,
-      outcome.team,
-      outcome.teamID,
-      ""
-    )
-  ).toLowerCase();
+  const odds = event?.odds && typeof event.odds === "object" ? event.odds : {};
 
-  const home = String(match.home_team || "").toLowerCase();
-  const away = String(match.away_team || "").toLowerCase();
+  for (const odd of Object.values(odds)) {
+    const betType = String(odd?.betTypeID || "").toLowerCase();
+    const side = String(odd?.sideID || "").toLowerCase();
+    const period = String(odd?.periodID || "").toLowerCase();
 
-  if (text.includes(home) || text === "home" || text.includes("home")) return "home";
-  if (text.includes(away) || text === "away" || text.includes("away")) return "away";
-  if (text.includes("draw") || text.includes("tie")) return "draw";
-  if (text.includes("over")) return "over";
-  if (text.includes("under")) return "under";
+    if (period && period !== "game") continue;
 
-  return null;
-}
+    const price = bestBookDecimal(odd);
+    if (!price) continue;
 
-function getPrice(outcome) {
-  return toNumber(
-    firstDefined(
-      outcome.price,
-      outcome.odds,
-      outcome.decimalOdds,
-      outcome.currentOdds,
-      outcome.bookOdds,
-      outcome.value
-    )
-  );
-}
+    if (betType === "ml" || betType === "moneyline") {
+      if (side === "home") {
+        match.bestOdds.home = Math.max(match.bestOdds.home || 0, price);
+      }
 
-function applyOddsFromObject(match, obj) {
-  if (!obj || typeof obj !== "object") return match;
+      if (side === "away") {
+        match.bestOdds.away = Math.max(match.bestOdds.away || 0, price);
+      }
 
-  const homeDirect = toNumber(
-    firstDefined(
-      obj.homeOdds,
-      obj.moneylineHome,
-      obj.homeMoneyline,
-      obj.odds?.home,
-      obj.bestOdds?.home
-    )
-  );
-
-  const awayDirect = toNumber(
-    firstDefined(
-      obj.awayOdds,
-      obj.moneylineAway,
-      obj.awayMoneyline,
-      obj.odds?.away,
-      obj.bestOdds?.away
-    )
-  );
-
-  const drawDirect = toNumber(
-    firstDefined(
-      obj.drawOdds,
-      obj.moneylineDraw,
-      obj.drawMoneyline,
-      obj.odds?.draw,
-      obj.bestOdds?.draw
-    )
-  );
-
-  if (homeDirect) match.bestOdds.home = Math.max(match.bestOdds.home || 0, homeDirect);
-  if (awayDirect) match.bestOdds.away = Math.max(match.bestOdds.away || 0, awayDirect);
-  if (drawDirect) match.bestOdds.draw = Math.max(match.bestOdds.draw || 0, drawDirect);
-
-  return match;
-}
-
-function walkOdds(match, value) {
-  if (!value || typeof value !== "object") return match;
-
-  if (Array.isArray(value)) {
-    for (const item of value) walkOdds(match, item);
-    return match;
-  }
-
-  applyOddsFromObject(match, value);
-
-  const price = getPrice(value);
-  if (price) {
-    const side = classifyOutcome(value, match);
-
-    if (side === "home") {
-      match.bestOdds.home = Math.max(match.bestOdds.home || 0, price);
+      if (side === "draw" || side === "tie") {
+        match.bestOdds.draw = Math.max(match.bestOdds.draw || 0, price);
+      }
     }
 
-    if (side === "away") {
-      match.bestOdds.away = Math.max(match.bestOdds.away || 0, price);
+    if (betType === "ou" || betType === "total") {
+      const line = toNumber(odd?.line) || toNumber(odd?.points);
+
+      if (side === "over") {
+        match.bestOdds.over = Math.max(match.bestOdds.over || 0, price);
+        if (line) match.bestOdds.point = line;
+      }
+
+      if (side === "under") {
+        match.bestOdds.under = Math.max(match.bestOdds.under || 0, price);
+        if (line) match.bestOdds.point = line;
+      }
     }
 
-    if (side === "draw") {
-      match.bestOdds.draw = Math.max(match.bestOdds.draw || 0, price);
-    }
+    if (betType === "sp" || betType === "spread") {
+      const line = toNumber(odd?.line) || toNumber(odd?.points);
 
-    if (side === "over") {
-      match.bestOdds.over = Math.max(match.bestOdds.over || 0, price);
-      match.bestOdds.point = firstDefined(match.bestOdds.point, toNumber(value.point), toNumber(value.line));
-    }
+      if (side === "home") {
+        match.bestOdds.spreadHome = Math.max(match.bestOdds.spreadHome || 0, price);
+        if (line) match.bestOdds.spreadPointHome = line;
+      }
 
-    if (side === "under") {
-      match.bestOdds.under = Math.max(match.bestOdds.under || 0, price);
-      match.bestOdds.point = firstDefined(match.bestOdds.point, toNumber(value.point), toNumber(value.line));
-    }
-  }
-
-  for (const child of Object.values(value)) {
-    if (child && typeof child === "object") {
-      walkOdds(match, child);
+      if (side === "away") {
+        match.bestOdds.spreadAway = Math.max(match.bestOdds.spreadAway || 0, price);
+        if (line) match.bestOdds.spreadPointAway = line;
+      }
     }
   }
 
   return match;
 }
 
-function normalizeSportsGameOddsEvent(event) {
-  const match = normalizeEventBase(event);
-  walkOdds(match, event);
+async function fetchSportsGameOdds() {
+  const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
 
-  return match;
-}
+  if (!apiKey) {
+    return {
+      ok: false,
+      error: "SPORTSGAMEODDS_API_KEY puuttuu Vercelistä.",
+    };
+  }
 
-async function fetchJson(url, apiKey) {
+  const url =
+    "https://api.sportsgameodds.com/v2/events" +
+    `?apiKey=${apiKey}` +
+    "&leagueID=NHL" +
+    "&oddsAvailable=true" +
+    "&includeAltLines=false" +
+    "&limit=25";
+
   const response = await fetch(url, {
     cache: "no-store",
     headers: {
@@ -290,84 +178,63 @@ async function fetchJson(url, apiKey) {
   if (!response.ok) {
     return {
       ok: false,
-      status: response.status,
-      text,
-      payload: null,
+      error: `SportsGameOdds error ${response.status}: ${text}`,
     };
   }
 
-  return {
-    ok: true,
-    status: response.status,
-    text,
-    payload: JSON.parse(text),
-  };
-}
-
-async function fetchSportsGameOdds() {
-  const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
-
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "SPORTSGAMEODDS_API_KEY puuttuu Vercelistä.",
-    };
-  }
-
-  const eventsUrl =
-    "https://api.sportsgameodds.com/v2/events" +
-    `?apiKey=${apiKey}` +
-    "&leagueID=NHL" +
-    "&oddsAvailable=true" +
-    "&includeAltLines=false" +
-    "&limit=25";
-
-  const eventsResponse = await fetchJson(eventsUrl, apiKey);
-
-  if (!eventsResponse.ok) {
-    return {
-      ok: false,
-      error: `SportsGameOdds events error ${eventsResponse.status}: ${eventsResponse.text}`,
-    };
-  }
-
-  const events = getArrayFromPayload(eventsResponse.payload);
+  const payload = JSON.parse(text);
+  const events = Array.isArray(payload?.data)
+    ? payload.data
+    : Array.isArray(payload?.events)
+    ? payload.events
+    : Array.isArray(payload)
+    ? payload
+    : [];
 
   const matches = events
-    .map(normalizeSportsGameOddsEvent)
+    .map(normalizeEvent)
     .filter((match) => match.id && match.home_team && match.away_team);
 
-  const hasUsableOdds = matches.some(
-    (match) => match.bestOdds.home || match.bestOdds.away || match.bestOdds.draw
-  );
-
-  if (!hasUsableOdds) {
+  if (matches.length === 0) {
     return {
-      ok: true,
-      data: {
-        source: "live",
-        status: "events_only",
-        provider: "sportsgameodds",
-        cached: false,
-        reason:
-          "SportsGameOdds palautti ottelut, mutta moneyline-kertoimia ei löytynyt tästä payloadista. Tarvitaan odds-rakenne endpointista tai docsien market-esimerkki.",
-        debug: {
-          firstEventKeys: events[0] ? Object.keys(events[0]) : [],
-          firstEventSample: events[0] || null,
-        },
-        matches,
-      },
+      ok: false,
+      error: "SportsGameOdds palautti tyhjän ottelulistan.",
     };
   }
+
+  const usable = matches.filter(
+    (match) =>
+      match.bestOdds.home ||
+      match.bestOdds.away ||
+      match.bestOdds.draw ||
+      match.bestOdds.over ||
+      match.bestOdds.under ||
+      match.bestOdds.spreadHome ||
+      match.bestOdds.spreadAway
+  );
 
   return {
     ok: true,
     data: {
       source: "live",
-      status: "fresh",
+      status: usable.length > 0 ? "fresh" : "events_only",
       provider: "sportsgameodds",
       cached: false,
-      reason: "",
+      reason:
+        usable.length > 0
+          ? ""
+          : "Ottelut löytyivät, mutta moneyline/totals/spread-kertoimia ei löytynyt payloadista.",
+      debug:
+        usable.length > 0
+          ? null
+          : {
+              firstEventKeys: events[0] ? Object.keys(events[0]) : [],
+              oddsKeys: events[0]?.odds ? Object.keys(events[0].odds).slice(0, 10) : [],
+              firstOdd:
+                events[0]?.odds && Object.keys(events[0].odds).length > 0
+                  ? events[0].odds[Object.keys(events[0].odds)[0]]
+                  : null,
+            },
       matches,
     },
   };
