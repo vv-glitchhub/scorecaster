@@ -2,18 +2,39 @@ import { NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-let cachedData = null;
-let cachedAt = 0;
+let cachedData = new Map();
 
 const CACHE_MS = 10 * 60 * 1000;
 
-const DEMO_DATA = {
-  source: "demo",
-  status: "demo",
-  provider: "demo",
-  cached: false,
-  reason: "Live-dataa ei saatu ladattua. Näytetään testidata.",
-  matches: [],
+const SPORTS_GAME_ODDS_LEAGUES = [
+  "NHL",
+  "NBA",
+  "NFL",
+  "MLB",
+  "NCAAF",
+  "NCAAB",
+  "WNBA",
+  "MLS",
+  "EPL",
+  "UCL",
+];
+
+const FINNISH_LEAGUES = {
+  FIN_LIIGA: {
+    id: "4931",
+    title: "Liiga",
+    sport: "Ice Hockey",
+  },
+  FIN_VEIKKAUSLIIGA: {
+    id: "4636",
+    title: "Veikkausliiga",
+    sport: "Soccer",
+  },
+  FIN_CUP: {
+    id: "5186",
+    title: "Finnish Cup",
+    sport: "Soccer",
+  },
 };
 
 function toNumber(value) {
@@ -29,12 +50,10 @@ function americanToDecimal(value) {
 }
 
 function bestBookDecimal(odd) {
-  const direct =
+  let best =
     americanToDecimal(odd?.bookOdds) ||
     americanToDecimal(odd?.fairOdds) ||
     toNumber(odd?.decimalOdds);
-
-  let best = direct;
 
   if (odd?.byBookmaker && typeof odd.byBookmaker === "object") {
     for (const book of Object.values(odd.byBookmaker)) {
@@ -64,17 +83,16 @@ function getTeamName(event, side) {
   );
 }
 
-function normalizeEvent(event) {
-  const homeTeam = getTeamName(event, "home");
-  const awayTeam = getTeamName(event, "away");
-
+function normalizeSportsGameOddsEvent(event) {
   const match = {
     id: String(event?.eventID || event?.id),
-    sport_key: String(event?.sportID || "HOCKEY"),
-    sport_title: String(event?.leagueID || "NHL"),
+    sport_key: String(event?.sportID || "SPORT"),
+    sport_title: String(event?.leagueID || "League"),
     commence_time: event?.status?.startsAt || event?.startTime || null,
-    home_team: homeTeam,
-    away_team: awayTeam,
+    is_live: Boolean(event?.status?.live),
+    is_completed: Boolean(event?.status?.completed || event?.status?.ended),
+    home_team: getTeamName(event, "home"),
+    away_team: getTeamName(event, "away"),
     bestOdds: {
       home: null,
       draw: null,
@@ -147,23 +165,26 @@ function normalizeEvent(event) {
   return match;
 }
 
-async function fetchSportsGameOdds() {
-  const apiKey = process.env.SPORTSGAMEODDS_API_KEY;
+function hasAnyOdds(match) {
+  return Boolean(
+    match.bestOdds.home ||
+      match.bestOdds.away ||
+      match.bestOdds.draw ||
+      match.bestOdds.over ||
+      match.bestOdds.under ||
+      match.bestOdds.spreadHome ||
+      match.bestOdds.spreadAway
+  );
+}
 
-  if (!apiKey) {
-    return {
-      ok: false,
-      error: "SPORTSGAMEODDS_API_KEY puuttuu Vercelistä.",
-    };
-  }
-
+async function fetchSportsGameOddsLeague({ apiKey, leagueID, oddsOnly }) {
   const url =
     "https://api.sportsgameodds.com/v2/events" +
     `?apiKey=${apiKey}` +
-    "&leagueID=NHL" +
-    "&oddsAvailable=true" +
+    `&leagueID=${encodeURIComponent(leagueID)}` +
+    `&oddsAvailable=${oddsOnly ? "true" : "false"}` +
     "&includeAltLines=false" +
-    "&limit=25";
+    "&limit=50";
 
   const response = await fetch(url, {
     cache: "no-store",
@@ -178,7 +199,9 @@ async function fetchSportsGameOdds() {
   if (!response.ok) {
     return {
       ok: false,
-      error: `SportsGameOdds error ${response.status}: ${text}`,
+      leagueID,
+      error: `SportsGameOdds ${leagueID} error ${response.status}: ${text}`,
+      matches: [],
     };
   }
 
@@ -191,82 +214,217 @@ async function fetchSportsGameOdds() {
     ? payload
     : [];
 
-  const matches = events
-    .map(normalizeEvent)
-    .filter((match) => match.id && match.home_team && match.away_team);
-
-  if (matches.length === 0) {
-    return {
-      ok: false,
-      error: "SportsGameOdds palautti tyhjän ottelulistan.",
-    };
-  }
-
-  const usable = matches.filter(
-    (match) =>
-      match.bestOdds.home ||
-      match.bestOdds.away ||
-      match.bestOdds.draw ||
-      match.bestOdds.over ||
-      match.bestOdds.under ||
-      match.bestOdds.spreadHome ||
-      match.bestOdds.spreadAway
-  );
-
   return {
     ok: true,
-    data: {
-      source: "live",
-      status: usable.length > 0 ? "fresh" : "events_only",
-      provider: "sportsgameodds",
-      cached: false,
-      reason:
-        usable.length > 0
-          ? ""
-          : "Ottelut löytyivät, mutta moneyline/totals/spread-kertoimia ei löytynyt payloadista.",
-      debug:
-        usable.length > 0
-          ? null
-          : {
-              firstEventKeys: events[0] ? Object.keys(events[0]) : [],
-              oddsKeys: events[0]?.odds ? Object.keys(events[0].odds).slice(0, 10) : [],
-              firstOdd:
-                events[0]?.odds && Object.keys(events[0].odds).length > 0
-                  ? events[0].odds[Object.keys(events[0].odds)[0]]
-                  : null,
-            },
-      matches,
-    },
+    leagueID,
+    error: "",
+    matches: events.map(normalizeSportsGameOddsEvent),
   };
 }
 
+function normalizeTheSportsDbEvent(event, leagueKey, leagueInfo) {
+  return {
+    id: String(event?.idEvent),
+    sport_key: leagueInfo.sport,
+    sport_title: leagueInfo.title,
+    commence_time: event?.strTimestamp || event?.dateEvent || null,
+    is_live: false,
+    is_completed: false,
+    home_team: event?.strHomeTeam || "Home",
+    away_team: event?.strAwayTeam || "Away",
+    bestOdds: {
+      home: null,
+      draw: null,
+      away: null,
+      point: null,
+      over: null,
+      under: null,
+      spreadPointHome: null,
+      spreadPointAway: null,
+      spreadHome: null,
+      spreadAway: null,
+    },
+    fixturesOnly: true,
+    leagueKey,
+  };
+}
+
+async function fetchTheSportsDbLeague({ leagueKey }) {
+  const leagueInfo = FINNISH_LEAGUES[leagueKey];
+  const apiKey = process.env.THESPORTSDB_API_KEY || "3";
+
+  if (!leagueInfo) {
+    return {
+      ok: false,
+      leagueID: leagueKey,
+      error: `Unknown Finnish league: ${leagueKey}`,
+      matches: [],
+    };
+  }
+
+  const url = `https://www.thesportsdb.com/api/v1/json/${apiKey}/eventsnextleague.php?id=${leagueInfo.id}`;
+
+  const response = await fetch(url, {
+    cache: "no-store",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
+    return {
+      ok: false,
+      leagueID: leagueKey,
+      error: `TheSportsDB ${leagueKey} error ${response.status}: ${text}`,
+      matches: [],
+    };
+  }
+
+  const payload = JSON.parse(text);
+  const events = Array.isArray(payload?.events) ? payload.events : [];
+
+  return {
+    ok: true,
+    leagueID: leagueKey,
+    error: "",
+    matches: events.map((event) =>
+      normalizeTheSportsDbEvent(event, leagueKey, leagueInfo)
+    ),
+  };
+}
+
+function getLeagueSelection(searchParams) {
+  const league = searchParams.get("league") || "ALL";
+  const sport = searchParams.get("sport") || "all";
+
+  if (league !== "ALL") {
+    return [league];
+  }
+
+  if (sport === "finland") {
+    return Object.keys(FINNISH_LEAGUES);
+  }
+
+  if (sport === "hockey") {
+    return ["NHL", "FIN_LIIGA"];
+  }
+
+  if (sport === "basketball") {
+    return ["NBA", "NCAAB", "WNBA"];
+  }
+
+  if (sport === "football") {
+    return ["NFL", "NCAAF"];
+  }
+
+  if (sport === "baseball") {
+    return ["MLB"];
+  }
+
+  if (sport === "soccer") {
+    return ["EPL", "MLS", "UCL", "FIN_VEIKKAUSLIIGA", "FIN_CUP"];
+  }
+
+  return [...SPORTS_GAME_ODDS_LEAGUES, ...Object.keys(FINNISH_LEAGUES)];
+}
+
 export async function GET(request) {
-  const now = Date.now();
   const url = new URL(request.url);
   const force = url.searchParams.get("force") === "1";
+  const oddsOnly = url.searchParams.get("oddsOnly") !== "0";
+  const status = url.searchParams.get("status") || "all";
+  const leagues = getLeagueSelection(url.searchParams);
 
-  if (!force && cachedData && now - cachedAt < CACHE_MS) {
+  const cacheKey = JSON.stringify({ leagues, oddsOnly, status });
+  const now = Date.now();
+  const cached = cachedData.get(cacheKey);
+
+  if (!force && cached && now - cached.cachedAt < CACHE_MS) {
     return NextResponse.json({
-      ...cachedData,
+      ...cached.data,
       cached: true,
-      cacheAgeSeconds: Math.round((now - cachedAt) / 1000),
+      cacheAgeSeconds: Math.round((now - cached.cachedAt) / 1000),
     });
   }
 
-  const primary = await fetchSportsGameOdds();
+  const sgoApiKey = process.env.SPORTSGAMEODDS_API_KEY;
 
-  if (primary.ok) {
-    cachedData = primary.data;
-    cachedAt = now;
-    return NextResponse.json(primary.data);
+  const tasks = leagues.map((leagueID) => {
+    if (FINNISH_LEAGUES[leagueID]) {
+      return fetchTheSportsDbLeague({ leagueKey: leagueID });
+    }
+
+    if (!sgoApiKey) {
+      return Promise.resolve({
+        ok: false,
+        leagueID,
+        error: "SPORTSGAMEODDS_API_KEY puuttuu Vercelistä.",
+        matches: [],
+      });
+    }
+
+    return fetchSportsGameOddsLeague({
+      apiKey: sgoApiKey,
+      leagueID,
+      oddsOnly,
+    });
+  });
+
+  const results = await Promise.all(tasks);
+
+  let matches = results.flatMap((result) => result.matches);
+
+  if (status === "live") {
+    matches = matches.filter((match) => match.is_live);
   }
 
-  return NextResponse.json({
-    ...DEMO_DATA,
-    status: "api_error",
-    reason: primary.error,
-    debug: {
-      primaryError: primary.error,
-    },
+  if (status === "upcoming") {
+    matches = matches.filter((match) => !match.is_live && !match.is_completed);
+  }
+
+  if (oddsOnly) {
+    matches = matches.filter((match) => hasAnyOdds(match));
+  }
+
+  const seen = new Set();
+  matches = matches.filter((match) => {
+    if (!match.id) return false;
+    if (seen.has(match.id)) return false;
+    seen.add(match.id);
+    return true;
   });
+
+  const errors = results.filter((result) => !result.ok).map((result) => result.error);
+
+  const hasFinnish = leagues.some((league) => FINNISH_LEAGUES[league]);
+  const fixturesOnlyCount = matches.filter((match) => match.fixturesOnly).length;
+
+  const data = {
+    source: "live",
+    status: matches.length > 0 ? "fresh" : "empty",
+    provider: hasFinnish ? "multi-api" : "sportsgameodds",
+    cached: false,
+    reason:
+      matches.length > 0
+        ? fixturesOnlyCount > 0
+          ? "Osa Suomen sarjoista tulee ottelulistana ilman odds-dataa."
+          : ""
+        : "Valituilla filttereillä ei löytynyt pelejä. Kokeile Odds only pois päältä tai All-lajia.",
+    debug: errors.length ? { errors } : null,
+    filters: {
+      leagues,
+      oddsOnly,
+      status,
+    },
+    matches,
+  };
+
+  cachedData.set(cacheKey, {
+    cachedAt: now,
+    data,
+  });
+
+  return NextResponse.json(data);
 }
