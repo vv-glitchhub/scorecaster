@@ -131,14 +131,56 @@ function PickStats({ pick }) {
         marginTop: 12,
       }}
     >
-      <MiniStat label="Markkina" value={pick.market || "-"} />
-      <MiniStat label="Kerroin" value={pick.odds} />
-      <MiniStat label="Edge" value={pct(pick.edge)} good />
-      <MiniStat label="EV" value={pick.ev?.toFixed(2) ?? "-"} />
-      <MiniStat label="Market %" value={pct(pick.marketProb)} />
-      <MiniStat label="Malli %" value={pct(pick.modelProb)} />
-      <MiniStat label="Riski" value={pick.risk?.level || "-"} />
-      <MiniStat label="Panos" value={money(pick.stake)} good />
+      <MiniStat
+        label="Markkina"
+        value={pick.market || "-"}
+      />
+
+      <MiniStat
+        label="Kerroin"
+        value={pick.odds}
+      />
+
+      <MiniStat
+        label="Yhtiö"
+        value={pick.bookmaker || "Unknown"}
+        good
+      />
+
+      <MiniStat
+        label="Edge"
+        value={pct(pick.edge)}
+        good
+      />
+
+      <MiniStat
+        label="EV"
+        value={pick.ev?.toFixed(2) ?? "-"}
+        good={pick.ev > 0}
+      />
+
+      <MiniStat
+        label="Market %"
+        value={pct(pick.marketProb)}
+      />
+
+      <MiniStat
+        label="Malli %"
+        value={pct(pick.modelProb)}
+        good
+      />
+
+      <MiniStat
+        label="Riski"
+        value={pick.risk?.level || "-"}
+        good={pick.shouldBet}
+      />
+
+      <MiniStat
+        label="Panos"
+        value={money(pick.stake)}
+        good={pick.shouldBet}
+      />
     </div>
   );
 }
