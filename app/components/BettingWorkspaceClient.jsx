@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { SPORT_OPTIONS, getLeaguesForSport } from "@/lib/league-options";
 import { analyzeRows, getBestBets } from "@/lib/betting-engine";
-import { getMatchDataStatus, splitMatchesByDataStatus } from "@/lib/data-status";
+import { getMatchDataStatus, isBettableMatch } from "@/lib/data-status";
 
 function card(extra = {}) {
   return {
@@ -115,7 +115,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
   const [sport, setSport] = useState("all");
   const [league, setLeague] = useState("ALL");
   const [status, setStatus] = useState("upcoming");
-  const [oddsOnly, setOddsOnly] = useState(false);
+  const [oddsOnly, setOddsOnly] = useState(true);
   const [market, setMarket] = useState("h2h");
   const [selectedId, setSelectedId] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -124,14 +124,15 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
   const [showData, setShowData] = useState(false);
 
   const matches = oddsData.matches || [];
+  const bettableMatches = useMemo(() => matches.filter(isBettableMatch), [matches]);
   const leagues = useMemo(() => getLeaguesForSport(sport), [sport]);
-  const selectedMatch = matches.find((m) => m.id === selectedId) || matches[0] || null;
 
-  const split = useMemo(() => splitMatchesByDataStatus(matches), [matches]);
+  const selectedMatch =
+    bettableMatches.find((m) => m.id === selectedId) || bettableMatches[0] || null;
 
   const topPicks = useMemo(
-    () => getBestBets(matches, Number(bankroll) || 1000),
-    [matches, bankroll]
+    () => getBestBets(bettableMatches, Number(bankroll) || 1000),
+    [bettableMatches, bankroll]
   );
 
   const selectedRows = useMemo(
@@ -151,6 +152,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       params.set("league", league);
       params.set("status", status);
       params.set("oddsOnly", oddsOnly ? "1" : "0");
+
       if (force) params.set("force", "1");
 
       const res = await fetch(`/api/odds?${params.toString()}`, {
@@ -161,7 +163,9 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       const normalized = normalizeData(data);
 
       setOddsData(normalized);
-      setSelectedId(normalized.matches?.[0]?.id || null);
+
+      const firstBettable = normalized.matches?.find(isBettableMatch);
+      setSelectedId(firstBettable?.id || null);
     } catch (error) {
       setOddsData({
         source: "error",
@@ -215,19 +219,23 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         </h1>
 
         <p style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 17, lineHeight: 1.45 }}>
-          Appi näyttää ensin mitä voi lyödä. Jos kertoimia ei ole, ottelu näytetään vain
-          ottelulistana eikä siitä tehdä vetosuositusta.
+          Appi näyttää vain betattavat ottelut. Jokaisessa näkyvässä pelissä on koti- ja
+          vieraskerroin.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
           <div style={card({ padding: 14, background: "rgba(255,255,255,0.05)" })}>
-            <div style={{ color: "#94a3b8", fontSize: 13, fontWeight: 900 }}>Otteluita</div>
+            <div style={{ color: "#94a3b8", fontSize: 13, fontWeight: 900 }}>
+              API otteluita
+            </div>
             <div style={{ fontWeight: 900, marginTop: 4 }}>{matches.length}</div>
           </div>
 
           <div style={card({ padding: 14, background: "rgba(255,255,255,0.05)" })}>
-            <div style={{ color: "#94a3b8", fontSize: 13, fontWeight: 900 }}>Betattavia</div>
-            <div style={{ fontWeight: 900, marginTop: 4 }}>{split.bettable.length}</div>
+            <div style={{ color: "#94a3b8", fontSize: 13, fontWeight: 900 }}>
+              Betattavia
+            </div>
+            <div style={{ fontWeight: 900, marginTop: 4 }}>{bettableMatches.length}</div>
           </div>
         </div>
       </section>
@@ -238,17 +246,20 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
           background: topPicks.length ? "rgba(6,78,59,0.18)" : "rgba(245,158,11,0.08)",
         })}
       >
-        <h2 style={{ margin: 0, fontSize: 30 }}>Mitä lyödään nyt?</h2>
+        <h2 style={{ margin: 0, fontSize: 30 }}>Top 3 tulevat vedot</h2>
 
         {topPicks.length === 0 ? (
           <p style={{ color: "#fde68a", fontWeight: 800, lineHeight: 1.5 }}>
-            Ei vetosuosituksia. Tämä on oikein, jos kertoimia ei löydy tai edge ei riitä.
+            Ei vetosuosituksia. Hae pelejä tai kokeile isoa sarjaa kuten NHL, NBA, NFL,
+            Premier League tai MLB.
           </p>
         ) : (
           <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
-            {topPicks.map((pick, index) => (
+            {topPicks.slice(0, 3).map((pick, index) => (
               <div key={pick.id} style={card({ background: "rgba(15,23,42,0.78)" })}>
-                <div style={{ color: "#86efac", fontWeight: 900 }}>#{index + 1} LYÖ VETO</div>
+                <div style={{ color: "#86efac", fontWeight: 900 }}>
+                  #{index + 1} LYÖ VETO
+                </div>
 
                 <h3 style={{ margin: "6px 0", fontSize: 24, ...safe() }}>{pick.label}</h3>
 
@@ -260,12 +271,15 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                   <div>
                     Odds: <b>{pick.odds}</b>
                   </div>
+
                   <div>
                     Suosituspanos: <b>€{pick.stake}</b>
                   </div>
+
                   <div style={{ color: "#86efac", fontWeight: 900 }}>
                     Edge: {(pick.edge * 100).toFixed(1)}%
                   </div>
+
                   <div>EV: {pick.ev.toFixed(2)}</div>
                 </div>
 
@@ -276,7 +290,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                     <br />
                     Malli arvioi: {(pick.modelProb * 100).toFixed(1)}%
                     <br />
-                    Ero on positiivinen, joten kohde voi olla alihinnoiteltu.
+                    Edge on positiivinen ja EV plussalla.
                   </div>
                 </details>
 
@@ -298,6 +312,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
         <div style={{ marginBottom: 14 }}>
           <div style={{ color: "#94a3b8", fontWeight: 900, marginBottom: 8 }}>Laji</div>
+
           <div style={rowScroll()}>
             {SPORT_OPTIONS.map((item) => (
               <button
@@ -317,6 +332,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
         <div style={{ marginBottom: 14 }}>
           <div style={{ color: "#94a3b8", fontWeight: 900, marginBottom: 8 }}>Liiga</div>
+
           <div style={rowScroll()}>
             <button type="button" onClick={() => setLeague("ALL")} style={pill(league === "ALL")}>
               Kaikki
@@ -347,36 +363,54 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
             onChange={(e) => setOddsOnly(e.target.value === "1")}
             style={input()}
           >
-            <option value="1">Vain kertoimelliset kohteet</option>
-            <option value="0">Näytä myös ottelulistat</option>
+            <option value="1">Vain betattavat pelit</option>
+            <option value="0">Hae kaikki, mutta näytä bettingissä vain kertoimelliset</option>
           </select>
 
-          <button type="button" onClick={() => loadGames(false)} disabled={loading} style={button(true, loading)}>
+          <button
+            type="button"
+            onClick={() => loadGames(false)}
+            disabled={loading}
+            style={button(true, loading)}
+          >
             {loading ? "Haetaan..." : "Hae pelit"}
           </button>
 
-          <button type="button" onClick={() => loadGames(true)} disabled={loading} style={button(false, loading)}>
+          <button
+            type="button"
+            onClick={() => loadGames(true)}
+            disabled={loading}
+            style={button(false, loading)}
+          >
             Pakota uusi haku
           </button>
         </div>
 
         {oddsData.reason ? (
-          <div style={{ marginTop: 14, color: "#fde68a", fontWeight: 800, lineHeight: 1.5, ...safe() }}>
+          <div
+            style={{
+              marginTop: 14,
+              color: "#fde68a",
+              fontWeight: 800,
+              lineHeight: 1.5,
+              ...safe(),
+            }}
+          >
             {oddsData.reason}
           </div>
         ) : null}
       </section>
 
       <section style={card()}>
-        <h2 style={{ marginTop: 0 }}>Ottelut</h2>
+        <h2 style={{ marginTop: 0 }}>Betattavat ottelut</h2>
 
-        {matches.length === 0 ? (
+        {bettableMatches.length === 0 ? (
           <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-            Ei pelejä ladattuna. Valitse laji/liiga ja paina Hae pelit.
+            Ei betattavia pelejä ladattuna. Valitse iso sarja ja paina Hae pelit.
           </div>
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
-            {matches.map((match) => {
+            {bettableMatches.map((match) => {
               const dataStatus = getMatchDataStatus(match);
 
               return (
@@ -449,17 +483,31 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
           <button type="button" onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
             1X2 / ML
           </button>
-          <button type="button" onClick={() => setMarket("totals")} style={pill(market === "totals")}>
+
+          <button
+            type="button"
+            onClick={() => setMarket("totals")}
+            style={pill(market === "totals")}
+          >
             Over / Under
           </button>
-          <button type="button" onClick={() => setMarket("spreads")} style={pill(market === "spreads")}>
+
+          <button
+            type="button"
+            onClick={() => setMarket("spreads")}
+            style={pill(market === "spreads")}
+          >
             Handicap
           </button>
         </div>
 
-        {selectedRows.length === 0 ? (
+        {!selectedMatch ? (
           <div style={{ color: "#94a3b8", marginTop: 14, lineHeight: 1.5 }}>
-            Tästä ottelusta ei voi tehdä vedonlyöntisuositusta, koska kertoimet puuttuvat tai markkina ei ole saatavilla.
+            Valitse ottelu listasta.
+          </div>
+        ) : selectedRows.length === 0 ? (
+          <div style={{ color: "#94a3b8", marginTop: 14, lineHeight: 1.5 }}>
+            Tälle markkinalle ei löytynyt rivejä tästä ottelusta.
           </div>
         ) : (
           <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
@@ -523,7 +571,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                     marginTop: 6,
                   }}
                 >
-                  {row.shouldBet ? "LYÖ" : "ÄLÄ LYÖ"} • Edge {(row.edge * 100).toFixed(1)}%
+                  {row.shouldBet ? "LYÖ" : "ÄLÄ LYÖ"} • Edge{" "}
+                  {(row.edge * 100).toFixed(1)}%
                 </div>
 
                 <div style={{ color: "#94a3b8", marginTop: 8, lineHeight: 1.5 }}>
@@ -599,6 +648,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                 status: oddsData.status,
                 provider: oddsData.provider,
                 cached: oddsData.cached,
+                totalMatches: matches.length,
+                bettableMatches: bettableMatches.length,
                 debug: oddsData.debug,
               },
               null,
