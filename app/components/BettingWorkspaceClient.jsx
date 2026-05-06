@@ -110,6 +110,64 @@ function formatTime(value) {
   }
 }
 
+function pct(value) {
+  if (value == null || Number.isNaN(Number(value))) return "-";
+  return `${(Number(value) * 100).toFixed(1)}%`;
+}
+
+function money(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "€0.00";
+  return `€${n.toFixed(2)}`;
+}
+
+function PickStats({ pick }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 10,
+        marginTop: 12,
+      }}
+    >
+      <MiniStat label="Markkina" value={pick.market || "-"} />
+      <MiniStat label="Kerroin" value={pick.odds} />
+      <MiniStat label="Edge" value={pct(pick.edge)} good />
+      <MiniStat label="EV" value={pick.ev?.toFixed(2) ?? "-"} />
+      <MiniStat label="Market %" value={pct(pick.marketProb)} />
+      <MiniStat label="Malli %" value={pct(pick.modelProb)} />
+      <MiniStat label="Riski" value={pick.risk?.level || "-"} />
+      <MiniStat label="Panos" value={money(pick.stake)} good />
+    </div>
+  );
+}
+
+function MiniStat({ label, value, good = false }) {
+  return (
+    <div
+      style={{
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: 14,
+        padding: 12,
+        background: "rgba(255,255,255,0.04)",
+      }}
+    >
+      <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>{label}</div>
+      <div
+        style={{
+          color: good ? "#86efac" : "#fff",
+          fontWeight: 900,
+          marginTop: 4,
+          ...safe(),
+        }}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" }) {
   const [oddsData, setOddsData] = useState(() => normalizeData(initialOddsData));
   const [sport, setSport] = useState("all");
@@ -219,8 +277,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         </h1>
 
         <p style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 17, lineHeight: 1.45 }}>
-          Appi näyttää vain betattavat ottelut. Jokaisessa näkyvässä pelissä on koti- ja
-          vieraskerroin.
+          Appi näyttää Top 3 tulevat vedot, markkinan, riskitason, panoksen ja perustelun.
+          Näkyvissä ovat vain ottelut, joissa on kertoimet.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
@@ -250,8 +308,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
         {topPicks.length === 0 ? (
           <p style={{ color: "#fde68a", fontWeight: 800, lineHeight: 1.5 }}>
-            Ei vetosuosituksia. Hae pelejä tai kokeile isoa sarjaa kuten NHL, NBA, NFL,
-            Premier League tai MLB.
+            Ei vetosuosituksia. Hae pelejä tai kokeile isoa sarjaa kuten NHL, NBA,
+            NFL, Premier League tai MLB.
           </p>
         ) : (
           <div style={{ display: "grid", gap: 12, marginTop: 14 }}>
@@ -267,30 +325,39 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                   {pick.match.home_team} vs {pick.match.away_team}
                 </div>
 
-                <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                  <div>
-                    Odds: <b>{pick.odds}</b>
-                  </div>
+                <div style={{ color: "#94a3b8", marginTop: 4 }}>
+                  {pick.match.sport_title} • {formatTime(pick.match.commence_time)}
+                </div>
 
-                  <div>
-                    Suosituspanos: <b>€{pick.stake}</b>
-                  </div>
+                <PickStats pick={pick} />
 
-                  <div style={{ color: "#86efac", fontWeight: 900 }}>
-                    Edge: {(pick.edge * 100).toFixed(1)}%
-                  </div>
-
-                  <div>EV: {pick.ev.toFixed(2)}</div>
+                <div
+                  style={{
+                    marginTop: 12,
+                    border: "1px solid rgba(34,197,94,0.18)",
+                    background: "rgba(34,197,94,0.08)",
+                    borderRadius: 14,
+                    padding: 12,
+                    color: "#d1fae5",
+                    lineHeight: 1.5,
+                    fontWeight: 800,
+                  }}
+                >
+                  Aloittelijan ohje: {pick.beginnerAction || "Pieni tai maltillinen panos."}
                 </div>
 
                 <details style={{ marginTop: 12, color: "#94a3b8" }}>
                   <summary style={{ cursor: "pointer", fontWeight: 900 }}>Miksi tämä?</summary>
                   <div style={{ marginTop: 8, lineHeight: 1.5 }}>
-                    Markkina arvioi: {(pick.marketProb * 100).toFixed(1)}%
+                    Markkina arvioi: {pct(pick.marketProb)}
                     <br />
-                    Malli arvioi: {(pick.modelProb * 100).toFixed(1)}%
+                    Malli arvioi: {pct(pick.modelProb)}
                     <br />
-                    Edge on positiivinen ja EV plussalla.
+                    Ero eli edge: {pct(pick.edge)}
+                    <br />
+                    Riskitaso: {pick.risk?.level || "-"}
+                    <br />
+                    {pick.risk?.message || "Tarkista vielä joukkueuutiset ennen panostusta."}
                   </div>
                 </details>
 
@@ -524,16 +591,17 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
                 <h3 style={{ margin: "8px 0", fontSize: 24 }}>{bestSelected.label}</h3>
 
-                <div>
-                  Odds: <b>{bestSelected.odds}</b>
-                </div>
+                <PickStats pick={bestSelected} />
 
-                <div>
-                  Suosituspanos: <b>€{bestSelected.stake}</b>
-                </div>
-
-                <div style={{ color: "#86efac", fontWeight: 900 }}>
-                  Edge {(bestSelected.edge * 100).toFixed(1)}%
+                <div
+                  style={{
+                    marginTop: 12,
+                    color: "#d1fae5",
+                    fontWeight: 800,
+                    lineHeight: 1.5,
+                  }}
+                >
+                  Aloittelijan ohje: {bestSelected.beginnerAction || "Maltillinen panos."}
                 </div>
 
                 <button
@@ -562,22 +630,16 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
               <div key={row.key} style={card({ background: "rgba(255,255,255,0.04)" })}>
                 <h3 style={{ margin: 0 }}>{row.label}</h3>
 
-                <div style={{ marginTop: 8 }}>Odds {row.odds}</div>
+                <PickStats pick={row} />
 
                 <div
                   style={{
                     color: row.shouldBet ? "#86efac" : "#fca5a5",
                     fontWeight: 900,
-                    marginTop: 6,
+                    marginTop: 10,
                   }}
                 >
-                  {row.shouldBet ? "LYÖ" : "ÄLÄ LYÖ"} • Edge{" "}
-                  {(row.edge * 100).toFixed(1)}%
-                </div>
-
-                <div style={{ color: "#94a3b8", marginTop: 8, lineHeight: 1.5 }}>
-                  Market {(row.marketProb * 100).toFixed(1)}% / Malli{" "}
-                  {(row.modelProb * 100).toFixed(1)}% / EV {row.ev.toFixed(2)}
+                  {row.shouldBet ? "LYÖ" : "ÄLÄ LYÖ"} • {row.beginnerAction}
                 </div>
               </div>
             ))}
@@ -616,8 +678,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                 </div>
 
                 <div style={{ marginTop: 6 }}>
-                  Odds {pick.odds} • Edge {(pick.edge * 100).toFixed(1)}% • Panos €
-                  {pick.stake}
+                  {pick.market} • Odds {pick.odds} • Edge {pct(pick.edge)} • Panos{" "}
+                  {money(pick.stake)}
                 </div>
               </div>
             ))}
