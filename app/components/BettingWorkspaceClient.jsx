@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { SPORT_OPTIONS, getLeaguesForSport } from "@/lib/league-options";
 import { analyzeRows, getBestBets } from "@/lib/betting-engine";
 import { getMatchDataStatus, isBettableMatch } from "@/lib/data-status";
+import BetSlipPanel from "@/app/components/BetSlipPanel";
 
 function card(extra = {}) {
   return {
@@ -121,70 +122,6 @@ function money(value) {
   return `€${n.toFixed(2)}`;
 }
 
-function PickStats({ pick }) {
-  return (
-    <div
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr 1fr",
-        gap: 10,
-        marginTop: 12,
-      }}
-    >
-      <MiniStat
-        label="Markkina"
-        value={pick.market || "-"}
-      />
-
-      <MiniStat
-        label="Kerroin"
-        value={pick.odds}
-      />
-
-      <MiniStat
-        label="Yhtiö"
-        value={pick.bookmaker || "Unknown"}
-        good
-      />
-
-      <MiniStat
-        label="Edge"
-        value={pct(pick.edge)}
-        good
-      />
-
-      <MiniStat
-        label="EV"
-        value={pick.ev?.toFixed(2) ?? "-"}
-        good={pick.ev > 0}
-      />
-
-      <MiniStat
-        label="Market %"
-        value={pct(pick.marketProb)}
-      />
-
-      <MiniStat
-        label="Malli %"
-        value={pct(pick.modelProb)}
-        good
-      />
-
-      <MiniStat
-        label="Riski"
-        value={pick.risk?.level || "-"}
-        good={pick.shouldBet}
-      />
-
-      <MiniStat
-        label="Panos"
-        value={money(pick.stake)}
-        good={pick.shouldBet}
-      />
-    </div>
-  );
-}
-
 function MiniStat({ label, value, good = false }) {
   return (
     <div
@@ -195,7 +132,10 @@ function MiniStat({ label, value, good = false }) {
         background: "rgba(255,255,255,0.04)",
       }}
     >
-      <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>{label}</div>
+      <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>
+        {label}
+      </div>
+
       <div
         style={{
           color: good ? "#86efac" : "#fff",
@@ -206,6 +146,29 @@ function MiniStat({ label, value, good = false }) {
       >
         {value}
       </div>
+    </div>
+  );
+}
+
+function PickStats({ pick }) {
+  return (
+    <div
+      style={{
+        display: "grid",
+        gridTemplateColumns: "1fr 1fr",
+        gap: 10,
+        marginTop: 12,
+      }}
+    >
+      <MiniStat label="Markkina" value={pick.market || "-"} />
+      <MiniStat label="Kerroin" value={pick.odds} />
+      <MiniStat label="Yhtiö" value={pick.bookmaker || "Unknown"} good />
+      <MiniStat label="Edge" value={pct(pick.edge)} good />
+      <MiniStat label="EV" value={pick.ev?.toFixed(2) ?? "-"} good={pick.ev > 0} />
+      <MiniStat label="Market %" value={pct(pick.marketProb)} />
+      <MiniStat label="Malli %" value={pct(pick.modelProb)} good />
+      <MiniStat label="Riski" value={pick.risk?.level || "-"} good={pick.shouldBet} />
+      <MiniStat label="Panos" value={money(pick.stake)} good={pick.shouldBet} />
     </div>
   );
 }
@@ -221,6 +184,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
   const [loading, setLoading] = useState(false);
   const [bankroll, setBankroll] = useState("1000");
   const [saved, setSaved] = useState([]);
+  const [betSlip, setBetSlip] = useState([]);
   const [showData, setShowData] = useState(false);
 
   const matches = oddsData.matches || [];
@@ -283,7 +247,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
     if (!pick || !match) return;
 
     const item = {
-      id: `${match.id}-${pick.key}`,
+      id: `${match.id}-${pick.market}-${pick.key}`,
       match,
       ...pick,
     };
@@ -292,6 +256,43 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       if (prev.some((x) => x.id === item.id)) return prev;
       return [item, ...prev].slice(0, 20);
     });
+  }
+
+  function addToBetSlip(pick, match = selectedMatch) {
+    if (!pick || !match) return;
+
+    const item = {
+      id: `${match.id}-${pick.market}-${pick.key}`,
+      match,
+      ...pick,
+      userStake: pick.stake || 0,
+    };
+
+    setBetSlip((prev) => {
+      if (prev.some((x) => x.id === item.id)) return prev;
+      return [item, ...prev];
+    });
+  }
+
+  function removeFromBetSlip(id) {
+    setBetSlip((prev) => prev.filter((p) => p.id !== id));
+  }
+
+  function clearBetSlip() {
+    setBetSlip([]);
+  }
+
+  function updateBetSlipStake(id, value) {
+    setBetSlip((prev) =>
+      prev.map((p) =>
+        p.id === id
+          ? {
+              ...p,
+              userStake: value,
+            }
+          : p
+      )
+    );
   }
 
   return (
@@ -319,8 +320,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         </h1>
 
         <p style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 17, lineHeight: 1.45 }}>
-          Appi näyttää Top 3 tulevat vedot, markkinan, riskitason, panoksen ja perustelun.
-          Näkyvissä ovat vain ottelut, joissa on kertoimet.
+          Appi näyttää Top 3 tulevat vedot, markkinan, riskitason, panoksen,
+          yhtiön ja perustelun.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
@@ -399,16 +400,26 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                     <br />
                     Riskitaso: {pick.risk?.level || "-"}
                     <br />
+                    Yhtiö: {pick.bookmaker || "Unknown"}
+                    <br />
                     {pick.risk?.message || "Tarkista vielä joukkueuutiset ennen panostusta."}
                   </div>
                 </details>
 
                 <button
                   type="button"
-                  onClick={() => savePick(pick, pick.match)}
+                  onClick={() => addToBetSlip(pick, pick.match)}
                   style={{ ...button(true), marginTop: 12 }}
                 >
-                  Tallenna pick
+                  Lisää kuponkiin
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => savePick(pick, pick.match)}
+                  style={{ ...button(false), marginTop: 10 }}
+                >
+                  Tallenna seurantaan
                 </button>
               </div>
             ))}
@@ -648,10 +659,18 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
                 <button
                   type="button"
-                  onClick={() => savePick(bestSelected)}
+                  onClick={() => addToBetSlip(bestSelected)}
                   style={{ ...button(true), marginTop: 12 }}
                 >
-                  Tallenna pick
+                  Lisää kuponkiin
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => savePick(bestSelected)}
+                  style={{ ...button(false), marginTop: 10 }}
+                >
+                  Tallenna seurantaan
                 </button>
               </div>
             ) : (
@@ -683,6 +702,16 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                 >
                   {row.shouldBet ? "LYÖ" : "ÄLÄ LYÖ"} • {row.beginnerAction}
                 </div>
+
+                {row.shouldBet ? (
+                  <button
+                    type="button"
+                    onClick={() => addToBetSlip(row)}
+                    style={{ ...button(true), marginTop: 12 }}
+                  >
+                    Lisää kuponkiin
+                  </button>
+                ) : null}
               </div>
             ))}
           </div>
@@ -704,6 +733,13 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         </div>
       </section>
 
+      <BetSlipPanel
+        picks={betSlip}
+        onRemove={removeFromBetSlip}
+        onClear={clearBetSlip}
+        onStakeChange={updateBetSlipStake}
+      />
+
       <section style={card()}>
         <h2 style={{ marginTop: 0 }}>Tallennetut pickit</h2>
 
@@ -720,8 +756,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
                 </div>
 
                 <div style={{ marginTop: 6 }}>
-                  {pick.market} • Odds {pick.odds} • Edge {pct(pick.edge)} • Panos{" "}
-                  {money(pick.stake)}
+                  {pick.market} • Odds {pick.odds} • {pick.bookmaker || "Unknown"} • Edge{" "}
+                  {pct(pick.edge)} • Panos {money(pick.stake)}
                 </div>
               </div>
             ))}
