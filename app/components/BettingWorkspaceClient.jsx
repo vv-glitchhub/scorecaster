@@ -5,6 +5,11 @@ import { SPORT_OPTIONS, getLeaguesForSport } from "@/lib/league-options";
 import { analyzeRows, getBestBets } from "@/lib/betting-engine";
 import { getMatchDataStatus, isBettableMatch } from "@/lib/data-status";
 import BetSlipPanel from "@/app/components/BetSlipPanel";
+import LineMovementPanel from "@/app/components/LineMovementPanel";
+import {
+  addOddsSnapshots,
+  clearOddsHistory,
+} from "@/lib/odds-history-store";
 import {
   BOOKMAKER_OPTIONS,
   DEFAULT_USER_BOOKMAKERS,
@@ -138,6 +143,7 @@ function MiniStat({ label, value, good = false }) {
       <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>
         {label}
       </div>
+
       <div
         style={{
           color: good ? "#86efac" : "#fff",
@@ -225,6 +231,25 @@ function TopPicksSection({ title, subtitle, picks, onAdd, onSave }) {
                 Aloittelijan ohje: {pick.beginnerAction || "Pieni tai maltillinen panos."}
               </div>
 
+              <details style={{ marginTop: 12, color: "#94a3b8" }}>
+                <summary style={{ cursor: "pointer", fontWeight: 900 }}>
+                  Miksi tämä?
+                </summary>
+                <div style={{ marginTop: 8, lineHeight: 1.5 }}>
+                  Markkina arvioi: {pct(pick.marketProb)}
+                  <br />
+                  Malli arvioi: {pct(pick.modelProb)}
+                  <br />
+                  Edge: {pct(pick.edge)}
+                  <br />
+                  Riskitaso: {pick.risk?.level || "-"}
+                  <br />
+                  Yhtiö: {pick.bookmaker || "Unknown"}
+                  <br />
+                  {pick.risk?.message || "Tarkista vielä joukkueuutiset ennen panostusta."}
+                </div>
+              </details>
+
               <button type="button" onClick={() => onAdd(pick, pick.match)} style={{ ...button(true), marginTop: 12 }}>
                 Lisää kuponkiin
               </button>
@@ -289,6 +314,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       params.set("league", league);
       params.set("status", status);
       params.set("oddsOnly", oddsOnly ? "1" : "0");
+
       if (force) params.set("force", "1");
 
       const res = await fetch(`/api/odds?${params.toString()}`, { cache: "no-store" });
@@ -296,6 +322,11 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       const normalized = normalizeData(data);
 
       setOddsData(normalized);
+
+      if (normalized.matches?.length) {
+        addOddsSnapshots(normalized.matches);
+      }
+
       const firstBettable = normalized.matches?.find(isBettableMatch);
       setSelectedId(firstBettable?.id || null);
     } catch (error) {
@@ -319,7 +350,12 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
   function savePick(pick, match = selectedMatch) {
     if (!pick || !match) return;
-    const item = { id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`, match, ...pick };
+
+    const item = {
+      id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`,
+      match,
+      ...pick,
+    };
 
     setSaved((prev) => {
       if (prev.some((x) => x.id === item.id)) return prev;
@@ -329,11 +365,14 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
   function addToBetSlip(pick, match = selectedMatch) {
     if (!pick || !match) return;
+
     const item = {
       id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`,
       match,
       ...pick,
       userStake: pick.stake || 0,
+      addedAt: Date.now(),
+      addedOdds: pick.odds,
     };
 
     setBetSlip((prev) => {
@@ -374,8 +413,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
         </h1>
 
         <p style={{ color: "#cbd5e1", fontWeight: 700, fontSize: 17, lineHeight: 1.45 }}>
-          Appi näyttää erikseen parhaan kertoimen kaikista yhtiöistä ja parhaat vedot
-          omista bookkereistasi.
+          Appi näyttää parhaat vedot, bookkerin, panoksen, riskitason ja line movementin.
         </p>
 
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 16 }}>
@@ -394,7 +432,7 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
       <section style={card()}>
         <h2 style={{ marginTop: 0 }}>Omat bookkerit</h2>
         <p style={{ color: "#94a3b8", fontWeight: 800, lineHeight: 1.5 }}>
-          Valitse ne yhtiöt, joita käytät oikeasti. “Omat bookkerit” -lista käyttää vain näitä.
+          Valitse ne yhtiöt, joita käytät. “Omat bookkerit” -lista käyttää vain näitä.
         </p>
 
         <div style={rowScroll()}>
@@ -482,6 +520,10 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
 
           <button type="button" onClick={() => loadGames(true)} disabled={loading} style={button(false, loading)}>
             Pakota uusi haku
+          </button>
+
+          <button type="button" onClick={clearOddsHistory} style={button(false)}>
+            Tyhjennä odds-historia
           </button>
         </div>
 
@@ -616,6 +658,8 @@ export default function BettingWorkspaceClient({ initialOddsData, lang = "fi" })
           </div>
         )}
       </section>
+
+      <LineMovementPanel match={selectedMatch} />
 
       <section style={card()}>
         <h2 style={{ marginTop: 0 }}>Pelikassa ja panostus</h2>
