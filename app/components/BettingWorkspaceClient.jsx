@@ -1,15 +1,27 @@
 "use client";
 
 import { useMemo, useState } from "react";
+
 import { SPORT_OPTIONS, getLeaguesForSport } from "@/lib/league-options";
-import { analyzeRows, getBestBets } from "@/lib/betting-engine";
-import { getMatchDataStatus, isBettableMatch } from "@/lib/data-status";
+
+import {
+  analyzeRows,
+  getBestBets,
+} from "@/lib/betting-engine";
+
+import {
+  getMatchDataStatus,
+  isBettableMatch,
+} from "@/lib/data-status";
+
 import BetSlipPanel from "@/app/components/BetSlipPanel";
 import LineMovementPanel from "@/app/components/LineMovementPanel";
+import AIReasoningPanel from "@/app/components/AIReasoningPanel";
 
 import {
   addOddsSnapshots,
   clearOddsHistory,
+  getOddsMovement,
 } from "@/lib/odds-history-store";
 
 import {
@@ -92,13 +104,6 @@ function rowScroll() {
   };
 }
 
-function safe() {
-  return {
-    overflowWrap: "anywhere",
-    wordBreak: "break-word",
-  };
-}
-
 function normalizeData(data) {
   return {
     source: data?.source || "manual",
@@ -107,7 +112,9 @@ function normalizeData(data) {
     reason: data?.reason || "",
     cached: Boolean(data?.cached),
     debug: data?.debug || null,
-    matches: Array.isArray(data?.matches) ? data.matches : [],
+    matches: Array.isArray(data?.matches)
+      ? data.matches
+      : [],
   };
 }
 
@@ -127,17 +134,17 @@ function formatTime(value) {
 }
 
 function pct(value) {
-  if (value == null || Number.isNaN(Number(value))) return "-";
+  if (value == null || Number.isNaN(Number(value)))
+    return "-";
+
   return `${(Number(value) * 100).toFixed(1)}%`;
 }
 
-function money(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n)) return "€0.00";
-  return `€${n.toFixed(2)}`;
-}
-
-function MiniStat({ label, value, good = false }) {
+function MiniStat({
+  label,
+  value,
+  good = false,
+}) {
   return (
     <div
       style={{
@@ -147,7 +154,13 @@ function MiniStat({ label, value, good = false }) {
         background: "rgba(255,255,255,0.04)",
       }}
     >
-      <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>
+      <div
+        style={{
+          color: "#94a3b8",
+          fontSize: 12,
+          fontWeight: 900,
+        }}
+      >
         {label}
       </div>
 
@@ -156,7 +169,6 @@ function MiniStat({ label, value, good = false }) {
           color: good ? "#86efac" : "#fff",
           fontWeight: 900,
           marginTop: 4,
-          ...safe(),
         }}
       >
         {value}
@@ -175,25 +187,48 @@ function PickStats({ pick }) {
         marginTop: 12,
       }}
     >
-      <MiniStat label="Markkina" value={pick.market || "-"} />
-      <MiniStat label="Kerroin" value={pick.odds} />
-      <MiniStat label="Yhtiö" value={pick.bookmaker || "Unknown"} good />
-      <MiniStat label="Edge" value={pct(pick.edge)} good />
+      <MiniStat
+        label="Markkina"
+        value={pick.market || "-"}
+      />
+
+      <MiniStat
+        label="Kerroin"
+        value={pick.odds}
+      />
+
+      <MiniStat
+        label="Yhtiö"
+        value={pick.bookmaker || "Unknown"}
+        good
+      />
+
+      <MiniStat
+        label="Edge"
+        value={pct(pick.edge)}
+        good
+      />
+
       <MiniStat
         label="EV"
         value={pick.ev?.toFixed(2) ?? "-"}
         good={pick.ev > 0}
       />
-      <MiniStat label="Market %" value={pct(pick.marketProb)} />
-      <MiniStat label="Malli %" value={pct(pick.modelProb)} good />
+
+      <MiniStat
+        label="Market %"
+        value={pct(pick.marketProb)}
+      />
+
+      <MiniStat
+        label="Malli %"
+        value={pct(pick.modelProb)}
+        good
+      />
+
       <MiniStat
         label="Riski"
         value={pick.risk?.level || "-"}
-        good={pick.shouldBet}
-      />
-      <MiniStat
-        label="Panos"
-        value={money(pick.stake)}
         good={pick.shouldBet}
       />
     </div>
@@ -202,7 +237,6 @@ function PickStats({ pick }) {
 
 export default function BettingWorkspaceClient({
   initialOddsData,
-  lang = "fi",
 }) {
   const [oddsData, setOddsData] = useState(() =>
     normalizeData(initialOddsData)
@@ -210,19 +244,25 @@ export default function BettingWorkspaceClient({
 
   const [sport, setSport] = useState("all");
   const [league, setLeague] = useState("ALL");
-  const [status, setStatus] = useState("upcoming");
-  const [oddsOnly, setOddsOnly] = useState(true);
-  const [market, setMarket] = useState("h2h");
-  const [selectedId, setSelectedId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [bankroll, setBankroll] = useState("1000");
+  const [status, setStatus] =
+    useState("upcoming");
 
-  const [saved, setSaved] = useState([]);
-  const [betSlip, setBetSlip] = useState([]);
+  const [loading, setLoading] =
+    useState(false);
 
-  const [selectedBookmakers, setSelectedBookmakers] = useState(
-    DEFAULT_USER_BOOKMAKERS
-  );
+  const [selectedId, setSelectedId] =
+    useState(null);
+
+  const [market, setMarket] =
+    useState("h2h");
+
+  const [bankroll] = useState("1000");
+
+  const [selectedBookmakers, setSelectedBookmakers] =
+    useState(DEFAULT_USER_BOOKMAKERS);
+
+  const [betSlip, setBetSlip] =
+    useState([]);
 
   const matches = oddsData.matches || [];
 
@@ -237,29 +277,11 @@ export default function BettingWorkspaceClient({
   );
 
   const selectedMatch =
-    bettableMatches.find((m) => m.id === selectedId) ||
+    bettableMatches.find(
+      (m) => m.id === selectedId
+    ) ||
     bettableMatches[0] ||
     null;
-
-  const topPicksAll = useMemo(
-    () =>
-      getBestBets(
-        bettableMatches,
-        Number(bankroll) || 1000,
-        null
-      ),
-    [bettableMatches, bankroll]
-  );
-
-  const topPicksOwn = useMemo(
-    () =>
-      getBestBets(
-        bettableMatches,
-        Number(bankroll) || 1000,
-        selectedBookmakers
-      ),
-    [bettableMatches, bankroll, selectedBookmakers]
-  );
 
   const selectedRows = useMemo(
     () =>
@@ -269,8 +291,38 @@ export default function BettingWorkspaceClient({
         Number(bankroll) || 1000,
         selectedBookmakers
       ),
-    [selectedMatch, market, bankroll, selectedBookmakers]
+    [
+      selectedMatch,
+      market,
+      bankroll,
+      selectedBookmakers,
+    ]
   );
+
+  const topPicks = useMemo(
+    () =>
+      getBestBets(
+        bettableMatches,
+        Number(bankroll) || 1000,
+        selectedBookmakers
+      ),
+    [
+      bettableMatches,
+      bankroll,
+      selectedBookmakers,
+    ]
+  );
+
+  const selectedMovement = selectedMatch
+    ? getOddsMovement(
+        selectedMatch,
+        market === "totals"
+          ? "over"
+          : market === "spreads"
+          ? "spreadHome"
+          : "home"
+      )
+    : null;
 
   async function loadGames(force = false) {
     setLoading(true);
@@ -281,36 +333,44 @@ export default function BettingWorkspaceClient({
       params.set("sport", sport);
       params.set("league", league);
       params.set("status", status);
-      params.set("oddsOnly", oddsOnly ? "1" : "0");
 
       if (force) {
         params.set("force", "1");
       }
 
-      const res = await fetch(`/api/odds?${params.toString()}`, {
-        cache: "no-store",
-      });
+      const res = await fetch(
+        `/api/odds?${params.toString()}`,
+        {
+          cache: "no-store",
+        }
+      );
 
       const data = await res.json();
 
-      const normalized = normalizeData(data);
+      const normalized =
+        normalizeData(data);
 
       setOddsData(normalized);
 
       if (normalized.matches?.length) {
-        addOddsSnapshots(normalized.matches);
+        addOddsSnapshots(
+          normalized.matches
+        );
       }
 
       const firstBettable =
-        normalized.matches?.find(isBettableMatch);
+        normalized.matches?.find(
+          isBettableMatch
+        );
 
-      setSelectedId(firstBettable?.id || null);
+      setSelectedId(
+        firstBettable?.id || null
+      );
     } catch (error) {
       setOddsData({
         source: "error",
         status: "error",
-        provider: "",
-        reason: `Datan haku epäonnistui: ${error.message}`,
+        reason: error.message,
         matches: [],
       });
     } finally {
@@ -326,41 +386,36 @@ export default function BettingWorkspaceClient({
     );
   }
 
-  function addToBetSlip(pick, match = selectedMatch) {
+  function addToBetSlip(
+    pick,
+    match = selectedMatch
+  ) {
     if (!pick || !match) return;
 
     const item = {
       id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`,
       match,
       ...pick,
-      userStake: pick.stake || 0,
-      addedAt: Date.now(),
       addedOdds: pick.odds,
+      addedAt: Date.now(),
+      userStake: pick.stake || 0,
     };
 
     setBetSlip((prev) => {
-      if (prev.some((x) => x.id === item.id)) return prev;
+      if (
+        prev.some((x) => x.id === item.id)
+      ) {
+        return prev;
+      }
+
       return [item, ...prev];
     });
   }
 
-  function savePick(pick, match = selectedMatch) {
-    if (!pick || !match) return;
-
-    const item = {
-      id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`,
-      match,
-      ...pick,
-    };
-
-    setSaved((prev) => {
-      if (prev.some((x) => x.id === item.id)) return prev;
-      return [item, ...prev].slice(0, 20);
-    });
-  }
-
   function removeFromBetSlip(id) {
-    setBetSlip((prev) => prev.filter((p) => p.id !== id));
+    setBetSlip((prev) =>
+      prev.filter((p) => p.id !== id)
+    );
   }
 
   function clearBetSlip() {
@@ -381,120 +436,198 @@ export default function BettingWorkspaceClient({
   }
 
   return (
-    <div style={{ display: "grid", gap: 18 }}>
+    <div
+      style={{
+        display: "grid",
+        gap: 18,
+      }}
+    >
       <section style={card()}>
-        <h1 style={{ marginTop: 0 }}>Scorecaster</h1>
+        <h1 style={{ marginTop: 0 }}>
+          Scorecaster
+        </h1>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <div>
-            <div style={{ color: "#94a3b8", marginBottom: 8 }}>
-              Laji
-            </div>
-
-            <div style={rowScroll()}>
-              {SPORT_OPTIONS.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  onClick={() => {
-                    setSport(item.id);
-                    setLeague("ALL");
-                  }}
-                  style={pill(sport === item.id)}
-                >
-                  {lang === "fi"
-                    ? item.labelFi
-                    : item.labelEn}
-                </button>
-              ))}
-            </div>
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              color: "#94a3b8",
+              marginBottom: 8,
+            }}
+          >
+            Laji
           </div>
 
-          <div>
-            <div style={{ color: "#94a3b8", marginBottom: 8 }}>
-              Liiga
-            </div>
-
-            <div style={rowScroll()}>
+          <div style={rowScroll()}>
+            {SPORT_OPTIONS.map((item) => (
               <button
+                key={item.id}
                 type="button"
-                onClick={() => setLeague("ALL")}
-                style={pill(league === "ALL")}
+                onClick={() => {
+                  setSport(item.id);
+                  setLeague("ALL");
+                }}
+                style={pill(
+                  sport === item.id
+                )}
               >
-                Kaikki
+                {item.labelFi}
               </button>
+            ))}
+          </div>
+        </div>
 
-              {leagues.map((item) => (
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              color: "#94a3b8",
+              marginBottom: 8,
+            }}
+          >
+            Liiga
+          </div>
+
+          <div style={rowScroll()}>
+            <button
+              type="button"
+              onClick={() =>
+                setLeague("ALL")
+              }
+              style={pill(
+                league === "ALL"
+              )}
+            >
+              Kaikki
+            </button>
+
+            {leagues.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() =>
+                  setLeague(item.id)
+                }
+                style={pill(
+                  league === item.id
+                )}
+              >
+                {item.labelFi}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div style={{ marginBottom: 12 }}>
+          <div
+            style={{
+              color: "#94a3b8",
+              marginBottom: 8,
+            }}
+          >
+            Bookmakerit
+          </div>
+
+          <div style={rowScroll()}>
+            {BOOKMAKER_OPTIONS.map(
+              (item) => (
                 <button
                   key={item.id}
                   type="button"
-                  onClick={() => setLeague(item.id)}
-                  style={pill(league === item.id)}
+                  onClick={() =>
+                    toggleBookmaker(
+                      item.id
+                    )
+                  }
+                  style={pill(
+                    selectedBookmakers.includes(
+                      item.id
+                    )
+                  )}
                 >
-                  {lang === "fi"
-                    ? item.labelFi
-                    : item.labelEn}
+                  {item.label}
                 </button>
-              ))}
-            </div>
+              )
+            )}
           </div>
-
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            style={input()}
-          >
-            <option value="upcoming">Tulevat</option>
-            <option value="live">Live</option>
-            <option value="all">Kaikki</option>
-          </select>
-
-          <button
-            type="button"
-            onClick={() => loadGames(false)}
-            disabled={loading}
-            style={button(true, loading)}
-          >
-            {loading ? "Haetaan..." : "Hae pelit"}
-          </button>
-
-          <button
-            type="button"
-            onClick={() => loadGames(true)}
-            disabled={loading}
-            style={button(false, loading)}
-          >
-            Pakota uusi haku
-          </button>
-
-          <button
-            type="button"
-            onClick={clearOddsHistory}
-            style={button(false)}
-          >
-            Tyhjennä odds-historia
-          </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            loadGames(false)
+          }
+          disabled={loading}
+          style={button(
+            true,
+            loading
+          )}
+        >
+          {loading
+            ? "Haetaan..."
+            : "Hae pelit"}
+        </button>
+
+        <button
+          type="button"
+          onClick={() =>
+            loadGames(true)
+          }
+          style={{
+            ...button(false),
+            marginTop: 10,
+          }}
+        >
+          Pakota uusi haku
+        </button>
+
+        <button
+          type="button"
+          onClick={clearOddsHistory}
+          style={{
+            ...button(false),
+            marginTop: 10,
+          }}
+        >
+          Tyhjennä odds-historia
+        </button>
       </section>
 
       <section style={card()}>
         <h2 style={{ marginTop: 0 }}>
-          Top 3 vedot
+          Top vedot
         </h2>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          {topPicksAll.map((pick) => (
+        <div
+          style={{
+            display: "grid",
+            gap: 12,
+          }}
+        >
+          {topPicks.map((pick) => (
             <div
               key={pick.id}
               style={card({
-                background: "rgba(255,255,255,0.04)",
+                background:
+                  "rgba(255,255,255,0.04)",
               })}
             >
-              <h3 style={{ margin: 0 }}>{pick.label}</h3>
+              <h3 style={{ margin: 0 }}>
+                {pick.label}
+              </h3>
 
-              <div style={{ marginTop: 6 }}>
-                {pick.match.home_team} vs{" "}
-                {pick.match.away_team}
+              <div
+                style={{
+                  marginTop: 6,
+                }}
+              >
+                {
+                  pick.match
+                    .home_team
+                }{" "}
+                vs{" "}
+                {
+                  pick.match
+                    .away_team
+                }
               </div>
 
               <PickStats pick={pick} />
@@ -502,7 +635,10 @@ export default function BettingWorkspaceClient({
               <button
                 type="button"
                 onClick={() =>
-                  addToBetSlip(pick, pick.match)
+                  addToBetSlip(
+                    pick,
+                    pick.match
+                  )
                 }
                 style={{
                   ...button(true),
@@ -521,70 +657,116 @@ export default function BettingWorkspaceClient({
           Ottelut
         </h2>
 
-        <div style={{ display: "grid", gap: 10 }}>
-          {bettableMatches.map((match) => {
-            const status = getMatchDataStatus(match);
+        <div
+          style={{
+            display: "grid",
+            gap: 10,
+          }}
+        >
+          {bettableMatches.map(
+            (match) => {
+              const status =
+                getMatchDataStatus(
+                  match
+                );
 
-            return (
-              <button
-                key={match.id}
-                type="button"
-                onClick={() => setSelectedId(match.id)}
-                style={{
-                  width: "100%",
-                  border:
-                    selectedMatch?.id === match.id
-                      ? "1px solid rgba(34,197,94,0.65)"
-                      : "1px solid rgba(255,255,255,0.1)",
-                  background:
-                    selectedMatch?.id === match.id
-                      ? "rgba(34,197,94,0.14)"
-                      : "rgba(255,255,255,0.04)",
-                  color: "#fff",
-                  borderRadius: 16,
-                  padding: 14,
-                  textAlign: "left",
-                  cursor: "pointer",
-                }}
-              >
-                <b>
-                  {match.home_team} vs{" "}
-                  {match.away_team}
-                </b>
-
-                <div
+              return (
+                <button
+                  key={match.id}
+                  type="button"
+                  onClick={() =>
+                    setSelectedId(
+                      match.id
+                    )
+                  }
                   style={{
-                    color: "#94a3b8",
-                    marginTop: 6,
+                    width: "100%",
+                    border:
+                      selectedMatch?.id ===
+                      match.id
+                        ? "1px solid rgba(34,197,94,0.65)"
+                        : "1px solid rgba(255,255,255,0.1)",
+                    background:
+                      selectedMatch?.id ===
+                      match.id
+                        ? "rgba(34,197,94,0.14)"
+                        : "rgba(255,255,255,0.04)",
+                    color: "#fff",
+                    borderRadius: 16,
+                    padding: 14,
+                    textAlign: "left",
+                    cursor: "pointer",
                   }}
                 >
-                  {match.sport_title} ·{" "}
-                  {formatTime(match.commence_time)}
-                </div>
+                  <b>
+                    {
+                      match.home_team
+                    }{" "}
+                    vs{" "}
+                    {
+                      match.away_team
+                    }
+                  </b>
 
-                <div
-                  style={{
-                    color: status.color,
-                    fontWeight: 900,
-                    marginTop: 8,
-                  }}
-                >
-                  {status.label}
-                </div>
-              </button>
-            );
-          })}
+                  <div
+                    style={{
+                      color:
+                        "#94a3b8",
+                      marginTop: 6,
+                    }}
+                  >
+                    {
+                      match.sport_title
+                    }{" "}
+                    ·{" "}
+                    {formatTime(
+                      match.commence_time
+                    )}
+                  </div>
+
+                  <div
+                    style={{
+                      color:
+                        status.color,
+                      fontWeight: 900,
+                      marginTop: 8,
+                    }}
+                  >
+                    {status.label}
+                  </div>
+                </button>
+              );
+            }
+          )}
         </div>
       </section>
 
-      <LineMovementPanel match={selectedMatch} />
+      <LineMovementPanel
+        match={selectedMatch}
+      />
+
+      {selectedRows?.[0] ? (
+        <AIReasoningPanel
+          pick={selectedRows[0]}
+          match={selectedMatch}
+          movement={
+            selectedMovement
+          }
+        />
+      ) : null}
 
       <BetSlipPanel
         picks={betSlip}
-        matches={bettableMatches}
-        onRemove={removeFromBetSlip}
+        matches={
+          bettableMatches
+        }
+        onRemove={
+          removeFromBetSlip
+        }
         onClear={clearBetSlip}
-        onStakeChange={updateBetSlipStake}
+        onStakeChange={
+          updateBetSlipStake
+        }
       />
     </div>
   );
