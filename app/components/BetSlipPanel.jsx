@@ -19,6 +19,7 @@ export default function BetSlipPanel({
   onRemove,
   onClear,
   onStakeChange,
+  onSaveToHistory,
 }) {
   const totalStake = picks.reduce(
     (sum, p) => sum + Number(p.userStake || p.stake || 0),
@@ -144,6 +145,24 @@ export default function BetSlipPanel({
 
                 <button
                   type="button"
+                  onClick={() => onSaveToHistory?.(pick)}
+                  style={{
+                    marginTop: 10,
+                    width: "100%",
+                    border: "1px solid rgba(34,197,94,0.45)",
+                    background: "rgba(34,197,94,0.14)",
+                    color: "#bbf7d0",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontWeight: 900,
+                    cursor: "pointer",
+                  }}
+                >
+                  Tallenna historiaan
+                </button>
+
+                <button
+                  type="button"
                   onClick={() => onRemove(pick.id)}
                   style={{
                     marginTop: 10,
@@ -154,6 +173,7 @@ export default function BetSlipPanel({
                     borderRadius: 14,
                     padding: 12,
                     fontWeight: 900,
+                    cursor: "pointer",
                   }}
                 >
                   Poista
@@ -189,6 +209,7 @@ export default function BetSlipPanel({
               padding: 14,
               fontSize: 16,
               fontWeight: 900,
+              cursor: "pointer",
             }}
           >
             Tyhjennä kuponki
