@@ -1,6 +1,7 @@
 "use client";
 
 import { calculateCLV } from "@/lib/clv-engine";
+import { analyzeParlay } from "@/lib/parlay-engine";
 
 function money(value) {
   const n = Number(value);
@@ -31,6 +32,17 @@ export default function BetSlipPanel({
     0
   );
 
+  const parlay = analyzeParlay(picks);
+  const parlayStake = picks.length ? Math.max(1, totalStake * 0.25) : 0;
+  const parlayReturn = parlay.canAnalyze ? parlayStake * parlay.combinedOdds : 0;
+
+  const parlayColor =
+    parlay.status === "good"
+      ? "#86efac"
+      : parlay.status === "warning"
+      ? "#fde68a"
+      : "#fca5a5";
+
   return (
     <section
       style={{
@@ -48,6 +60,62 @@ export default function BetSlipPanel({
         </div>
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
+          {parlay.canAnalyze ? (
+            <div
+              style={{
+                border: `1px solid ${parlayColor}`,
+                borderRadius: 18,
+                padding: 14,
+                background: "rgba(255,255,255,0.04)",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Rekka-analyysi</h3>
+
+              <div style={{ color: parlayColor, fontWeight: 900, lineHeight: 1.5 }}>
+                {parlay.verdict}
+              </div>
+
+              <div style={{ marginTop: 10, lineHeight: 1.7 }}>
+                Kohteita: <b>{parlay.count}</b>
+                <br />
+                Yhteiskerroin: <b>{parlay.combinedOdds.toFixed(2)}</b>
+                <br />
+                Mallin osumatodennäköisyys: <b>{pct(parlay.combinedProb)}</b>
+                <br />
+                Rekan EV: <b>{parlay.ev.toFixed(2)}</b>
+                <br />
+                Suosituspanos rekkana: <b>{money(parlayStake)}</b>
+                <br />
+                Mahdollinen palautus: <b>{money(parlayReturn)}</b>
+              </div>
+
+              {parlay.weakLegs.length > 0 ? (
+                <div style={{ marginTop: 10, color: "#fde68a", lineHeight: 1.5 }}>
+                  Heikkoja rivejä: {parlay.weakLegs.map((p) => p.label).join(", ")}
+                </div>
+              ) : null}
+
+              {parlay.riskyLegs.length > 0 ? (
+                <div style={{ marginTop: 10, color: "#fca5a5", lineHeight: 1.5 }}>
+                  Korkean kertoimen rivejä: {parlay.riskyLegs.map((p) => p.label).join(", ")}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div
+              style={{
+                border: "1px solid rgba(245,158,11,0.35)",
+                borderRadius: 18,
+                padding: 14,
+                background: "rgba(245,158,11,0.08)",
+                color: "#fde68a",
+                fontWeight: 800,
+              }}
+            >
+              {parlay.verdict}
+            </div>
+          )}
+
           {picks.map((pick) => {
             const clv = calculateCLV(pick, matches);
             const clvColor =
@@ -139,7 +207,7 @@ export default function BetSlipPanel({
                 />
 
                 <div style={{ marginTop: 8, color: "#86efac", fontWeight: 900 }}>
-                  Mahdollinen palautus:{" "}
+                  Mahdollinen single-palautus:{" "}
                   {money(Number(pick.userStake || pick.stake || 0) * Number(pick.odds || 0))}
                 </div>
 
@@ -191,9 +259,9 @@ export default function BetSlipPanel({
               fontWeight: 900,
             }}
           >
-            <div>Kokonaispanos: {money(totalStake)}</div>
+            <div>Single-kokonaispanos: {money(totalStake)}</div>
             <div style={{ color: "#86efac" }}>
-              Mahdollinen palautus: {money(potentialReturn)}
+              Single-palautukset yhteensä: {money(potentialReturn)}
             </div>
           </div>
 
