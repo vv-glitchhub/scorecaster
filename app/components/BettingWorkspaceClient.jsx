@@ -28,7 +28,13 @@ import {
   DEFAULT_USER_BOOKMAKERS,
 } from "@/lib/bookmaker-options";
 
+import {
+  addBetToHistory,
+  getBetHistory,
+} from "@/lib/bet-history-store";
+
 import BetSlipPanel from "@/app/components/BetSlipPanel";
+import BetHistoryPanel from "@/app/components/BetHistoryPanel";
 import LineMovementPanel from "@/app/components/LineMovementPanel";
 import AIReasoningPanel from "@/app/components/AIReasoningPanel";
 
@@ -167,6 +173,9 @@ export default function BettingWorkspaceClient({
   const [betSlip, setBetSlip] =
     useState([]);
 
+  const [betHistory, setBetHistory] =
+    useState([]);
+
   const [loading, setLoading] =
     useState(false);
 
@@ -177,6 +186,10 @@ export default function BettingWorkspaceClient({
     useState(false);
 
   const matches = oddsData.matches || [];
+
+  useEffect(() => {
+    setBetHistory(getBetHistory());
+  }, []);
 
   const leagues = useMemo(
     () => getLeaguesForSport(sport),
@@ -375,6 +388,13 @@ export default function BettingWorkspaceClient({
           : p
       )
     );
+  }
+
+  function saveToHistory(pick) {
+    const updated =
+      addBetToHistory(pick);
+
+    setBetHistory(updated);
   }
 
   return (
@@ -856,6 +876,14 @@ export default function BettingWorkspaceClient({
         onStakeChange={
           updateBetSlipStake
         }
+        onSaveToHistory={
+          saveToHistory
+        }
+      />
+
+      <BetHistoryPanel
+        bets={betHistory}
+        setBets={setBetHistory}
       />
 
       <section style={card()}>
