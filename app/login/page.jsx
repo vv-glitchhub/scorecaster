@@ -3,6 +3,14 @@
 import { useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
+function cleanEmail(value) {
+  return String(value || "")
+    .trim()
+    .replaceAll('"', "")
+    .replaceAll("'", "")
+    .toLowerCase();
+}
+
 export default function LoginPage() {
   const supabase = createSupabaseBrowserClient();
 
@@ -13,8 +21,10 @@ export default function LoginPage() {
   async function signUp() {
     setMessage("");
 
+    const cleanedEmail = cleanEmail(email);
+
     const { error } = await supabase.auth.signUp({
-      email,
+      email: cleanedEmail,
       password,
     });
 
@@ -29,8 +39,10 @@ export default function LoginPage() {
   async function signIn() {
     setMessage("");
 
+    const cleanedEmail = cleanEmail(email);
+
     const { error } = await supabase.auth.signInWithPassword({
-      email,
+      email: cleanedEmail,
       password,
     });
 
@@ -43,12 +55,7 @@ export default function LoginPage() {
   }
 
   async function signInWithGoogle() {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/profile`,
-      },
-    });
+    setMessage("Google-kirjautuminen ei ole vielä käytössä. Käytä email + salasana.");
   }
 
   return (
@@ -71,7 +78,10 @@ export default function LoginPage() {
           <input
             placeholder="Sähköposti"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => setEmail(cleanEmail(e.target.value))}
+            autoCapitalize="none"
+            autoCorrect="off"
+            inputMode="email"
             style={inputStyle}
           />
 
