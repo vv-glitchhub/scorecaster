@@ -1,105 +1,82 @@
 "use client";
 
-import { generateReasoning } from "@/lib/ai-reasoning";
-
-function card(extra = {}) {
-  return {
-    border: "1px solid rgba(34,197,94,0.25)",
-    borderRadius: 18,
-    padding: 16,
-    background: "rgba(6,78,59,0.18)",
-    ...extra,
-  };
-}
-
 export default function AIReasoningPanel({
   pick,
-  match,
   movement,
 }) {
-  if (!pick || !match) return null;
-
-  const reasoning = generateReasoning({
-    pick,
-    match,
-    movement,
-  });
-
-  const confidenceColor =
-    reasoning.confidence === "Korkea"
-      ? "#86efac"
-      : reasoning.confidence === "Hyvä"
-      ? "#bbf7d0"
-      : reasoning.confidence === "Kohtalainen"
-      ? "#fde68a"
-      : "#fca5a5";
+  if (!pick) return null;
 
   return (
-    <section style={card()}>
+    <section
+      style={{
+        border: "1px solid rgba(255,255,255,0.10)",
+        borderRadius: 22,
+        padding: 18,
+        background: "rgba(2,6,23,0.72)",
+        color: "#fff",
+      }}
+    >
+      <h2 style={{ marginTop: 0 }}>
+        AI Betting Assistant
+      </h2>
+
       <div
         style={{
-          color: "#86efac",
+          color: "#94a3b8",
+          lineHeight: 1.7,
+        }}
+      >
+        AI believes there is value on:
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 20,
           fontWeight: 900,
-          letterSpacing: 2,
-          fontSize: 12,
         }}
       >
-        AI REASONING
+        {pick.label}
       </div>
 
-      <h3
-        style={{
-          marginTop: 8,
-          marginBottom: 8,
-          fontSize: 24,
-        }}
-      >
-        {reasoning.title}
-      </h3>
-
-      <div
-        style={{
-          color: confidenceColor,
-          fontWeight: 900,
-          marginBottom: 12,
-        }}
-      >
-        Luottamus: {reasoning.confidence}
+      <div style={{ marginTop: 12 }}>
+        Odds: {pick.odds}
       </div>
 
-      <div
-        style={{
-          color: "#d1fae5",
-          lineHeight: 1.5,
-          marginBottom: 12,
-          fontWeight: 800,
-        }}
-      >
-        {reasoning.summary}
+      <div>
+        Edge: {(pick.edge * 100).toFixed(1)}%
       </div>
 
-      <div
+      <div>
+        EV: {pick.ev.toFixed(2)}
+      </div>
+
+      <div>
+        Kelly: {(pick.kelly * 100).toFixed(1)}%
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        <b>Model V3 reasoning:</b>
+      </div>
+
+      <ul
         style={{
-          display: "grid",
-          gap: 8,
+          color: "#94a3b8",
+          lineHeight: 1.7,
         }}
       >
-        {reasoning.bullets.map((item, index) => (
-          <div
-            key={index}
-            style={{
-              border: "1px solid rgba(255,255,255,0.08)",
-              borderRadius: 12,
-              padding: 10,
-              background: "rgba(255,255,255,0.04)",
-              color: "#cbd5e1",
-              lineHeight: 1.5,
-            }}
-          >
-            • {item}
-          </div>
+        {(pick.reasons || []).map((reason) => (
+          <li key={reason}>{reason}</li>
         ))}
-      </div>
+
+        {movement ? (
+          <li>
+            Market movement detected:
+            {" "}
+            {movement.direction}
+          </li>
+        ) : null}
+      </ul>
     </section>
   );
 }
