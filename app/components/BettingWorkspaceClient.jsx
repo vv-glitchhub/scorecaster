@@ -17,10 +17,17 @@ import {
   DEFAULT_USER_BOOKMAKERS,
 } from "@/lib/bookmaker-options";
 
-import { addBetToHistory, getBetHistory } from "@/lib/bet-history-store";
+import {
+  addBetToHistory,
+  getBetHistory,
+  saveBetHistory,
+} from "@/lib/bet-history-store";
+
+import { settleBets } from "@/lib/settlement-engine";
 
 import BetSlipPanel from "@/app/components/BetSlipPanel";
 import BetHistoryPanel from "@/app/components/BetHistoryPanel";
+import PerformancePanel from "@/app/components/PerformancePanel";
 import LineMovementPanel from "@/app/components/LineMovementPanel";
 import AIReasoningPanel from "@/app/components/AIReasoningPanel";
 import RiskManagerPanel from "@/app/components/RiskManagerPanel";
@@ -91,7 +98,6 @@ function rowScroll() {
 
 function formatTime(value) {
   if (!value) return "-";
-
   try {
     return new Date(value).toLocaleString("fi-FI", {
       day: "2-digit",
@@ -152,7 +158,6 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
   const [league, setLeague] = useState("ALL");
   const [market, setMarket] = useState("h2h");
   const [selectedId, setSelectedId] = useState(null);
-
   const [bankroll, setBankroll] = useState("1000");
 
   const [selectedBookmakers, setSelectedBookmakers] = useState(
@@ -226,9 +231,7 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
       params.set("league", league);
       params.set("status", isLiveMode ? "live" : "upcoming");
 
-      if (force) {
-        params.set("force", "1");
-      }
+      if (force) params.set("force", "1");
 
       const res = await fetch(`/api/odds?${params.toString()}`, {
         cache: "no-store",
@@ -315,6 +318,29 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
   function saveToHistory(pick) {
     const updated = addBetToHistory(pick);
     setBetHistory(updated);
+  }
+
+  async function autoSettleBets() {
+    try {
+      const params = new URLSearchParams();
+
+      params.set("sport", sport);
+      params.set("league", league);
+
+      const res = await fetch(`/api/results?${params.toString()}`, {
+        cache: "no-store",
+      });
+
+      const data = await res.json();
+      const results = Array.isArray(data.results) ? data.results : [];
+
+      const updated = settleBets(betHistory, results);
+
+      saveBetHistory(updated);
+      setBetHistory(updated);
+    } catch (error) {
+      console.error("Auto settlement failed", error);
+    }
   }
 
   return (
@@ -545,7 +571,9 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
                     }}
                   >
                     <b>
-                      {match.home_team} vs {match.away_team}
+                      {match.event_type === "outright"
+                        ? match.home_team
+                        : `${match.home_team} vs ${match.away_team}`}
                     </b>
 
                     {isLiveMode ? <LiveBadge /> : null}
@@ -595,6 +623,14 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
         onStakeChange={updateBetSlipStake}
         onSaveToHistory={saveToHistory}
       />
+
+      <PerformancePanel bets={betHistory} />
+
+      <section style={card()}>
+        <button type="button" onClick={autoSettleBets} style={button(true)}>
+          Päivitä tulokset automaattisesti
+        </button>
+      </section>
 
       <BetHistoryPanel bets={betHistory} setBets={setBetHistory} />
 
