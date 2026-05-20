@@ -23,6 +23,7 @@ import {
   saveBetHistory,
 } from "@/lib/bet-history-store";
 
+import { saveBetToCloud } from "@/lib/supabase-bets";
 import { settleBets } from "@/lib/settlement-engine";
 
 import BetSlipPanel from "@/app/components/BetSlipPanel";
@@ -98,6 +99,7 @@ function rowScroll() {
 
 function formatTime(value) {
   if (!value) return "-";
+
   try {
     return new Date(value).toLocaleString("fi-FI", {
       day: "2-digit",
@@ -315,9 +317,12 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
     );
   }
 
-  function saveToHistory(pick) {
+  async function saveToHistory(pick) {
     const updated = addBetToHistory(pick);
     setBetHistory(updated);
+
+    const result = await saveBetToCloud(pick);
+    console.log("Cloud save:", result);
   }
 
   async function autoSettleBets() {
@@ -490,21 +495,12 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
                   background: "rgba(255,255,255,0.04)",
                 })}
               >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    gap: 10,
-                    flexWrap: "wrap",
-                  }}
-                >
-                  <h3 style={{ margin: 0 }}>{pick.label}</h3>
-                  {isLiveMode ? <LiveBadge /> : null}
-                </div>
+                <h3 style={{ margin: 0 }}>{pick.label}</h3>
 
                 <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                  {pick.match.home_team} vs {pick.match.away_team}
+                  {pick.match.event_type === "outright"
+                    ? pick.match.home_team
+                    : `${pick.match.home_team} vs ${pick.match.away_team}`}
                 </div>
 
                 <div style={{ marginTop: 10, lineHeight: 1.7 }}>
@@ -562,22 +558,11 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
                     cursor: "pointer",
                   }}
                 >
-                  <div
-                    style={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      gap: 10,
-                    }}
-                  >
-                    <b>
-                      {match.event_type === "outright"
-                        ? match.home_team
-                        : `${match.home_team} vs ${match.away_team}`}
-                    </b>
-
-                    {isLiveMode ? <LiveBadge /> : null}
-                  </div>
+                  <b>
+                    {match.event_type === "outright"
+                      ? match.home_team
+                      : `${match.home_team} vs ${match.away_team}`}
+                  </b>
 
                   <div style={{ color: "#94a3b8", marginTop: 6 }}>
                     {match.sport_title} · {formatTime(match.commence_time)}
