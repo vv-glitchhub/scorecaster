@@ -348,3 +348,44 @@ a {
     display: none;
   }
 }
+
+.responsive-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.responsive-row::-webkit-scrollbar {
+  display: none;
+}
+
+.responsive-row > * {
+  flex: 0 0 auto;
+}
+
+.match-card {
+  width: 100%;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.045);
+  color: white;
+  border-radius: 18px;
+  padding: 14px;
+  text-align: left;
+}
+
+.match-card.active {
+  border-color: rgba(34,197,94,0.65);
+  background: rgba(34,197,94,0.13);
+}
+
+.pick-card {
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.045);
+  border-radius: 18px;
+  padding: 14px;
+}
