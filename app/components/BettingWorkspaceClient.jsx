@@ -92,8 +92,8 @@ function edgePct(value) {
 
 export default function BettingWorkspaceClient({ initialOddsData }) {
   const [oddsData, setOddsData] = useState(() => normalizeData(initialOddsData));
-  const [sport, setSport] = useState("all");
-  const [league, setLeague] = useState("ALL");
+  const [sport, setSport] = useState("icehockey");
+const [league, setLeague] = useState("NHL");
   const [market, setMarket] = useState("h2h");
   const [selectedId, setSelectedId] = useState(null);
   const [bankroll] = useState("1000");
