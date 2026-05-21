@@ -1,28 +1,26 @@
-"use client";
-
-export default function SectionCard({
-  title,
-  subtitle,
-  rightSlot = null,
-  children,
-  className = "",
-}) {
+export default function SectionCard({ children, title, subtitle, style = {} }) {
   return (
     <section
-      className={`rounded-[28px] border border-slate-800 bg-[#08183E] p-6 shadow-lg ${className}`}
+      style={{
+        border: "1px solid rgba(255,255,255,0.10)",
+        borderRadius: 24,
+        padding: 18,
+        background:
+          "linear-gradient(180deg, rgba(15,23,42,0.92), rgba(2,6,23,0.92))",
+        boxShadow: "0 18px 50px rgba(0,0,0,0.25)",
+        ...style,
+      }}
     >
-      {(title || subtitle || rightSlot) ? (
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            {title ? (
-              <h2 className="text-3xl font-extrabold text-white">{title}</h2>
-            ) : null}
-            {subtitle ? (
-              <p className="mt-2 text-lg text-slate-300">{subtitle}</p>
-            ) : null}
-          </div>
-
-          {rightSlot ? <div className="shrink-0">{rightSlot}</div> : null}
+      {title ? (
+        <div style={{ marginBottom: 14 }}>
+          <h2 style={{ margin: 0, color: "#fff", fontSize: 28 }}>
+            {title}
+          </h2>
+          {subtitle ? (
+            <p style={{ color: "#94a3b8", margin: "8px 0 0", lineHeight: 1.5 }}>
+              {subtitle}
+            </p>
+          ) : null}
         </div>
       ) : null}
 
