@@ -10,7 +10,6 @@ import {
 } from "@/lib/betting-engine";
 
 import {
-  getMatchDataStatus,
   isBettableMatch,
 } from "@/lib/data-status";
 
@@ -20,17 +19,13 @@ import {
 } from "@/lib/odds-history-store";
 
 import {
-  BOOKMAKER_OPTIONS,
   DEFAULT_USER_BOOKMAKERS,
 } from "@/lib/bookmaker-options";
 
 import {
   addBetToHistory,
   getBetHistory,
-  saveBetHistory,
 } from "@/lib/bet-history-store";
-
-import { settleBets } from "@/lib/settlement-engine";
 
 import BetSlipPanel from "@/app/components/BetSlipPanel";
 import BetHistoryPanel from "@/app/components/BetHistoryPanel";
@@ -76,7 +71,6 @@ function button(primary = false) {
 
 function pill(active) {
   return {
-    flex: "0 0 auto",
     border: active
       ? "1px solid rgba(34,197,94,0.65)"
       : "1px solid rgba(255,255,255,0.12)",
@@ -101,27 +95,15 @@ function rowScroll() {
   };
 }
 
-function money(value) {
-  const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return "€0.00";
-  }
-
-  return `€${n.toFixed(2)}`;
-}
-
 function normalizeData(data) {
   return {
+    matches: Array.isArray(data?.matches)
+      ? data.matches
+      : [],
     source: data?.source || "",
     status: data?.status || "",
     provider: data?.provider || "",
     reason: data?.reason || "",
-    cached: Boolean(data?.cached),
-    debug: data?.debug || {},
-    matches: Array.isArray(data?.matches)
-      ? data.matches
-      : [],
   };
 }
 
@@ -138,7 +120,6 @@ function LiveBadge() {
         border: "1px solid rgba(239,68,68,0.35)",
         color: "#fca5a5",
         fontWeight: 900,
-        fontSize: 13,
       }}
     >
       <div
@@ -157,13 +138,19 @@ function LiveBadge() {
 export default function BettingWorkspaceClient({
   initialOddsData,
 }) {
-  const [oddsData, setOddsData] = useState(() =>
-    normalizeData(initialOddsData)
-  );
+  const [oddsData, setOddsData] =
+    useState(() =>
+      normalizeData(initialOddsData)
+    );
 
-  const [sport, setSport] = useState("all");
-  const [league, setLeague] = useState("ALL");
-  const [market, setMarket] = useState("h2h");
+  const [sport, setSport] =
+    useState("all");
+
+  const [league, setLeague] =
+    useState("ALL");
+
+  const [market, setMarket] =
+    useState("h2h");
 
   const [selectedId, setSelectedId] =
     useState(null);
@@ -171,15 +158,17 @@ export default function BettingWorkspaceClient({
   const [bankroll, setBankroll] =
     useState("1000");
 
-  const [selectedBookmakers, setSelectedBookmakers] =
+  const [selectedBookmakers] =
     useState(DEFAULT_USER_BOOKMAKERS);
 
-  const [betSlip, setBetSlip] = useState([]);
+  const [betSlip, setBetSlip] =
+    useState([]);
 
   const [betHistory, setBetHistory] =
     useState([]);
 
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] =
+    useState(false);
 
   const [isLiveMode, setIsLiveMode] =
     useState(false);
@@ -199,7 +188,8 @@ export default function BettingWorkspaceClient({
   );
 
   const bettableMatches = useMemo(
-    () => matches.filter(isBettableMatch),
+    () =>
+      matches.filter(isBettableMatch),
     [matches]
   );
 
@@ -240,29 +230,33 @@ export default function BettingWorkspaceClient({
     ]
   );
 
-  const selectedMovement = selectedMatch
-    ? getOddsMovement(
-        selectedMatch,
-        market === "totals"
-          ? "over"
-          : market === "spreads"
-          ? "spreadHome"
-          : "home"
-      )
-    : null;
+  const selectedMovement =
+    selectedMatch
+      ? getOddsMovement(
+          selectedMatch,
+          market === "totals"
+            ? "over"
+            : market === "spreads"
+            ? "spreadHome"
+            : "home"
+        )
+      : null;
 
   async function loadGames(force = false) {
     setLoading(true);
 
     try {
-      const params = new URLSearchParams();
+      const params =
+        new URLSearchParams();
 
       params.set("sport", sport);
       params.set("league", league);
 
       params.set(
         "status",
-        isLiveMode ? "live" : "upcoming"
+        isLiveMode
+          ? "live"
+          : "upcoming"
       );
 
       if (force) {
@@ -283,7 +277,9 @@ export default function BettingWorkspaceClient({
 
       setOddsData(normalized);
 
-      if (normalized.matches?.length) {
+      if (
+        normalized.matches?.length
+      ) {
         addOddsSnapshots(
           normalized.matches
         );
@@ -294,14 +290,11 @@ export default function BettingWorkspaceClient({
           isBettableMatch
         );
 
-      setSelectedId(first?.id || null);
+      setSelectedId(
+        first?.id || null
+      );
     } catch (error) {
-      setOddsData({
-        source: "error",
-        status: "error",
-        reason: error.message,
-        matches: [],
-      });
+      console.error(error);
     } finally {
       setLoading(false);
     }
@@ -310,9 +303,10 @@ export default function BettingWorkspaceClient({
   useEffect(() => {
     if (!autoRefresh) return;
 
-    const interval = setInterval(() => {
-      loadGames(false);
-    }, isLiveMode ? 30000 : 120000);
+    const interval =
+      setInterval(() => {
+        loadGames(false);
+      }, isLiveMode ? 30000 : 120000);
 
     return () =>
       clearInterval(interval);
@@ -323,14 +317,6 @@ export default function BettingWorkspaceClient({
     league,
   ]);
 
-  function toggleBookmaker(id) {
-    setSelectedBookmakers((prev) =>
-      prev.includes(id)
-        ? prev.filter((x) => x !== id)
-        : [...prev, id]
-    );
-  }
-
   function addToBetSlip(
     pick,
     match = selectedMatch
@@ -338,17 +324,18 @@ export default function BettingWorkspaceClient({
     if (!pick || !match) return;
 
     const item = {
-      id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker}`,
+      id: `${match.id}-${pick.market}-${pick.key}`,
       match,
       ...pick,
-      addedOdds: pick.odds,
       addedAt: Date.now(),
       userStake: pick.stake || 0,
     };
 
     setBetSlip((prev) => {
       if (
-        prev.some((x) => x.id === item.id)
+        prev.some(
+          (x) => x.id === item.id
+        )
       ) {
         return prev;
       }
@@ -357,18 +344,23 @@ export default function BettingWorkspaceClient({
     });
   }
 
-  function addManyToBetSlip(picks = []) {
+  function addManyToBetSlip(
+    picks = []
+  ) {
     for (const pick of picks) {
       addToBetSlip(
         pick,
-        pick.match || selectedMatch
+        pick.match ||
+          selectedMatch
       );
     }
   }
 
   function removeFromBetSlip(id) {
     setBetSlip((prev) =>
-      prev.filter((p) => p.id !== id)
+      prev.filter(
+        (pick) => pick.id !== id
+      )
     );
   }
 
@@ -381,13 +373,13 @@ export default function BettingWorkspaceClient({
     value
   ) {
     setBetSlip((prev) =>
-      prev.map((p) =>
-        p.id === id
+      prev.map((pick) =>
+        pick.id === id
           ? {
-              ...p,
+              ...pick,
               userStake: value,
             }
-          : p
+          : pick
       )
     );
   }
@@ -408,9 +400,10 @@ export default function BettingWorkspaceClient({
     >
       <section
         style={card({
-          background: isLiveMode
-            ? "rgba(127,29,29,0.25)"
-            : "rgba(2,6,23,0.72)",
+          background:
+            isLiveMode
+              ? "rgba(127,29,29,0.25)"
+              : "rgba(2,6,23,0.72)",
         })}
       >
         <div
@@ -419,12 +412,17 @@ export default function BettingWorkspaceClient({
             justifyContent:
               "space-between",
             alignItems: "center",
-            gap: 12,
             flexWrap: "wrap",
+            gap: 12,
           }}
         >
           <div>
-            <h1 style={{ margin: 0 }}>
+            <h1
+              style={{
+                margin: 0,
+                color: "#fff",
+              }}
+            >
               Scorecaster
             </h1>
 
@@ -434,7 +432,8 @@ export default function BettingWorkspaceClient({
                 marginTop: 6,
               }}
             >
-              Betting Intelligence Platform
+              Betting Intelligence
+              Platform
             </div>
           </div>
 
@@ -453,25 +452,29 @@ export default function BettingWorkspaceClient({
           <button
             type="button"
             onClick={() =>
-              setIsLiveMode((v) => !v)
+              setIsLiveMode(
+                (v) => !v
+              )
             }
             style={button(isLiveMode)}
           >
             {isLiveMode
               ? "LIVE MODE AKTIIVINEN"
-              : "Vaihda LIVE modeen"}
+              : "LIVE MODE"}
           </button>
 
           <button
             type="button"
             onClick={() =>
-              setAutoRefresh((v) => !v)
+              setAutoRefresh(
+                (v) => !v
+              )
             }
             style={button(autoRefresh)}
           >
             {autoRefresh
-              ? "Auto refresh ON"
-              : "Auto refresh OFF"}
+              ? "AUTO REFRESH ON"
+              : "AUTO REFRESH OFF"}
           </button>
 
           <button
@@ -484,38 +487,136 @@ export default function BettingWorkspaceClient({
           >
             {loading
               ? "Haetaan..."
-              : "Hae ottelut"}
+              : "Päivitä ottelut"}
           </button>
+        </div>
+      </section>
+
+      <section style={card()}>
+        <div
+          style={{
+            color: "#94a3b8",
+            marginBottom: 8,
+          }}
+        >
+          Laji
+        </div>
+
+        <div style={rowScroll()}>
+          {SPORT_OPTIONS.map(
+            (item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setSport(
+                    item.id
+                  );
+                  setLeague(
+                    "ALL"
+                  );
+                }}
+                style={pill(
+                  sport ===
+                    item.id
+                )}
+              >
+                {item.labelFi}
+              </button>
+            )
+          )}
+        </div>
+
+        <div
+          style={{
+            color: "#94a3b8",
+            marginTop: 18,
+            marginBottom: 8,
+          }}
+        >
+          Liiga
+        </div>
+
+        <div style={rowScroll()}>
+          <button
+            type="button"
+            onClick={() =>
+              setLeague("ALL")
+            }
+            style={pill(
+              league ===
+                "ALL"
+            )}
+          >
+            Kaikki
+          </button>
+
+          {leagues.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() =>
+                setLeague(
+                  item.id
+                )
+              }
+              style={pill(
+                league ===
+                  item.id
+              )}
+            >
+              {item.labelFi}
+            </button>
+          ))}
         </div>
       </section>
 
       <ParlayBuilderPanel
         picks={topPicks}
-        bankroll={Number(bankroll) || 1000}
-        onAddMany={addManyToBetSlip}
+        bankroll={
+          Number(bankroll) ||
+          1000
+        }
+        onAddMany={
+          addManyToBetSlip
+        }
       />
 
       <ParlayAnalysisPanel
         picks={betSlip}
-        bankroll={Number(bankroll) || 1000}
+        bankroll={
+          Number(bankroll) ||
+          1000
+        }
       />
 
       <ParlayRiskPanel
         picks={betSlip}
-        bankroll={Number(bankroll) || 1000}
+        bankroll={
+          Number(bankroll) ||
+          1000
+        }
       />
 
-      <LiveMomentumPanel match={selectedMatch} />
+      <LiveMomentumPanel
+        match={selectedMatch}
+      />
 
-      <SharpMoneyPanel match={selectedMatch} />
+      <SharpMoneyPanel
+        match={selectedMatch}
+      />
 
       <CashoutAnalyzer
         bet={betSlip?.[0]}
       />
 
       <AIReasoningPanel
-        pick={selectedRows?.[0]}
-        movement={selectedMovement}
+        pick={
+          selectedRows?.[0]
+        }
+        movement={
+          selectedMovement
+        }
       />
 
       <LineMovementPanel
@@ -524,15 +625,26 @@ export default function BettingWorkspaceClient({
 
       <RiskManagerPanel
         betSlip={betSlip}
-        bankroll={Number(bankroll) || 1000}
+        bankroll={
+          Number(bankroll) ||
+          1000
+        }
       />
 
       <BetSlipPanel
         betSlip={betSlip}
-        onRemove={removeFromBetSlip}
-        onClear={clearBetSlip}
-        onStakeChange={updateBetSlipStake}
-        onSave={saveToHistory}
+        onRemove={
+          removeFromBetSlip
+        }
+        onClear={
+          clearBetSlip
+        }
+        onStakeChange={
+          updateBetSlipStake
+        }
+        onSave={
+          saveToHistory
+        }
       />
 
       <PerformancePanel
