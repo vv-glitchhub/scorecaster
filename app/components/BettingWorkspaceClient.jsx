@@ -63,11 +63,37 @@ function normalizeData(data) {
   };
 }
 
+function formatTime(value) {
+  if (!value) return "";
+  try {
+    return new Date(value).toLocaleString("fi-FI", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "";
+  }
+}
+
+function pct(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0.0%";
+  return `${(n * 100).toFixed(1)}%`;
+}
+
+function edgePct(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n)) return "0.0%";
+  return `${(Math.abs(n) <= 1 ? n * 100 : n).toFixed(1)}%`;
+}
+
 export default function BettingWorkspaceClient({ initialOddsData }) {
   const [oddsData, setOddsData] = useState(() => normalizeData(initialOddsData));
   const [sport, setSport] = useState("all");
   const [league, setLeague] = useState("ALL");
-  const [market] = useState("h2h");
+  const [market, setMarket] = useState("h2h");
   const [selectedId, setSelectedId] = useState(null);
   const [bankroll] = useState("1000");
   const [selectedBookmakers] = useState(DEFAULT_USER_BOOKMAKERS);
@@ -117,7 +143,14 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
   );
 
   const selectedMovement = selectedMatch
-    ? getOddsMovement(selectedMatch, "home")
+    ? getOddsMovement(
+        selectedMatch,
+        market === "totals"
+          ? "over"
+          : market === "spreads"
+          ? "spreadHome"
+          : "home"
+      )
     : null;
 
   async function loadGames(force = false) {
@@ -125,7 +158,6 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
 
     try {
       const params = new URLSearchParams();
-
       params.set("sport", sport);
       params.set("league", league);
       params.set("status", isLiveMode ? "live" : "upcoming");
@@ -239,6 +271,11 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
         <div style={{ color: "#94a3b8", marginTop: 8 }}>
           Betting Intelligence Platform
         </div>
+
+        <div style={{ color: "#64748b", marginTop: 10, lineHeight: 1.5 }}>
+          Valitse laji ja liiga, päivitä ottelut ja appi nostaa esiin parhaat
+          value-kohteet.
+        </div>
       </section>
 
       <section style={card()}>
@@ -286,6 +323,178 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
         </div>
       </section>
 
+      <section style={card()}>
+        <h2 style={{ marginTop: 0 }}>Päivän parhaat vedot</h2>
+
+        {!topPicks.length ? (
+          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
+            Ei value-kohteita nykyisillä filttereillä. Päivitä ottelut tai
+            kokeile toista liigaa.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {topPicks.slice(0, 5).map((pick, index) => (
+              <div
+                key={pick.id || index}
+                className="pick-card"
+                style={{
+                  border: "1px solid rgba(255,255,255,0.10)",
+                  borderRadius: 18,
+                  padding: 14,
+                  background: "rgba(255,255,255,0.045)",
+                }}
+              >
+                <h3 style={{ marginTop: 0 }}>{pick.label}</h3>
+
+                <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
+                  {pick.match?.event_type === "outright"
+                    ? pick.match?.home_team
+                    : `${pick.match?.home_team || ""} vs ${
+                        pick.match?.away_team || ""
+                      }`}
+                </div>
+
+                <div style={{ marginTop: 10, fontWeight: 900 }}>
+                  Kerroin {pick.odds} · Edge {edgePct(pick.edge)} · EV{" "}
+                  {Number(pick.ev || pick.expectedValue || 0).toFixed(2)}
+                </div>
+
+                <div style={{ color: "#94a3b8", marginTop: 6 }}>
+                  {pick.market} · {pick.bookmaker || "Bookmaker"}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => addToBetSlip(pick, pick.match)}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    border: "1px solid rgba(34,197,94,0.55)",
+                    background: "rgba(34,197,94,0.15)",
+                    color: "#fff",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontWeight: 900,
+                  }}
+                >
+                  Lisää kuponkiin
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section style={card()}>
+        <h2 style={{ marginTop: 0 }}>Ottelut</h2>
+
+        {bettableMatches.length === 0 ? (
+          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
+            Ei pelejä ladattuna. Valitse laji/liiga ja paina Päivitä.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {bettableMatches.map((match) => (
+              <button
+                key={match.id}
+                type="button"
+                onClick={() => setSelectedId(match.id)}
+                className={
+                  selectedMatch?.id === match.id
+                    ? "match-card active"
+                    : "match-card"
+                }
+              >
+                <b>
+                  {match.event_type === "outright"
+                    ? match.home_team
+                    : `${match.home_team} vs ${match.away_team}`}
+                </b>
+
+                <div style={{ color: "#94a3b8", marginTop: 6 }}>
+                  {match.sport_title || match.sport_key} ·{" "}
+                  {formatTime(match.commence_time)}
+                </div>
+
+                <div style={{ color: "#86efac", marginTop: 8, fontWeight: 900 }}>
+                  Kertoimet saatavilla
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section style={card()}>
+        <h2 style={{ marginTop: 0 }}>
+          {selectedMatch
+            ? selectedMatch.event_type === "outright"
+              ? selectedMatch.home_team
+              : `${selectedMatch.home_team} vs ${selectedMatch.away_team}`
+            : "Valitse ottelu"}
+        </h2>
+
+        <div className="responsive-row" style={{ marginBottom: 14 }}>
+          <button onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
+            1X2 / ML
+          </button>
+
+          <button
+            onClick={() => setMarket("totals")}
+            style={pill(market === "totals")}
+          >
+            Over / Under
+          </button>
+
+          <button
+            onClick={() => setMarket("spreads")}
+            style={pill(market === "spreads")}
+          >
+            Handicap
+          </button>
+        </div>
+
+        {selectedRows.length === 0 ? (
+          <div style={{ color: "#94a3b8" }}>
+            Ei vetomarkkinoita tälle ottelulle.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {selectedRows.map((pick) => (
+              <div key={`${pick.key}-${pick.bookmaker}`} className="pick-card">
+                <h3 style={{ marginTop: 0 }}>{pick.label}</h3>
+
+                <div style={{ color: "#94a3b8" }}>
+                  {pick.market} · {pick.bookmaker || "Bookmaker"}
+                </div>
+
+                <div style={{ marginTop: 10, fontWeight: 900 }}>
+                  Kerroin {pick.odds} · Edge {edgePct(pick.edge)} · Malli{" "}
+                  {pct(pick.modelProb || pick.modelProbability)}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => addToBetSlip(pick, selectedMatch)}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    border: "1px solid rgba(34,197,94,0.55)",
+                    background: "rgba(34,197,94,0.15)",
+                    color: "#fff",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontWeight: 900,
+                  }}
+                >
+                  Lisää kuponkiin
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <ParlayBuilderPanel
         picks={topPicks}
         bankroll={Number(bankroll) || 1000}
@@ -319,16 +528,18 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
       <div id="betslip">
         <BetSlipPanel
           betSlip={betSlip}
+          picks={betSlip}
           onRemove={removeFromBetSlip}
           onClear={clearBetSlip}
           onStakeChange={updateBetSlipStake}
           onSave={saveToHistory}
+          onSaveToHistory={saveToHistory}
         />
       </div>
 
-      <PerformancePanel history={betHistory} />
+      <PerformancePanel history={betHistory} bets={betHistory} />
 
-      <BetHistoryPanel history={betHistory} />
+      <BetHistoryPanel history={betHistory} bets={betHistory} setBets={setBetHistory} />
 
       <FloatingBetSlip
         betSlip={betSlip}
