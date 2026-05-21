@@ -160,8 +160,8 @@ const [league, setLeague] = useState("NHL");
     try {
       const params = new URLSearchParams();
 
-      params.set("sport", sport);
-      params.set("league", league);
+      params.set("sport", sport === "all" ? "icehockey" : sport);
+params.set("league", league === "ALL" ? "NHL" : league);
       params.set("status", isLiveMode ? "live" : "upcoming");
 
       if (force) params.set("force", "1");
