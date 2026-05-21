@@ -16,7 +16,6 @@ import {
 
 import {
   addOddsSnapshots,
-  clearOddsHistory,
   getOddsMovement,
 } from "@/lib/odds-history-store";
 
@@ -43,6 +42,10 @@ import RiskManagerPanel from "@/app/components/RiskManagerPanel";
 import LiveMomentumPanel from "@/app/components/LiveMomentumPanel";
 import SharpMoneyPanel from "@/app/components/SharpMoneyPanel";
 import CashoutAnalyzer from "@/app/components/CashoutAnalyzer";
+
+import ParlayBuilderPanel from "@/app/components/ParlayBuilderPanel";
+import ParlayAnalysisPanel from "@/app/components/ParlayAnalysisPanel";
+import ParlayRiskPanel from "@/app/components/ParlayRiskPanel";
 
 function card(extra = {}) {
   return {
@@ -89,20 +92,6 @@ function pill(active) {
   };
 }
 
-function input() {
-  return {
-    width: "100%",
-    boxSizing: "border-box",
-    border: "1px solid rgba(255,255,255,0.14)",
-    background: "rgba(255,255,255,0.07)",
-    color: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    fontSize: 16,
-    fontWeight: 900,
-  };
-}
-
 function rowScroll() {
   return {
     display: "flex",
@@ -112,19 +101,14 @@ function rowScroll() {
   };
 }
 
-function formatTime(value) {
-  if (!value) return "-";
+function money(value) {
+  const n = Number(value);
 
-  try {
-    return new Date(value).toLocaleString("fi-FI", {
-      day: "2-digit",
-      month: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "-";
+  if (!Number.isFinite(n)) {
+    return "€0.00";
   }
+
+  return `€${n.toFixed(2)}`;
 }
 
 function normalizeData(data) {
@@ -373,6 +357,15 @@ export default function BettingWorkspaceClient({
     });
   }
 
+  function addManyToBetSlip(picks = []) {
+    for (const pick of picks) {
+      addToBetSlip(
+        pick,
+        pick.match || selectedMatch
+      );
+    }
+  }
+
   function removeFromBetSlip(id) {
     setBetSlip((prev) =>
       prev.filter((p) => p.id !== id)
@@ -404,45 +397,6 @@ export default function BettingWorkspaceClient({
       addBetToHistory(pick);
 
     setBetHistory(updated);
-  }
-
-  async function autoSettleBets() {
-    try {
-      const params =
-        new URLSearchParams();
-
-      params.set("sport", sport);
-      params.set("league", league);
-
-      const res = await fetch(
-        `/api/results?${params.toString()}`,
-        {
-          cache: "no-store",
-        }
-      );
-
-      const data = await res.json();
-
-      const results = Array.isArray(
-        data.results
-      )
-        ? data.results
-        : [];
-
-      const updated = settleBets(
-        betHistory,
-        results
-      );
-
-      saveBetHistory(updated);
-
-      setBetHistory(updated);
-    } catch (error) {
-      console.error(
-        "Auto settlement failed",
-        error
-      );
-    }
   }
 
   return (
@@ -480,8 +434,7 @@ export default function BettingWorkspaceClient({
                 marginTop: 6,
               }}
             >
-              Betting Intelligence
-              Platform
+              Betting Intelligence Platform
             </div>
           </div>
 
@@ -536,73 +489,59 @@ export default function BettingWorkspaceClient({
         </div>
       </section>
 
-      <section style={card()}>
-        <div
-          style={{
-            color: "#94a3b8",
-            marginBottom: 8,
-          }}
-        >
-          Laji
-        </div>
+      <ParlayBuilderPanel
+        picks={topPicks}
+        bankroll={Number(bankroll) || 1000}
+        onAddMany={addManyToBetSlip}
+      />
 
-        <div style={rowScroll()}>
-          {SPORT_OPTIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setSport(item.id);
-                setLeague("ALL");
-              }}
-              style={pill(
-                sport === item.id
-              )}
-            >
-              {item.labelFi}
-            </button>
-          ))}
-        </div>
+      <ParlayAnalysisPanel
+        picks={betSlip}
+        bankroll={Number(bankroll) || 1000}
+      />
 
-        <div
-          style={{
-            color: "#94a3b8",
-            marginTop: 18,
-            marginBottom: 8,
-          }}
-        >
-          Liiga
-        </div>
+      <ParlayRiskPanel
+        picks={betSlip}
+        bankroll={Number(bankroll) || 1000}
+      />
 
-        <div style={rowScroll()}>
-          <button
-            type="button"
-            onClick={() =>
-              setLeague("ALL")
-            }
-            style={pill(
-              league === "ALL"
-            )}
-          >
-            Kaikki
-          </button>
+      <LiveMomentumPanel match={selectedMatch} />
 
-          {leagues.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() =>
-                setLeague(item.id)
-              }
-              style={pill(
-                league === item.id
-              )}
-            >
-              {item.labelFi}
-            </button>
-          ))}
-        </div>
-      </section>
+      <SharpMoneyPanel match={selectedMatch} />
+
+      <CashoutAnalyzer
+        bet={betSlip?.[0]}
+      />
+
+      <AIReasoningPanel
+        pick={selectedRows?.[0]}
+        movement={selectedMovement}
+      />
+
+      <LineMovementPanel
+        match={selectedMatch}
+      />
+
+      <RiskManagerPanel
+        betSlip={betSlip}
+        bankroll={Number(bankroll) || 1000}
+      />
+
+      <BetSlipPanel
+        betSlip={betSlip}
+        onRemove={removeFromBetSlip}
+        onClear={clearBetSlip}
+        onStakeChange={updateBetSlipStake}
+        onSave={saveToHistory}
+      />
+
+      <PerformancePanel
+        history={betHistory}
+      />
+
+      <BetHistoryPanel
+        history={betHistory}
+      />
     </div>
   );
 }
