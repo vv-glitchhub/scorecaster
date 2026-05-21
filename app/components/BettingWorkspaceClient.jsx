@@ -65,6 +65,7 @@ function normalizeData(data) {
 
 function formatTime(value) {
   if (!value) return "";
+
   try {
     return new Date(value).toLocaleString("fi-FI", {
       day: "2-digit",
@@ -158,6 +159,7 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
 
     try {
       const params = new URLSearchParams();
+
       params.set("sport", sport);
       params.set("league", league);
       params.set("status", isLiveMode ? "live" : "upcoming");
@@ -180,7 +182,7 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
       const first = normalized.matches?.find(isBettableMatch);
       setSelectedId(first?.id || null);
     } catch (error) {
-      console.error(error);
+      console.error("Odds loading failed:", error);
     } finally {
       setLoading(false);
     }
@@ -200,7 +202,9 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
     if (!pick || !match) return;
 
     const item = {
-      id: `${match.id}-${pick.market}-${pick.key}-${pick.bookmaker || "book"}`,
+      id: `${match.id}-${pick.market || "market"}-${pick.key || pick.label}-${
+        pick.bookmaker || "book"
+      }`,
       match,
       ...pick,
       addedAt: Date.now(),
@@ -344,7 +348,7 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
                   background: "rgba(255,255,255,0.045)",
                 }}
               >
-                <h3 style={{ marginTop: 0 }}>{pick.label}</h3>
+                <h3 style={{ marginTop: 0 }}>{pick.label || "Value pick"}</h3>
 
                 <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
                   {pick.match?.event_type === "outright"
@@ -355,12 +359,12 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
                 </div>
 
                 <div style={{ marginTop: 10, fontWeight: 900 }}>
-                  Kerroin {pick.odds} · Edge {edgePct(pick.edge)} · EV{" "}
+                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · EV{" "}
                   {Number(pick.ev || pick.expectedValue || 0).toFixed(2)}
                 </div>
 
                 <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                  {pick.market} · {pick.bookmaker || "Bookmaker"}
+                  {pick.market || "Market"} · {pick.bookmaker || "Bookmaker"}
                 </div>
 
                 <button
@@ -435,11 +439,16 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
         </h2>
 
         <div className="responsive-row" style={{ marginBottom: 14 }}>
-          <button onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
+          <button
+            type="button"
+            onClick={() => setMarket("h2h")}
+            style={pill(market === "h2h")}
+          >
             1X2 / ML
           </button>
 
           <button
+            type="button"
             onClick={() => setMarket("totals")}
             style={pill(market === "totals")}
           >
@@ -447,6 +456,7 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
           </button>
 
           <button
+            type="button"
             onClick={() => setMarket("spreads")}
             style={pill(market === "spreads")}
           >
@@ -461,15 +471,18 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {selectedRows.map((pick) => (
-              <div key={`${pick.key}-${pick.bookmaker}`} className="pick-card">
-                <h3 style={{ marginTop: 0 }}>{pick.label}</h3>
+              <div
+                key={`${pick.key || pick.label}-${pick.bookmaker || "book"}`}
+                className="pick-card"
+              >
+                <h3 style={{ marginTop: 0 }}>{pick.label || "Pick"}</h3>
 
                 <div style={{ color: "#94a3b8" }}>
-                  {pick.market} · {pick.bookmaker || "Bookmaker"}
+                  {pick.market || "Market"} · {pick.bookmaker || "Bookmaker"}
                 </div>
 
                 <div style={{ marginTop: 10, fontWeight: 900 }}>
-                  Kerroin {pick.odds} · Edge {edgePct(pick.edge)} · Malli{" "}
+                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · Malli{" "}
                   {pct(pick.modelProb || pick.modelProbability)}
                 </div>
 
@@ -528,18 +541,16 @@ export default function BettingWorkspaceClient({ initialOddsData }) {
       <div id="betslip">
         <BetSlipPanel
           betSlip={betSlip}
-          picks={betSlip}
           onRemove={removeFromBetSlip}
           onClear={clearBetSlip}
           onStakeChange={updateBetSlipStake}
           onSave={saveToHistory}
-          onSaveToHistory={saveToHistory}
         />
       </div>
 
-      <PerformancePanel history={betHistory} bets={betHistory} />
+      <PerformancePanel history={betHistory} />
 
-      <BetHistoryPanel history={betHistory} bets={betHistory} setBets={setBetHistory} />
+      <BetHistoryPanel history={betHistory} />
 
       <FloatingBetSlip
         betSlip={betSlip}
