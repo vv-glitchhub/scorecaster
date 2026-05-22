@@ -60,6 +60,7 @@ function normalizeData(data) {
     status: data?.status || "",
     provider: data?.provider || "",
     reason: data?.reason || "",
+    cached: Boolean(data?.cached),
   };
 }
 
@@ -93,7 +94,7 @@ function edgePct(value) {
 export default function BettingWorkspaceClient({ initialOddsData }) {
   const [oddsData, setOddsData] = useState(() => normalizeData(initialOddsData));
   const [sport, setSport] = useState("icehockey");
-const [league, setLeague] = useState("NHL");
+  const [league, setLeague] = useState("NHL");
   const [market, setMarket] = useState("h2h");
   const [selectedId, setSelectedId] = useState(null);
   const [bankroll] = useState("1000");
@@ -122,26 +123,32 @@ const [league, setLeague] = useState("NHL");
     bettableMatches[0] ||
     null;
 
-  const selectedRows = useMemo(
-    () =>
-      analyzeRows(
+  const selectedRows = useMemo(() => {
+    try {
+      return analyzeRows(
         selectedMatch,
         market,
         Number(bankroll) || 1000,
         selectedBookmakers
-      ),
-    [selectedMatch, market, bankroll, selectedBookmakers]
-  );
+      );
+    } catch (error) {
+      console.error("analyzeRows failed:", error);
+      return [];
+    }
+  }, [selectedMatch, market, bankroll, selectedBookmakers]);
 
-  const topPicks = useMemo(
-    () =>
-      getBestBets(
+  const topPicks = useMemo(() => {
+    try {
+      return getBestBets(
         bettableMatches,
         Number(bankroll) || 1000,
         selectedBookmakers
-      ),
-    [bettableMatches, bankroll, selectedBookmakers]
-  );
+      );
+    } catch (error) {
+      console.error("getBestBets failed:", error);
+      return [];
+    }
+  }, [bettableMatches, bankroll, selectedBookmakers]);
 
   const selectedMovement = selectedMatch
     ? getOddsMovement(
@@ -161,7 +168,7 @@ const [league, setLeague] = useState("NHL");
       const params = new URLSearchParams();
 
       params.set("sport", sport === "all" ? "icehockey" : sport);
-params.set("league", league === "ALL" ? "NHL" : league);
+      params.set("league", league === "ALL" ? "NHL" : league);
       params.set("status", isLiveMode ? "live" : "upcoming");
 
       if (force) params.set("force", "1");
@@ -183,6 +190,16 @@ params.set("league", league === "ALL" ? "NHL" : league);
       setSelectedId(first?.id || null);
     } catch (error) {
       console.error("Odds loading failed:", error);
+
+      setOddsData({
+        source: "error",
+        status: "error",
+        provider: "frontend",
+        reason: error?.message || "Otteluiden haku epäonnistui.",
+        matches: [],
+      });
+
+      setSelectedId(null);
     } finally {
       setLoading(false);
     }
@@ -234,12 +251,7 @@ params.set("league", league === "ALL" ? "NHL" : league);
   function updateBetSlipStake(id, value) {
     setBetSlip((prev) =>
       prev.map((pick) =>
-        pick.id === id
-          ? {
-              ...pick,
-              userStake: value,
-            }
-          : pick
+        pick.id === id ? { ...pick, userStake: value } : pick
       )
     );
   }
@@ -277,8 +289,9 @@ params.set("league", league === "ALL" ? "NHL" : league);
         </div>
 
         <div style={{ color: "#64748b", marginTop: 10, lineHeight: 1.5 }}>
-          Valitse laji ja liiga, päivitä ottelut ja appi nostaa esiin parhaat
-          value-kohteet.
+          {oddsData.source === "live"
+            ? `Live-data käytössä · ${bettableMatches.length} ottelua`
+            : oddsData.reason || "Valitse laji/liiga ja paina Päivitä."}
         </div>
       </section>
 
@@ -328,68 +341,6 @@ params.set("league", league === "ALL" ? "NHL" : league);
       </section>
 
       <section style={card()}>
-        <h2 style={{ marginTop: 0 }}>Päivän parhaat vedot</h2>
-
-        {!topPicks.length ? (
-          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-            Ei value-kohteita nykyisillä filttereillä. Päivitä ottelut tai
-            kokeile toista liigaa.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {topPicks.slice(0, 5).map((pick, index) => (
-              <div
-                key={pick.id || index}
-                className="pick-card"
-                style={{
-                  border: "1px solid rgba(255,255,255,0.10)",
-                  borderRadius: 18,
-                  padding: 14,
-                  background: "rgba(255,255,255,0.045)",
-                }}
-              >
-                <h3 style={{ marginTop: 0 }}>{pick.label || "Value pick"}</h3>
-
-                <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-                  {pick.match?.event_type === "outright"
-                    ? pick.match?.home_team
-                    : `${pick.match?.home_team || ""} vs ${
-                        pick.match?.away_team || ""
-                      }`}
-                </div>
-
-                <div style={{ marginTop: 10, fontWeight: 900 }}>
-                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · EV{" "}
-                  {Number(pick.ev || pick.expectedValue || 0).toFixed(2)}
-                </div>
-
-                <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                  {pick.market || "Market"} · {pick.bookmaker || "Bookmaker"}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => addToBetSlip(pick, pick.match)}
-                  style={{
-                    marginTop: 12,
-                    width: "100%",
-                    border: "1px solid rgba(34,197,94,0.55)",
-                    background: "rgba(34,197,94,0.15)",
-                    color: "#fff",
-                    borderRadius: 14,
-                    padding: 12,
-                    fontWeight: 900,
-                  }}
-                >
-                  Lisää kuponkiin
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section style={card()}>
         <h2 style={{ marginTop: 0 }}>Ottelut</h2>
 
         {bettableMatches.length === 0 ? (
@@ -421,7 +372,8 @@ params.set("league", league === "ALL" ? "NHL" : league);
                 </div>
 
                 <div style={{ color: "#86efac", marginTop: 8, fontWeight: 900 }}>
-                  Kertoimet saatavilla
+                  Paras 1: {match.bestOdds?.home || "-"} · Paras 2:{" "}
+                  {match.bestOdds?.away || "-"}
                 </div>
               </button>
             ))}
@@ -439,27 +391,15 @@ params.set("league", league === "ALL" ? "NHL" : league);
         </h2>
 
         <div className="responsive-row" style={{ marginBottom: 14 }}>
-          <button
-            type="button"
-            onClick={() => setMarket("h2h")}
-            style={pill(market === "h2h")}
-          >
+          <button type="button" onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
             1X2 / ML
           </button>
 
-          <button
-            type="button"
-            onClick={() => setMarket("totals")}
-            style={pill(market === "totals")}
-          >
+          <button type="button" onClick={() => setMarket("totals")} style={pill(market === "totals")}>
             Over / Under
           </button>
 
-          <button
-            type="button"
-            onClick={() => setMarket("spreads")}
-            style={pill(market === "spreads")}
-          >
+          <button type="button" onClick={() => setMarket("spreads")} style={pill(market === "spreads")}>
             Handicap
           </button>
         </div>
@@ -508,33 +448,73 @@ params.set("league", league === "ALL" ? "NHL" : league);
         )}
       </section>
 
+      <section style={card()}>
+        <h2 style={{ marginTop: 0 }}>Päivän parhaat vedot</h2>
+
+        {!topPicks.length ? (
+          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
+            Ei value-kohteita nykyisillä filttereillä.
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 12 }}>
+            {topPicks.slice(0, 5).map((pick, index) => (
+              <div key={pick.id || index} className="pick-card">
+                <h3 style={{ marginTop: 0 }}>{pick.label || "Value pick"}</h3>
+
+                <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
+                  {pick.match?.home_team || ""} vs {pick.match?.away_team || ""}
+                </div>
+
+                <div style={{ marginTop: 10, fontWeight: 900 }}>
+                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · EV{" "}
+                  {Number(pick.ev || pick.expectedValue || 0).toFixed(2)}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => addToBetSlip(pick, pick.match)}
+                  style={{
+                    marginTop: 12,
+                    width: "100%",
+                    border: "1px solid rgba(34,197,94,0.55)",
+                    background: "rgba(34,197,94,0.15)",
+                    color: "#fff",
+                    borderRadius: 14,
+                    padding: 12,
+                    fontWeight: 900,
+                  }}
+                >
+                  Lisää kuponkiin
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
       <ParlayBuilderPanel
         picks={topPicks}
         bankroll={Number(bankroll) || 1000}
         onAddMany={addManyToBetSlip}
       />
 
-      <ParlayAnalysisPanel
-        picks={betSlip}
-        bankroll={Number(bankroll) || 1000}
-      />
+      <ParlayAnalysisPanel picks={betSlip} bankroll={Number(bankroll) || 1000} />
 
-      <ParlayRiskPanel
-        picks={betSlip}
-        bankroll={Number(bankroll) || 1000}
-      />
+      <ParlayRiskPanel picks={betSlip} bankroll={Number(bankroll) || 1000} />
 
-      <LiveMomentumPanel match={selectedMatch} />
+      {selectedMatch ? <LiveMomentumPanel match={selectedMatch} /> : null}
 
-      <SteamMovePanel match={selectedMatch} />
+      {selectedMatch ? <SteamMovePanel match={selectedMatch} /> : null}
 
-      <SharpMoneyPanel match={selectedMatch} />
+      {selectedMatch ? <SharpMoneyPanel match={selectedMatch} /> : null}
 
-      <CashoutAnalyzer bet={betSlip?.[0]} />
+      {betSlip?.[0] ? <CashoutAnalyzer bet={betSlip[0]} /> : null}
 
-      <AIReasoningPanel pick={selectedRows?.[0]} movement={selectedMovement} />
+      {selectedRows?.[0] ? (
+        <AIReasoningPanel pick={selectedRows[0]} movement={selectedMovement} />
+      ) : null}
 
-      <LineMovementPanel match={selectedMatch} />
+      {selectedMatch ? <LineMovementPanel match={selectedMatch} /> : null}
 
       <RiskManagerPanel betSlip={betSlip} bankroll={Number(bankroll) || 1000} />
 
