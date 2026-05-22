@@ -1,27 +1,30 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { getLeagueOptions, getSportOptions } from "@/lib/sports-config";
 
-function card() {
+function card(extra = {}) {
   return {
     border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 22,
+    borderRadius: 24,
     padding: 18,
     background: "rgba(2,6,23,0.78)",
+    ...extra,
   };
 }
 
 function pill(active) {
   return {
     border: active
-      ? "1px solid rgba(34,197,94,0.65)"
+      ? "1px solid rgba(34,197,94,0.75)"
       : "1px solid rgba(255,255,255,0.14)",
-    background: active ? "rgba(34,197,94,0.18)" : "rgba(255,255,255,0.07)",
+    background: active ? "rgba(34,197,94,0.20)" : "rgba(255,255,255,0.07)",
     color: "#fff",
     borderRadius: 999,
-    padding: "10px 14px",
-    fontWeight: 900,
+    padding: "12px 16px",
+    fontWeight: 950,
     whiteSpace: "nowrap",
+    cursor: "pointer",
   };
 }
 
@@ -41,7 +44,8 @@ function hasOdds(match) {
       match?.bestOdds?.draw ||
       match?.bestOdds?.over ||
       match?.bestOdds?.under ||
-      match?.bookmakers?.length
+      match?.bestOdds?.spreadHome ||
+      match?.bestOdds?.spreadAway
   );
 }
 
@@ -58,61 +62,76 @@ function formatTime(value) {
   }
 }
 
+function bestNumber(...values) {
+  return Math.max(...values.map((value) => Number(value || 0))).toFixed(2);
+}
+
 export default function BettingWorkspaceClient() {
-  const [sport, setSport] = useState("icehockey");
-  const [league, setLeague] = useState("NHL");
+  const [sport, setSport] = useState("all");
+  const [league, setLeague] = useState("ALL");
   const [market, setMarket] = useState("h2h");
   const [matches, setMatches] = useState([]);
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sourceInfo, setSourceInfo] = useState("");
 
-  const sports = [
-    ["all", "Kaikki"],
-    ["icehockey", "Jääkiekko"],
-    ["soccer", "Jalkapallo"],
-    ["basketball", "Koripallo"],
-  ];
+  const sports = useMemo(() => getSportOptions(), []);
+  const leagues = useMemo(() => getLeagueOptions(sport), [sport]);
 
-  const leagues = [
-    ["ALL", "Kaikki"],
-    ["NHL", "NHL"],
-    ["LIIGA", "Liiga 🇫🇮"],
-    ["SHL", "SHL 🇸🇪"],
-  ];
-
-  async function loadGames() {
+  async function loadGames(force = false) {
     setLoading(true);
 
     try {
       const params = new URLSearchParams();
-      params.set("sport", sport === "all" ? "icehockey" : sport);
-      params.set("league", league === "ALL" ? "NHL" : league);
-      params.set("force", "1");
+
+      params.set("sport", sport);
+      params.set("league", league);
+
+      if (force) {
+        params.set("force", "1");
+      }
 
       const res = await fetch(`/api/odds?${params.toString()}`, {
         cache: "no-store",
       });
 
       const data = await res.json();
-      const next = Array.isArray(data?.matches) ? data.matches.filter(hasOdds) : [];
+
+      const next = Array.isArray(data?.matches)
+        ? data.matches.filter(hasOdds)
+        : [];
 
       setMatches(next);
       setSelectedMatch(next[0] || null);
+
+      setSourceInfo(
+        data?.source === "live"
+          ? `Live-data · ${next.length} ottelua${data?.cached ? " · cache" : ""}`
+          : data?.reason || "Ei dataa"
+      );
     } catch (error) {
       console.error(error);
       setMatches([]);
       setSelectedMatch(null);
+      setSourceInfo(error?.message || "Haku epäonnistui");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    loadGames();
+    loadGames(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const bestPicks = useMemo(() => {
-    return matches.slice(0, 3);
+    return [...matches]
+      .sort((a, b) => {
+        const aBest = Math.max(Number(a.bestOdds?.home || 0), Number(a.bestOdds?.away || 0));
+        const bBest = Math.max(Number(b.bestOdds?.home || 0), Number(b.bestOdds?.away || 0));
+        return bBest - aBest;
+      })
+      .slice(0, 5);
   }, [matches]);
 
   return (
@@ -128,24 +147,31 @@ export default function BettingWorkspaceClient() {
       }}
     >
       <section style={card()}>
-        <h1 style={{ margin: 0, fontSize: 44, lineHeight: 1 }}>Scorecaster</h1>
-        <p style={{ margin: "10px 0 0", color: "#94a3b8", fontWeight: 800 }}>
+        <h1 style={{ margin: 0, fontSize: "clamp(42px, 12vw, 72px)", lineHeight: 0.95 }}>
+          Scorecaster
+        </h1>
+
+        <p style={{ margin: "12px 0 0", color: "#94a3b8", fontWeight: 900 }}>
           Betting Intelligence Platform
         </p>
 
+        <p style={{ margin: "12px 0 0", color: "#64748b", fontWeight: 800 }}>
+          {sourceInfo || "Multi-sport odds, value picks ja live-data."}
+        </p>
+
         <button
-          onClick={loadGames}
+          onClick={() => loadGames(true)}
           disabled={loading}
           style={{
-            marginTop: 16,
+            marginTop: 18,
             width: "100%",
-            border: "1px solid rgba(34,197,94,0.65)",
+            border: "1px solid rgba(34,197,94,0.75)",
             background: "rgba(34,197,94,0.18)",
             color: "#fff",
-            borderRadius: 16,
-            padding: 14,
+            borderRadius: 18,
+            padding: 16,
             fontWeight: 950,
-            fontSize: 16,
+            fontSize: 17,
           }}
         >
           {loading ? "Päivitetään..." : "Päivitä ottelut"}
@@ -153,40 +179,51 @@ export default function BettingWorkspaceClient() {
       </section>
 
       <section style={card()}>
-        <div style={{ color: "#94a3b8", fontWeight: 900, marginBottom: 8 }}>
+        <div style={{ color: "#94a3b8", fontWeight: 950, marginBottom: 8 }}>
           Laji
         </div>
 
         <div style={row()}>
-          {sports.map(([key, label]) => (
-            <button key={key} onClick={() => setSport(key)} style={pill(sport === key)}>
-              {label}
+          {sports.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setSport(item.id);
+                setLeague("ALL");
+              }}
+              style={pill(sport === item.id)}
+            >
+              {item.labelFi}
             </button>
           ))}
         </div>
 
-        <div style={{ color: "#94a3b8", fontWeight: 900, margin: "16px 0 8px" }}>
+        <div style={{ color: "#94a3b8", fontWeight: 950, margin: "18px 0 8px" }}>
           Liiga
         </div>
 
         <div style={row()}>
-          {leagues.map(([key, label]) => (
-            <button key={key} onClick={() => setLeague(key)} style={pill(league === key)}>
-              {label}
+          {leagues.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setLeague(item.id)}
+              style={pill(league === item.id)}
+            >
+              {item.labelFi}
             </button>
           ))}
         </div>
       </section>
 
       <section style={card()}>
-        <h2 style={{ marginTop: 0, fontSize: 30 }}>Ottelut</h2>
+        <h2 style={{ marginTop: 0, fontSize: 34 }}>Ottelut</h2>
 
         {matches.length === 0 ? (
-          <p style={{ color: "#94a3b8", fontWeight: 800 }}>
-            Ei pelejä ladattuna. Valitse liiga ja paina Päivitä.
+          <p style={{ color: "#94a3b8", fontWeight: 850, lineHeight: 1.5 }}>
+            Ei pelejä ladattuna. Valitse laji/liiga ja paina Päivitä.
           </p>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 12 }}>
             {matches.map((match) => (
               <button
                 key={match.id}
@@ -202,19 +239,19 @@ export default function BettingWorkspaceClient() {
                       ? "rgba(34,197,94,0.14)"
                       : "rgba(255,255,255,0.05)",
                   color: "#fff",
-                  borderRadius: 18,
-                  padding: 14,
+                  borderRadius: 20,
+                  padding: 16,
                 }}
               >
-                <div style={{ fontWeight: 950, fontSize: 18 }}>
+                <div style={{ fontWeight: 950, fontSize: 20 }}>
                   {match.home_team} vs {match.away_team}
                 </div>
 
-                <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                  {match.sport_title} · {formatTime(match.commence_time)}
+                <div style={{ color: "#94a3b8", marginTop: 8, fontWeight: 800 }}>
+                  {match.sport_title || match.sport_key} · {formatTime(match.commence_time)}
                 </div>
 
-                <div style={{ color: "#86efac", marginTop: 8, fontWeight: 950 }}>
+                <div style={{ color: "#86efac", marginTop: 10, fontWeight: 950, fontSize: 20 }}>
                   {match.bestOdds?.home || "-"} / {match.bestOdds?.away || "-"}
                 </div>
               </button>
@@ -224,15 +261,15 @@ export default function BettingWorkspaceClient() {
       </section>
 
       <section style={card()}>
-        <h2 style={{ marginTop: 0, fontSize: 30 }}>Valitse ottelu</h2>
+        <h2 style={{ marginTop: 0, fontSize: 34 }}>Valitse ottelu</h2>
 
         {selectedMatch ? (
           <>
-            <div style={{ color: "#cbd5e1", fontWeight: 900 }}>
+            <div style={{ color: "#cbd5e1", fontWeight: 950, fontSize: 18 }}>
               {selectedMatch.home_team} vs {selectedMatch.away_team}
             </div>
 
-            <div style={{ ...row(), marginTop: 14 }}>
+            <div style={{ ...row(), marginTop: 16 }}>
               <button onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
                 1X2 / ML
               </button>
@@ -244,40 +281,26 @@ export default function BettingWorkspaceClient() {
               </button>
             </div>
 
-            <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+            <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
               {market === "h2h" && (
                 <>
-                  <OddButton label={selectedMatch.home_team} odds={selectedMatch.bestOdds?.home} />
-                  {selectedMatch.bestOdds?.draw && (
-                    <OddButton label="Tasapeli" odds={selectedMatch.bestOdds?.draw} />
-                  )}
-                  <OddButton label={selectedMatch.away_team} odds={selectedMatch.bestOdds?.away} />
+                  <OddButton label={selectedMatch.home_team} odds={selectedMatch.bestOdds?.home} book={selectedMatch.bestOdds?.books?.home} />
+                  {selectedMatch.bestOdds?.draw ? <OddButton label="Tasapeli" odds={selectedMatch.bestOdds?.draw} book={selectedMatch.bestOdds?.books?.draw} /> : null}
+                  <OddButton label={selectedMatch.away_team} odds={selectedMatch.bestOdds?.away} book={selectedMatch.bestOdds?.books?.away} />
                 </>
               )}
 
               {market === "totals" && (
                 <>
-                  <OddButton
-                    label={`Over ${selectedMatch.bestOdds?.point || ""}`}
-                    odds={selectedMatch.bestOdds?.over}
-                  />
-                  <OddButton
-                    label={`Under ${selectedMatch.bestOdds?.point || ""}`}
-                    odds={selectedMatch.bestOdds?.under}
-                  />
+                  <OddButton label={`Over ${selectedMatch.bestOdds?.point || ""}`} odds={selectedMatch.bestOdds?.over} book={selectedMatch.bestOdds?.books?.over} />
+                  <OddButton label={`Under ${selectedMatch.bestOdds?.point || ""}`} odds={selectedMatch.bestOdds?.under} book={selectedMatch.bestOdds?.books?.under} />
                 </>
               )}
 
               {market === "spreads" && (
                 <>
-                  <OddButton
-                    label={`${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome || ""}`}
-                    odds={selectedMatch.bestOdds?.spreadHome}
-                  />
-                  <OddButton
-                    label={`${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway || ""}`}
-                    odds={selectedMatch.bestOdds?.spreadAway}
-                  />
+                  <OddButton label={`${selectedMatch.home_team} ${selectedMatch.bestOdds?.spreadPointHome || ""}`} odds={selectedMatch.bestOdds?.spreadHome} book={selectedMatch.bestOdds?.books?.spreadHome} />
+                  <OddButton label={`${selectedMatch.away_team} ${selectedMatch.bestOdds?.spreadPointAway || ""}`} odds={selectedMatch.bestOdds?.spreadAway} book={selectedMatch.bestOdds?.books?.spreadAway} />
                 </>
               )}
             </div>
@@ -288,28 +311,32 @@ export default function BettingWorkspaceClient() {
       </section>
 
       <section style={card()}>
-        <h2 style={{ marginTop: 0, fontSize: 30 }}>Päivän parhaat vedot</h2>
+        <h2 style={{ marginTop: 0, fontSize: 34 }}>Päivän parhaat vedot</h2>
 
         {bestPicks.length === 0 ? (
           <p style={{ color: "#94a3b8" }}>Ei value-kohteita.</p>
         ) : (
-          <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 12 }}>
             {bestPicks.map((match) => (
               <div
                 key={match.id}
                 style={{
                   border: "1px solid rgba(255,255,255,0.10)",
-                  borderRadius: 18,
-                  padding: 14,
+                  borderRadius: 20,
+                  padding: 16,
                   background: "rgba(255,255,255,0.05)",
                 }}
               >
-                <div style={{ fontWeight: 950 }}>
+                <div style={{ fontWeight: 950, fontSize: 18 }}>
                   {match.home_team} vs {match.away_team}
                 </div>
-                <div style={{ color: "#86efac", marginTop: 6, fontWeight: 900 }}>
-                  Paras kerroin:{" "}
-                  {Math.max(match.bestOdds?.home || 0, match.bestOdds?.away || 0)}
+
+                <div style={{ color: "#94a3b8", marginTop: 6 }}>
+                  {match.sport_title || match.sport_key}
+                </div>
+
+                <div style={{ color: "#86efac", marginTop: 8, fontWeight: 950 }}>
+                  Paras kerroin: {bestNumber(match.bestOdds?.home, match.bestOdds?.away, match.bestOdds?.draw)}
                 </div>
               </div>
             ))}
@@ -320,22 +347,29 @@ export default function BettingWorkspaceClient() {
   );
 }
 
-function OddButton({ label, odds }) {
+function OddButton({ label, odds, book }) {
   return (
     <button
       style={{
         border: "1px solid rgba(255,255,255,0.10)",
         background: "rgba(255,255,255,0.06)",
         color: "#fff",
-        borderRadius: 18,
-        padding: 14,
+        borderRadius: 20,
+        padding: 16,
         textAlign: "left",
       }}
     >
-      <div style={{ color: "#94a3b8", fontWeight: 800 }}>{label}</div>
-      <div style={{ marginTop: 4, fontSize: 26, fontWeight: 950 }}>
+      <div style={{ color: "#94a3b8", fontWeight: 900 }}>{label}</div>
+
+      <div style={{ marginTop: 4, fontSize: 34, fontWeight: 950 }}>
         {odds || "-"}
       </div>
+
+      {book ? (
+        <div style={{ marginTop: 4, color: "#64748b", fontWeight: 800 }}>
+          {book}
+        </div>
+      ) : null}
     </button>
   );
 }
