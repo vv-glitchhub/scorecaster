@@ -3,62 +3,55 @@
 import { useEffect, useMemo, useState } from "react";
 
 const SPORTS = [
-  {
-    key: "all",
-    label: "Kaikki",
-  },
+  { key: "all", label: "Kaikki" },
 
-  {
-    key: "icehockey",
-    label: "Jääkiekko",
-  },
+  { key: "icehockey", label: "Jääkiekko" },
 
-  {
-    key: "soccer",
-    label: "Jalkapallo",
-  },
+  { key: "soccer", label: "Jalkapallo" },
 
-  {
-    key: "basketball",
-    label: "Koripallo",
-  },
+  { key: "basketball", label: "Koripallo" },
+
+  { key: "football", label: "NFL / Jenkkifutis" },
+
+  { key: "baseball", label: "Baseball" },
+
+  { key: "tennis", label: "Tennis" },
+
+  { key: "mma", label: "UFC / MMA" },
+
+  { key: "golf", label: "Golf" },
 ];
 
 const LEAGUES = [
-  {
-    key: "all",
-    label: "Kaikki",
-  },
+  { key: "all", label: "Kaikki" },
 
-  {
-    key: "icehockey_nhl",
-    label: "NHL",
-  },
+  { key: "icehockey_nhl", label: "NHL" },
 
-  {
-    key: "icehockey_liiga",
-    label: "Liiga 🇫🇮",
-  },
+  { key: "icehockey_liiga", label: "Liiga 🇫🇮" },
 
-  {
-    key: "icehockey_shl",
-    label: "SHL 🇸🇪",
-  },
+  { key: "icehockey_shl", label: "SHL 🇸🇪" },
 
-  {
-    key: "soccer_italy_serie_a",
-    label: "Serie A",
-  },
+  { key: "icehockey_del", label: "DEL 🇩🇪" },
 
-  {
-    key: "soccer_epl",
-    label: "Premier League",
-  },
+  { key: "soccer_epl", label: "Premier League 🇬🇧" },
 
-  {
-    key: "basketball_nba",
-    label: "NBA",
-  },
+  { key: "soccer_spain_la_liga", label: "La Liga 🇪🇸" },
+
+  { key: "soccer_italy_serie_a", label: "Serie A 🇮🇹" },
+
+  { key: "soccer_germany_bundesliga", label: "Bundesliga 🇩🇪" },
+
+  { key: "soccer_france_ligue_one", label: "Ligue 1 🇫🇷" },
+
+  { key: "basketball_nba", label: "NBA" },
+
+  { key: "americanfootball_nfl", label: "NFL" },
+
+  { key: "baseball_mlb", label: "MLB" },
+
+  { key: "tennis_atp_french_open", label: "ATP Tennis" },
+
+  { key: "mma_mixed_martial_arts", label: "UFC" },
 ];
 
 export default function BettingPage() {
@@ -66,19 +59,34 @@ export default function BettingPage() {
 
   const [loading, setLoading] = useState(false);
 
-  const [selectedSport, setSelectedSport] = useState("all");
+  const [selectedSport, setSelectedSport] =
+    useState("all");
 
-  const [selectedLeague, setSelectedLeague] = useState("all");
+  const [selectedLeague, setSelectedLeague] =
+    useState("all");
 
-  const [selectedMatch, setSelectedMatch] = useState(null);
+  const [selectedMatch, setSelectedMatch] =
+    useState(null);
 
   async function loadOdds() {
     try {
       setLoading(true);
 
-      const res = await fetch("/api/odds");
+      const params = new URLSearchParams();
+
+      params.set("sport", selectedSport);
+
+      params.set("league", selectedLeague);
+
+      params.set("force", "1");
+
+      const res = await fetch(
+        `/api/odds?${params.toString()}`
+      );
 
       const data = await res.json();
+
+      console.log(data);
 
       if (Array.isArray(data?.data)) {
         setMatches(data.data);
@@ -96,7 +104,7 @@ export default function BettingPage() {
 
   useEffect(() => {
     loadOdds();
-  }, []);
+  }, [selectedSport, selectedLeague]);
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
@@ -110,7 +118,9 @@ export default function BettingPage() {
       }
 
       if (selectedSport === "icehockey") {
-        return match.sport_key?.includes("icehockey");
+        return match.sport_key?.includes(
+          "icehockey"
+        );
       }
 
       if (selectedSport === "soccer") {
@@ -118,21 +128,53 @@ export default function BettingPage() {
       }
 
       if (selectedSport === "basketball") {
-        return match.sport_key?.includes("basketball");
+        return match.sport_key?.includes(
+          "basketball"
+        );
+      }
+
+      if (selectedSport === "football") {
+        return match.sport_key?.includes(
+          "americanfootball"
+        );
+      }
+
+      if (selectedSport === "baseball") {
+        return match.sport_key?.includes(
+          "baseball"
+        );
+      }
+
+      if (selectedSport === "tennis") {
+        return match.sport_key?.includes("tennis");
+      }
+
+      if (selectedSport === "mma") {
+        return match.sport_key?.includes("mma");
+      }
+
+      if (selectedSport === "golf") {
+        return match.sport_key?.includes("golf");
       }
 
       return true;
     });
-  }, [matches, selectedSport, selectedLeague]);
+  }, [
+    matches,
+    selectedSport,
+    selectedLeague,
+  ]);
 
-  function getH2HMarket(match) {
-    return match?.bookmakers?.[0]?.markets?.find(
-      (m) => m.key === "h2h"
+  function getMarket(match, key = "h2h") {
+    return (
+      match?.bookmakers?.[0]?.markets?.find(
+        (m) => m.key === key
+      ) || null
     );
   }
 
   function getOutcomes(match) {
-    return getH2HMarket(match)?.outcomes || [];
+    return getMarket(match)?.outcomes || [];
   }
 
   function getBestOdds(match) {
@@ -148,7 +190,9 @@ export default function BettingPage() {
   return (
     <div style={page()}>
       <div style={hero()}>
-        <h1 style={title()}>Scorecaster</h1>
+        <div style={title()}>
+          Scorecaster
+        </div>
 
         <div style={subtitle()}>
           Betting Intelligence Platform
@@ -162,7 +206,9 @@ export default function BettingPage() {
           style={refreshButton()}
           onClick={loadOdds}
         >
-          {loading ? "Päivitetään..." : "Päivitä ottelut"}
+          {loading
+            ? "Päivitetään..."
+            : "Päivitä ottelut"}
         </button>
       </div>
 
@@ -171,17 +217,18 @@ export default function BettingPage() {
           Laji
         </div>
 
-        <div
-          style={{
-            ...row(),
-            maxWidth: "100%",
-          }}
-        >
+        <div style={row()}>
           {SPORTS.map((sport) => (
             <button
               key={sport.key}
-              style={pill(selectedSport === sport.key)}
-              onClick={() => setSelectedSport(sport.key)}
+              style={pill(
+                selectedSport === sport.key
+              )}
+              onClick={() => {
+                setSelectedSport(sport.key);
+
+                setSelectedLeague("all");
+              }}
             >
               {sport.label}
             </button>
@@ -191,23 +238,22 @@ export default function BettingPage() {
         <div
           style={{
             ...sectionTitle(),
-            marginTop: 24,
+            marginTop: 30,
           }}
         >
           Liiga
         </div>
 
-        <div
-          style={{
-            ...row(),
-            maxWidth: "100%",
-          }}
-        >
+        <div style={row()}>
           {LEAGUES.map((league) => (
             <button
               key={league.key}
-              style={pill(selectedLeague === league.key)}
-              onClick={() => setSelectedLeague(league.key)}
+              style={pill(
+                selectedLeague === league.key
+              )}
+              onClick={() =>
+                setSelectedLeague(league.key)
+              }
             >
               {league.label}
             </button>
@@ -220,6 +266,12 @@ export default function BettingPage() {
           Ottelut
         </div>
 
+        {filteredMatches.length === 0 && (
+          <div style={emptyState()}>
+            Ei otteluita löytynyt.
+          </div>
+        )}
+
         <div style={matchGrid()}>
           {filteredMatches.map((match) => (
             <div
@@ -231,17 +283,20 @@ export default function BettingPage() {
                     ? "1px solid rgba(34,197,94,0.7)"
                     : "1px solid rgba(255,255,255,0.08)",
               }}
-              onClick={() => setSelectedMatch(match)}
+              onClick={() =>
+                setSelectedMatch(match)
+              }
             >
               <div style={matchTitle()}>
-                {match.home_team} vs {match.away_team}
+                {match.home_team} vs{" "}
+                {match.away_team}
               </div>
 
               <div style={matchMeta()}>
                 {match.sport_title} •{" "}
                 {new Date(
                   match.commence_time
-                ).toLocaleDateString("fi-FI")}
+                ).toLocaleString("fi-FI")}
               </div>
 
               <div style={odds()}>
@@ -264,20 +319,22 @@ export default function BettingPage() {
           </div>
 
           <div style={marketGrid()}>
-            {getOutcomes(selectedMatch).map((outcome) => (
-              <div
-                key={outcome.name}
-                style={marketCard()}
-              >
-                <div style={marketName()}>
-                  {outcome.name}
-                </div>
+            {getOutcomes(selectedMatch).map(
+              (outcome) => (
+                <div
+                  key={outcome.name}
+                  style={marketCard()}
+                >
+                  <div style={marketName()}>
+                    {outcome.name}
+                  </div>
 
-                <div style={marketPrice()}>
-                  {outcome.price}
+                  <div style={marketPrice()}>
+                    {outcome.price}
+                  </div>
                 </div>
-              </div>
-            ))}
+              )
+            )}
           </div>
         </section>
       )}
@@ -287,21 +344,24 @@ export default function BettingPage() {
           Päivän parhaat vedot
         </div>
 
-        {filteredMatches.slice(0, 5).map((match) => (
-          <div
-            key={match.id}
-            style={topPick()}
-          >
-            <div style={topPickTitle()}>
-              {match.home_team} vs{" "}
-              {match.away_team}
-            </div>
+        {filteredMatches
+          .slice(0, 5)
+          .map((match) => (
+            <div
+              key={match.id}
+              style={topPick()}
+            >
+              <div style={topPickTitle()}>
+                {match.home_team} vs{" "}
+                {match.away_team}
+              </div>
 
-            <div style={topPickOdds()}>
-              Paras kerroin: {getBestOdds(match)}
+              <div style={topPickOdds()}>
+                Paras kerroin:{" "}
+                {getBestOdds(match)}
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
       </section>
     </div>
   );
@@ -342,7 +402,7 @@ function title() {
 
     fontWeight: 900,
 
-    marginBottom: 6,
+    lineHeight: 1,
   };
 }
 
@@ -353,6 +413,8 @@ function subtitle() {
     fontWeight: 700,
 
     fontSize: 20,
+
+    marginTop: 12,
   };
 }
 
@@ -410,7 +472,7 @@ function sectionTitle() {
 
     fontWeight: 800,
 
-    marginBottom: 14,
+    marginBottom: 16,
   };
 }
 
@@ -418,19 +480,17 @@ function row() {
   return {
     display: "flex",
 
-    gap: 10,
+    gap: 12,
 
     flexWrap: "wrap",
-
-    paddingBottom: 8,
   };
 }
 
 function pill(active) {
   return {
     border: active
-      ? "1px solid rgba(34,197,94,0.75)"
-      : "1px solid rgba(255,255,255,0.14)",
+      ? "1px solid rgba(34,197,94,0.8)"
+      : "1px solid rgba(255,255,255,0.12)",
 
     background: active
       ? "rgba(34,197,94,0.20)"
@@ -440,35 +500,37 @@ function pill(active) {
 
     borderRadius: 999,
 
-    padding: "12px 18px",
+    padding: "14px 22px",
 
-    fontWeight: 900,
+    fontWeight: 800,
+
+    fontSize: 16,
 
     whiteSpace: "nowrap",
 
-    cursor: "pointer",
-
-    fontSize: 15,
-
-    minHeight: 48,
-
-    display: "flex",
-
-    alignItems: "center",
-
-    justifyContent: "center",
-
-    flexShrink: 0,
+    minHeight: 54,
   };
 }
 
 function bigTitle() {
   return {
-    fontSize: 56,
+    fontSize: 72,
 
     fontWeight: 900,
 
     marginBottom: 24,
+
+    lineHeight: 1,
+  };
+}
+
+function emptyState() {
+  return {
+    color: "#94a3b8",
+
+    fontSize: 18,
+
+    fontWeight: 700,
   };
 }
 
@@ -487,8 +549,6 @@ function matchCard() {
     borderRadius: 24,
 
     padding: 22,
-
-    cursor: "pointer",
   };
 }
 
@@ -498,7 +558,7 @@ function matchTitle() {
 
     fontWeight: 900,
 
-    lineHeight: 1.25,
+    lineHeight: 1.3,
   };
 }
 
@@ -508,7 +568,7 @@ function matchMeta() {
 
     color: "#94a3b8",
 
-    fontSize: 18,
+    fontSize: 16,
 
     fontWeight: 700,
   };
@@ -520,7 +580,7 @@ function odds() {
 
     color: "#86efac",
 
-    fontSize: 24,
+    fontSize: 28,
 
     fontWeight: 900,
   };
@@ -540,7 +600,7 @@ function marketGrid() {
   return {
     display: "grid",
 
-    gap: 18,
+    gap: 16,
   };
 }
 
