@@ -2,545 +2,418 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { SPORT_OPTIONS, getLeaguesForSport } from "@/lib/league-options";
-import { analyzeRows, getBestBets } from "@/lib/betting-engine";
-import { isBettableMatch } from "@/lib/data-status";
-import { addOddsSnapshots, getOddsMovement } from "@/lib/odds-history-store";
-import { DEFAULT_USER_BOOKMAKERS } from "@/lib/bookmaker-options";
-import { addBetToHistory, getBetHistory } from "@/lib/bet-history-store";
+const SPORTS = [
+  { key: "all", label: "Kaikki" },
+  { key: "icehockey", label: "Jääkiekko" },
+  { key: "soccer", label: "Jalkapallo" },
+  { key: "basketball", label: "Koripallo" },
+];
 
-import BetSlipPanel from "@/app/components/BetSlipPanel";
-import BetHistoryPanel from "@/app/components/BetHistoryPanel";
-import PerformancePanel from "@/app/components/PerformancePanel";
-import LineMovementPanel from "@/app/components/LineMovementPanel";
-import AIReasoningPanel from "@/app/components/AIReasoningPanel";
-import RiskManagerPanel from "@/app/components/RiskManagerPanel";
+const LEAGUES = {
+  all: [
+    { key: "all", label: "Kaikki" },
+  ],
+  icehockey: [
+    { key: "all", label: "Kaikki" },
+    { key: "NHL", label: "NHL" },
+    { key: "Liiga", label: "Liiga 🇫🇮" },
+    { key: "SHL", label: "SHL 🇸🇪" },
+  ],
+  soccer: [
+    { key: "all", label: "Kaikki" },
+    { key: "Premier League", label: "Premier League" },
+    { key: "La Liga", label: "La Liga" },
+  ],
+  basketball: [
+    { key: "all", label: "Kaikki" },
+    { key: "NBA", label: "NBA" },
+  ],
+};
 
-import LiveMomentumPanel from "@/app/components/LiveMomentumPanel";
-import SharpMoneyPanel from "@/app/components/SharpMoneyPanel";
-import CashoutAnalyzer from "@/app/components/CashoutAnalyzer";
-
-import ParlayBuilderPanel from "@/app/components/ParlayBuilderPanel";
-import ParlayAnalysisPanel from "@/app/components/ParlayAnalysisPanel";
-import ParlayRiskPanel from "@/app/components/ParlayRiskPanel";
-
-import StickyLiveControls from "@/app/components/StickyLiveControls";
-import FloatingBetSlip from "@/app/components/FloatingBetSlip";
-import SteamMovePanel from "@/app/components/SteamMovePanel";
-
-function card(extra = {}) {
-  return {
-    border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 22,
-    padding: "clamp(14px, 4vw, 22px)",
-    background: "rgba(2,6,23,0.72)",
-    ...extra,
-  };
+function hasClientOdds(match) {
+  return Boolean(
+    match?.bestOdds?.home ||
+      match?.bestOdds?.away ||
+      match?.bestOdds?.draw ||
+      match?.bestOdds?.over ||
+      match?.bestOdds?.under ||
+      match?.bestOdds?.spreadHome ||
+      match?.bestOdds?.spreadAway ||
+      match?.bookmakers?.length
+  );
 }
 
-function pill(active) {
-  return {
-    border: active
-      ? "1px solid rgba(34,197,94,0.65)"
-      : "1px solid rgba(255,255,255,0.12)",
-    background: active ? "rgba(34,197,94,0.16)" : "rgba(255,255,255,0.06)",
-    color: "#fff",
-    borderRadius: 999,
-    padding: "10px 14px",
-    fontWeight: 900,
-    cursor: "pointer",
-    whiteSpace: "nowrap",
-  };
-}
-
-function normalizeData(data) {
-  return {
-    matches: Array.isArray(data?.matches) ? data.matches : [],
-    source: data?.source || "",
-    status: data?.status || "",
-    provider: data?.provider || "",
-    reason: data?.reason || "",
-    cached: Boolean(data?.cached),
-  };
-}
-
-function formatTime(value) {
-  if (!value) return "";
-
+function formatTime(date) {
   try {
-    return new Date(value).toLocaleString("fi-FI", {
+    return new Date(date).toLocaleString("fi-FI", {
       day: "2-digit",
       month: "2-digit",
       hour: "2-digit",
       minute: "2-digit",
     });
   } catch {
-    return "";
+    return "-";
   }
 }
 
-function pct(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n)) return "0.0%";
-  return `${(n * 100).toFixed(1)}%`;
+function Card({ children, className = "" }) {
+  return (
+    <div
+      className={`rounded-3xl border border-white/10 bg-[#020b2a] p-5 ${className}`}
+    >
+      {children}
+    </div>
+  );
 }
 
-function edgePct(value) {
-  const n = Number(value || 0);
-  if (!Number.isFinite(n)) return "0.0%";
-  return `${(Math.abs(n) <= 1 ? n * 100 : n).toFixed(1)}%`;
+function Chip({ active, onClick, children }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full border px-5 py-3 text-lg font-bold transition ${
+        active
+          ? "border-green-500 bg-green-900/40 text-white"
+          : "border-white/10 bg-white/5 text-white/90"
+      }`}
+    >
+      {children}
+    </button>
+  );
 }
 
-export default function BettingWorkspaceClient({ initialOddsData }) {
-  const [oddsData, setOddsData] = useState(() => normalizeData(initialOddsData));
+export default function BettingWorkspaceClient() {
   const [sport, setSport] = useState("icehockey");
   const [league, setLeague] = useState("NHL");
-  const [market, setMarket] = useState("h2h");
-  const [selectedId, setSelectedId] = useState(null);
-  const [bankroll] = useState("1000");
-  const [selectedBookmakers] = useState(DEFAULT_USER_BOOKMAKERS);
-  const [betSlip, setBetSlip] = useState([]);
-  const [betHistory, setBetHistory] = useState([]);
+
   const [loading, setLoading] = useState(false);
-  const [isLiveMode, setIsLiveMode] = useState(false);
-  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [matches, setMatches] = useState([]);
+  const [selectedMatch, setSelectedMatch] = useState(null);
 
-  const matches = oddsData.matches || [];
-
-  useEffect(() => {
-    setBetHistory(getBetHistory());
-  }, []);
-
-  const leagues = useMemo(() => getLeaguesForSport(sport), [sport]);
-
-  const bettableMatches = useMemo(
-    () => matches.filter(isBettableMatch),
-    [matches]
-  );
-
-  const selectedMatch =
-    bettableMatches.find((m) => m.id === selectedId) ||
-    bettableMatches[0] ||
-    null;
-
-  const selectedRows = useMemo(() => {
-    try {
-      return analyzeRows(
-        selectedMatch,
-        market,
-        Number(bankroll) || 1000,
-        selectedBookmakers
-      );
-    } catch (error) {
-      console.error("analyzeRows failed:", error);
-      return [];
-    }
-  }, [selectedMatch, market, bankroll, selectedBookmakers]);
-
-  const topPicks = useMemo(() => {
-    try {
-      return getBestBets(
-        bettableMatches,
-        Number(bankroll) || 1000,
-        selectedBookmakers
-      );
-    } catch (error) {
-      console.error("getBestBets failed:", error);
-      return [];
-    }
-  }, [bettableMatches, bankroll, selectedBookmakers]);
-
-  const selectedMovement = selectedMatch
-    ? getOddsMovement(
-        selectedMatch,
-        market === "totals"
-          ? "over"
-          : market === "spreads"
-          ? "spreadHome"
-          : "home"
-      )
-    : null;
+  const [market, setMarket] = useState("h2h");
 
   async function loadGames(force = false) {
-    setLoading(true);
-
     try {
+      setLoading(true);
+
       const params = new URLSearchParams();
 
-      params.set("sport", sport === "all" ? "icehockey" : sport);
-      params.set("league", league === "ALL" ? "NHL" : league);
-      params.set("status", isLiveMode ? "live" : "upcoming");
+      if (sport !== "all") {
+        params.set("sport", sport);
+      }
 
-      if (force) params.set("force", "1");
+      if (league !== "all") {
+        params.set("league", league);
+      }
+
+      if (force) {
+        params.set("t", Date.now().toString());
+      }
 
       const res = await fetch(`/api/odds?${params.toString()}`, {
         cache: "no-store",
       });
 
       const data = await res.json();
-      const normalized = normalizeData(data);
 
-      setOddsData(normalized);
+      console.log("ODDS DATA", data);
 
-      if (normalized.matches?.length) {
-        addOddsSnapshots(normalized.matches);
+      const nextMatches = data?.matches || [];
+
+      const filtered = nextMatches.filter((m) => hasClientOdds(m));
+
+      setMatches(filtered);
+
+      if (filtered.length > 0) {
+        setSelectedMatch(filtered[0]);
+      } else {
+        setSelectedMatch(null);
       }
-
-      const first = normalized.matches?.find(isBettableMatch);
-      setSelectedId(first?.id || null);
-    } catch (error) {
-      console.error("Odds loading failed:", error);
-
-      setOddsData({
-        source: "error",
-        status: "error",
-        provider: "frontend",
-        reason: error?.message || "Otteluiden haku epäonnistui.",
-        matches: [],
-      });
-
-      setSelectedId(null);
+    } catch (err) {
+      console.error(err);
+      setMatches([]);
+      setSelectedMatch(null);
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (!autoRefresh) return;
+    loadGames(true);
+  }, []);
 
-    const interval = setInterval(() => {
-      loadGames(false);
-    }, isLiveMode ? 30000 : 120000);
+  useEffect(() => {
+    loadGames();
+  }, [sport, league]);
 
-    return () => clearInterval(interval);
-  }, [autoRefresh, isLiveMode, sport, league]);
+  const availableLeagues = useMemo(() => {
+    return LEAGUES[sport] || LEAGUES.all;
+  }, [sport]);
 
-  function addToBetSlip(pick, match = selectedMatch) {
-    if (!pick || !match) return;
-
-    const item = {
-      id: `${match.id}-${pick.market || "market"}-${pick.key || pick.label}-${
-        pick.bookmaker || "book"
-      }`,
-      match,
-      ...pick,
-      addedAt: Date.now(),
-      userStake: pick.stake || 0,
-    };
-
-    setBetSlip((prev) => {
-      if (prev.some((x) => x.id === item.id)) return prev;
-      return [item, ...prev];
-    });
-  }
-
-  function addManyToBetSlip(picks = []) {
-    for (const pick of picks) {
-      addToBetSlip(pick, pick.match || selectedMatch);
+  function renderMarketButtons() {
+    if (!selectedMatch?.bestOdds) {
+      return (
+        <div className="mt-4 text-gray-400">
+          Ei vetomarkkinoita tälle ottelulle.
+        </div>
+      );
     }
-  }
 
-  function removeFromBetSlip(id) {
-    setBetSlip((prev) => prev.filter((pick) => pick.id !== id));
-  }
+    if (market === "h2h") {
+      return (
+        <div className="mt-5 grid grid-cols-1 gap-3">
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              {selectedMatch.home_team}
+            </div>
 
-  function clearBetSlip() {
-    setBetSlip([]);
-  }
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.home}
+            </div>
+          </button>
 
-  function updateBetSlipStake(id, value) {
-    setBetSlip((prev) =>
-      prev.map((pick) =>
-        pick.id === id ? { ...pick, userStake: value } : pick
-      )
-    );
-  }
+          {selectedMatch.bestOdds.draw && (
+            <button className="rounded-2xl bg-white/5 p-4 text-left">
+              <div className="text-sm text-gray-400">Tasapeli</div>
 
-  function saveToHistory(pick) {
-    const updated = addBetToHistory(pick);
-    setBetHistory(updated);
+              <div className="mt-1 text-2xl font-black">
+                {selectedMatch.bestOdds.draw}
+              </div>
+            </button>
+          )}
+
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              {selectedMatch.away_team}
+            </div>
+
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.away}
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    if (market === "totals") {
+      return (
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              Over {selectedMatch.bestOdds.point}
+            </div>
+
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.over}
+            </div>
+          </button>
+
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              Under {selectedMatch.bestOdds.point}
+            </div>
+
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.under}
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    if (market === "spread") {
+      return (
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              {selectedMatch.home_team}{" "}
+              {selectedMatch.bestOdds.spreadPointHome}
+            </div>
+
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.spreadHome}
+            </div>
+          </button>
+
+          <button className="rounded-2xl bg-white/5 p-4 text-left">
+            <div className="text-sm text-gray-400">
+              {selectedMatch.away_team}{" "}
+              {selectedMatch.bestOdds.spreadPointAway}
+            </div>
+
+            <div className="mt-1 text-2xl font-black">
+              {selectedMatch.bestOdds.spreadAway}
+            </div>
+          </button>
+        </div>
+      );
+    }
+
+    return null;
   }
 
   return (
-    <div className="mobile-container" style={{ display: "grid", gap: 14 }}>
-      <StickyLiveControls
-        isLiveMode={isLiveMode}
-        autoRefresh={autoRefresh}
-        loading={loading}
-        onToggleLive={() => setIsLiveMode((v) => !v)}
-        onToggleRefresh={() => setAutoRefresh((v) => !v)}
-        onRefresh={() => loadGames(true)}
-      />
+    <div className="min-h-screen bg-[#01081f] p-4 text-white">
+      <div className="mx-auto max-w-6xl space-y-5">
+        <Card>
+          <div className="text-2xl font-black">Laji</div>
 
-      <section style={card()}>
-        <h1
-          style={{
-            margin: 0,
-            color: "#fff",
-            fontSize: "clamp(30px, 9vw, 52px)",
-            lineHeight: 1,
-          }}
-        >
-          Scorecaster
-        </h1>
+          <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+            {SPORTS.map((item) => (
+              <Chip
+                key={item.key}
+                active={sport === item.key}
+                onClick={() => {
+                  setSport(item.key);
+                  setLeague("all");
+                }}
+              >
+                {item.label}
+              </Chip>
+            ))}
+          </div>
 
-        <div style={{ color: "#94a3b8", marginTop: 8 }}>
-          Betting Intelligence Platform
-        </div>
+          <div className="mt-8 text-2xl font-black">Liiga</div>
 
-        <div style={{ color: "#64748b", marginTop: 10, lineHeight: 1.5 }}>
-          {oddsData.source === "live"
-            ? `Live-data käytössä · ${bettableMatches.length} ottelua`
-            : oddsData.reason || "Valitse laji/liiga ja paina Päivitä."}
-        </div>
-      </section>
+          <div className="mt-5 flex gap-3 overflow-x-auto pb-2">
+            {availableLeagues.map((item) => (
+              <Chip
+                key={item.key}
+                active={league === item.key}
+                onClick={() => setLeague(item.key)}
+              >
+                {item.label}
+              </Chip>
+            ))}
+          </div>
 
-      <section style={card()}>
-        <div style={{ color: "#94a3b8", marginBottom: 8 }}>Laji</div>
-
-        <div className="responsive-row">
-          {SPORT_OPTIONS.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => {
-                setSport(item.id);
-                setLeague("ALL");
-              }}
-              style={pill(sport === item.id)}
-            >
-              {item.labelFi}
-            </button>
-          ))}
-        </div>
-
-        <div style={{ color: "#94a3b8", marginTop: 18, marginBottom: 8 }}>
-          Liiga
-        </div>
-
-        <div className="responsive-row">
           <button
-            type="button"
-            onClick={() => setLeague("ALL")}
-            style={pill(league === "ALL")}
+            onClick={() => loadGames(true)}
+            className="mt-6 rounded-2xl bg-green-600 px-5 py-3 text-lg font-black"
           >
-            Kaikki
+            {loading ? "Päivitetään..." : "Päivitä"}
           </button>
+        </Card>
 
-          {leagues.map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setLeague(item.id)}
-              style={pill(league === item.id)}
-            >
-              {item.labelFi}
-            </button>
-          ))}
-        </div>
-      </section>
+        <Card>
+          <div className="text-4xl font-black">Ottelut</div>
 
-      <section style={card()}>
-        <h2 style={{ marginTop: 0 }}>Ottelut</h2>
-
-        {bettableMatches.length === 0 ? (
-          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-            Ei pelejä ladattuna. Valitse laji/liiga ja paina Päivitä.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {bettableMatches.map((match) => (
-              <button
-                key={match.id}
-                type="button"
-                onClick={() => setSelectedId(match.id)}
-                className={
-                  selectedMatch?.id === match.id
-                    ? "match-card active"
-                    : "match-card"
-                }
-              >
-                <b>
-                  {match.event_type === "outright"
-                    ? match.home_team
-                    : `${match.home_team} vs ${match.away_team}`}
-                </b>
-
-                <div style={{ color: "#94a3b8", marginTop: 6 }}>
-                  {match.sport_title || match.sport_key} ·{" "}
-                  {formatTime(match.commence_time)}
-                </div>
-
-                <div style={{ color: "#86efac", marginTop: 8, fontWeight: 900 }}>
-                  Paras 1: {match.bestOdds?.home || "-"} · Paras 2:{" "}
-                  {match.bestOdds?.away || "-"}
-                </div>
-              </button>
-            ))}
-          </div>
-        )}
-      </section>
-
-      <section style={card()}>
-        <h2 style={{ marginTop: 0 }}>
-          {selectedMatch
-            ? selectedMatch.event_type === "outright"
-              ? selectedMatch.home_team
-              : `${selectedMatch.home_team} vs ${selectedMatch.away_team}`
-            : "Valitse ottelu"}
-        </h2>
-
-        <div className="responsive-row" style={{ marginBottom: 14 }}>
-          <button type="button" onClick={() => setMarket("h2h")} style={pill(market === "h2h")}>
-            1X2 / ML
-          </button>
-
-          <button type="button" onClick={() => setMarket("totals")} style={pill(market === "totals")}>
-            Over / Under
-          </button>
-
-          <button type="button" onClick={() => setMarket("spreads")} style={pill(market === "spreads")}>
-            Handicap
-          </button>
-        </div>
-
-        {selectedRows.length === 0 ? (
-          <div style={{ color: "#94a3b8" }}>
-            Ei vetomarkkinoita tälle ottelulle.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 10 }}>
-            {selectedRows.map((pick) => (
-              <div
-                key={`${pick.key || pick.label}-${pick.bookmaker || "book"}`}
-                className="pick-card"
-              >
-                <h3 style={{ marginTop: 0 }}>{pick.label || "Pick"}</h3>
-
-                <div style={{ color: "#94a3b8" }}>
-                  {pick.market || "Market"} · {pick.bookmaker || "Bookmaker"}
-                </div>
-
-                <div style={{ marginTop: 10, fontWeight: 900 }}>
-                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · Malli{" "}
-                  {pct(pick.modelProb || pick.modelProbability)}
-                </div>
-
+          {matches.length === 0 ? (
+            <div className="mt-5 text-2xl text-gray-400">
+              Ei pelejä ladattuna.
+            </div>
+          ) : (
+            <div className="mt-5 space-y-3">
+              {matches.map((match) => (
                 <button
-                  type="button"
-                  onClick={() => addToBetSlip(pick, selectedMatch)}
-                  style={{
-                    marginTop: 12,
-                    width: "100%",
-                    border: "1px solid rgba(34,197,94,0.55)",
-                    background: "rgba(34,197,94,0.15)",
-                    color: "#fff",
-                    borderRadius: 14,
-                    padding: 12,
-                    fontWeight: 900,
-                  }}
+                  key={match.id}
+                  onClick={() => setSelectedMatch(match)}
+                  className={`w-full rounded-2xl border p-4 text-left transition ${
+                    selectedMatch?.id === match.id
+                      ? "border-green-500 bg-green-900/20"
+                      : "border-white/10 bg-white/5"
+                  }`}
                 >
-                  Lisää kuponkiin
+                  <div className="flex items-center justify-between gap-4">
+                    <div>
+                      <div className="text-xl font-black">
+                        {match.home_team}
+                      </div>
+
+                      <div className="text-gray-400">
+                        vs {match.away_team}
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <div className="text-lg font-bold">
+                        {match.bestOdds?.home} / {match.bestOdds?.away}
+                      </div>
+
+                      <div className="text-sm text-gray-400">
+                        {formatTime(match.commence_time)}
+                      </div>
+                    </div>
+                  </div>
                 </button>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <div className="text-4xl font-black">Valitse ottelu</div>
+
+          {selectedMatch ? (
+            <>
+              <div className="mt-3 text-xl text-gray-300">
+                {selectedMatch.home_team} vs {selectedMatch.away_team}
               </div>
-            ))}
-          </div>
-        )}
-      </section>
 
-      <section style={card()}>
-        <h2 style={{ marginTop: 0 }}>Päivän parhaat vedot</h2>
-
-        {!topPicks.length ? (
-          <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-            Ei value-kohteita nykyisillä filttereillä.
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {topPicks.slice(0, 5).map((pick, index) => (
-              <div key={pick.id || index} className="pick-card">
-                <h3 style={{ marginTop: 0 }}>{pick.label || "Value pick"}</h3>
-
-                <div style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-                  {pick.match?.home_team || ""} vs {pick.match?.away_team || ""}
-                </div>
-
-                <div style={{ marginTop: 10, fontWeight: 900 }}>
-                  Kerroin {pick.odds || "-"} · Edge {edgePct(pick.edge)} · EV{" "}
-                  {Number(pick.ev || pick.expectedValue || 0).toFixed(2)}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => addToBetSlip(pick, pick.match)}
-                  style={{
-                    marginTop: 12,
-                    width: "100%",
-                    border: "1px solid rgba(34,197,94,0.55)",
-                    background: "rgba(34,197,94,0.15)",
-                    color: "#fff",
-                    borderRadius: 14,
-                    padding: 12,
-                    fontWeight: 900,
-                  }}
+              <div className="mt-5 flex gap-3 overflow-x-auto">
+                <Chip
+                  active={market === "h2h"}
+                  onClick={() => setMarket("h2h")}
                 >
-                  Lisää kuponkiin
-                </button>
+                  1X2 / ML
+                </Chip>
+
+                <Chip
+                  active={market === "totals"}
+                  onClick={() => setMarket("totals")}
+                >
+                  Over / Under
+                </Chip>
+
+                <Chip
+                  active={market === "spread"}
+                  onClick={() => setMarket("spread")}
+                >
+                  Handicap
+                </Chip>
               </div>
-            ))}
+
+              {renderMarketButtons()}
+            </>
+          ) : (
+            <div className="mt-5 text-gray-400">
+              Ei valittua ottelua.
+            </div>
+          )}
+        </Card>
+
+        <Card>
+          <div className="text-4xl font-black">
+            Päivän parhaat vedot
           </div>
-        )}
-      </section>
 
-      <ParlayBuilderPanel
-        picks={topPicks}
-        bankroll={Number(bankroll) || 1000}
-        onAddMany={addManyToBetSlip}
-      />
+          {matches.length > 0 ? (
+            <div className="mt-5 space-y-3">
+              {matches.slice(0, 3).map((match) => (
+                <div
+                  key={match.id}
+                  className="rounded-2xl bg-white/5 p-4"
+                >
+                  <div className="font-bold">
+                    {match.home_team} vs {match.away_team}
+                  </div>
 
-      <ParlayAnalysisPanel picks={betSlip} bankroll={Number(bankroll) || 1000} />
-
-      <ParlayRiskPanel picks={betSlip} bankroll={Number(bankroll) || 1000} />
-
-      {selectedMatch ? <LiveMomentumPanel match={selectedMatch} /> : null}
-
-      {selectedMatch ? <SteamMovePanel match={selectedMatch} /> : null}
-
-      {selectedMatch ? <SharpMoneyPanel match={selectedMatch} /> : null}
-
-      {betSlip?.[0] ? <CashoutAnalyzer bet={betSlip[0]} /> : null}
-
-      {selectedRows?.[0] ? (
-        <AIReasoningPanel pick={selectedRows[0]} movement={selectedMovement} />
-      ) : null}
-
-      {selectedMatch ? <LineMovementPanel match={selectedMatch} /> : null}
-
-      <RiskManagerPanel betSlip={betSlip} bankroll={Number(bankroll) || 1000} />
-
-      <div id="betslip">
-        <BetSlipPanel
-          betSlip={betSlip}
-          onRemove={removeFromBetSlip}
-          onClear={clearBetSlip}
-          onStakeChange={updateBetSlipStake}
-          onSave={saveToHistory}
-        />
+                  <div className="mt-2 text-gray-300">
+                    Paras kerroin:{" "}
+                    {Math.max(
+                      match.bestOdds?.home || 0,
+                      match.bestOdds?.away || 0
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="mt-5 text-gray-400">
+              Ei value-kohteita.
+            </div>
+          )}
+        </Card>
       </div>
-
-      <PerformancePanel history={betHistory} />
-
-      <BetHistoryPanel history={betHistory} />
-
-      <FloatingBetSlip
-        betSlip={betSlip}
-        onClick={() => {
-          document.querySelector("#betslip")?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
-        }}
-      />
     </div>
   );
 }
