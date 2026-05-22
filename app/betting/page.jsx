@@ -1,13 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { Card, Chip, Hero, PageShell, PrimaryButton, Row, SectionTitle } from "@/app/components/Ui";
+import { getBestMarketOdds, getMajorBookmakerOdds } from "@/lib/bookmaker-odds";
 
 const SPORTS = [
   { id: "all", label: "Kaikki" },
   { id: "icehockey", label: "Jääkiekko" },
   { id: "soccer", label: "Jalkapallo" },
   { id: "basketball", label: "Koripallo" },
-  { id: "americanfootball", label: "NFL / Jenkkifutis" },
+  { id: "football", label: "NFL / Jenkkifutis" },
   { id: "baseball", label: "Baseball" },
   { id: "tennis", label: "Tennis" },
   { id: "mma", label: "UFC / MMA" },
@@ -15,112 +17,84 @@ const SPORTS = [
 ];
 
 const LEAGUES = [
-  { id: "all", label: "Kaikki" },
+  { id: "ALL", label: "Kaikki" },
   { id: "NHL", label: "NHL" },
-  { id: "Liiga", label: "Liiga 🇫🇮" },
+  { id: "LIIGA", label: "Liiga 🇫🇮" },
   { id: "SHL", label: "SHL 🇸🇪" },
-  { id: "Premier League", label: "Premier League" },
-  { id: "La Liga", label: "La Liga 🇪🇸" },
-  { id: "Serie A", label: "Serie A 🇮🇹" },
-  { id: "Bundesliga", label: "Bundesliga 🇩🇪" },
-  { id: "Ligue 1", label: "Ligue 1 🇫🇷" },
+  { id: "EPL", label: "Premier League" },
+  { id: "LALIGA", label: "La Liga" },
+  { id: "SERIEA", label: "Serie A" },
+  { id: "BUNDESLIGA", label: "Bundesliga" },
   { id: "NBA", label: "NBA" },
   { id: "NFL", label: "NFL" },
   { id: "MLB", label: "MLB" },
-  { id: "ATP", label: "ATP Tennis" },
+  { id: "ATP", label: "ATP" },
   { id: "UFC", label: "UFC" },
 ];
 
-function getSportCategory(sportKey = "") {
-  const key = sportKey.toLowerCase();
-
-  if (key.includes("icehockey")) return "icehockey";
-  if (key.includes("soccer")) return "soccer";
-  if (key.includes("basketball")) return "basketball";
-  if (key.includes("americanfootball")) return "americanfootball";
-  if (key.includes("baseball")) return "baseball";
-  if (key.includes("tennis")) return "tennis";
-  if (key.includes("mma")) return "mma";
-  if (key.includes("golf")) return "golf";
-
+function sportCategory(key = "") {
+  const s = key.toLowerCase();
+  if (s.includes("icehockey")) return "icehockey";
+  if (s.includes("soccer")) return "soccer";
+  if (s.includes("basketball")) return "basketball";
+  if (s.includes("americanfootball")) return "football";
+  if (s.includes("baseball")) return "baseball";
+  if (s.includes("tennis")) return "tennis";
+  if (s.includes("mma")) return "mma";
+  if (s.includes("golf")) return "golf";
   return "other";
 }
 
-function getBestOdds(bookmakers = []) {
-  let home = null;
-  let draw = null;
-  let away = null;
-
-  bookmakers.forEach((book) => {
-    book?.markets?.forEach((market) => {
-      if (market.key !== "h2h") return;
-
-      market.outcomes?.forEach((outcome, index) => {
-        if (index === 0) {
-          if (!home || outcome.price > home) {
-            home = outcome.price;
-          }
-        }
-
-        if (index === 1) {
-          if (!away || outcome.price > away) {
-            away = outcome.price;
-          }
-        }
-
-        if (index === 2) {
-          if (!draw || outcome.price > draw) {
-            draw = outcome.price;
-          }
-        }
-      });
+function formatTime(value) {
+  try {
+    return new Date(value).toLocaleString("fi-FI", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
     });
-  });
-
-  return {
-    home,
-    draw,
-    away,
-  };
+  } catch {
+    return "";
+  }
 }
 
 export default function BettingPage() {
+  const [sport, setSport] = useState("all");
+  const [league, setLeague] = useState("ALL");
   const [matches, setMatches] = useState([]);
-  const [loading, setLoading] = useState(false);
-
-  const [selectedSport, setSelectedSport] = useState("all");
-  const [selectedLeague, setSelectedLeague] = useState("all");
-
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [sourceText, setSourceText] = useState("");
 
   async function loadOdds() {
+    setLoading(true);
+
     try {
-      setLoading(true);
+      const params = new URLSearchParams();
+      params.set("sport", sport);
+      params.set("league", league);
+      params.set("force", "1");
 
-      const res = await fetch("/api/odds?force=1", {
-        cache: "no-store",
-      });
-
+      const res = await fetch(`/api/odds?${params.toString()}`, { cache: "no-store" });
       const data = await res.json();
 
-      const nextMatches = Array.isArray(data?.matches)
+      const next = Array.isArray(data?.matches)
         ? data.matches
         : Array.isArray(data?.data)
         ? data.data
         : [];
 
-      setMatches(nextMatches);
-
-      if (nextMatches.length > 0) {
-        setSelectedMatch(nextMatches[0]);
-      } else {
-        setSelectedMatch(null);
-      }
-    } catch (err) {
-      console.error(err);
-
+      setMatches(next);
+      setSelectedMatch(next[0] || null);
+      setSourceText(
+        data?.source === "live"
+          ? `Live-data · ${next.length} ottelua`
+          : data?.reason || "Ei dataa"
+      );
+    } catch (error) {
       setMatches([]);
       setSelectedMatch(null);
+      setSourceText(error?.message || "Haku epäonnistui");
     } finally {
       setLoading(false);
     }
@@ -128,489 +102,243 @@ export default function BettingPage() {
 
   useEffect(() => {
     loadOdds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const filteredMatches = useMemo(() => {
     return matches.filter((match) => {
-      const sportMatch =
-        selectedSport === "all"
-          ? true
-          : getSportCategory(match?.sport_key) === selectedSport;
-
-      const leagueMatch =
-        selectedLeague === "all"
-          ? true
-          : match?.sport_title?.includes(selectedLeague);
-
-      return sportMatch && leagueMatch;
+      if (!match) return false;
+      if (sport !== "all" && sportCategory(match.sport_key) !== sport) return false;
+      return true;
     });
-  }, [matches, selectedSport, selectedLeague]);
+  }, [matches, sport]);
 
-  const topPicks = useMemo(() => {
-    return filteredMatches.slice(0, 5);
-  }, [filteredMatches]);
+  const featured = filteredMatches[0] || null;
 
   return (
-    <main
-      style={{
-        background: "#020b2d",
-        minHeight: "100vh",
-        color: "white",
-        padding: 16,
-        paddingBottom: 120,
-      }}
-    >
-      <section
-        style={{
-          background: "#040d35",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 28,
-          padding: 24,
-          marginBottom: 20,
-        }}
+    <PageShell>
+      <Hero
+        title="Scorecaster"
+        subtitle="Yksinkertainen betting intelligence -näkymä: parhaat kertoimet, isot bookkerit ja live-data samassa paikassa."
       >
-        <h1
-          style={{
-            fontSize: 58,
-            fontWeight: 900,
-            lineHeight: 1,
-            marginBottom: 12,
-          }}
-        >
-          Scorecaster
-        </h1>
-
-        <div
-          style={{
-            color: "#aeb7d0",
-            fontSize: 22,
-            fontWeight: 700,
-            marginBottom: 24,
-          }}
-        >
-          Betting Intelligence Platform
+        <div style={{ color: "#86efac", fontWeight: 900, marginBottom: 16 }}>
+          {sourceText || `Live-data · ${filteredMatches.length} ottelua`}
         </div>
 
-        <div
-          style={{
-            color: "#93a0c3",
-            fontSize: 18,
-            marginBottom: 24,
-          }}
-        >
-          Live-data • {filteredMatches.length} ottelua
-        </div>
+        <PrimaryButton onClick={loadOdds} disabled={loading}>
+          {loading ? "Päivitetään..." : "Päivitä ottelut"}
+        </PrimaryButton>
+      </Hero>
 
-        <button
-          onClick={loadOdds}
-          disabled={loading}
-          style={{
-            width: "100%",
-            height: 92,
-            borderRadius: 28,
-            border: "2px solid #00d26a",
-            background: "#063c2c",
-            color: "white",
-            fontSize: 28,
-            fontWeight: 800,
-          }}
-        >
-          {loading ? "Ladataan..." : "Päivitä ottelut"}
-        </button>
-      </section>
-
-      <section
-        style={{
-          background: "#040d35",
-          border: "1px solid rgba(255,255,255,0.08)",
-          borderRadius: 28,
-          padding: 24,
-          marginBottom: 20,
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 28,
-            fontWeight: 800,
-            marginBottom: 18,
-          }}
-        >
-          Laji
-        </h2>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 14,
-          }}
-        >
-          {SPORTS.map((sport) => (
-            <button
-              key={sport.id}
-              onClick={() => setSelectedSport(sport.id)}
-              style={{
-                padding: "20px 28px",
-                borderRadius: 24,
-                border:
-                  selectedSport === sport.id
-                    ? "2px solid #00d26a"
-                    : "2px solid rgba(255,255,255,0.08)",
-                background:
-                  selectedSport === sport.id
-                    ? "#063c2c"
-                    : "#151c3d",
-                color: "white",
-                fontSize: 22,
-                fontWeight: 800,
+      <Card>
+        <div style={{ color: "#94a3b8", fontWeight: 900, marginBottom: 10 }}>Laji</div>
+        <Row>
+          {SPORTS.map((item) => (
+            <Chip
+              key={item.id}
+              active={sport === item.id}
+              onClick={() => {
+                setSport(item.id);
+                setLeague("ALL");
               }}
             >
-              {sport.label}
-            </button>
+              {item.label}
+            </Chip>
           ))}
-        </div>
+        </Row>
 
-        <h2
-          style={{
-            fontSize: 28,
-            fontWeight: 800,
-            marginTop: 40,
-            marginBottom: 18,
-          }}
-        >
-          Liiga
-        </h2>
-
-        <div
-          style={{
-            display: "flex",
-            flexWrap: "wrap",
-            gap: 14,
-          }}
-        >
-          {LEAGUES.map((league) => (
-            <button
-              key={league.id}
-              onClick={() => setSelectedLeague(league.id)}
-              style={{
-                padding: "20px 28px",
-                borderRadius: 24,
-                border:
-                  selectedLeague === league.id
-                    ? "2px solid #00d26a"
-                    : "2px solid rgba(255,255,255,0.08)",
-                background:
-                  selectedLeague === league.id
-                    ? "#063c2c"
-                    : "#151c3d",
-                color: "white",
-                fontSize: 20,
-                fontWeight: 800,
-              }}
-            >
-              {league.label}
-            </button>
+        <div style={{ color: "#94a3b8", fontWeight: 900, margin: "22px 0 10px" }}>Liiga</div>
+        <Row>
+          {LEAGUES.map((item) => (
+            <Chip key={item.id} active={league === item.id} onClick={() => setLeague(item.id)}>
+              {item.label}
+            </Chip>
           ))}
-        </div>
-      </section>
+        </Row>
+      </Card>
 
-      <section
-        style={{
-          background: "#040d35",
-          borderRadius: 28,
-          padding: 24,
-          marginBottom: 20,
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 76,
-            lineHeight: 0.95,
-            fontWeight: 900,
-            marginBottom: 32,
-          }}
-        >
-          Ottelut
-        </h2>
+      {featured ? <FeaturedMatch match={featured} /> : null}
 
-        {filteredMatches.length === 0 && (
-          <div
-            style={{
-              color: "#aeb7d0",
-              fontSize: 22,
-              fontWeight: 700,
-            }}
-          >
-            Ei otteluita löytynyt.
+      <Card>
+        <SectionTitle>Ottelut</SectionTitle>
+
+        {filteredMatches.length === 0 ? (
+          <div style={{ color: "#94a3b8", fontWeight: 800 }}>Ei otteluita löytynyt.</div>
+        ) : (
+          <div style={{ display: "grid", gap: 14 }}>
+            {filteredMatches.map((match) => (
+              <MatchCard
+                key={match.id}
+                match={match}
+                active={selectedMatch?.id === match.id}
+                onClick={() => setSelectedMatch(match)}
+              />
+            ))}
           </div>
         )}
+      </Card>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-          }}
-        >
-          {filteredMatches.map((match) => {
-            const odds = getBestOdds(match.bookmakers);
+      {selectedMatch ? <BookmakerComparison match={selectedMatch} /> : null}
+    </PageShell>
+  );
+}
 
-            return (
-              <button
-                key={match.id}
-                onClick={() => setSelectedMatch(match)}
-                style={{
-                  textAlign: "left",
-                  background:
-                    selectedMatch?.id === match.id
-                      ? "#063c2c"
-                      : "#151c3d",
-                  border:
-                    selectedMatch?.id === match.id
-                      ? "2px solid #00d26a"
-                      : "2px solid rgba(255,255,255,0.08)",
-                  borderRadius: 28,
-                  padding: 28,
-                  color: "white",
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 28,
-                    fontWeight: 900,
-                    marginBottom: 12,
-                  }}
-                >
-                  {match.home_team} vs {match.away_team}
-                </div>
+function FeaturedMatch({ match }) {
+  const best = getBestMarketOdds(match);
+  const bestPick = [best.home, best.draw, best.away]
+    .filter((x) => x.odds)
+    .sort((a, b) => b.odds - a.odds)[0];
 
-                <div
-                  style={{
-                    color: "#93a0c3",
-                    fontSize: 18,
-                    marginBottom: 18,
-                  }}
-                >
-                  {match.sport_title} •{" "}
-                  {new Date(match.commence_time).toLocaleString("fi-FI")}
-                </div>
+  return (
+    <Card style={{ background: "linear-gradient(180deg,rgba(34,197,94,0.20),rgba(2,6,23,0.92))" }}>
+      <div style={{ color: "#86efac", fontWeight: 950, marginBottom: 10 }}>FEATURED BEST ODDS</div>
 
-                <div
-                  style={{
-                    color: "#7ef0a8",
-                    fontSize: 24,
-                    fontWeight: 900,
-                  }}
-                >
-                  {odds.home ?? "-"} / {odds.away ?? "-"}
-                </div>
-              </button>
-            );
-          })}
+      <h2 style={{ margin: 0, fontSize: "clamp(34px,8vw,66px)", lineHeight: 0.95 }}>
+        {match.home_team} vs {match.away_team}
+      </h2>
+
+      <div style={{ color: "#94a3b8", marginTop: 12, fontWeight: 800 }}>
+        {match.sport_title || match.sport_key} · {formatTime(match.commence_time)}
+      </div>
+
+      {bestPick ? (
+        <div style={{
+          marginTop: 20,
+          border: "1px solid rgba(255,255,255,0.12)",
+          background: "rgba(255,255,255,0.06)",
+          borderRadius: 24,
+          padding: 18,
+        }}>
+          <div style={{ color: "#94a3b8", fontWeight: 900 }}>Paras kerroin nyt</div>
+          <div style={{ fontSize: 52, fontWeight: 950 }}>{bestPick.odds}</div>
+          <div style={{ color: "#86efac", fontWeight: 950 }}>{bestPick.label} · {bestPick.bookmaker}</div>
         </div>
-      </section>
+      ) : null}
+    </Card>
+  );
+}
 
-      {selectedMatch && (
-        <section
-          style={{
-            background: "#040d35",
-            borderRadius: 28,
-            padding: 24,
-            marginBottom: 20,
-            border: "1px solid rgba(255,255,255,0.08)",
-          }}
-        >
-          <h2
-            style={{
-              fontSize: 54,
-              lineHeight: 1,
-              fontWeight: 900,
-              marginBottom: 28,
-            }}
-          >
-            Valitse ottelu
-          </h2>
+function MatchCard({ match, active, onClick }) {
+  const best = getBestMarketOdds(match);
 
-          <div
-            style={{
-              fontSize: 26,
-              fontWeight: 800,
-              marginBottom: 24,
-            }}
-          >
-            {selectedMatch.home_team} vs {selectedMatch.away_team}
-          </div>
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      style={{
+        textAlign: "left",
+        color: "white",
+        border: active ? "1px solid rgba(34,197,94,0.75)" : "1px solid rgba(255,255,255,0.10)",
+        background: active ? "rgba(34,197,94,0.14)" : "rgba(255,255,255,0.05)",
+        borderRadius: 24,
+        padding: 18,
+      }}
+    >
+      <div style={{ fontSize: 22, fontWeight: 950 }}>
+        {match.home_team} vs {match.away_team}
+      </div>
 
-          <div
-            style={{
-              display: "grid",
-              gap: 18,
-            }}
-          >
-            {(() => {
-              const odds = getBestOdds(selectedMatch.bookmakers);
+      <div style={{ color: "#94a3b8", marginTop: 8, fontWeight: 800 }}>
+        {match.sport_title || match.sport_key} · {formatTime(match.commence_time)}
+      </div>
 
-              return (
-                <>
-                  <div
-                    style={{
-                      background: "#151c3d",
-                      borderRadius: 24,
-                      padding: 24,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#93a0c3",
-                        fontSize: 18,
-                        marginBottom: 10,
-                      }}
-                    >
-                      {selectedMatch.home_team}
-                    </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginTop: 14 }}>
+        <MiniOdd title="1" data={best.home} />
+        <MiniOdd title="2" data={best.away} />
+      </div>
 
-                    <div
-                      style={{
-                        fontSize: 54,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {odds.home ?? "-"}
-                    </div>
-                  </div>
+      {best.draw?.odds ? (
+        <div style={{ marginTop: 10 }}>
+          <MiniOdd title="X" data={best.draw} />
+        </div>
+      ) : null}
+    </button>
+  );
+}
 
-                  {odds.draw && (
-                    <div
-                      style={{
-                        background: "#151c3d",
-                        borderRadius: 24,
-                        padding: 24,
-                      }}
-                    >
-                      <div
-                        style={{
-                          color: "#93a0c3",
-                          fontSize: 18,
-                          marginBottom: 10,
-                        }}
-                      >
-                        Tasapeli
-                      </div>
+function MiniOdd({ title, data }) {
+  return (
+    <div style={{
+      border: "1px solid rgba(255,255,255,0.08)",
+      background: "rgba(2,6,23,0.35)",
+      borderRadius: 16,
+      padding: 12,
+    }}>
+      <div style={{ color: "#94a3b8", fontWeight: 900 }}>{title}</div>
+      <div style={{ fontSize: 26, fontWeight: 950 }}>{data?.odds || "-"}</div>
+      <div style={{ color: "#64748b", fontSize: 13, fontWeight: 800 }}>{data?.bookmaker || ""}</div>
+    </div>
+  );
+}
 
-                      <div
-                        style={{
-                          fontSize: 54,
-                          fontWeight: 900,
-                        }}
-                      >
-                        {odds.draw}
-                      </div>
-                    </div>
-                  )}
+function BookmakerComparison({ match }) {
+  const best = getBestMarketOdds(match);
+  const majorRows = getMajorBookmakerOdds(match);
 
-                  <div
-                    style={{
-                      background: "#151c3d",
-                      borderRadius: 24,
-                      padding: 24,
-                    }}
-                  >
-                    <div
-                      style={{
-                        color: "#93a0c3",
-                        fontSize: 18,
-                        marginBottom: 10,
-                      }}
-                    >
-                      {selectedMatch.away_team}
-                    </div>
+  return (
+    <Card>
+      <SectionTitle>Parhaat kertoimet</SectionTitle>
 
-                    <div
-                      style={{
-                        fontSize: 54,
-                        fontWeight: 900,
-                      }}
-                    >
-                      {odds.away ?? "-"}
-                    </div>
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-        </section>
-      )}
+      <div style={{ display: "grid", gap: 12 }}>
+        <BestOddRow label={best.home.label} data={best.home} />
+        {best.draw?.odds ? <BestOddRow label="Tasapeli" data={best.draw} /> : null}
+        <BestOddRow label={best.away.label} data={best.away} />
+      </div>
 
-      <section
-        style={{
-          background: "#040d35",
-          borderRadius: 28,
-          padding: 24,
-          border: "1px solid rgba(255,255,255,0.08)",
-        }}
-      >
-        <h2
-          style={{
-            fontSize: 76,
-            lineHeight: 0.95,
-            fontWeight: 900,
-            marginBottom: 28,
-          }}
-        >
-          Päivän parhaat vedot
-        </h2>
+      <h3 style={{ margin: "26px 0 14px", fontSize: 26 }}>Isoimmat bookkerit</h3>
 
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 20,
-          }}
-        >
-          {topPicks.map((match) => {
-            const odds = getBestOdds(match.bookmakers);
-
-            const best =
-              Math.max(
-                odds.home || 0,
-                odds.draw || 0,
-                odds.away || 0
-              ) || "-";
-
-            return (
-              <div
-                key={match.id}
-                style={{
-                  background: "#151c3d",
-                  borderRadius: 24,
-                  padding: 24,
-                }}
-              >
-                <div
-                  style={{
-                    fontSize: 24,
-                    fontWeight: 800,
-                    marginBottom: 12,
-                  }}
-                >
-                  {match.home_team} vs {match.away_team}
-                </div>
-
-                <div
-                  style={{
-                    color: "#7ef0a8",
-                    fontSize: 22,
-                    fontWeight: 900,
-                  }}
-                >
-                  Paras kerroin: {best}
-                </div>
+      {majorRows.length === 0 ? (
+        <div style={{ color: "#94a3b8", fontWeight: 800 }}>
+          Ei isoja bookkereita tässä ottelussa.
+        </div>
+      ) : (
+        <div style={{ display: "grid", gap: 10 }}>
+          {majorRows.map((row) => (
+            <div key={row.bookmaker} style={{
+              border: "1px solid rgba(255,255,255,0.08)",
+              background: "rgba(255,255,255,0.05)",
+              borderRadius: 18,
+              padding: 14,
+            }}>
+              <div style={{ fontWeight: 950, marginBottom: 10 }}>{row.bookmaker}</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                <BookOdd label="1" value={row.home} />
+                <BookOdd label="X" value={row.draw} />
+                <BookOdd label="2" value={row.away} />
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
-      </section>
-    </main>
+      )}
+    </Card>
+  );
+}
+
+function BestOddRow({ label, data }) {
+  return (
+    <div style={{
+      border: "1px solid rgba(34,197,94,0.30)",
+      background: "rgba(34,197,94,0.10)",
+      borderRadius: 20,
+      padding: 16,
+    }}>
+      <div style={{ color: "#94a3b8", fontWeight: 900 }}>{label}</div>
+      <div style={{ fontSize: 42, fontWeight: 950 }}>{data?.odds || "-"}</div>
+      <div style={{ color: "#86efac", fontWeight: 950 }}>{data?.bookmaker || ""}</div>
+    </div>
+  );
+}
+
+function BookOdd({ label, value }) {
+  return (
+    <div style={{
+      border: "1px solid rgba(255,255,255,0.08)",
+      borderRadius: 14,
+      padding: 10,
+      background: "rgba(2,6,23,0.35)",
+    }}>
+      <div style={{ color: "#94a3b8", fontSize: 12, fontWeight: 900 }}>{label}</div>
+      <div style={{ fontWeight: 950, fontSize: 20 }}>{value || "-"}</div>
+    </div>
   );
 }
