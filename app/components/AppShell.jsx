@@ -7,7 +7,8 @@ const navItems = [
   { href: "/live", label: "Live" },
   { href: "/simulator", label: "Simulator" },
   { href: "/tracking", label: "Tracking" },
-  { href: "/agent", label: "AI Agent" }
+  { href: "/agent", label: "AI Agent" },
+  { href: "/about", label: "About" }
 ];
 
 export default function AppShell({ children }) {
@@ -30,7 +31,7 @@ export default function AppShell({ children }) {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-2 lg:flex">
+          <nav className="hidden items-center gap-2 xl:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -47,12 +48,12 @@ export default function AppShell({ children }) {
           </div>
         </div>
 
-        <nav className="flex gap-2 overflow-x-auto border-t border-white/10 px-4 py-3 lg:hidden">
+        <nav className="flex gap-2 overflow-x-auto border-t border-white/10 px-4 py-3 xl:hidden">
           {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}
-              className="shrink-0 rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300"
+              className="shrink-0 rounded-xl bg-white/5 px-3 py-2 text-sm text-slate-300 hover:bg-white/10 hover:text-white"
             >
               {item.label}
             </Link>
