@@ -3,7 +3,7 @@ import AppShell from "./components/AppShell";
 
 export const metadata = {
   title: "Scorecaster",
-  description: "AI-powered sports intelligence platform",
+  description: "AI-powered sports intelligence platform"
 };
 
 export default function RootLayout({ children }) {
