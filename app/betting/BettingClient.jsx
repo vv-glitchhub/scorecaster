@@ -2,69 +2,77 @@
 
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
+import { SPORTS } from "../../lib/sports";
 import {
   analyzeBet,
   formatPercent,
   formatMoney
 } from "../../lib/analysis-engine";
 
-const fallbackMatches = [
-  {
-    id: "demo-1",
-    home_team: "Tappara",
-    away_team: "Ilves",
-    sport_title: "Liiga",
-    bookmakers: [
-      {
-        title: "DemoBook",
-        markets: [
-          {
-            key: "h2h",
-            outcomes: [
-              { name: "Tappara", price: 2.1 },
-              { name: "Ilves", price: 1.8 }
-            ]
-          }
-        ]
-      }
-    ]
-  }
-];
+function getGamesFromResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  if (Array.isArray(data?.events)) return data.events;
+  if (Array.isArray(data?.games)) return data.games;
+  return [];
+}
 
 function getMainMarket(match) {
   return match?.bookmakers?.[0]?.markets?.[0];
 }
 
 export default function BettingClient() {
-  const [matches, setMatches] = useState(fallbackMatches);
-  const [loading, setLoading] = useState(true);
-  const [source, setSource] = useState("demo");
+  const [selectedSport, setSelectedSport] = useState(SPORTS[0].group);
+  const [selectedLeague, setSelectedLeague] = useState(SPORTS[0].leagues[0].key);
+  const [matches, setMatches] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [source, setSource] = useState("not loaded");
+  const [reason, setReason] = useState("");
   const [selectedBet, setSelectedBet] = useState(null);
+
   const bankroll = 1000;
 
   useEffect(() => {
     async function loadOdds() {
+      setLoading(true);
+      setMatches([]);
+      setSelectedBet(null);
+      setReason("");
+
       try {
-        const res = await fetch("/api/odds?sport=icehockey_nhl", {
+        const res = await fetch(`/api/odds?sport=${selectedLeague}`, {
           cache: "no-store"
         });
 
         const data = await res.json();
-        const games = Array.isArray(data) ? data : data.data || data.events || [];
+        const games = getGamesFromResponse(data);
+
+        setSource(data?.source || "api");
+        setReason(data?.reason || data?.error || "");
 
         if (games.length > 0) {
           setMatches(games);
-          setSource(data.source || "api");
         }
       } catch (error) {
-        setSource("fallback");
+        setSource("error");
+        setReason(error.message);
       } finally {
         setLoading(false);
       }
     }
 
     loadOdds();
-  }, []);
+  }, [selectedLeague]);
+
+  function handleSportChange(groupName) {
+    const group = SPORTS.find((sport) => sport.group === groupName);
+
+    setSelectedSport(groupName);
+
+    if (group?.leagues?.length > 0) {
+      setSelectedLeague(group.leagues[0].key);
+    }
+  }
 
   function selectBet({ match, selection, odds }) {
     const analysis = analyzeBet({
@@ -83,11 +91,14 @@ export default function BettingClient() {
     });
   }
 
+  const currentLeagues =
+    SPORTS.find((sport) => sport.group === selectedSport)?.leagues || [];
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sm text-sky-300">
-          Betting Workspace
+          Multi-Sport Betting Workspace
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -95,12 +106,46 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Valitse kerroin, tarkista EV, Kelly, edge ja lisää veto seurantaan.
+          Valitse laji ja sarja, hae oikeat kertoimet, tarkista EV, Kelly, edge
+          ja lisää veto seurantaan.
         </p>
 
-        <div className="mt-4 text-sm text-slate-400">
-          Data source: <span className="text-emerald-300">{source}</span>
+        <div className="mt-5 grid gap-3 md:grid-cols-2">
+          <select
+            value={selectedSport}
+            onChange={(event) => handleSportChange(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            {SPORTS.map((sport) => (
+              <option key={sport.group} value={sport.group}>
+                {sport.group}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={selectedLeague}
+            onChange={(event) => setSelectedLeague(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            {currentLeagues.map((league) => (
+              <option key={league.key} value={league.key}>
+                {league.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
+          Data source:{" "}
+          <span className="font-bold text-emerald-300">{source}</span>
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
+          {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
+          {!loading && matches.length === 0 && (
+            <div className="mt-2 text-red-300">
+              Tästä sarjasta ei löytynyt nyt kertoimellisiä otteluita.
+            </div>
+          )}
         </div>
       </section>
 
@@ -109,12 +154,13 @@ export default function BettingClient() {
           {matches.map((match, index) => {
             const market = getMainMarket(match);
             const outcomes = market?.outcomes || [];
-            const home = match.home_team || match.home || "Home";
-            const away = match.away_team || match.away || "Away";
+            const home = match.home_team || match.home || outcomes[0]?.name || "Home";
+            const away = match.away_team || match.away || outcomes[1]?.name || "Away";
             const matchName = `${home} vs ${away}`;
 
             const homeOutcome =
               outcomes.find((outcome) => outcome.name === home) || outcomes[0];
+
             const awayOutcome =
               outcomes.find((outcome) => outcome.name === away) || outcomes[1];
 
@@ -139,39 +185,47 @@ export default function BettingClient() {
                     <div className="text-xl font-black">{matchName}</div>
 
                     <div className="mt-2 text-sm text-slate-400">
-                      {match.sport_title || match.league || "Sport"} ·{" "}
-                      {market?.key || "h2h"}
+                      {match.sport_title || selectedLeague} ·{" "}
+                      {market?.key || "market"}
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
-                    <button
-                      onClick={() =>
-                        selectBet({
-                          match: matchName,
-                          selection: home,
-                          odds: homeOdds
-                        })
-                      }
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
-                    >
-                      <div className="text-sm text-slate-400">{home}</div>
-                      <div className="mt-1 text-lg font-black">{homeOdds}</div>
-                    </button>
+                  <div className="flex flex-wrap gap-3">
+                    {homeOutcome && (
+                      <button
+                        onClick={() =>
+                          selectBet({
+                            match: matchName,
+                            selection: homeOutcome.name,
+                            odds: homeOdds
+                          })
+                        }
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
+                      >
+                        <div className="text-sm text-slate-400">
+                          {homeOutcome.name}
+                        </div>
+                        <div className="mt-1 text-lg font-black">{homeOdds}</div>
+                      </button>
+                    )}
 
-                    <button
-                      onClick={() =>
-                        selectBet({
-                          match: matchName,
-                          selection: away,
-                          odds: awayOdds
-                        })
-                      }
-                      className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
-                    >
-                      <div className="text-sm text-slate-400">{away}</div>
-                      <div className="mt-1 text-lg font-black">{awayOdds}</div>
-                    </button>
+                    {awayOutcome && (
+                      <button
+                        onClick={() =>
+                          selectBet({
+                            match: matchName,
+                            selection: awayOutcome.name,
+                            odds: awayOdds
+                          })
+                        }
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
+                      >
+                        <div className="text-sm text-slate-400">
+                          {awayOutcome.name}
+                        </div>
+                        <div className="mt-1 text-lg font-black">{awayOdds}</div>
+                      </button>
+                    )}
                   </div>
                 </div>
 
