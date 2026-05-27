@@ -39,6 +39,8 @@ export default function BettingClient() {
   const [matches, setMatches] = useState(fallbackMatches);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("demo");
+  const [selectedBet, setSelectedBet] = useState(null);
+  const bankroll = 1000;
 
   useEffect(() => {
     async function loadOdds() {
@@ -48,7 +50,6 @@ export default function BettingClient() {
         });
 
         const data = await res.json();
-
         const games = Array.isArray(data) ? data : data.data || data.events || [];
 
         if (games.length > 0) {
@@ -65,6 +66,23 @@ export default function BettingClient() {
     loadOdds();
   }, []);
 
+  function selectBet({ match, selection, odds }) {
+    const analysis = analyzeBet({
+      selection,
+      decimalOdds: Number(odds),
+      modelProbability: 0.55,
+      volatility: "medium",
+      bankroll
+    });
+
+    setSelectedBet({
+      match,
+      selection,
+      odds,
+      analysis
+    });
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
@@ -77,7 +95,7 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Real odds data, value detection, EV, Kelly and AI-ready market analysis.
+          Valitse kerroin, tarkista EV, Kelly, edge ja lisää veto seurantaan.
         </p>
 
         <div className="mt-4 text-sm text-slate-400">
@@ -93,20 +111,22 @@ export default function BettingClient() {
             const outcomes = market?.outcomes || [];
             const home = match.home_team || match.home || "Home";
             const away = match.away_team || match.away || "Away";
+            const matchName = `${home} vs ${away}`;
+
             const homeOutcome =
               outcomes.find((outcome) => outcome.name === home) || outcomes[0];
             const awayOutcome =
               outcomes.find((outcome) => outcome.name === away) || outcomes[1];
 
             const homeOdds = Number(homeOutcome?.price || 2.0);
-            const modelProbability = 0.55;
+            const awayOdds = Number(awayOutcome?.price || 2.0);
 
-            const analysis = analyzeBet({
+            const preview = analyzeBet({
               selection: home,
               decimalOdds: homeOdds,
-              modelProbability,
+              modelProbability: 0.55,
               volatility: "medium",
-              bankroll: 1000
+              bankroll
             });
 
             return (
@@ -116,9 +136,7 @@ export default function BettingClient() {
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div>
-                    <div className="text-xl font-black">
-                      {home} vs {away}
-                    </div>
+                    <div className="text-xl font-black">{matchName}</div>
 
                     <div className="mt-2 text-sm text-slate-400">
                       {match.sport_title || match.league || "Sport"} ·{" "}
@@ -127,16 +145,32 @@ export default function BettingClient() {
                   </div>
 
                   <div className="flex gap-3">
-                    <button className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-white/[0.08]">
+                    <button
+                      onClick={() =>
+                        selectBet({
+                          match: matchName,
+                          selection: home,
+                          odds: homeOdds
+                        })
+                      }
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
+                    >
                       <div className="text-sm text-slate-400">{home}</div>
                       <div className="mt-1 text-lg font-black">{homeOdds}</div>
                     </button>
 
-                    <button className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-white/[0.08]">
+                    <button
+                      onClick={() =>
+                        selectBet({
+                          match: matchName,
+                          selection: away,
+                          odds: awayOdds
+                        })
+                      }
+                      className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
+                    >
                       <div className="text-sm text-slate-400">{away}</div>
-                      <div className="mt-1 text-lg font-black">
-                        {awayOutcome?.price || "-"}
-                      </div>
+                      <div className="mt-1 text-lg font-black">{awayOdds}</div>
                     </button>
                   </div>
                 </div>
@@ -145,39 +179,30 @@ export default function BettingClient() {
                   <div className="rounded-xl bg-white/[0.04] p-4">
                     <div className="text-sm text-slate-400">Market Prob.</div>
                     <div className="mt-2 text-2xl font-black">
-                      {formatPercent(analysis.marketProbability)}
+                      {formatPercent(preview.marketProbability)}
                     </div>
                   </div>
 
                   <div className="rounded-xl bg-white/[0.04] p-4">
                     <div className="text-sm text-slate-400">AI Edge</div>
                     <div className="mt-2 text-2xl font-black text-emerald-300">
-                      {formatPercent(analysis.edge)}
+                      {formatPercent(preview.edge)}
                     </div>
                   </div>
 
                   <div className="rounded-xl bg-white/[0.04] p-4">
                     <div className="text-sm text-slate-400">EV</div>
                     <div className="mt-2 text-2xl font-black text-sky-300">
-                      {formatPercent(analysis.ev)}
+                      {formatPercent(preview.ev)}
                     </div>
                   </div>
 
                   <div className="rounded-xl bg-white/[0.04] p-4">
-                    <div className="text-sm text-slate-400">Stake</div>
+                    <div className="text-sm text-slate-400">Confidence</div>
                     <div className="mt-2 text-2xl font-black">
-                      {formatMoney(analysis.suggestedStake)}
+                      {preview.confidence}
                     </div>
                   </div>
-                </div>
-
-                <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4 text-sm text-slate-300">
-                  <span className="font-bold text-emerald-300">
-                    AI Analysis:
-                  </span>{" "}
-                  Current model estimates {home} at{" "}
-                  {formatPercent(modelProbability)}. Market implied probability is{" "}
-                  {formatPercent(analysis.marketProbability)}.
                 </div>
               </div>
             );
@@ -185,31 +210,67 @@ export default function BettingClient() {
         </div>
 
         <div className="space-y-6">
-          <Panel title="Bet Slip" subtitle="AI-assisted bankroll management">
-            <div className="space-y-4">
-              <div className="rounded-xl bg-white/[0.04] p-4">
-                <div className="font-bold">Selected bet preview</div>
-                <div className="mt-1 text-sm text-slate-400">
-                  Click handling comes next.
-                </div>
+          <Panel title="Bet Slip" subtitle="Click odds to select a bet">
+            {!selectedBet ? (
+              <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
+                Ei valittua vetoa. Paina kerrointa vasemmalta.
               </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="rounded-xl bg-white/[0.04] p-4">
+                  <div className="font-bold">{selectedBet.match}</div>
+                  <div className="mt-1 text-sm text-slate-400">
+                    {selectedBet.selection} @ {selectedBet.odds}
+                  </div>
+                </div>
 
-              <button className="w-full rounded-xl bg-emerald-400 px-4 py-3 font-bold text-slate-950 hover:bg-emerald-300">
-                Add To Bet Slip
-              </button>
-            </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="rounded-xl bg-white/[0.04] p-4">
+                    <div className="text-sm text-slate-400">Edge</div>
+                    <div className="mt-2 text-xl font-black text-emerald-300">
+                      {formatPercent(selectedBet.analysis.edge)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white/[0.04] p-4">
+                    <div className="text-sm text-slate-400">EV</div>
+                    <div className="mt-2 text-xl font-black text-sky-300">
+                      {formatPercent(selectedBet.analysis.ev)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white/[0.04] p-4">
+                    <div className="text-sm text-slate-400">Quarter Kelly</div>
+                    <div className="mt-2 text-xl font-black">
+                      {formatPercent(selectedBet.analysis.quarterKelly)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white/[0.04] p-4">
+                    <div className="text-sm text-slate-400">Stake</div>
+                    <div className="mt-2 text-xl font-black text-emerald-300">
+                      {formatMoney(selectedBet.analysis.suggestedStake)}
+                    </div>
+                  </div>
+                </div>
+
+                <button className="w-full rounded-xl bg-emerald-400 px-4 py-3 font-bold text-slate-950 hover:bg-emerald-300">
+                  Add To Tracking
+                </button>
+              </div>
+            )}
           </Panel>
 
-          <Panel title="Next Upgrade" subtitle="Interactive betting">
+          <Panel title="AI Reasoning" subtitle="Why this may have value">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Select odds into bet slip.
+                Market probability is compared against internal model probability.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Add manual stake input.
+                Stake uses conservative quarter Kelly sizing.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Save bet to tracking.
+                Next step: save selected bets into Supabase.
               </div>
             </div>
           </Panel>
