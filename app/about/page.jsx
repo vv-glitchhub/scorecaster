@@ -1,232 +1,100 @@
-import { cookies } from "next/headers";
-import PageSection from "@/app/components/PageSection";
-import { normalizeLang } from "@/lib/i18n";
+import Panel from "../components/Panel";
 
-function InfoBlock({ title, text }) {
-  return (
-    <div
-      style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "20px",
-        padding: "20px",
-        background: "rgba(255,255,255,0.03)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: "22px",
-          fontWeight: 900,
-          color: "#ffffff",
-          marginBottom: "10px",
-        }}
-      >
-        {title}
-      </div>
-      <div
-        style={{
-          color: "#94a3b8",
-          fontSize: "16px",
-          lineHeight: 1.7,
-        }}
-      >
-        {text}
-      </div>
-    </div>
-  );
-}
+const features = [
+  "AI betting analysis",
+  "Market intelligence",
+  "Expected value and Kelly",
+  "Paper betting agent",
+  "Tracking and bankroll",
+  "Simulation engine",
+  "Responsible betting layer"
+];
 
-function BulletList({ items }) {
+export default function AboutPage() {
   return (
-    <div
-      style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "20px",
-        padding: "20px",
-        background: "rgba(255,255,255,0.03)",
-      }}
-    >
-      <div style={{ display: "grid", gap: "12px" }}>
-        {items.map((item) => (
-          <div
-            key={item}
-            style={{
-              display: "flex",
-              gap: "12px",
-              alignItems: "flex-start",
-              color: "#dbe4f0",
-              fontSize: "16px",
-              lineHeight: 1.6,
-            }}
-          >
-            <span style={{ color: "#86efac", fontWeight: 900 }}>•</span>
-            <span>{item}</span>
+    <div className="space-y-6">
+      <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
+        <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">
+          About Scorecaster
+        </div>
+
+        <h1 className="text-4xl font-black tracking-tight">
+          AI Sports Intelligence Platform
+        </h1>
+
+        <p className="mt-3 max-w-3xl text-slate-300">
+          Scorecaster ei ole pelkkä vetovihje- tai kertoimenselain. Se on
+          analyysi-, simulointi- ja päätöksentukialusta urheilumarkkinoiden
+          tutkimiseen.
+        </p>
+      </section>
+
+      <section className="grid gap-6 lg:grid-cols-3">
+        <Panel title="What Scorecaster Does" subtitle="Core identity">
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>
+              Scorecaster analysoi otteluita, kertoimia, todennäköisyyksiä,
+              riskiä ja markkinaliikettä.
+            </p>
+            <p>
+              Tavoite on auttaa käyttäjää ymmärtämään miksi jokin kohde voi olla
+              hyvä, huono tai liian riskinen.
+            </p>
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+        </Panel>
 
-function FormulaBlock({ items }) {
-  return (
-    <div
-      style={{
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "20px",
-        padding: "20px",
-        background: "rgba(255,255,255,0.03)",
-      }}
-    >
-      <div style={{ display: "grid", gap: "12px" }}>
-        {items.map((item) => (
-          <div
-            key={item}
-            style={{
-              fontFamily:
-                'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace',
-              fontSize: "15px",
-              color: "#e2e8f0",
-              padding: "14px 16px",
-              borderRadius: "14px",
-              background: "rgba(0,0,0,0.18)",
-              border: "1px solid rgba(255,255,255,0.06)",
-              overflowX: "auto",
-            }}
-          >
-            {item}
+        <Panel title="Core Features" subtitle="Current and planned systems">
+          <div className="grid gap-2">
+            {features.map((feature) => (
+              <div
+                key={feature}
+                className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-3 text-sm"
+              >
+                {feature}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+        </Panel>
 
-export default async function AboutPage() {
-  const cookieStore = await cookies();
-  const lang = normalizeLang(cookieStore.get("scorecaster_lang")?.value || "fi");
+        <Panel title="Responsible Use" subtitle="Important disclaimer">
+          <div className="space-y-3 text-sm text-slate-300">
+            <p>
+              Scorecaster ei takaa voittoja eikä poista vedonlyönnin riskiä.
+            </p>
+            <p>
+              Agentti käyttää aluksi vain 1000€ leikkirahaa paper betting
+              -tilassa.
+            </p>
+            <p className="text-red-300">
+              Älä käytä rahaa, jonka häviäminen aiheuttaa ongelmia.
+            </p>
+          </div>
+        </Panel>
+      </section>
 
-  const copy =
-    lang === "fi"
-      ? {
-          eyebrow: "Tietoa",
-          title: "Mitä Scorecaster tekee",
-          subtitle:
-            "Scorecaster on vedonlyönnin analyysi- ja simulaatiosovellus, joka kokoaa markkinadataa, näyttää parhaat kertoimet ja auttaa vertaamaan markkinanäkemystä omaan arvioon.",
-          blocks: [
-            {
-              title: "Mitä sovellus tekee",
-              text:
-                "Sovellus näyttää otteluita, eri markkinoita, parhaat saatavilla olevat kertoimet, yksinkertaisen confidence-näkymän, riskiliput sekä markkinaliikkeen historian.",
-            },
-            {
-              title: "Miten laskenta toimii",
-              text:
-                "Laskenta perustuu markkinan implied probability -ajatteluun, kertoimien vertailuun ja yksinkertaiseen stake-logiikkaan. Simulaattori normalisoi markkinakertoimet todennäköisyyksiksi ja ajaa iterointeja niiden pohjalta.",
-            },
-            {
-              title: "Data ja avoimuus",
-              text:
-                "Sovellus käyttää odds-dataa API:n kautta. Jos live-dataa ei ole saatavilla, sovellus voi näyttää fallback-dataa kehityksen ja käyttöliittymän jatkuvuuden varmistamiseksi.",
-            },
-            {
-              title: "Rajoitteet",
-              text:
-                "Sovellus ei takaa voitollisuutta eikä korvaa omaa harkintaa. Markkinat muuttuvat nopeasti, data voi viivästyä, ja mallin nykyinen logiikka on vielä kehitysvaiheessa.",
-            },
-          ],
-          formulas: [
-            "impliedProbability = 1 / odds",
-            "edge = modelProbability - impliedProbability",
-            "kellyFraction = ((odds * probability) - 1) / (odds - 1)",
-          ],
-          bullets: [
-            "Erota vedonlyönti ja simulointi omille sivuilleen.",
-            "Paranna live refresh -toimintaa betting-sivulla.",
-            "Kehitä market movement -historiaa snapshot-pohjaisesti.",
-            "Lisää vahvempi mallikerros value-kohteiden priorisointiin.",
-          ],
-        }
-      : {
-          eyebrow: "About",
-          title: "What Scorecaster does",
-          subtitle:
-            "Scorecaster is a betting analysis and simulation app that aggregates market data, shows the best odds and helps compare market pricing with your own view.",
-          blocks: [
-            {
-              title: "What the app does",
-              text:
-                "The app shows matches, markets, best available odds, a simple confidence view, risk flags and market-movement history.",
-            },
-            {
-              title: "How the calculations work",
-              text:
-                "The calculations are based on implied probability logic, odds comparison and simple stake logic. The simulator normalizes market odds into probabilities and runs iterations on that basis.",
-            },
-            {
-              title: "Data and transparency",
-              text:
-                "The app uses odds data via an API. If live data is unavailable, the app may show fallback data to preserve development flow and UI continuity.",
-            },
-            {
-              title: "Limitations",
-              text:
-                "The app does not guarantee profitability and does not replace your own judgment. Markets move quickly, data may lag, and the current model logic is still under development.",
-            },
-          ],
-          formulas: [
-            "impliedProbability = 1 / odds",
-            "edge = modelProbability - impliedProbability",
-            "kellyFraction = ((odds * probability) - 1) / (odds - 1)",
-          ],
-          bullets: [
-            "Keep betting and simulation on separate pages.",
-            "Improve live refresh on the betting page.",
-            "Build snapshot-based market-movement history.",
-            "Add a stronger model layer for value prioritization.",
-          ],
-        };
-
-  return (
-    <div style={{ display: "grid", gap: "18px" }}>
-      <PageSection
-        eyebrow={copy.eyebrow}
-        title={copy.title}
-        subtitle={copy.subtitle}
-      />
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))",
-          gap: "16px",
-        }}
-      >
-        {copy.blocks.map((block) => (
-          <InfoBlock key={block.title} title={block.title} text={block.text} />
-        ))}
-      </div>
-
-      <PageSection
-        title={lang === "fi" ? "Kaavat" : "Formulas"}
-        subtitle={
-          lang === "fi"
-            ? "Keskeiset laskennan osat nykyisessä versiossa."
-            : "Core calculation pieces in the current version."
-        }
-      >
-        <FormulaBlock items={copy.formulas} />
-      </PageSection>
-
-      <PageSection
-        title={lang === "fi" ? "Seuraavat kehitysaskeleet" : "Next development steps"}
-        subtitle={
-          lang === "fi"
-            ? "Nämä ovat luontevimmat seuraavat parannukset."
-            : "These are the most natural next improvements."
-        }
-      >
-        <BulletList items={copy.bullets} />
-      </PageSection>
+      <Panel title="How The Intelligence Works" subtitle="Simplified model flow">
+        <div className="grid gap-4 md:grid-cols-4">
+          {["Data", "Analysis", "Prediction", "Learning"].map((step, index) => (
+            <div
+              key={step}
+              className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
+            >
+              <div className="text-sm text-slate-400">Step {index + 1}</div>
+              <div className="mt-2 text-xl font-black">{step}</div>
+              <p className="mt-2 text-sm text-slate-400">
+                {step === "Data" &&
+                  "Odds, teams, market movement, injuries and context."}
+                {step === "Analysis" &&
+                  "EV, edge, implied probability, confidence and risk."}
+                {step === "Prediction" &&
+                  "AI forms a thesis and creates paper betting ideas."}
+                {step === "Learning" &&
+                  "Results are reviewed and model weaknesses are tracked."}
+              </p>
+            </div>
+          ))}
+        </div>
+      </Panel>
     </div>
   );
 }
