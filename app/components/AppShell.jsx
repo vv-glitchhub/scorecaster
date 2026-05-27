@@ -3,6 +3,7 @@ import Link from "next/link";
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/betting", label: "Betting" },
+  { href: "/intelligence", label: "Intelligence" },
   { href: "/live", label: "Live" },
   { href: "/simulator", label: "Simulator" },
   { href: "/tracking", label: "Tracking" },
@@ -29,7 +30,7 @@ export default function AppShell({ children }) {
             </div>
           </Link>
 
-          <nav className="hidden items-center gap-2 md:flex">
+          <nav className="hidden items-center gap-2 lg:flex">
             {navItems.map((item) => (
               <Link
                 key={item.href}
@@ -46,7 +47,7 @@ export default function AppShell({ children }) {
           </div>
         </div>
 
-        <nav className="flex gap-2 overflow-x-auto border-t border-white/10 px-4 py-3 md:hidden">
+        <nav className="flex gap-2 overflow-x-auto border-t border-white/10 px-4 py-3 lg:hidden">
           {navItems.map((item) => (
             <Link
               key={item.href}
