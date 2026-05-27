@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "latest",
     "next": "latest",
     "openai": "latest",
     "react": "latest",
