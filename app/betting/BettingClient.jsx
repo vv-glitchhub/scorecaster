@@ -6,6 +6,7 @@ import { SPORTS } from "../../lib/sports";
 import { MARKETS, MARKET_QUERY } from "../../lib/markets";
 import { parseOddsResponse } from "../../lib/odds-parser";
 import { addTrackedBet } from "../../lib/tracking-storage";
+import { getSettings, saveSettings } from "../../lib/settings-storage";
 import {
   analyzeBet,
   formatPercent,
@@ -31,8 +32,12 @@ export default function BettingClient() {
   const [reason, setReason] = useState("");
   const [selectedBet, setSelectedBet] = useState(null);
   const [savedMessage, setSavedMessage] = useState("");
+  const [bankroll, setBankroll] = useState(1000);
 
-  const bankroll = 1000;
+  useEffect(() => {
+    const settings = getSettings();
+    setBankroll(Number(settings.bankroll || 1000));
+  }, []);
 
   useEffect(() => {
     async function loadOdds() {
@@ -73,9 +78,18 @@ export default function BettingClient() {
     setSavedMessage("");
   }, [selectedMarket, rawMatches]);
 
+  function handleBankrollChange(value) {
+    const numericValue = Number(value || 0);
+    setBankroll(numericValue);
+    saveSettings({
+      ...getSettings(),
+      bankroll: numericValue
+    });
+    setSelectedBet(null);
+  }
+
   function handleSportChange(groupName) {
     const group = SPORTS.find((sport) => sport.group === groupName);
-
     setSelectedSport(groupName);
 
     if (group?.leagues?.length > 0) {
@@ -111,7 +125,8 @@ export default function BettingClient() {
       odds: selectedBet.odds,
       edge: selectedBet.analysis.edge,
       ev: selectedBet.analysis.ev,
-      stake: selectedBet.analysis.suggestedStake
+      stake: selectedBet.analysis.suggestedStake,
+      bankroll
     });
 
     setSavedMessage("Bet added to tracking.");
@@ -136,7 +151,7 @@ export default function BettingClient() {
           EV:n, edgen, Kellyn ja panossuosituksen.
         </p>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
+        <div className="mt-5 grid gap-3 md:grid-cols-4">
           <select
             value={selectedSport}
             onChange={(event) => handleSportChange(event.target.value)}
@@ -172,11 +187,26 @@ export default function BettingClient() {
               </option>
             ))}
           </select>
+
+          <input
+            type="number"
+            min="1"
+            value={bankroll}
+            onChange={(event) => handleBankrollChange(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+            placeholder="Bankroll €"
+          />
         </div>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
           Data source:{" "}
           <span className="font-bold text-emerald-300">{source}</span>
+          <span className="ml-3 text-slate-400">
+            Bankroll:{" "}
+            <span className="font-bold text-emerald-300">
+              {formatMoney(bankroll)}
+            </span>
+          </span>
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
           {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
           {!loading && matches.length === 0 && (
@@ -347,16 +377,19 @@ export default function BettingClient() {
             )}
           </Panel>
 
-          <Panel title="AI Reasoning" subtitle="Why this may have value">
+          <Panel title="Bankroll Settings" subtitle="Local user settings">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Market probability is compared against internal model probability.
+                Current bankroll:{" "}
+                <span className="font-bold text-emerald-300">
+                  {formatMoney(bankroll)}
+                </span>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Stake uses conservative quarter Kelly sizing.
+                Stake sizing uses conservative quarter Kelly.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Selected bets are saved locally first. Supabase sync comes next.
+                Settings are saved locally for now. Supabase sync comes later.
               </div>
             </div>
           </Panel>
