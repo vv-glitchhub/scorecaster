@@ -1,57 +1,90 @@
-import { NextResponse } from "next/server";
-import { getOddsData } from "@/lib/odds-service";
-import {
-  buildValueBetRows,
-  getModelProbabilitiesForMatch,
-} from "@/lib/model-engine-v1";
+import { analyzeBet } from "../../../lib/analysis-engine";
+import { SPORTS } from "../../../lib/sports";
 
-export async function GET(request) {
-  try {
-    const { searchParams } = new URL(request.url);
+const DEFAULT_LEAGUES = [
+  "icehockey_nhl",
+  "basketball_nba",
+  "soccer_epl",
+  "soccer_spain_la_liga",
+  "soccer_italy_serie_a",
+  "soccer_germany_bundesliga"
+];
 
-    const sport = searchParams.get("sport") || "icehockey_liiga";
-    const market = searchParams.get("market") || "h2h";
-    const limit = Number(searchParams.get("limit") || 5);
+function flattenLeagues() {
+  return SPORTS.flatMap((group) => group.leagues);
+}
 
-    const oddsData = await getOddsData({ sport, market });
+function findLeagueTitle(key) {
+  return flattenLeagues().find((league) => league.key === key)?.title || key;
+}
 
-    const picks = (oddsData.matches || [])
-      .flatMap((match) => {
-        const model = getModelProbabilitiesForMatch(match, market);
-        return buildValueBetRows(match, model, market).map((row) => ({
-          matchId: match.id,
-          sport: match.sport_title,
-          commence_time: match.commence_time,
-          home_team: match.home_team,
-          away_team: match.away_team,
-          selection: row.side,
-          team: row.team,
-          odds: row.odds,
-          fairOdds: row.fairOdds,
-          edgePct: row.edgePct,
-          expectedValue: row.expectedValue,
-          confidence: model.confidence,
-          bookmaker: row.bookmaker,
-          market,
-        }));
-      })
-      .filter((pick) => pick.expectedValue > 0)
-      .sort((a, b) => b.expectedValue - a.expectedValue)
-      .slice(0, limit);
+function getGamesFromResponse(data) {
+  if (Array.isArray(data)) return data;
+  if (Array.isArray(data?.data)) return data.data;
+  return [];
+}
 
-    return NextResponse.json({
-      source: oddsData.source,
-      cached: oddsData.cached,
-      market,
-      picks,
-    });
-  } catch (error) {
-    return NextResponse.json(
-      {
-        error: "Failed to build top picks",
-        details: error?.message || "Unknown error",
-      },
-      { status: 500 }
-    );
+export async function GET() {
+  const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "";
+
+  const allPicks = [];
+
+  for (const league of DEFAULT_LEAGUES) {
+    try {
+      const response = await fetch(
+        `${baseUrl}/api/odds?sport=${league}&markets=h2h`,
+        { cache: "no-store" }
+      );
+
+      const data = await response.json();
+      const games = getGamesFromResponse(data);
+
+      for (const game of games.slice(0, 5)) {
+        const bookmaker = game.bookmakers?.[0];
+        const market = bookmaker?.markets?.find((m) => m.key === "h2h");
+        const outcomes = market?.outcomes || [];
+
+        for (const outcome of outcomes) {
+          const odds = Number(outcome.price);
+          const modelProbability = 0.55;
+
+          const analysis = analyzeBet({
+            selection: outcome.name,
+            decimalOdds: odds,
+            modelProbability,
+            volatility: "medium",
+            bankroll: 1000
+          });
+
+          if (analysis.edge > 0) {
+            allPicks.push({
+              league,
+              leagueTitle: findLeagueTitle(league),
+              match: `${game.home_team || outcomes[0]?.name} vs ${
+                game.away_team || outcomes[1]?.name
+              }`,
+              selection: outcome.name,
+              odds,
+              edge: analysis.edge,
+              ev: analysis.ev,
+              confidence: analysis.confidence
+            });
+          }
+        }
+      }
+    } catch {
+      // Skip failed league
+    }
   }
+
+  const sorted = allPicks
+    .sort((a, b) => b.edge - a.edge)
+    .slice(0, 10);
+
+  return Response.json({
+    ok: true,
+    source: "top-picks-v1",
+    count: sorted.length,
+    data: sorted
+  });
 }
