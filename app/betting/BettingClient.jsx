@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
 import { SPORTS } from "../../lib/sports";
+import { parseOddsResponse } from "../../lib/odds-parser";
 import {
   analyzeBet,
   formatPercent,
@@ -15,10 +16,6 @@ function getGamesFromResponse(data) {
   if (Array.isArray(data?.events)) return data.events;
   if (Array.isArray(data?.games)) return data.games;
   return [];
-}
-
-function getMainMarket(match) {
-  return match?.bookmakers?.[0]?.markets?.[0];
 }
 
 export default function BettingClient() {
@@ -45,14 +42,13 @@ export default function BettingClient() {
         });
 
         const data = await res.json();
-        const games = getGamesFromResponse(data);
+        const rawGames = getGamesFromResponse(data);
+        const parsedGames = parseOddsResponse(rawGames);
 
         setSource(data?.source || "api");
         setReason(data?.reason || data?.error || "");
 
-        if (games.length > 0) {
-          setMatches(games);
-        }
+        setMatches(parsedGames);
       } catch (error) {
         setSource("error");
         setReason(error.message);
@@ -152,24 +148,12 @@ export default function BettingClient() {
       <section className="grid gap-6 lg:grid-cols-[1fr_350px]">
         <div className="space-y-4">
           {matches.map((match, index) => {
-            const market = getMainMarket(match);
-            const outcomes = market?.outcomes || [];
-            const home = match.home_team || match.home || outcomes[0]?.name || "Home";
-            const away = match.away_team || match.away || outcomes[1]?.name || "Away";
-            const matchName = `${home} vs ${away}`;
-
-            const homeOutcome =
-              outcomes.find((outcome) => outcome.name === home) || outcomes[0];
-
-            const awayOutcome =
-              outcomes.find((outcome) => outcome.name === away) || outcomes[1];
-
-            const homeOdds = Number(homeOutcome?.price || 2.0);
-            const awayOdds = Number(awayOutcome?.price || 2.0);
+            const previewOutcome = match.outcomes[0];
+            const previewOdds = Number(previewOutcome?.odds || 2);
 
             const preview = analyzeBet({
-              selection: home,
-              decimalOdds: homeOdds,
+              selection: previewOutcome?.name || match.home,
+              decimalOdds: previewOdds,
               modelProbability: 0.55,
               volatility: "medium",
               bankroll
@@ -177,55 +161,51 @@ export default function BettingClient() {
 
             return (
               <div
-                key={match.id || `${home}-${away}-${index}`}
+                key={match.id || `${match.home}-${match.away}-${index}`}
                 className="rounded-2xl border border-white/10 bg-slate-900/70 p-5 shadow-xl"
               >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                   <div>
-                    <div className="text-xl font-black">{matchName}</div>
+                    <div className="text-xl font-black">
+                      {match.home} vs {match.away}
+                    </div>
 
                     <div className="mt-2 text-sm text-slate-400">
-                      {match.sport_title || selectedLeague} ·{" "}
-                      {market?.key || "market"}
+                      {match.sport} · {match.market} · {match.bookmaker}
                     </div>
+
+                    {match.commenceTime && (
+                      <div className="mt-1 text-xs text-slate-500">
+                        {new Date(match.commenceTime).toLocaleString("fi-FI")}
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    {homeOutcome && (
+                    {match.outcomes.map((outcome) => (
                       <button
+                        key={`${match.id}-${outcome.name}-${outcome.point ?? ""}`}
                         onClick={() =>
                           selectBet({
-                            match: matchName,
-                            selection: homeOutcome.name,
-                            odds: homeOdds
+                            match: `${match.home} vs ${match.away}`,
+                            selection:
+                              outcome.point !== null
+                                ? `${outcome.name} ${outcome.point}`
+                                : outcome.name,
+                            odds: outcome.odds
                           })
                         }
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
+                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-left hover:bg-emerald-400/10"
                       >
                         <div className="text-sm text-slate-400">
-                          {homeOutcome.name}
+                          {outcome.name}
+                          {outcome.point !== null ? ` ${outcome.point}` : ""}
                         </div>
-                        <div className="mt-1 text-lg font-black">{homeOdds}</div>
-                      </button>
-                    )}
-
-                    {awayOutcome && (
-                      <button
-                        onClick={() =>
-                          selectBet({
-                            match: matchName,
-                            selection: awayOutcome.name,
-                            odds: awayOdds
-                          })
-                        }
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 hover:bg-emerald-400/10"
-                      >
-                        <div className="text-sm text-slate-400">
-                          {awayOutcome.name}
+                        <div className="mt-1 text-lg font-black">
+                          {outcome.odds}
                         </div>
-                        <div className="mt-1 text-lg font-black">{awayOdds}</div>
                       </button>
-                    )}
+                    ))}
                   </div>
                 </div>
 
