@@ -2,20 +2,39 @@
 
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
-import { getTrackedBets } from "../../lib/tracking-storage";
-import { formatPercent, formatMoney } from "../../lib/analysis-engine";
+
+import {
+  getTrackedBets,
+  settleTrackedBet
+} from "../../lib/tracking-storage";
+
+import {
+  calculateTrackingStats,
+  calculateProfitLoss
+} from "../../lib/tracking-engine";
+
+import {
+  formatPercent,
+  formatMoney
+} from "../../lib/analysis-engine";
 
 export default function TrackingPage() {
   const [bets, setBets] = useState([]);
 
   useEffect(() => {
-    setBets(getTrackedBets());
+    refresh();
   }, []);
 
-  const totalStake = bets.reduce(
-    (sum, bet) => sum + Number(bet.stake || 0),
-    0
-  );
+  function refresh() {
+    setBets(getTrackedBets());
+  }
+
+  function settleBet(id, result) {
+    settleTrackedBet(id, result);
+    refresh();
+  }
+
+  const stats = calculateTrackingStats(bets);
 
   return (
     <div className="space-y-6">
@@ -25,38 +44,51 @@ export default function TrackingPage() {
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
-          Tracking Center
+          Performance Tracking
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Seuraa vetoja, panoksia, edgeä ja AI-suosituksia.
+          Track ROI, bankroll growth, win rate and AI betting performance.
         </p>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3">
+      <section className="grid gap-4 md:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
           <div className="text-sm text-slate-400">Tracked Bets</div>
           <div className="mt-2 text-3xl font-black">
-            {bets.length}
+            {stats.totalBets}
           </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Total Stake</div>
-          <div className="mt-2 text-3xl font-black text-emerald-300">
-            {formatMoney(totalStake)}
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Mode</div>
+          <div className="text-sm text-slate-400">ROI</div>
           <div className="mt-2 text-3xl font-black text-sky-300">
-            Local
+            {formatPercent(stats.roi)}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="text-sm text-slate-400">Profit</div>
+          <div
+            className={`mt-2 text-3xl font-black ${
+              stats.totalProfit >= 0
+                ? "text-emerald-300"
+                : "text-red-300"
+            }`}
+          >
+            {formatMoney(stats.totalProfit)}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="text-sm text-slate-400">Win Rate</div>
+          <div className="mt-2 text-3xl font-black text-yellow-300">
+            {formatPercent(stats.winRate)}
           </div>
         </div>
       </section>
 
-      <Panel title="Tracked Bets" subtitle="Saved betting ideas">
+      <Panel title="Tracked Bets" subtitle="Performance history">
         <div className="space-y-4">
           {bets.length === 0 && (
             <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
@@ -64,56 +96,112 @@ export default function TrackingPage() {
             </div>
           )}
 
-          {bets.map((bet) => (
-            <div
-              key={bet.id}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
-            >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                  <div className="text-xl font-black">
-                    {bet.match}
+          {bets.map((bet) => {
+            const profit = calculateProfitLoss({
+              stake: bet.stake,
+              odds: bet.odds,
+              result: bet.result
+            });
+
+            return (
+              <div
+                key={bet.id}
+                className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div>
+                    <div className="text-xl font-black">
+                      {bet.match}
+                    </div>
+
+                    <div className="mt-2 text-sm text-slate-400">
+                      {bet.selection} @ {bet.odds}
+                    </div>
+
+                    <div className="mt-2 text-xs text-slate-500">
+                      {new Date(bet.createdAt).toLocaleString("fi-FI")}
+                    </div>
                   </div>
 
-                  <div className="mt-2 text-sm text-slate-400">
-                    {bet.selection} @ {bet.odds}
+                  <div className="rounded-xl bg-slate-950 px-4 py-3 text-right">
+                    <div className="text-sm text-slate-400">
+                      Stake
+                    </div>
+
+                    <div className="mt-1 text-xl font-black text-emerald-300">
+                      {formatMoney(bet.stake)}
+                    </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-slate-950 px-4 py-3">
-                  <div className="text-sm text-slate-400">
-                    Suggested Stake
+                <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  <div className="rounded-xl bg-slate-950 p-4">
+                    <div className="text-sm text-slate-400">
+                      Edge
+                    </div>
+
+                    <div className="mt-2 text-xl font-black text-emerald-300">
+                      {formatPercent(bet.edge)}
+                    </div>
                   </div>
 
-                  <div className="mt-1 text-xl font-black text-emerald-300">
-                    {formatMoney(bet.stake)}
+                  <div className="rounded-xl bg-slate-950 p-4">
+                    <div className="text-sm text-slate-400">
+                      EV
+                    </div>
+
+                    <div className="mt-2 text-xl font-black text-sky-300">
+                      {formatPercent(bet.ev)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950 p-4">
+                    <div className="text-sm text-slate-400">
+                      Result
+                    </div>
+
+                    <div className="mt-2 text-xl font-black">
+                      {bet.result}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-slate-950 p-4">
+                    <div className="text-sm text-slate-400">
+                      Profit
+                    </div>
+
+                    <div
+                      className={`mt-2 text-xl font-black ${
+                        profit >= 0
+                          ? "text-emerald-300"
+                          : "text-red-300"
+                      }`}
+                    >
+                      {formatMoney(profit)}
+                    </div>
                   </div>
                 </div>
+
+                {bet.result === "pending" && (
+                  <div className="mt-5 flex gap-3">
+                    <button
+                      onClick={() => settleBet(bet.id, "win")}
+                      className="rounded-xl bg-emerald-400 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-300"
+                    >
+                      Mark Win
+                    </button>
+
+                    <button
+                      onClick={() => settleBet(bet.id, "loss")}
+                      className="rounded-xl bg-red-400 px-4 py-2 font-bold text-slate-950 hover:bg-red-300"
+                    >
+                      Mark Loss
+                    </button>
+                  </div>
+                )}
               </div>
-
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <div className="rounded-xl bg-slate-950 p-4">
-                  <div className="text-sm text-slate-400">
-                    Edge
-                  </div>
-
-                  <div className="mt-2 text-xl font-black text-emerald-300">
-                    {formatPercent(bet.edge)}
-                  </div>
-                </div>
-
-                <div className="rounded-xl bg-slate-950 p-4">
-                  <div className="text-sm text-slate-400">
-                    EV
-                  </div>
-
-                  <div className="mt-2 text-xl font-black text-sky-300">
-                    {formatPercent(bet.ev)}
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </Panel>
     </div>
