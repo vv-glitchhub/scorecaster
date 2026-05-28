@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
 import { SPORTS } from "../../lib/sports";
+import { MARKETS, MARKET_QUERY } from "../../lib/markets";
 import { parseOddsResponse } from "../../lib/odds-parser";
 import {
   analyzeBet,
@@ -21,6 +22,8 @@ function getGamesFromResponse(data) {
 export default function BettingClient() {
   const [selectedSport, setSelectedSport] = useState(SPORTS[0].group);
   const [selectedLeague, setSelectedLeague] = useState(SPORTS[0].leagues[0].key);
+  const [selectedMarket, setSelectedMarket] = useState("h2h");
+  const [rawMatches, setRawMatches] = useState([]);
   const [matches, setMatches] = useState([]);
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState("not loaded");
@@ -32,23 +35,24 @@ export default function BettingClient() {
   useEffect(() => {
     async function loadOdds() {
       setLoading(true);
+      setRawMatches([]);
       setMatches([]);
       setSelectedBet(null);
       setReason("");
 
       try {
-        const res = await fetch(`/api/odds?sport=${selectedLeague}`, {
-          cache: "no-store"
-        });
+        const res = await fetch(
+          `/api/odds?sport=${selectedLeague}&markets=${MARKET_QUERY}`,
+          { cache: "no-store" }
+        );
 
         const data = await res.json();
-        const rawGames = getGamesFromResponse(data);
-        const parsedGames = parseOddsResponse(rawGames);
+        const games = getGamesFromResponse(data);
 
         setSource(data?.source || "api");
         setReason(data?.reason || data?.error || "");
-
-        setMatches(parsedGames);
+        setRawMatches(games);
+        setMatches(parseOddsResponse(games, selectedMarket));
       } catch (error) {
         setSource("error");
         setReason(error.message);
@@ -59,6 +63,11 @@ export default function BettingClient() {
 
     loadOdds();
   }, [selectedLeague]);
+
+  useEffect(() => {
+    setMatches(parseOddsResponse(rawMatches, selectedMarket));
+    setSelectedBet(null);
+  }, [selectedMarket, rawMatches]);
 
   function handleSportChange(groupName) {
     const group = SPORTS.find((sport) => sport.group === groupName);
@@ -94,7 +103,7 @@ export default function BettingClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sm text-sky-300">
-          Multi-Sport Betting Workspace
+          Multi-Market Betting Workspace
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -102,11 +111,11 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Valitse laji ja sarja, hae oikeat kertoimet, tarkista EV, Kelly, edge
-          ja lisää veto seurantaan.
+          Valitse laji, sarja ja marketti. Scorecaster hakee kertoimet ja laskee
+          EV:n, edgen, Kellyn ja panossuosituksen.
         </p>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <div className="mt-5 grid gap-3 md:grid-cols-3">
           <select
             value={selectedSport}
             onChange={(event) => handleSportChange(event.target.value)}
@@ -130,6 +139,18 @@ export default function BettingClient() {
               </option>
             ))}
           </select>
+
+          <select
+            value={selectedMarket}
+            onChange={(event) => setSelectedMarket(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            {MARKETS.map((market) => (
+              <option key={market.key} value={market.key}>
+                {market.title}
+              </option>
+            ))}
+          </select>
         </div>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -139,7 +160,8 @@ export default function BettingClient() {
           {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
           {!loading && matches.length === 0 && (
             <div className="mt-2 text-red-300">
-              Tästä sarjasta ei löytynyt nyt kertoimellisiä otteluita.
+              Tästä sarjasta tai marketista ei löytynyt nyt kertoimellisiä
+              otteluita.
             </div>
           )}
         </div>
