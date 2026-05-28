@@ -5,6 +5,7 @@ import Panel from "../components/Panel";
 import { SPORTS } from "../../lib/sports";
 import { MARKETS, MARKET_QUERY } from "../../lib/markets";
 import { parseOddsResponse } from "../../lib/odds-parser";
+import { addTrackedBet } from "../../lib/tracking-storage";
 import {
   analyzeBet,
   formatPercent,
@@ -29,6 +30,7 @@ export default function BettingClient() {
   const [source, setSource] = useState("not loaded");
   const [reason, setReason] = useState("");
   const [selectedBet, setSelectedBet] = useState(null);
+  const [savedMessage, setSavedMessage] = useState("");
 
   const bankroll = 1000;
 
@@ -38,6 +40,7 @@ export default function BettingClient() {
       setRawMatches([]);
       setMatches([]);
       setSelectedBet(null);
+      setSavedMessage("");
       setReason("");
 
       try {
@@ -67,6 +70,7 @@ export default function BettingClient() {
   useEffect(() => {
     setMatches(parseOddsResponse(rawMatches, selectedMarket));
     setSelectedBet(null);
+    setSavedMessage("");
   }, [selectedMarket, rawMatches]);
 
   function handleSportChange(groupName) {
@@ -94,6 +98,23 @@ export default function BettingClient() {
       odds,
       analysis
     });
+
+    setSavedMessage("");
+  }
+
+  function handleAddToTracking() {
+    if (!selectedBet) return;
+
+    addTrackedBet({
+      match: selectedBet.match,
+      selection: selectedBet.selection,
+      odds: selectedBet.odds,
+      edge: selectedBet.analysis.edge,
+      ev: selectedBet.analysis.ev,
+      stake: selectedBet.analysis.suggestedStake
+    });
+
+    setSavedMessage("Bet added to tracking.");
   }
 
   const currentLeagues =
@@ -310,9 +331,18 @@ export default function BettingClient() {
                   </div>
                 </div>
 
-                <button className="w-full rounded-xl bg-emerald-400 px-4 py-3 font-bold text-slate-950 hover:bg-emerald-300">
+                <button
+                  onClick={handleAddToTracking}
+                  className="w-full rounded-xl bg-emerald-400 px-4 py-3 font-bold text-slate-950 hover:bg-emerald-300"
+                >
                   Add To Tracking
                 </button>
+
+                {savedMessage && (
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300">
+                    {savedMessage}
+                  </div>
+                )}
               </div>
             )}
           </Panel>
@@ -326,7 +356,7 @@ export default function BettingClient() {
                 Stake uses conservative quarter Kelly sizing.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Next step: save selected bets into Supabase.
+                Selected bets are saved locally first. Supabase sync comes next.
               </div>
             </div>
           </Panel>
