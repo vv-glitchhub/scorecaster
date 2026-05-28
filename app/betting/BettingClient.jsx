@@ -33,10 +33,12 @@ export default function BettingClient() {
   const [selectedBet, setSelectedBet] = useState(null);
   const [savedMessage, setSavedMessage] = useState("");
   const [bankroll, setBankroll] = useState(1000);
+  const [kellyMode, setKellyMode] = useState("quarter");
 
   useEffect(() => {
     const settings = getSettings();
     setBankroll(Number(settings.bankroll || 1000));
+    setKellyMode(settings.kellyMode || "quarter");
   }, []);
 
   useEffect(() => {
@@ -78,13 +80,23 @@ export default function BettingClient() {
     setSavedMessage("");
   }, [selectedMarket, rawMatches]);
 
+  function saveLocalSettings(nextSettings) {
+    saveSettings({
+      ...getSettings(),
+      ...nextSettings
+    });
+  }
+
   function handleBankrollChange(value) {
     const numericValue = Number(value || 0);
     setBankroll(numericValue);
-    saveSettings({
-      ...getSettings(),
-      bankroll: numericValue
-    });
+    saveLocalSettings({ bankroll: numericValue });
+    setSelectedBet(null);
+  }
+
+  function handleKellyModeChange(value) {
+    setKellyMode(value);
+    saveLocalSettings({ kellyMode: value });
     setSelectedBet(null);
   }
 
@@ -103,7 +115,8 @@ export default function BettingClient() {
       decimalOdds: Number(odds),
       modelProbability: 0.55,
       volatility: "medium",
-      bankroll
+      bankroll,
+      kellyMode
     });
 
     setSelectedBet({
@@ -126,7 +139,8 @@ export default function BettingClient() {
       edge: selectedBet.analysis.edge,
       ev: selectedBet.analysis.ev,
       stake: selectedBet.analysis.suggestedStake,
-      bankroll
+      bankroll,
+      kellyMode
     });
 
     setSavedMessage("Bet added to tracking.");
@@ -147,11 +161,11 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Valitse laji, sarja ja marketti. Scorecaster hakee kertoimet ja laskee
-          EV:n, edgen, Kellyn ja panossuosituksen.
+          Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster laskee
+          EV:n, edgen ja panossuosituksen.
         </p>
 
-        <div className="mt-5 grid gap-3 md:grid-cols-4">
+        <div className="mt-5 grid gap-3 md:grid-cols-5">
           <select
             value={selectedSport}
             onChange={(event) => handleSportChange(event.target.value)}
@@ -188,6 +202,17 @@ export default function BettingClient() {
             ))}
           </select>
 
+          <select
+            value={kellyMode}
+            onChange={(event) => handleKellyModeChange(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            <option value="conservative">Conservative Kelly</option>
+            <option value="quarter">Quarter Kelly</option>
+            <option value="half">Half Kelly</option>
+            <option value="full">Full Kelly</option>
+          </select>
+
           <input
             type="number"
             min="1"
@@ -206,6 +231,10 @@ export default function BettingClient() {
             <span className="font-bold text-emerald-300">
               {formatMoney(bankroll)}
             </span>
+          </span>
+          <span className="ml-3 text-slate-400">
+            Kelly:{" "}
+            <span className="font-bold text-sky-300">{kellyMode}</span>
           </span>
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
           {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
@@ -229,7 +258,8 @@ export default function BettingClient() {
               decimalOdds: previewOdds,
               modelProbability: 0.55,
               volatility: "medium",
-              bankroll
+              bankroll,
+              kellyMode
             });
 
             return (
@@ -347,9 +377,9 @@ export default function BettingClient() {
                   </div>
 
                   <div className="rounded-xl bg-white/[0.04] p-4">
-                    <div className="text-sm text-slate-400">Quarter Kelly</div>
+                    <div className="text-sm text-slate-400">Kelly Mode</div>
                     <div className="mt-2 text-xl font-black">
-                      {formatPercent(selectedBet.analysis.quarterKelly)}
+                      {selectedBet.analysis.kellyMode}
                     </div>
                   </div>
 
@@ -386,7 +416,8 @@ export default function BettingClient() {
                 </span>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Stake sizing uses conservative quarter Kelly.
+                Current Kelly mode:{" "}
+                <span className="font-bold text-sky-300">{kellyMode}</span>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
                 Settings are saved locally for now. Supabase sync comes later.
