@@ -7,11 +7,8 @@ import { MARKETS, MARKET_QUERY } from "../../lib/markets";
 import { parseOddsResponse } from "../../lib/odds-parser";
 import { addTrackedBet } from "../../lib/tracking-storage";
 import { getSettings, saveSettings } from "../../lib/settings-storage";
-import {
-  analyzeBet,
-  formatPercent,
-  formatMoney
-} from "../../lib/analysis-engine";
+import { analyzeBet, formatPercent, formatMoney } from "../../lib/analysis-engine";
+import { analyzeBetRisk } from "../../lib/risk-engine";
 
 function getGamesFromResponse(data) {
   if (Array.isArray(data)) return data;
@@ -119,11 +116,20 @@ export default function BettingClient() {
       kellyMode
     });
 
+    const risk = analyzeBetRisk({
+      stake: analysis.suggestedStake,
+      bankroll,
+      edge: analysis.edge,
+      ev: analysis.ev,
+      kellyMode
+    });
+
     setSelectedBet({
       match,
       selection,
       odds,
-      analysis
+      analysis,
+      risk
     });
 
     setSavedMessage("");
@@ -140,7 +146,9 @@ export default function BettingClient() {
       ev: selectedBet.analysis.ev,
       stake: selectedBet.analysis.suggestedStake,
       bankroll,
-      kellyMode
+      kellyMode,
+      riskLevel: selectedBet.risk.level,
+      riskWarnings: selectedBet.risk.warnings
     });
 
     setSavedMessage("Bet added to tracking.");
@@ -148,6 +156,13 @@ export default function BettingClient() {
 
   const currentLeagues =
     SPORTS.find((sport) => sport.group === selectedSport)?.leagues || [];
+
+  const riskColor =
+    selectedBet?.risk?.level === "High"
+      ? "text-red-300"
+      : selectedBet?.risk?.level === "Medium"
+      ? "text-yellow-300"
+      : "text-emerald-300";
 
   return (
     <div className="space-y-6">
@@ -162,7 +177,7 @@ export default function BettingClient() {
 
         <p className="mt-3 text-slate-300">
           Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster laskee
-          EV:n, edgen ja panossuosituksen.
+          EV:n, edgen, panossuosituksen ja riskitason.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
@@ -224,8 +239,7 @@ export default function BettingClient() {
         </div>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
-          Data source:{" "}
-          <span className="font-bold text-emerald-300">{source}</span>
+          Data source: <span className="font-bold text-emerald-300">{source}</span>
           <span className="ml-3 text-slate-400">
             Bankroll:{" "}
             <span className="font-bold text-emerald-300">
@@ -233,8 +247,7 @@ export default function BettingClient() {
             </span>
           </span>
           <span className="ml-3 text-slate-400">
-            Kelly:{" "}
-            <span className="font-bold text-sky-300">{kellyMode}</span>
+            Kelly: <span className="font-bold text-sky-300">{kellyMode}</span>
           </span>
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
           {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
@@ -377,19 +390,32 @@ export default function BettingClient() {
                   </div>
 
                   <div className="rounded-xl bg-white/[0.04] p-4">
-                    <div className="text-sm text-slate-400">Kelly Mode</div>
-                    <div className="mt-2 text-xl font-black">
-                      {selectedBet.analysis.kellyMode}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-white/[0.04] p-4">
                     <div className="text-sm text-slate-400">Stake</div>
                     <div className="mt-2 text-xl font-black text-emerald-300">
                       {formatMoney(selectedBet.analysis.suggestedStake)}
                     </div>
                   </div>
+
+                  <div className="rounded-xl bg-white/[0.04] p-4">
+                    <div className="text-sm text-slate-400">Risk Level</div>
+                    <div className={`mt-2 text-xl font-black ${riskColor}`}>
+                      {selectedBet.risk.level}
+                    </div>
+                  </div>
                 </div>
+
+                {selectedBet.risk.warnings.length > 0 && (
+                  <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4">
+                    <div className="font-bold text-yellow-300">
+                      Risk Warnings
+                    </div>
+                    <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                      {selectedBet.risk.warnings.map((warning) => (
+                        <li key={warning}>• {warning}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <button
                   onClick={handleAddToTracking}
@@ -407,7 +433,7 @@ export default function BettingClient() {
             )}
           </Panel>
 
-          <Panel title="Bankroll Settings" subtitle="Local user settings">
+          <Panel title="Risk & Bankroll Settings" subtitle="Responsible staking">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-white/[0.04] p-4">
                 Current bankroll:{" "}
@@ -420,7 +446,8 @@ export default function BettingClient() {
                 <span className="font-bold text-sky-300">{kellyMode}</span>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Settings are saved locally for now. Supabase sync comes later.
+                Scorecaster warns when stake size or Kelly mode becomes too
+                aggressive.
               </div>
             </div>
           </Panel>
