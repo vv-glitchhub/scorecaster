@@ -4,7 +4,7 @@ import {
   settleAgentPick,
   summarizeAgent
 } from "../../lib/agent-engine";
-import { formatMoney, formatPercent } from "../../lib/tracking-engine";
+import { formatMoney, formatPercent } from "../../lib/analysis-engine";
 
 const rawPicks = [
   createAgentPick({
@@ -70,9 +70,7 @@ export default function AgentPage() {
           Autonomous Paper Betting
         </div>
 
-        <h1 className="text-4xl font-black tracking-tight">
-          AI Agent
-        </h1>
+        <h1 className="text-4xl font-black tracking-tight">AI Agent</h1>
 
         <p className="mt-3 text-slate-300">
           Agentti käyttää 1000€ leikkirahaa, tekee paper-vetoja, seuraa tuloksia
@@ -120,9 +118,7 @@ export default function AgentPage() {
           <div className="mt-2 text-3xl font-black">
             {summary.pendingPicks}
           </div>
-          <div className="mt-1 text-sm text-slate-500">
-            Awaiting results
-          </div>
+          <div className="mt-1 text-sm text-slate-500">Awaiting results</div>
         </div>
       </section>
 
