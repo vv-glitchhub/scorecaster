@@ -31,6 +31,8 @@ export default function BettingClient() {
   const [savedMessage, setSavedMessage] = useState("");
   const [bankroll, setBankroll] = useState(1000);
   const [kellyMode, setKellyMode] = useState("quarter");
+  const [autoRefresh, setAutoRefresh] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   useEffect(() => {
     const settings = getSettings();
@@ -39,35 +41,6 @@ export default function BettingClient() {
   }, []);
 
   useEffect(() => {
-    async function loadOdds() {
-      setLoading(true);
-      setRawMatches([]);
-      setMatches([]);
-      setSelectedBet(null);
-      setSavedMessage("");
-      setReason("");
-
-      try {
-        const res = await fetch(
-          `/api/odds?sport=${selectedLeague}&markets=${MARKET_QUERY}`,
-          { cache: "no-store" }
-        );
-
-        const data = await res.json();
-        const games = getGamesFromResponse(data);
-
-        setSource(data?.source || "api");
-        setReason(data?.reason || data?.error || "");
-        setRawMatches(games);
-        setMatches(parseOddsResponse(games, selectedMarket));
-      } catch (error) {
-        setSource("error");
-        setReason(error.message);
-      } finally {
-        setLoading(false);
-      }
-    }
-
     loadOdds();
   }, [selectedLeague]);
 
@@ -76,6 +49,46 @@ export default function BettingClient() {
     setSelectedBet(null);
     setSavedMessage("");
   }, [selectedMarket, rawMatches]);
+
+  useEffect(() => {
+    if (!autoRefresh) return;
+
+    const interval = setInterval(() => {
+      loadOdds();
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [autoRefresh, selectedLeague, selectedMarket]);
+
+  async function loadOdds() {
+    setLoading(true);
+    setRawMatches([]);
+    setMatches([]);
+    setSelectedBet(null);
+    setSavedMessage("");
+    setReason("");
+
+    try {
+      const res = await fetch(
+        `/api/odds?sport=${selectedLeague}&markets=${MARKET_QUERY}`,
+        { cache: "no-store" }
+      );
+
+      const data = await res.json();
+      const games = getGamesFromResponse(data);
+
+      setSource(data?.source || "api");
+      setReason(data?.reason || data?.error || "");
+      setRawMatches(games);
+      setMatches(parseOddsResponse(games, selectedMarket));
+      setLastUpdated(new Date());
+    } catch (error) {
+      setSource("error");
+      setReason(error.message);
+    } finally {
+      setLoading(false);
+    }
+  }
 
   function saveLocalSettings(nextSettings) {
     saveSettings({
@@ -176,8 +189,8 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster laskee
-          EV:n, edgen, panossuosituksen ja riskitason.
+          Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster hakee
+          kertoimet, laskee EV:n, edgen, panossuosituksen ja riskitason.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
@@ -238,25 +251,59 @@ export default function BettingClient() {
           />
         </div>
 
-        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
-          Data source: <span className="font-bold text-emerald-300">{source}</span>
-          <span className="ml-3 text-slate-400">
-            Bankroll:{" "}
-            <span className="font-bold text-emerald-300">
-              {formatMoney(bankroll)}
+        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            Data source:{" "}
+            <span className="font-bold text-emerald-300">{source}</span>
+
+            <span className="ml-3 text-slate-400">
+              Bankroll:{" "}
+              <span className="font-bold text-emerald-300">
+                {formatMoney(bankroll)}
+              </span>
             </span>
-          </span>
-          <span className="ml-3 text-slate-400">
-            Kelly: <span className="font-bold text-sky-300">{kellyMode}</span>
-          </span>
-          {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
-          {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
-          {!loading && matches.length === 0 && (
-            <div className="mt-2 text-red-300">
-              Tästä sarjasta tai marketista ei löytynyt nyt kertoimellisiä
-              otteluita.
-            </div>
-          )}
+
+            <span className="ml-3 text-slate-400">
+              Kelly:{" "}
+              <span className="font-bold text-sky-300">{kellyMode}</span>
+            </span>
+
+            {lastUpdated && (
+              <span className="ml-3 text-slate-500">
+                Updated: {lastUpdated.toLocaleTimeString("fi-FI")}
+              </span>
+            )}
+
+            {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
+            {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
+            {!loading && matches.length === 0 && (
+              <div className="mt-2 text-red-300">
+                Tästä sarjasta tai marketista ei löytynyt nyt kertoimellisiä
+                otteluita.
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={loadOdds}
+              disabled={loading}
+              className="rounded-xl bg-sky-400 px-4 py-2 font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-50"
+            >
+              Refresh Odds
+            </button>
+
+            <button
+              onClick={() => setAutoRefresh((value) => !value)}
+              className={`rounded-xl border px-4 py-2 font-bold ${
+                autoRefresh
+                  ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300"
+                  : "border-white/10 bg-white/5 text-slate-300"
+              }`}
+            >
+              Auto Refresh {autoRefresh ? "On" : "Off"}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -446,8 +493,10 @@ export default function BettingClient() {
                 <span className="font-bold text-sky-300">{kellyMode}</span>
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Scorecaster warns when stake size or Kelly mode becomes too
-                aggressive.
+                Auto refresh:{" "}
+                <span className={autoRefresh ? "text-emerald-300" : "text-slate-400"}>
+                  {autoRefresh ? "Enabled" : "Disabled"}
+                </span>
               </div>
             </div>
           </Panel>
