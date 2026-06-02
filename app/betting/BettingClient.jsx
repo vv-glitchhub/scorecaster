@@ -9,6 +9,7 @@ import { addTrackedBet } from "../../lib/tracking-storage";
 import { getSettings, saveSettings } from "../../lib/settings-storage";
 import { analyzeBet, formatPercent, formatMoney } from "../../lib/analysis-engine";
 import { analyzeBetRisk } from "../../lib/risk-engine";
+import { getOddsMovement, saveOddsSnapshots } from "../../lib/odds-movement";
 
 function getGamesFromResponse(data) {
   if (Array.isArray(data)) return data;
@@ -45,7 +46,8 @@ export default function BettingClient() {
   }, [selectedLeague]);
 
   useEffect(() => {
-    setMatches(parseOddsResponse(rawMatches, selectedMarket));
+    const parsed = parseOddsResponse(rawMatches, selectedMarket);
+    setMatches(parsed);
     setSelectedBet(null);
     setSavedMessage("");
   }, [selectedMarket, rawMatches]);
@@ -76,12 +78,17 @@ export default function BettingClient() {
 
       const data = await res.json();
       const games = getGamesFromResponse(data);
+      const parsedGames = parseOddsResponse(games, selectedMarket);
 
       setSource(data?.source || "api");
       setReason(data?.reason || data?.error || "");
       setRawMatches(games);
-      setMatches(parseOddsResponse(games, selectedMarket));
+      setMatches(parsedGames);
       setLastUpdated(new Date());
+
+      setTimeout(() => {
+        saveOddsSnapshots(parsedGames);
+      }, 500);
     } catch (error) {
       setSource("error");
       setReason(error.message);
@@ -190,7 +197,8 @@ export default function BettingClient() {
 
         <p className="mt-3 text-slate-300">
           Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster hakee
-          kertoimet, laskee EV:n, edgen, panossuosituksen ja riskitason.
+          kertoimet, laskee EV:n, edgen, panossuosituksen, riskitason ja
+          kertoimien liikkeen.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
@@ -264,8 +272,7 @@ export default function BettingClient() {
             </span>
 
             <span className="ml-3 text-slate-400">
-              Kelly:{" "}
-              <span className="font-bold text-sky-300">{kellyMode}</span>
+              Kelly: <span className="font-bold text-sky-300">{kellyMode}</span>
             </span>
 
             {lastUpdated && (
@@ -345,30 +352,53 @@ export default function BettingClient() {
                   </div>
 
                   <div className="flex flex-wrap gap-3">
-                    {match.outcomes.map((outcome) => (
-                      <button
-                        key={`${match.id}-${outcome.name}-${outcome.point ?? ""}`}
-                        onClick={() =>
-                          selectBet({
-                            match: `${match.home} vs ${match.away}`,
-                            selection:
-                              outcome.point !== null
-                                ? `${outcome.name} ${outcome.point}`
-                                : outcome.name,
-                            odds: outcome.odds
-                          })
-                        }
-                        className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-left hover:bg-emerald-400/10"
-                      >
-                        <div className="text-sm text-slate-400">
-                          {outcome.name}
-                          {outcome.point !== null ? ` ${outcome.point}` : ""}
-                        </div>
-                        <div className="mt-1 text-lg font-black">
-                          {outcome.odds}
-                        </div>
-                      </button>
-                    ))}
+                    {match.outcomes.map((outcome) => {
+                      const movement = getOddsMovement({ match, outcome });
+
+                      const movementText =
+                        movement.direction === "up"
+                          ? `↑ ${movement.previousOdds} → ${outcome.odds}`
+                          : movement.direction === "down"
+                          ? `↓ ${movement.previousOdds} → ${outcome.odds}`
+                          : movement.direction === "same"
+                          ? `Same ${outcome.odds}`
+                          : "New";
+
+                      const movementClass =
+                        movement.direction === "up"
+                          ? "text-emerald-300"
+                          : movement.direction === "down"
+                          ? "text-red-300"
+                          : "text-slate-500";
+
+                      return (
+                        <button
+                          key={`${match.id}-${outcome.name}-${outcome.point ?? ""}`}
+                          onClick={() =>
+                            selectBet({
+                              match: `${match.home} vs ${match.away}`,
+                              selection:
+                                outcome.point !== null
+                                  ? `${outcome.name} ${outcome.point}`
+                                  : outcome.name,
+                              odds: outcome.odds
+                            })
+                          }
+                          className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-left hover:bg-emerald-400/10"
+                        >
+                          <div className="text-sm text-slate-400">
+                            {outcome.name}
+                            {outcome.point !== null ? ` ${outcome.point}` : ""}
+                          </div>
+                          <div className="mt-1 text-lg font-black">
+                            {outcome.odds}
+                          </div>
+                          <div className={`mt-1 text-xs ${movementClass}`}>
+                            {movementText}
+                          </div>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -480,23 +510,16 @@ export default function BettingClient() {
             )}
           </Panel>
 
-          <Panel title="Risk & Bankroll Settings" subtitle="Responsible staking">
+          <Panel title="Market Movement" subtitle="Odds change detection">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Current bankroll:{" "}
-                <span className="font-bold text-emerald-300">
-                  {formatMoney(bankroll)}
-                </span>
+                ↑ Green = odds increased since previous refresh.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Current Kelly mode:{" "}
-                <span className="font-bold text-sky-300">{kellyMode}</span>
+                ↓ Red = odds decreased since previous refresh.
               </div>
               <div className="rounded-xl bg-white/[0.04] p-4">
-                Auto refresh:{" "}
-                <span className={autoRefresh ? "text-emerald-300" : "text-slate-400"}>
-                  {autoRefresh ? "Enabled" : "Disabled"}
-                </span>
+                Refresh manually or enable auto refresh to track movement.
               </div>
             </div>
           </Panel>
