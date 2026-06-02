@@ -5,6 +5,7 @@ export async function GET(request) {
   const markets = searchParams.get("markets") || "h2h";
   const regions = searchParams.get("regions") || "eu";
   const oddsFormat = searchParams.get("oddsFormat") || "decimal";
+  const dateFormat = searchParams.get("dateFormat") || "iso";
 
   const apiKey = process.env.ODDS_API_KEY;
 
@@ -29,9 +30,10 @@ export async function GET(request) {
     url.searchParams.set("regions", regions);
     url.searchParams.set("markets", markets);
     url.searchParams.set("oddsFormat", oddsFormat);
+    url.searchParams.set("dateFormat", dateFormat);
 
     const response = await fetch(url.toString(), {
-      next: { revalidate: 60 }
+      cache: "no-store"
     });
 
     const data = await response.json();
@@ -43,6 +45,9 @@ export async function GET(request) {
           source: "api_error",
           reason: data?.message || "The Odds API request failed",
           status: response.status,
+          sport,
+          markets,
+          regions,
           data: []
         },
         { status: response.status }
@@ -64,6 +69,9 @@ export async function GET(request) {
         ok: false,
         source: "error",
         reason: error.message,
+        sport,
+        markets,
+        regions,
         data: []
       },
       { status: 500 }
