@@ -121,7 +121,6 @@ export default function BettingClient() {
 
   function handleSportChange(groupName) {
     const group = SPORTS.find((sport) => sport.group === groupName);
-
     setSelectedSport(groupName);
 
     if (group?.leagues?.length > 0) {
@@ -129,7 +128,7 @@ export default function BettingClient() {
     }
   }
 
-  function selectBet({ match, selection, odds }) {
+  function selectBet({ match, selection, odds, bookmaker }) {
     const analysis = analyzeBet({
       selection,
       decimalOdds: Number(odds),
@@ -151,6 +150,7 @@ export default function BettingClient() {
       match,
       selection,
       odds,
+      bookmaker,
       analysis,
       risk
     });
@@ -165,6 +165,7 @@ export default function BettingClient() {
       match: selectedBet.match,
       selection: selectedBet.selection,
       odds: selectedBet.odds,
+      bookmaker: selectedBet.bookmaker,
       edge: selectedBet.analysis.edge,
       ev: selectedBet.analysis.ev,
       stake: selectedBet.analysis.suggestedStake,
@@ -191,7 +192,7 @@ export default function BettingClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sm text-sky-300">
-          Multi-Market Betting Workspace
+          Betting V2 · Best Odds Finder
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -199,9 +200,8 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Valitse laji, sarja, marketti ja Kelly-strategia. Scorecaster hakee
-          kertoimet, laskee EV:n, edgen, panossuosituksen, riskitason ja
-          kertoimien liikkeen.
+          Scorecaster hakee live-kertoimet, etsii parhaan bookkerin, laskee EV:n,
+          edgen, Kelly-panoksen, riskitason ja kertoimien liikkeen.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
@@ -286,7 +286,6 @@ export default function BettingClient() {
             )}
 
             {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
-
             {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
 
             {!loading && matches.length === 0 && (
@@ -347,7 +346,8 @@ export default function BettingClient() {
                     </div>
 
                     <div className="mt-2 text-sm text-slate-400">
-                      {match.sport} · {match.market} · {match.bookmaker}
+                      {match.sport} · {match.market} · Best odds from{" "}
+                      {match.bookmakerCount} books
                     </div>
 
                     {match.commenceTime && (
@@ -387,7 +387,8 @@ export default function BettingClient() {
                                 outcome.point !== null
                                   ? `${outcome.name} ${outcome.point}`
                                   : outcome.name,
-                              odds: outcome.odds
+                              odds: outcome.odds,
+                              bookmaker: outcome.bookmaker
                             })
                           }
                           className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-left hover:bg-emerald-400/10"
@@ -399,6 +400,10 @@ export default function BettingClient() {
 
                           <div className="mt-1 text-lg font-black">
                             {outcome.odds}
+                          </div>
+
+                          <div className="mt-1 text-xs text-emerald-300">
+                            Best: {outcome.bookmaker}
                           </div>
 
                           <div className={`mt-1 text-xs ${movementClass}`}>
@@ -445,7 +450,7 @@ export default function BettingClient() {
         </div>
 
         <div className="space-y-6">
-          <Panel title="Bet Slip" subtitle="Click odds to select a bet">
+          <Panel title="Bet Slip" subtitle="Best odds selection">
             {!selectedBet ? (
               <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
                 Ei valittua vetoa. Paina kerrointa vasemmalta.
@@ -456,6 +461,9 @@ export default function BettingClient() {
                   <div className="font-bold">{selectedBet.match}</div>
                   <div className="mt-1 text-sm text-slate-400">
                     {selectedBet.selection} @ {selectedBet.odds}
+                  </div>
+                  <div className="mt-1 text-sm text-emerald-300">
+                    Best bookmaker: {selectedBet.bookmaker}
                   </div>
                 </div>
 
@@ -518,18 +526,17 @@ export default function BettingClient() {
             )}
           </Panel>
 
-          <Panel title="Market Movement" subtitle="Odds change detection">
+          <Panel title="Best Odds Finder" subtitle="Bookmaker comparison">
             <div className="space-y-3 text-sm text-slate-300">
-              <div className="rounded-xl bg-white/[0.04] p-4">
-                ↑ Green = odds increased since previous refresh.
+              <div className="rounded-xl bg-emerald-400/10 p-4">
+                Scorecaster searches all returned bookmakers and displays the
+                best price for each selection.
               </div>
-
-              <div className="rounded-xl bg-white/[0.04] p-4">
-                ↓ Red = odds decreased since previous refresh.
+              <div className="rounded-xl bg-sky-400/10 p-4">
+                Better odds improve implied probability, EV and long-term CLV.
               </div>
-
-              <div className="rounded-xl bg-white/[0.04] p-4">
-                Refresh manually or enable auto refresh to track movement.
+              <div className="rounded-xl bg-yellow-400/10 p-4">
+                Next upgrade: full bookmaker comparison table per match.
               </div>
             </div>
           </Panel>
