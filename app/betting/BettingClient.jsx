@@ -43,6 +43,7 @@ export default function BettingClient() {
 
   useEffect(() => {
     loadOdds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedLeague]);
 
   useEffect(() => {
@@ -60,6 +61,7 @@ export default function BettingClient() {
     }, 60000);
 
     return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, selectedLeague, selectedMarket]);
 
   async function loadOdds() {
@@ -119,6 +121,7 @@ export default function BettingClient() {
 
   function handleSportChange(groupName) {
     const group = SPORTS.find((sport) => sport.group === groupName);
+
     setSelectedSport(groupName);
 
     if (group?.leagues?.length > 0) {
@@ -272,7 +275,8 @@ export default function BettingClient() {
             </span>
 
             <span className="ml-3 text-slate-400">
-              Kelly: <span className="font-bold text-sky-300">{kellyMode}</span>
+              Kelly:{" "}
+              <span className="font-bold text-sky-300">{kellyMode}</span>
             </span>
 
             {lastUpdated && (
@@ -282,7 +286,9 @@ export default function BettingClient() {
             )}
 
             {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
+
             {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
+
             {!loading && matches.length === 0 && (
               <div className="mt-2 text-red-300">
                 Tästä sarjasta tai marketista ei löytynyt nyt kertoimellisiä
@@ -390,9 +396,11 @@ export default function BettingClient() {
                             {outcome.name}
                             {outcome.point !== null ? ` ${outcome.point}` : ""}
                           </div>
+
                           <div className="mt-1 text-lg font-black">
                             {outcome.odds}
                           </div>
+
                           <div className={`mt-1 text-xs ${movementClass}`}>
                             {movementText}
                           </div>
@@ -515,9 +523,11 @@ export default function BettingClient() {
               <div className="rounded-xl bg-white/[0.04] p-4">
                 ↑ Green = odds increased since previous refresh.
               </div>
+
               <div className="rounded-xl bg-white/[0.04] p-4">
                 ↓ Red = odds decreased since previous refresh.
               </div>
+
               <div className="rounded-xl bg-white/[0.04] p-4">
                 Refresh manually or enable auto refresh to track movement.
               </div>
