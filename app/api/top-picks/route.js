@@ -1,14 +1,13 @@
-import { analyzeBet } from "../../../lib/analysis-engine";
 import { SPORTS } from "../../../lib/sports";
+import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 
 const DEFAULT_LEAGUES = [
   "icehockey_nhl",
   "basketball_nba",
-  "soccer_epl",
-  "soccer_spain_la_liga",
-  "soccer_italy_serie_a",
-  "soccer_germany_bundesliga",
-  "tennis_atp"
+  "basketball_wnba",
+  "soccer_fifa_world_cup",
+  "soccer_sweden_allsvenskan",
+  "soccer_norway_eliteserien"
 ];
 
 function flattenLeagues() {
@@ -41,54 +40,30 @@ export async function GET(request) {
       const data = await response.json();
       const games = getGamesFromResponse(data);
 
-      for (const game of games.slice(0, 4)) {
-        const bookmaker = game.bookmakers?.[0];
-        const market = bookmaker?.markets?.find((item) => item.key === "h2h");
-        const outcomes = market?.outcomes || [];
+      const picks = createTopPicksFromGames({
+        games,
+        marketKey: "h2h",
+        bankroll: 1000,
+        kellyMode: "quarter",
+        minEdge: 0.01,
+        limit: 10
+      }).map((pick) => ({
+        ...pick,
+        league,
+        leagueTitle: findLeagueTitle(league)
+      }));
 
-        for (const outcome of outcomes) {
-          const odds = Number(outcome.price);
-          if (!odds || odds <= 1) continue;
-
-          const modelProbability = 0.55;
-
-          const analysis = analyzeBet({
-            selection: outcome.name,
-            decimalOdds: odds,
-            modelProbability,
-            volatility: "medium",
-            bankroll: 1000,
-            kellyMode: "quarter"
-          });
-
-          if (analysis.edge > 0) {
-            allPicks.push({
-              league,
-              leagueTitle: findLeagueTitle(league),
-              sportTitle: game.sport_title || league,
-              match: `${game.home_team || outcomes[0]?.name || "Home"} vs ${
-                game.away_team || outcomes[1]?.name || "Away"
-              }`,
-              selection: outcome.name,
-              odds,
-              edge: analysis.edge,
-              ev: analysis.ev,
-              confidence: analysis.confidence,
-              commenceTime: game.commence_time || null
-            });
-          }
-        }
-      }
+      allPicks.push(...picks);
     } catch {
-      // skip failed league
+      // Skip failed league
     }
   }
 
-  const sorted = allPicks.sort((a, b) => b.edge - a.edge).slice(0, 10);
+  const sorted = allPicks.sort((a, b) => b.edge - a.edge).slice(0, 20);
 
   return Response.json({
     ok: true,
-    source: "top-picks-v1",
+    source: "scorecaster-engine-v1",
     count: sorted.length,
     data: sorted
   });
