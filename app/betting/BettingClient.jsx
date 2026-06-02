@@ -10,6 +10,11 @@ import { getSettings, saveSettings } from "../../lib/settings-storage";
 import { analyzeBet, formatPercent, formatMoney } from "../../lib/analysis-engine";
 import { analyzeBetRisk } from "../../lib/risk-engine";
 import { getOddsMovement, saveOddsSnapshots } from "../../lib/odds-movement";
+import {
+  saveMovementSnapshot,
+  getSelectionMovementHistory,
+  detectMovementSignal
+} from "../../lib/movement-history";
 
 function getGamesFromResponse(data) {
   if (Array.isArray(data)) return data;
@@ -90,6 +95,7 @@ export default function BettingClient() {
 
       setTimeout(() => {
         saveOddsSnapshots(parsedGames);
+        saveMovementSnapshot(parsedGames);
       }, 500);
     } catch (error) {
       setSource("error");
@@ -128,7 +134,7 @@ export default function BettingClient() {
     }
   }
 
-  function selectBet({ match, selection, odds, bookmaker }) {
+  function selectBet({ match, selection, odds, bookmaker, movementSignal }) {
     const analysis = analyzeBet({
       selection,
       decimalOdds: Number(odds),
@@ -151,6 +157,7 @@ export default function BettingClient() {
       selection,
       odds,
       bookmaker,
+      movementSignal,
       analysis,
       risk
     });
@@ -171,6 +178,7 @@ export default function BettingClient() {
       stake: selectedBet.analysis.suggestedStake,
       bankroll,
       kellyMode,
+      movementSignal: selectedBet.movementSignal,
       riskLevel: selectedBet.risk.level,
       riskWarnings: selectedBet.risk.warnings
     });
@@ -192,7 +200,7 @@ export default function BettingClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sm text-sky-300">
-          Betting V2 · Best Odds Finder
+          Betting V2 · Best Odds + Movement History
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -200,8 +208,8 @@ export default function BettingClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Scorecaster hakee live-kertoimet, etsii parhaan bookkerin, laskee EV:n,
-          edgen, Kelly-panoksen, riskitason ja kertoimien liikkeen.
+          Scorecaster hakee live-kertoimet, etsii parhaan bookkerin, seuraa
+          kertoimien liikettä, laskee EV:n, edgen, Kelly-panoksen ja riskitason.
         </p>
 
         <div className="mt-5 grid gap-3 md:grid-cols-5">
@@ -360,6 +368,8 @@ export default function BettingClient() {
                   <div className="flex flex-wrap gap-3">
                     {match.outcomes.map((outcome) => {
                       const movement = getOddsMovement({ match, outcome });
+                      const history = getSelectionMovementHistory(match, outcome);
+                      const signal = detectMovementSignal(history);
 
                       const movementText =
                         movement.direction === "up"
@@ -377,6 +387,13 @@ export default function BettingClient() {
                           ? "text-red-300"
                           : "text-slate-500";
 
+                      const signalClass =
+                        signal.strength === "High"
+                          ? "text-red-300"
+                          : signal.strength === "Medium"
+                          ? "text-yellow-300"
+                          : "text-slate-500";
+
                       return (
                         <button
                           key={`${match.id}-${outcome.name}-${outcome.point ?? ""}`}
@@ -388,7 +405,8 @@ export default function BettingClient() {
                                   ? `${outcome.name} ${outcome.point}`
                                   : outcome.name,
                               odds: outcome.odds,
-                              bookmaker: outcome.bookmaker
+                              bookmaker: outcome.bookmaker,
+                              movementSignal: signal.signal
                             })
                           }
                           className="rounded-xl border border-white/10 bg-white/[0.04] px-5 py-3 text-left hover:bg-emerald-400/10"
@@ -408,6 +426,10 @@ export default function BettingClient() {
 
                           <div className={`mt-1 text-xs ${movementClass}`}>
                             {movementText}
+                          </div>
+
+                          <div className={`mt-1 text-xs ${signalClass}`}>
+                            {signal.signal} · {history.length} snapshots
                           </div>
                         </button>
                       );
@@ -464,6 +486,9 @@ export default function BettingClient() {
                   </div>
                   <div className="mt-1 text-sm text-emerald-300">
                     Best bookmaker: {selectedBet.bookmaker}
+                  </div>
+                  <div className="mt-1 text-sm text-sky-300">
+                    Movement signal: {selectedBet.movementSignal || "New"}
                   </div>
                 </div>
 
@@ -526,17 +551,19 @@ export default function BettingClient() {
             )}
           </Panel>
 
-          <Panel title="Best Odds Finder" subtitle="Bookmaker comparison">
+          <Panel title="Market Movement History" subtitle="Line movement tracking">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-emerald-400/10 p-4">
-                Scorecaster searches all returned bookmakers and displays the
-                best price for each selection.
+                Scorecaster stores recent odds snapshots locally and detects
+                movement signals.
               </div>
-              <div className="rounded-xl bg-sky-400/10 p-4">
-                Better odds improve implied probability, EV and long-term CLV.
+              <div className="rounded-xl bg-red-400/10 p-4">
+                Steam Move Down can indicate strong market movement toward a
+                selection.
               </div>
               <div className="rounded-xl bg-yellow-400/10 p-4">
-                Next upgrade: full bookmaker comparison table per match.
+                Odds Drift Up can mean the market is moving away from the
+                selection or price is improving.
               </div>
             </div>
           </Panel>
