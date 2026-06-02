@@ -42,6 +42,8 @@ function StatBox({ title, value, subtitle, tone = "default" }) {
 
 export default function TrackingPage() {
   const [bets, setBets] = useState([]);
+  const [filter, setFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState("newest");
 
   useEffect(() => {
     refresh();
@@ -73,6 +75,23 @@ export default function TrackingPage() {
 
   const stats = calculateTrackingStats(bets);
 
+  const filteredBets = bets
+    .filter((bet) => {
+      if (filter === "all") return true;
+      if (filter === "open") return bet.result === "pending";
+      if (filter === "settled") return bet.result !== "pending";
+      if (filter === "wins") return bet.result === "win";
+      if (filter === "losses") return bet.result === "loss";
+      if (filter === "pushes") return bet.result === "push";
+      return true;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+
+      return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
+    });
+
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
@@ -100,18 +119,38 @@ export default function TrackingPage() {
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatBox title="Total Bets" value={stats.totalBets} subtitle={`${stats.openBets} open`} />
+        <StatBox
+          title="Total Bets"
+          value={stats.totalBets}
+          subtitle={`${stats.openBets} open`}
+        />
         <StatBox title="ROI" value={formatPercent(stats.roi)} tone="blue" />
         <StatBox
           title="Profit"
           value={formatMoney(stats.totalProfit)}
           tone={stats.totalProfit >= 0 ? "green" : "red"}
         />
-        <StatBox title="Win Rate" value={formatPercent(stats.winRate)} tone="yellow" />
+        <StatBox
+          title="Win Rate"
+          value={formatPercent(stats.winRate)}
+          tone="yellow"
+        />
 
-        <StatBox title="Average Edge" value={formatPercent(stats.averageEdge)} tone="green" />
-        <StatBox title="Average EV" value={formatPercent(stats.averageEV)} tone="blue" />
-        <StatBox title="Average CLV" value={formatPercent(stats.averageCLV)} tone={stats.averageCLV >= 0 ? "green" : "red"} />
+        <StatBox
+          title="Average Edge"
+          value={formatPercent(stats.averageEdge)}
+          tone="green"
+        />
+        <StatBox
+          title="Average EV"
+          value={formatPercent(stats.averageEV)}
+          tone="blue"
+        />
+        <StatBox
+          title="Average CLV"
+          value={formatPercent(stats.averageCLV)}
+          tone={stats.averageCLV >= 0 ? "green" : "red"}
+        />
         <StatBox title="Average Odds" value={stats.averageOdds.toFixed(2)} />
 
         <StatBox title="Wins" value={stats.wins} tone="green" />
@@ -120,15 +159,41 @@ export default function TrackingPage() {
         <StatBox title="Current Streak" value={stats.currentStreak} />
       </section>
 
+      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <div className="grid gap-3 md:grid-cols-2">
+          <select
+            value={filter}
+            onChange={(event) => setFilter(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            <option value="all">All Bets</option>
+            <option value="open">Open Bets</option>
+            <option value="settled">Settled Bets</option>
+            <option value="wins">Wins</option>
+            <option value="losses">Losses</option>
+            <option value="pushes">Pushes</option>
+          </select>
+
+          <select
+            value={sortOrder}
+            onChange={(event) => setSortOrder(event.target.value)}
+            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
+          >
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+          </select>
+        </div>
+      </section>
+
       <Panel title="Tracked Bets" subtitle="Bet history, settlement and CLV">
         <div className="space-y-4">
-          {bets.length === 0 && (
+          {filteredBets.length === 0 && (
             <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
-              No tracked bets yet. Add a bet from the Betting Workspace.
+              No tracked bets found with current filters.
             </div>
           )}
 
-          {bets.map((bet) => {
+          {filteredBets.map((bet) => {
             const profit = calculateProfitLoss({
               stake: bet.stake,
               odds: bet.odds,
