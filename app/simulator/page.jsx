@@ -4,40 +4,59 @@ import {
   compareToMarket,
   formatNumber
 } from "../../lib/simulator-engine";
+import { simulateTournament, runSingleTournament } from "../../lib/tournament-engine";
 import { formatPercent } from "../../lib/analysis-engine";
 
 const simulations = [
   {
     odds: 2.1,
     data: simulateMatch({
-      homeTeam: "Tappara",
-      awayTeam: "Ilves",
+      homeTeam: "Carolina Hurricanes",
+      awayTeam: "Vegas Golden Knights",
       homeRating: 58,
-      awayRating: 54,
+      awayRating: 55,
       homeAdvantage: 3
     })
   },
   {
-    odds: 1.92,
+    odds: 1.85,
     data: simulateMatch({
-      homeTeam: "HIFK",
-      awayTeam: "Kärpät",
-      homeRating: 52,
-      awayRating: 51,
-      homeAdvantage: 3
+      homeTeam: "Brazil",
+      awayTeam: "Germany",
+      homeRating: 60,
+      awayRating: 58,
+      homeAdvantage: 0
     })
   },
   {
-    odds: 2.25,
+    odds: 2.05,
     data: simulateMatch({
-      homeTeam: "Rangers",
-      awayTeam: "Bruins",
-      homeRating: 53,
-      awayRating: 56,
-      homeAdvantage: 3
+      homeTeam: "France",
+      awayTeam: "Argentina",
+      homeRating: 61,
+      awayRating: 60,
+      homeAdvantage: 0
     })
   }
 ];
+
+const worldCupTeams = [
+  { name: "France", rating: 61 },
+  { name: "Japan", rating: 53 },
+  { name: "Brazil", rating: 60 },
+  { name: "Netherlands", rating: 57 },
+  { name: "Argentina", rating: 60 },
+  { name: "USA", rating: 54 },
+  { name: "Germany", rating: 58 },
+  { name: "Spain", rating: 59 }
+];
+
+const tournamentResults = simulateTournament({
+  teams: worldCupTeams,
+  simulations: 1000
+});
+
+const exampleBracket = runSingleTournament(worldCupTeams);
 
 export default function SimulatorPage() {
   const main = simulations[0].data;
@@ -51,18 +70,18 @@ export default function SimulatorPage() {
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
-          Match Simulation Engine
+          Match & Tournament Simulator
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Simuloi otteluita, vertaa mallin todennäköisyyttä markkinan implied
-          probabilityyn ja löydä mahdollinen edge.
+          Simuloi yksittäisiä otteluita ja koko turnauksia, kuten MM-kisojen
+          pudotuspelipuuta.
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Simulations</div>
+          <div className="text-sm text-slate-400">Match Simulations</div>
           <div className="mt-2 text-3xl font-black">
             {main.simulations.toLocaleString()}
           </div>
@@ -78,28 +97,24 @@ export default function SimulatorPage() {
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Market Prob.</div>
-          <div className="mt-2 text-3xl font-black text-sky-300">
-            {formatPercent(market.marketProbability)}
-          </div>
-          <div className="mt-1 text-sm text-slate-500">@ {simulations[0].odds}</div>
+          <div className="text-sm text-slate-400">Tournament Runs</div>
+          <div className="mt-2 text-3xl font-black text-sky-300">1,000</div>
+          <div className="mt-1 text-sm text-slate-500">World Cup example</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Simulation Edge</div>
-          <div
-            className={`mt-2 text-3xl font-black ${
-              market.edge >= 0 ? "text-emerald-300" : "text-red-300"
-            }`}
-          >
-            {formatPercent(market.edge)}
+          <div className="text-sm text-slate-400">Top Champion</div>
+          <div className="mt-2 text-3xl font-black text-yellow-300">
+            {tournamentResults[0]?.team}
           </div>
-          <div className="mt-1 text-sm text-slate-500">Model vs market</div>
+          <div className="mt-1 text-sm text-slate-500">
+            {formatPercent(tournamentResults[0]?.championProbability)}
+          </div>
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Panel title="Simulation Results" subtitle="Projected outcomes">
+        <Panel title="Match Simulation Results" subtitle="Single-game probability model">
           <div className="space-y-4">
             {simulations.map((item) => {
               const sim = item.data;
@@ -121,9 +136,7 @@ export default function SimulatorPage() {
                     </div>
 
                     <div className="rounded-xl bg-slate-950 px-4 py-3 text-right">
-                      <div className="text-sm text-slate-400">
-                        Projected Score
-                      </div>
+                      <div className="text-sm text-slate-400">Projected Score</div>
                       <div className="mt-1 text-xl font-black">
                         {formatNumber(sim.averageHomeScore)} -{" "}
                         {formatNumber(sim.averageAwayScore)}
@@ -182,32 +195,73 @@ export default function SimulatorPage() {
         </Panel>
 
         <div className="space-y-6">
-          <Panel title="AI Simulation Notes" subtitle="Model interpretation">
-            <div className="space-y-3 text-sm text-slate-300">
-              <div className="rounded-xl bg-emerald-400/10 p-4">
-                Simulation layer estimates fair probability before comparing
-                against bookmaker odds.
-              </div>
-              <div className="rounded-xl bg-sky-400/10 p-4">
-                Positive simulation edge means model probability is higher than
-                market implied probability.
-              </div>
-              <div className="rounded-xl bg-yellow-400/10 p-4">
-                Next upgrade: connect live odds and selected match data directly
-                from Betting Workspace.
-              </div>
+          <Panel title="World Cup Tournament" subtitle="Champion probabilities">
+            <div className="space-y-3">
+              {tournamentResults.slice(0, 8).map((team) => (
+                <div
+                  key={team.team}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] p-4"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="font-bold">{team.team}</div>
+                    <div className="text-sm text-slate-400">
+                      Rating {team.rating}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                    <div>
+                      <div className="text-slate-500">Semi</div>
+                      <div className="font-bold text-sky-300">
+                        {formatPercent(team.semifinalProbability)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-slate-500">Final</div>
+                      <div className="font-bold text-purple-300">
+                        {formatPercent(team.finalProbability)}
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="text-slate-500">Win</div>
+                      <div className="font-bold text-emerald-300">
+                        {formatPercent(team.championProbability)}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
             </div>
           </Panel>
 
-          <Panel title="V1 Limitation" subtitle="Important">
-            <p className="text-sm text-slate-300">
-              Simulator V1 uses simplified ratings and random scoring. It is not
-              yet a full predictive model. Real team data, injuries, fatigue and
-              form are future upgrades.
-            </p>
+          <Panel title="Example Bracket" subtitle="One simulated tournament path">
+            <div className="space-y-3 text-sm text-slate-300">
+              <div className="rounded-xl bg-white/[0.04] p-4">
+                Semifinalists: {exampleBracket.semifinalists.join(", ")}
+              </div>
+              <div className="rounded-xl bg-white/[0.04] p-4">
+                Finalists: {exampleBracket.finalists.join(", ")}
+              </div>
+              <div className="rounded-xl bg-emerald-400/10 p-4">
+                Champion:{" "}
+                <span className="font-bold text-emerald-300">
+                  {exampleBracket.champion}
+                </span>
+              </div>
+            </div>
           </Panel>
         </div>
       </section>
+
+      <Panel title="V1 Limitation" subtitle="Important">
+        <p className="text-sm text-slate-300">
+          Turnaussimulaattori käyttää vielä yksinkertaistettuja rating-arvoja.
+          Seuraavassa versiossa mukaan lisätään oikea joukkueformaatti,
+          lohkovaihe, loukkaantumiset, lepo, matkustus, kokoonpanot ja live-kertoimet.
+        </p>
+      </Panel>
     </div>
   );
 }
