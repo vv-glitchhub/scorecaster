@@ -51,14 +51,21 @@ export default function SimulatorClient() {
     setSavedMessage("Esimerkkipelit ladattu.");
   }
 
-  function copyPredictionRow() {
-    navigator.clipboard.writeText(predictionRow);
-    setSavedMessage("Tulosrivi kopioitu.");
-  }
-
   const fixtures = parseFixtures(fixturesText);
   const predictions = predictFixtures(fixtures);
+
   const predictionRow = predictions.map((game) => game.prediction).join(" ");
+  const safeRow = predictions.map((game) => game.safePick).join(" ");
+
+  function copyPredictionRow() {
+    navigator.clipboard.writeText(predictionRow);
+    setSavedMessage("Perusrivi kopioitu.");
+  }
+
+  function copySafeRow() {
+    navigator.clipboard.writeText(safeRow);
+    setSavedMessage("Varmistusrivi kopioitu.");
+  }
 
   return (
     <div className="space-y-6">
@@ -115,13 +122,27 @@ export default function SimulatorClient() {
             disabled={!predictionRow}
             className="rounded-xl bg-sky-400 px-4 py-2 font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-50"
           >
-            Copy Prediction Row
+            Copy Basic Row
+          </button>
+
+          <button
+            onClick={copySafeRow}
+            disabled={!safeRow}
+            className="rounded-xl bg-yellow-400 px-4 py-2 font-bold text-slate-950 hover:bg-yellow-300 disabled:opacity-50"
+          >
+            Copy Safe Row
           </button>
         </div>
 
         {predictionRow && (
-          <div className="mt-4 rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
-            Rivi: <span className="font-bold">{predictionRow}</span>
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
+              Perusrivi: <span className="font-bold">{predictionRow}</span>
+            </div>
+
+            <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-300">
+              Varmistusrivi: <span className="font-bold">{safeRow}</span>
+            </div>
           </div>
         )}
 
@@ -173,6 +194,13 @@ export default function SimulatorClient() {
                     Recommendation:{" "}
                     <span className="font-bold text-emerald-300">
                       {game.recommendation}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 text-sm text-slate-400">
+                    Varmistus:{" "}
+                    <span className="font-bold text-yellow-300">
+                      {game.safePick}
                     </span>
                   </div>
                 </div>
