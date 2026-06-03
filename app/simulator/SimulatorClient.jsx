@@ -29,6 +29,7 @@ function parseFixtures(text) {
 export default function SimulatorClient() {
   const [fixturesText, setFixturesText] = useState(defaultFixturesText);
   const [savedMessage, setSavedMessage] = useState("");
+  const [rowPrice, setRowPrice] = useState(1);
 
   useEffect(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
@@ -61,10 +62,14 @@ export default function SimulatorClient() {
     .length;
   const doubleCount = predictions.filter((game) => game.safePick.length === 2)
     .length;
+
   const systemRows =
     predictions.length > 0
       ? predictions.reduce((total, game) => total * game.safePick.length, 1)
       : 0;
+
+  const basicRowCost = predictions.length > 0 ? Number(rowPrice || 0) : 0;
+  const safeRowCost = systemRows * Number(rowPrice || 0);
 
   function copyPredictionRow() {
     navigator.clipboard.writeText(predictionRow);
@@ -103,6 +108,21 @@ export default function SimulatorClient() {
           className="min-h-48 w-full rounded-xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-200 outline-none"
           placeholder="Finland,Sweden,56,58"
         />
+
+        <div className="mt-4 grid gap-3 md:grid-cols-[1fr_160px]">
+          <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
+            Rivihinta €
+          </div>
+
+          <input
+            type="number"
+            min="0"
+            step="0.05"
+            value={rowPrice}
+            onChange={(event) => setRowPrice(Number(event.target.value || 0))}
+            className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-slate-100 outline-none"
+          />
+        </div>
 
         <div className="mt-4 flex flex-wrap gap-3">
           <button
@@ -166,6 +186,18 @@ export default function SimulatorClient() {
 
               <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-sm text-purple-300">
                 Rivimäärä: <span className="font-bold">{systemRows}</span>
+              </div>
+            </div>
+
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
+                Perusrivin hinta:{" "}
+                <span className="font-bold">{basicRowCost.toFixed(2)}€</span>
+              </div>
+
+              <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-4 text-sm text-red-300">
+                Varmistusrivin hinta:{" "}
+                <span className="font-bold">{safeRowCost.toFixed(2)}€</span>
               </div>
             </div>
           </>
