@@ -57,6 +57,15 @@ export default function SimulatorClient() {
   const predictionRow = predictions.map((game) => game.prediction).join(" ");
   const safeRow = predictions.map((game) => game.safePick).join(" ");
 
+  const singleCount = predictions.filter((game) => game.safePick.length === 1)
+    .length;
+  const doubleCount = predictions.filter((game) => game.safePick.length === 2)
+    .length;
+  const systemRows =
+    predictions.length > 0
+      ? predictions.reduce((total, game) => total * game.safePick.length, 1)
+      : 0;
+
   function copyPredictionRow() {
     navigator.clipboard.writeText(predictionRow);
     setSavedMessage("Perusrivi kopioitu.");
@@ -135,15 +144,31 @@ export default function SimulatorClient() {
         </div>
 
         {predictionRow && (
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
-              Perusrivi: <span className="font-bold">{predictionRow}</span>
+          <>
+            <div className="mt-4 grid gap-3 md:grid-cols-2">
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
+                Perusrivi: <span className="font-bold">{predictionRow}</span>
+              </div>
+
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-300">
+                Varmistusrivi: <span className="font-bold">{safeRow}</span>
+              </div>
             </div>
 
-            <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-300">
-              Varmistusrivi: <span className="font-bold">{safeRow}</span>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-emerald-300">
+                Singlet: <span className="font-bold">{singleCount}</span>
+              </div>
+
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-300">
+                Varmistukset: <span className="font-bold">{doubleCount}</span>
+              </div>
+
+              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-sm text-purple-300">
+                Rivimäärä: <span className="font-bold">{systemRows}</span>
+              </div>
             </div>
-          </div>
+          </>
         )}
 
         {savedMessage && (
