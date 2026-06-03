@@ -1,34 +1,57 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
 import { formatPercent } from "../../lib/analysis-engine";
 import { predictFixtures } from "../../lib/prediction-slip-engine";
 
-const defaultFixtures = [
-  { homeTeam: "Brazil", awayTeam: "Germany", homeRating: 60, awayRating: 58 },
-  { homeTeam: "France", awayTeam: "Argentina", homeRating: 61, awayRating: 60 },
-  { homeTeam: "Spain", awayTeam: "Netherlands", homeRating: 59, awayRating: 57 }
-];
+const STORAGE_KEY = "scorecaster_prediction_fixtures";
 
-export default function SimulatorClient() {
-  const [fixturesText, setFixturesText] = useState(
-    defaultFixtures
-      .map((game) => `${game.homeTeam},${game.awayTeam},${game.homeRating},${game.awayRating}`)
-      .join("\n")
-  );
+const defaultFixturesText = [
+  "Brazil,Germany,60,58",
+  "France,Argentina,61,60",
+  "Spain,Netherlands,59,57"
+].join("\n");
 
-  const fixtures = fixturesText
+function parseFixtures(text) {
+  return text
     .split("\n")
     .map((line) => line.split(",").map((item) => item.trim()))
-    .filter((parts) => parts.length >= 2)
+    .filter((parts) => parts.length >= 2 && parts[0] && parts[1])
     .map(([homeTeam, awayTeam, homeRating = 55, awayRating = 55]) => ({
       homeTeam,
       awayTeam,
-      homeRating: Number(homeRating),
-      awayRating: Number(awayRating)
+      homeRating: Number(homeRating || 55),
+      awayRating: Number(awayRating || 55)
     }));
+}
 
+export default function SimulatorClient() {
+  const [fixturesText, setFixturesText] = useState(defaultFixturesText);
+  const [savedMessage, setSavedMessage] = useState("");
+
+  useEffect(() => {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved) setFixturesText(saved);
+  }, []);
+
+  function saveFixtures() {
+    localStorage.setItem(STORAGE_KEY, fixturesText);
+    setSavedMessage("Pelit tallennettu.");
+  }
+
+  function clearFixtures() {
+    localStorage.removeItem(STORAGE_KEY);
+    setFixturesText("");
+    setSavedMessage("Pelilista tyhjennetty.");
+  }
+
+  function loadExample() {
+    setFixturesText(defaultFixturesText);
+    setSavedMessage("Esimerkkipelit ladattu.");
+  }
+
+  const fixtures = parseFixtures(fixturesText);
   const predictions = predictFixtures(fixtures);
 
   return (
@@ -50,9 +73,42 @@ export default function SimulatorClient() {
       <Panel title="Syötä pelit" subtitle="Yksi peli per rivi">
         <textarea
           value={fixturesText}
-          onChange={(event) => setFixturesText(event.target.value)}
+          onChange={(event) => {
+            setFixturesText(event.target.value);
+            setSavedMessage("");
+          }}
           className="min-h-48 w-full rounded-xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-200 outline-none"
+          placeholder="Finland,Sweden,56,58"
         />
+
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button
+            onClick={saveFixtures}
+            className="rounded-xl bg-emerald-400 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-300"
+          >
+            Save Fixtures
+          </button>
+
+          <button
+            onClick={loadExample}
+            className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-bold text-slate-300 hover:bg-white/10"
+          >
+            Load Example
+          </button>
+
+          <button
+            onClick={clearFixtures}
+            className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2 font-bold text-red-300 hover:bg-red-400/20"
+          >
+            Clear
+          </button>
+        </div>
+
+        {savedMessage && (
+          <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300">
+            {savedMessage}
+          </div>
+        )}
 
         <div className="mt-3 text-sm text-slate-400">
           Esimerkki: Finland,Sweden,56,58
@@ -61,6 +117,12 @@ export default function SimulatorClient() {
 
       <Panel title="Simuloidut merkit" subtitle="1 / X / 2 tulosveikkausta varten">
         <div className="space-y-4">
+          {predictions.length === 0 && (
+            <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
+              Ei pelejä. Lisää ottelut yllä olevaan kenttään.
+            </div>
+          )}
+
           {predictions.map((game) => (
             <div
               key={`${game.homeTeam}-${game.awayTeam}`}
