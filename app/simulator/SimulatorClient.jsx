@@ -66,7 +66,8 @@ export default function SimulatorClient() {
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Syötä ottelut muodossa: kotijoukkue,vierasjoukkue,kotirating,vierasrating.
+          Syötä ottelut muodossa:
+          kotijoukkue,vierasjoukkue,kotirating,vierasrating.
         </p>
       </section>
 
@@ -115,7 +116,10 @@ export default function SimulatorClient() {
         </div>
       </Panel>
 
-      <Panel title="Simuloidut merkit" subtitle="1 / X / 2 tulosveikkausta varten">
+      <Panel
+        title="Simuloidut merkit"
+        subtitle="1 / X / 2 tulosveikkausta varten"
+      >
         <div className="space-y-4">
           {predictions.length === 0 && (
             <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
@@ -133,8 +137,23 @@ export default function SimulatorClient() {
                   <div className="text-xl font-black">
                     {game.homeTeam} vs {game.awayTeam}
                   </div>
+
                   <div className="mt-1 text-sm text-slate-400">
                     Arvioitu tulos: {game.projectedScore}
+                  </div>
+
+                  <div className="mt-1 text-sm text-slate-400">
+                    Confidence:{" "}
+                    <span className="font-bold text-sky-300">
+                      {game.confidence}
+                    </span>
+                  </div>
+
+                  <div className="mt-1 text-sm text-slate-400">
+                    Recommendation:{" "}
+                    <span className="font-bold text-emerald-300">
+                      {game.recommendation}
+                    </span>
                   </div>
                 </div>
 
@@ -167,6 +186,10 @@ export default function SimulatorClient() {
                     {formatPercent(game.awayWinProbability)}
                   </div>
                 </div>
+              </div>
+
+              <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-slate-300">
+                {game.confidenceNote}
               </div>
             </div>
           ))}
