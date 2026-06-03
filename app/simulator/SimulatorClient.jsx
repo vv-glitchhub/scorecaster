@@ -51,8 +51,14 @@ export default function SimulatorClient() {
     setSavedMessage("Esimerkkipelit ladattu.");
   }
 
+  function copyPredictionRow() {
+    navigator.clipboard.writeText(predictionRow);
+    setSavedMessage("Tulosrivi kopioitu.");
+  }
+
   const fixtures = parseFixtures(fixturesText);
   const predictions = predictFixtures(fixtures);
+  const predictionRow = predictions.map((game) => game.prediction).join(" ");
 
   return (
     <div className="space-y-6">
@@ -103,7 +109,21 @@ export default function SimulatorClient() {
           >
             Clear
           </button>
+
+          <button
+            onClick={copyPredictionRow}
+            disabled={!predictionRow}
+            className="rounded-xl bg-sky-400 px-4 py-2 font-bold text-slate-950 hover:bg-sky-300 disabled:opacity-50"
+          >
+            Copy Prediction Row
+          </button>
         </div>
+
+        {predictionRow && (
+          <div className="mt-4 rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-300">
+            Rivi: <span className="font-bold">{predictionRow}</span>
+          </div>
+        )}
 
         {savedMessage && (
           <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300">
