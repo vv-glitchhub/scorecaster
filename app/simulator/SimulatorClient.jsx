@@ -8,9 +8,9 @@ import { predictFixtures } from "../../lib/prediction-slip-engine";
 const STORAGE_KEY = "scorecaster_prediction_fixtures";
 
 const defaultFixturesText = [
-  "Brazil,Germany,60,58",
-  "France,Argentina,61,60",
-  "Spain,Netherlands,59,57"
+  "Brazil,Germany,60,58,1,0,0,1,0,0,0",
+  "France,Argentina,61,60,1,1,0,0,0,0,0",
+  "Spain,Netherlands,59,57,0,1,1,0,0,1,0"
 ].join("\n");
 
 function parseFixtures(text) {
@@ -18,12 +18,33 @@ function parseFixtures(text) {
     .split("\n")
     .map((line) => line.split(",").map((item) => item.trim()))
     .filter((parts) => parts.length >= 2 && parts[0] && parts[1])
-    .map(([homeTeam, awayTeam, homeRating = 55, awayRating = 55]) => ({
-      homeTeam,
-      awayTeam,
-      homeRating: Number(homeRating || 55),
-      awayRating: Number(awayRating || 55)
-    }));
+    .map(
+      ([
+        homeTeam,
+        awayTeam,
+        homeBaseRating = 55,
+        awayBaseRating = 55,
+        homeForm = 0,
+        awayForm = 0,
+        homeInjuries = 0,
+        awayInjuries = 0,
+        homeFatigue = 0,
+        awayFatigue = 0,
+        homeAdvantage = 0
+      ]) => ({
+        homeTeam,
+        awayTeam,
+        homeBaseRating: Number(homeBaseRating || 55),
+        awayBaseRating: Number(awayBaseRating || 55),
+        homeForm: Number(homeForm || 0),
+        awayForm: Number(awayForm || 0),
+        homeInjuries: Number(homeInjuries || 0),
+        awayInjuries: Number(awayInjuries || 0),
+        homeFatigue: Number(homeFatigue || 0),
+        awayFatigue: Number(awayFatigue || 0),
+        homeAdvantage: Number(homeAdvantage || 0)
+      })
+    );
 }
 
 export default function SimulatorClient() {
@@ -94,7 +115,7 @@ export default function SimulatorClient() {
 
         <p className="mt-3 text-slate-300">
           Syötä ottelut muodossa:
-          kotijoukkue,vierasjoukkue,kotirating,vierasrating.
+          koti,vieras,kotiRating,vierasRating,kotiForm,vierasForm,kotiLoukkaantumiset,vierasLoukkaantumiset,kotiFatigue,vierasFatigue,kotietu.
         </p>
       </section>
 
@@ -105,9 +126,13 @@ export default function SimulatorClient() {
             setFixturesText(event.target.value);
             setSavedMessage("");
           }}
-          className="min-h-48 w-full rounded-xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-200 outline-none"
-          placeholder="Finland,Sweden,56,58"
+          className="min-h-56 w-full rounded-xl border border-white/10 bg-slate-950 p-4 text-sm text-slate-200 outline-none"
+          placeholder="Finland,Sweden,56,58,1,2,0,1,0,1,0"
         />
+
+        <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-400">
+          Esimerkki: Finland,Sweden,56,58,1,2,0,1,0,1,0
+        </div>
 
         <div className="mt-4 grid gap-3 md:grid-cols-[1fr_160px]">
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -208,10 +233,6 @@ export default function SimulatorClient() {
             {savedMessage}
           </div>
         )}
-
-        <div className="mt-3 text-sm text-slate-400">
-          Esimerkki: Finland,Sweden,56,58
-        </div>
       </Panel>
 
       <Panel
@@ -230,7 +251,7 @@ export default function SimulatorClient() {
               key={`${game.homeTeam}-${game.awayTeam}`}
               className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
             >
-              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <div className="text-xl font-black">
                     {game.homeTeam} vs {game.awayTeam}
@@ -238,6 +259,24 @@ export default function SimulatorClient() {
 
                   <div className="mt-1 text-sm text-slate-400">
                     Arvioitu tulos: {game.projectedScore}
+                  </div>
+
+                  <div className="mt-1 text-sm text-slate-400">
+                    Rating:{" "}
+                    <span className="font-bold text-emerald-300">
+                      {game.homeRating.toFixed(1)} ({game.homeLabel})
+                    </span>{" "}
+                    vs{" "}
+                    <span className="font-bold text-sky-300">
+                      {game.awayRating.toFixed(1)} ({game.awayLabel})
+                    </span>
+                  </div>
+
+                  <div className="mt-1 text-sm text-slate-400">
+                    Rating difference:{" "}
+                    <span className="font-bold text-purple-300">
+                      {game.ratingDifference.toFixed(1)}
+                    </span>
                   </div>
 
                   <div className="mt-1 text-sm text-slate-400">
@@ -289,6 +328,32 @@ export default function SimulatorClient() {
                   <div className="text-sm text-slate-400">2</div>
                   <div className="mt-2 text-xl font-black text-sky-300">
                     {formatPercent(game.awayWinProbability)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-5 grid gap-3 md:grid-cols-4">
+                <div className="rounded-xl bg-slate-950 p-4 text-sm">
+                  <div className="text-slate-400">Home form</div>
+                  <div className="mt-1 font-bold">{game.factors.homeForm}</div>
+                </div>
+
+                <div className="rounded-xl bg-slate-950 p-4 text-sm">
+                  <div className="text-slate-400">Away form</div>
+                  <div className="mt-1 font-bold">{game.factors.awayForm}</div>
+                </div>
+
+                <div className="rounded-xl bg-slate-950 p-4 text-sm">
+                  <div className="text-slate-400">Injuries</div>
+                  <div className="mt-1 font-bold">
+                    {game.factors.homeInjuries} / {game.factors.awayInjuries}
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-slate-950 p-4 text-sm">
+                  <div className="text-slate-400">Fatigue</div>
+                  <div className="mt-1 font-bold">
+                    {game.factors.homeFatigue} / {game.factors.awayFatigue}
                   </div>
                 </div>
               </div>
