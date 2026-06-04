@@ -285,7 +285,42 @@ export default function AgentClient() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 md:grid-cols-4">
+                  <div className="mt-5 grid gap-3 md:grid-cols-5">
+  <div className="rounded-xl bg-slate-950 p-4">
+    <div className="text-sm text-slate-400">Edge</div>
+    <div className="mt-2 text-xl font-black text-emerald-300">
+      {formatPercent(pick.edge)}
+    </div>
+  </div>
+
+  <div className="rounded-xl bg-slate-950 p-4">
+    <div className="text-sm text-slate-400">EV</div>
+    <div className="mt-2 text-xl font-black text-sky-300">
+      {formatPercent(pick.ev)}
+    </div>
+  </div>
+
+  <div className="rounded-xl bg-slate-950 p-4">
+    <div className="text-sm text-slate-400">Context</div>
+    <div className="mt-2 text-xl font-black text-yellow-300">
+      {formatPercent(pick.context?.contextScore || 0)}
+    </div>
+  </div>
+
+  <div className="rounded-xl bg-slate-950 p-4">
+    <div className="text-sm text-slate-400">Market</div>
+    <div className="mt-2 text-xl font-black text-purple-300">
+      {formatPercent(pick.marketScore || 0)}
+    </div>
+  </div>
+
+  <div className="rounded-xl bg-slate-950 p-4">
+    <div className="text-sm text-slate-400">Source Trust</div>
+    <div className="mt-2 text-xl font-black text-purple-300">
+      {pick.sourceTrustLabel}
+    </div>
+  </div>
+</div>
                     <div className="rounded-xl bg-slate-950 p-4">
                       <div className="text-sm text-slate-400">Edge</div>
                       <div className="mt-2 text-xl font-black text-emerald-300">
