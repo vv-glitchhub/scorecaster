@@ -34,6 +34,12 @@ function getDecisionBorder(decision) {
   return "border-red-400/30 bg-red-400/10";
 }
 
+function getReadinessColor(level) {
+  if (level === "High") return "text-emerald-300";
+  if (level === "Medium") return "text-yellow-300";
+  return "text-red-300";
+}
+
 function createDefaultContext() {
   return {
     form: 1,
@@ -43,6 +49,7 @@ function createDefaultContext() {
     lineup: 0,
     travel: 0,
     weather: 0,
+    news: [],
     sources: [
       { type: "odds_market", name: "Odds market" },
       { type: "betting_media", name: "Betting market signal" }
@@ -131,10 +138,13 @@ export default function AgentClient() {
       sourceTrust: pick.sourceTrust,
       contextScore: pick.context?.contextScore,
       marketScore: pick.marketScore,
+      readinessLevel: pick.readiness?.level,
+      readinessScore: pick.readiness?.score,
+      missingData: pick.readiness?.missing || [],
       riskLevel: pick.riskLevel,
       riskWarnings: [
         "AI Agent V4 uses paper betting only.",
-        "Decision is based on model, context, market intelligence, learning and risk rules.",
+        "Decision is based on model, context, market intelligence, data readiness, learning and risk rules.",
         "This is not a guaranteed profitable bet."
       ]
     });
@@ -167,7 +177,7 @@ export default function AgentClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V4 · Decision + Market Intelligence
+          AI Agent V4 · Decision + Data Readiness
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -176,13 +186,15 @@ export default function AgentClient() {
 
         <p className="mt-3 text-slate-300">
           Agentti hakee live-pickit, lukee tracking-oppimisen, lisää
-          kontekstin, markkinasignaalit ja tekee päätöksen: BET, WATCH, WAIT
-          tai PASS.
+          kontekstin, markkinasignaalit, data readiness -arvion ja tekee
+          päätöksen: BET, WATCH, WAIT tai PASS.
         </p>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
           Source: <span className="font-bold text-emerald-300">{source}</span>
+
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
+
           {learning && (
             <span className="ml-3 text-slate-400">
               Learning sample:{" "}
@@ -294,7 +306,7 @@ export default function AgentClient() {
                     </div>
                   </div>
 
-                  <div className="mt-5 grid gap-3 md:grid-cols-5">
+                  <div className="mt-5 grid gap-3 md:grid-cols-6">
                     <div className="rounded-xl bg-slate-950 p-4">
                       <div className="text-sm text-slate-400">Edge</div>
                       <div className="mt-2 text-xl font-black text-emerald-300">
@@ -329,6 +341,19 @@ export default function AgentClient() {
                         {pick.sourceTrustLabel}
                       </div>
                     </div>
+
+                    <div className="rounded-xl bg-slate-950 p-4">
+                      <div className="text-sm text-slate-400">
+                        Data Readiness
+                      </div>
+                      <div
+                        className={`mt-2 text-xl font-black ${getReadinessColor(
+                          pick.readiness?.level
+                        )}`}
+                      >
+                        {pick.readiness?.level || "Low"}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-5 rounded-xl border border-white/10 bg-slate-950 p-4">
@@ -349,6 +374,25 @@ export default function AgentClient() {
                         <li key={note}>• {note}</li>
                       ))}
                     </ul>
+                  </div>
+
+                  <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/5 p-4">
+                    <div className="font-bold text-yellow-300">
+                      Data Readiness
+                    </div>
+
+                    <p className="mt-2 text-sm text-slate-300">
+                      {pick.readinessRecommendation}
+                    </p>
+
+                    {pick.readiness?.missing?.length > 0 && (
+                      <div className="mt-3 text-sm text-slate-400">
+                        Missing data:{" "}
+                        <span className="font-bold text-red-300">
+                          {pick.readiness.missing.join(", ")}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="mt-5 flex flex-wrap gap-3">
@@ -425,6 +469,17 @@ export default function AgentClient() {
                     {formatPercent(topPick.finalScore)}
                   </span>
                 </div>
+
+                <div className="rounded-xl bg-yellow-400/10 p-4">
+                  Data Readiness:{" "}
+                  <span
+                    className={`font-bold ${getReadinessColor(
+                      topPick.readiness?.level
+                    )}`}
+                  >
+                    {topPick.readiness?.level || "Low"}
+                  </span>
+                </div>
               </div>
             )}
           </Panel>
@@ -437,11 +492,12 @@ export default function AgentClient() {
 
               <div className="rounded-xl bg-sky-400/10 p-4">
                 It combines edge, EV, learning, context, market intelligence,
-                source trust and risk.
+                source trust, data readiness and risk.
               </div>
 
               <div className="rounded-xl bg-yellow-400/10 p-4">
-                Reports explain why the agent decided what it decided.
+                Reports explain why the agent decided what it decided and what
+                information is still missing.
               </div>
             </div>
           </Panel>
