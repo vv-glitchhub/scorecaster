@@ -14,7 +14,8 @@ const AGENT_BANKROLL = 1000;
 function getStake(edge, finalScore) {
   const baseStake = AGENT_BANKROLL * 0.01;
   const edgeBonus = Math.max(0, Number(edge || 0)) * AGENT_BANKROLL * 0.1;
-  const scoreBonus = Math.max(0, Number(finalScore || 0)) * AGENT_BANKROLL * 0.08;
+  const scoreBonus =
+    Math.max(0, Number(finalScore || 0)) * AGENT_BANKROLL * 0.08;
 
   return Math.min(baseStake + edgeBonus + scoreBonus, AGENT_BANKROLL * 0.04);
 }
@@ -76,17 +77,19 @@ export default function AgentClient() {
               learning: learningData
             });
 
-            const v4Pick = buildAgentV4Pick({
+            return buildAgentV4Pick({
               pick: {
                 ...pick,
                 ...score
               },
               learningBoost: score.confidenceBoost,
               movementSignal: pick.movementSignal || "Stable",
-              contextInput: createDefaultContext()
+              contextInput: createDefaultContext(),
+              marketInput: {
+                clv: pick.clv || 0,
+                polymarketDifference: pick.polymarketDifference || 0
+              }
             });
-
-            return v4Pick;
           })
           .sort((a, b) => b.finalScore - a.finalScore);
 
@@ -127,10 +130,11 @@ export default function AgentClient() {
       decisionReason: pick.decisionReason,
       sourceTrust: pick.sourceTrust,
       contextScore: pick.context?.contextScore,
+      marketScore: pick.marketScore,
       riskLevel: pick.riskLevel,
       riskWarnings: [
         "AI Agent V4 uses paper betting only.",
-        "Decision is based on model, context, learning and risk rules.",
+        "Decision is based on model, context, market intelligence, learning and risk rules.",
         "This is not a guaranteed profitable bet."
       ]
     });
@@ -163,7 +167,7 @@ export default function AgentClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V4 · Decision + Report
+          AI Agent V4 · Decision + Market Intelligence
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -172,7 +176,8 @@ export default function AgentClient() {
 
         <p className="mt-3 text-slate-300">
           Agentti hakee live-pickit, lukee tracking-oppimisen, lisää
-          kontekstipisteytyksen ja tekee päätöksen: BET, WATCH, WAIT tai PASS.
+          kontekstin, markkinasignaalit ja tekee päätöksen: BET, WATCH, WAIT
+          tai PASS.
         </p>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -265,7 +270,11 @@ export default function AgentClient() {
                         Best bookmaker: {pick.bookmaker || "unknown"}
                       </div>
 
-                      <div className={`mt-3 text-2xl font-black ${getDecisionColor(pick.decision)}`}>
+                      <div
+                        className={`mt-3 text-2xl font-black ${getDecisionColor(
+                          pick.decision
+                        )}`}
+                      >
                         {pick.decision}
                       </div>
 
@@ -286,41 +295,6 @@ export default function AgentClient() {
                   </div>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-5">
-  <div className="rounded-xl bg-slate-950 p-4">
-    <div className="text-sm text-slate-400">Edge</div>
-    <div className="mt-2 text-xl font-black text-emerald-300">
-      {formatPercent(pick.edge)}
-    </div>
-  </div>
-
-  <div className="rounded-xl bg-slate-950 p-4">
-    <div className="text-sm text-slate-400">EV</div>
-    <div className="mt-2 text-xl font-black text-sky-300">
-      {formatPercent(pick.ev)}
-    </div>
-  </div>
-
-  <div className="rounded-xl bg-slate-950 p-4">
-    <div className="text-sm text-slate-400">Context</div>
-    <div className="mt-2 text-xl font-black text-yellow-300">
-      {formatPercent(pick.context?.contextScore || 0)}
-    </div>
-  </div>
-
-  <div className="rounded-xl bg-slate-950 p-4">
-    <div className="text-sm text-slate-400">Market</div>
-    <div className="mt-2 text-xl font-black text-purple-300">
-      {formatPercent(pick.marketScore || 0)}
-    </div>
-  </div>
-
-  <div className="rounded-xl bg-slate-950 p-4">
-    <div className="text-sm text-slate-400">Source Trust</div>
-    <div className="mt-2 text-xl font-black text-purple-300">
-      {pick.sourceTrustLabel}
-    </div>
-  </div>
-</div>
                     <div className="rounded-xl bg-slate-950 p-4">
                       <div className="text-sm text-slate-400">Edge</div>
                       <div className="mt-2 text-xl font-black text-emerald-300">
@@ -343,6 +317,13 @@ export default function AgentClient() {
                     </div>
 
                     <div className="rounded-xl bg-slate-950 p-4">
+                      <div className="text-sm text-slate-400">Market</div>
+                      <div className="mt-2 text-xl font-black text-purple-300">
+                        {formatPercent(pick.marketScore || 0)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-950 p-4">
                       <div className="text-sm text-slate-400">Source Trust</div>
                       <div className="mt-2 text-xl font-black text-purple-300">
                         {pick.sourceTrustLabel}
@@ -353,7 +334,18 @@ export default function AgentClient() {
                   <div className="mt-5 rounded-xl border border-white/10 bg-slate-950 p-4">
                     <div className="font-bold text-sky-300">Context Notes</div>
                     <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {pick.contextNotes.map((note) => (
+                      {(pick.contextNotes || []).map((note) => (
+                        <li key={note}>• {note}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="mt-5 rounded-xl border border-purple-400/20 bg-purple-400/5 p-4">
+                    <div className="font-bold text-purple-300">
+                      Market Intelligence
+                    </div>
+                    <ul className="mt-2 space-y-1 text-sm text-slate-300">
+                      {(pick.marketNotes || []).map((note) => (
                         <li key={note}>• {note}</li>
                       ))}
                     </ul>
@@ -412,9 +404,17 @@ export default function AgentClient() {
                   </div>
                 </div>
 
-                <div className={`rounded-xl border p-4 ${getDecisionBorder(topPick.decision)}`}>
+                <div
+                  className={`rounded-xl border p-4 ${getDecisionBorder(
+                    topPick.decision
+                  )}`}
+                >
                   Decision:{" "}
-                  <span className={`font-bold ${getDecisionColor(topPick.decision)}`}>
+                  <span
+                    className={`font-bold ${getDecisionColor(
+                      topPick.decision
+                    )}`}
+                  >
                     {topPick.decision}
                   </span>
                 </div>
@@ -432,15 +432,16 @@ export default function AgentClient() {
           <Panel title="Agent V4 Logic" subtitle="What changed">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-emerald-400/10 p-4">
-                V4 does not only rank picks. It decides BET, WATCH, WAIT or PASS.
+                V4 decides BET, WATCH, WAIT or PASS.
               </div>
 
               <div className="rounded-xl bg-sky-400/10 p-4">
-                It combines edge, EV, learning, context, source trust and risk.
+                It combines edge, EV, learning, context, market intelligence,
+                source trust and risk.
               </div>
 
               <div className="rounded-xl bg-yellow-400/10 p-4">
-                Reports show why the agent decided what it decided.
+                Reports explain why the agent decided what it decided.
               </div>
             </div>
           </Panel>
