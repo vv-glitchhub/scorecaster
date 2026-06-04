@@ -5,36 +5,48 @@ import Panel from "../components/Panel";
 import { addTrackedBet, getTrackedBets } from "../../lib/tracking-storage";
 import { calculateAgentPerformance } from "../../lib/agent-learning";
 import { calculateAgentScore } from "../../lib/agent-score";
+import { buildAgentV4Pick } from "../../lib/agent-v4-engine";
+import { reportToMarkdown } from "../../lib/agent-report-engine";
 import { formatMoney, formatPercent } from "../../lib/analysis-engine";
 
 const AGENT_BANKROLL = 1000;
 
-function getStake(edge, agentScore) {
-  const baseStake = AGENT_BANKROLL * 0.015;
-  const edgeBonus = Math.max(0, Number(edge || 0)) * AGENT_BANKROLL * 0.12;
-  const scoreBonus = Math.max(0, Number(agentScore || 0)) * AGENT_BANKROLL * 0.08;
+function getStake(edge, finalScore) {
+  const baseStake = AGENT_BANKROLL * 0.01;
+  const edgeBonus = Math.max(0, Number(edge || 0)) * AGENT_BANKROLL * 0.1;
+  const scoreBonus = Math.max(0, Number(finalScore || 0)) * AGENT_BANKROLL * 0.08;
 
-  return Math.min(baseStake + edgeBonus + scoreBonus, AGENT_BANKROLL * 0.05);
+  return Math.min(baseStake + edgeBonus + scoreBonus, AGENT_BANKROLL * 0.04);
 }
 
-function getAgentDecision(pick) {
-  if (!pick) return "No decision";
-
-  if (pick.agentScore >= 0.1) return "Strong paper pick";
-  if (pick.agentScore >= 0.06) return "Paper pick";
-  if (pick.agentScore >= 0.03) return "Watchlist";
-  return "No bet";
+function getDecisionColor(decision) {
+  if (decision === "BET") return "text-emerald-300";
+  if (decision === "WATCH") return "text-sky-300";
+  if (decision === "WAIT") return "text-yellow-300";
+  return "text-red-300";
 }
 
-function getAgentReasoning(pick) {
-  return [
-    `Model detected ${formatPercent(pick.edge)} raw edge.`,
-    `EV is ${formatPercent(pick.ev)}.`,
-    `Learning boost is ${formatPercent(pick.confidenceBoost)} from previous tracking history.`,
-    `Final agent score is ${formatPercent(pick.agentScore)}.`,
-    `Best bookmaker: ${pick.bookmaker || "unknown"}.`,
-    "Agent uses paper betting only and does not place real money bets."
-  ];
+function getDecisionBorder(decision) {
+  if (decision === "BET") return "border-emerald-400/30 bg-emerald-400/10";
+  if (decision === "WATCH") return "border-sky-400/30 bg-sky-400/10";
+  if (decision === "WAIT") return "border-yellow-400/30 bg-yellow-400/10";
+  return "border-red-400/30 bg-red-400/10";
+}
+
+function createDefaultContext() {
+  return {
+    form: 1,
+    injuries: 0,
+    fatigue: 0,
+    motivation: 1,
+    lineup: 0,
+    travel: 0,
+    weather: 0,
+    sources: [
+      { type: "odds_market", name: "Odds market" },
+      { type: "betting_media", name: "Betting market signal" }
+    ]
+  };
 }
 
 export default function AgentClient() {
@@ -43,6 +55,7 @@ export default function AgentClient() {
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("loading");
   const [message, setMessage] = useState("");
+  const [expandedReportId, setExpandedReportId] = useState(null);
 
   useEffect(() => {
     async function loadAgentPicks() {
@@ -63,17 +76,25 @@ export default function AgentClient() {
               learning: learningData
             });
 
-            return {
-              ...pick,
-              ...score
-            };
+            const v4Pick = buildAgentV4Pick({
+              pick: {
+                ...pick,
+                ...score
+              },
+              learningBoost: score.confidenceBoost,
+              movementSignal: pick.movementSignal || "Stable",
+              contextInput: createDefaultContext()
+            });
+
+            return v4Pick;
           })
-          .sort((a, b) => b.agentScore - a.agentScore);
+          .sort((a, b) => b.finalScore - a.finalScore);
 
         setPicks(scoredPicks);
         setSource(data.source || "api");
-      } catch {
+      } catch (error) {
         setSource("error");
+        setMessage(error.message);
       } finally {
         setLoading(false);
       }
@@ -83,7 +104,7 @@ export default function AgentClient() {
   }, []);
 
   function addPickToTracking(pick) {
-    const stake = getStake(pick.edge, pick.agentScore);
+    const stake = getStake(pick.edge, pick.finalScore);
 
     addTrackedBet({
       match: pick.match,
@@ -94,59 +115,64 @@ export default function AgentClient() {
       ev: pick.ev,
       stake,
       bankroll: AGENT_BANKROLL,
-      kellyMode: "agent-paper",
-      source: "AI Agent V3",
+      kellyMode: "agent-v4-paper",
+      source: "AI Agent V4",
       sportKey: pick.sportKey,
       marketKey: pick.marketKey,
       league: pick.league,
       leagueTitle: pick.leagueTitle,
-      agentScore: pick.agentScore,
+      agentScore: pick.finalScore,
       confidenceBoost: pick.confidenceBoost,
-      riskLevel: "Paper",
+      decision: pick.decision,
+      decisionReason: pick.decisionReason,
+      sourceTrust: pick.sourceTrust,
+      contextScore: pick.context?.contextScore,
+      riskLevel: pick.riskLevel,
       riskWarnings: [
-        "AI Agent uses paper betting only.",
-        "This is a learning signal, not a guaranteed profitable bet."
+        "AI Agent V4 uses paper betting only.",
+        "Decision is based on model, context, learning and risk rules.",
+        "This is not a guaranteed profitable bet."
       ]
     });
 
-    setMessage(`${pick.selection} added to tracking as Agent V3 paper pick.`);
+    setMessage(`${pick.selection} added to tracking as Agent V4 paper pick.`);
   }
 
-  const agentPicks = picks.filter((pick) => pick.agentScore >= 0.03);
-  const topPick = agentPicks[0];
+  async function copyReport(pick) {
+    const markdown = reportToMarkdown(pick.report);
+    await navigator.clipboard.writeText(markdown);
+    setMessage("Agent report copied.");
+  }
 
-  const totalStake = agentPicks.reduce(
-    (sum, pick) => sum + getStake(pick.edge, pick.agentScore),
-    0
+  const actionablePicks = picks.filter((pick) =>
+    ["BET", "WATCH", "WAIT"].includes(pick.decision)
   );
 
-  const bestSport =
-    learning &&
-    Object.entries(learning.bySport || {}).sort(
-      (a, b) => b[1].profit - a[1].profit
-    )[0];
+  const betCount = picks.filter((pick) => pick.decision === "BET").length;
+  const watchCount = picks.filter((pick) => pick.decision === "WATCH").length;
+  const waitCount = picks.filter((pick) => pick.decision === "WAIT").length;
+  const passCount = picks.filter((pick) => pick.decision === "PASS").length;
 
-  const bestMarket =
-    learning &&
-    Object.entries(learning.byMarket || {}).sort(
-      (a, b) => b[1].profit - a[1].profit
-    )[0];
+  const totalStake = picks
+    .filter((pick) => pick.decision === "BET")
+    .reduce((sum, pick) => sum + getStake(pick.edge, pick.finalScore), 0);
+
+  const topPick = picks[0];
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V3 · Learning Mode
+          AI Agent V4 · Decision + Report
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
-          Autonomous Learning Agent
+          Autonomous Decision Agent
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Agentti hakee live-pickit `/api/top-picks`-rajapinnasta, lukee
-          tracking-historian ja painottaa kohteita sen mukaan missä se on
-          aiemmin onnistunut.
+          Agentti hakee live-pickit, lukee tracking-oppimisen, lisää
+          kontekstipisteytyksen ja tekee päätöksen: BET, WATCH, WAIT tai PASS.
         </p>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -161,71 +187,70 @@ export default function AgentClient() {
               settled bets
             </span>
           )}
-          {!loading && picks.length === 0 && (
-            <div className="mt-2 text-red-300">
-              Agentti ei löytänyt live-kohteita juuri nyt.
-            </div>
-          )}
         </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Paper Bankroll</div>
+          <div className="text-sm text-slate-400">BET</div>
           <div className="mt-2 text-3xl font-black text-emerald-300">
-            {formatMoney(AGENT_BANKROLL)}
+            {betCount}
           </div>
-          <div className="mt-1 text-sm text-slate-500">Agent mode</div>
+          <div className="mt-1 text-sm text-slate-500">
+            Planned stake {formatMoney(totalStake)}
+          </div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Live Candidates</div>
+          <div className="text-sm text-slate-400">WATCH</div>
           <div className="mt-2 text-3xl font-black text-sky-300">
-            {picks.length}
+            {watchCount}
           </div>
-          <div className="mt-1 text-sm text-slate-500">From API</div>
+          <div className="mt-1 text-sm text-slate-500">Potential value</div>
         </div>
 
         <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Agent Picks</div>
-          <div className="mt-2 text-3xl font-black text-purple-300">
-            {agentPicks.length}
-          </div>
-          <div className="mt-1 text-sm text-slate-500">Score ≥ 3%</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Planned Exposure</div>
+          <div className="text-sm text-slate-400">WAIT</div>
           <div className="mt-2 text-3xl font-black text-yellow-300">
-            {formatMoney(totalStake)}
+            {waitCount}
           </div>
-          <div className="mt-1 text-sm text-slate-500">If all tracked</div>
+          <div className="mt-1 text-sm text-slate-500">Needs confirmation</div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+          <div className="text-sm text-slate-400">PASS</div>
+          <div className="mt-2 text-3xl font-black text-red-300">
+            {passCount}
+          </div>
+          <div className="mt-1 text-sm text-slate-500">No clear advantage</div>
         </div>
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_370px]">
-        <Panel title="Agent Ranked Picks" subtitle="Live data + learning score">
+        <Panel title="Agent Decisions" subtitle="Ranked live picks with reports">
           <div className="space-y-4">
             {loading && (
               <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
-                Loading agent picks...
+                Loading agent decisions...
               </div>
             )}
 
-            {!loading && agentPicks.length === 0 && (
+            {!loading && actionablePicks.length === 0 && (
               <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
-                No agent-grade picks right now.
+                No actionable picks right now.
               </div>
             )}
 
-            {agentPicks.map((pick, index) => {
-              const stake = getStake(pick.edge, pick.agentScore);
-              const decision = getAgentDecision(pick);
+            {actionablePicks.map((pick, index) => {
+              const stake = getStake(pick.edge, pick.finalScore);
+              const expanded = expandedReportId === pick.id;
 
               return (
                 <div
-                  key={`${pick.match}-${pick.selection}-${index}`}
-                  className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
+                  key={pick.id || `${pick.match}-${pick.selection}-${index}`}
+                  className={`rounded-2xl border p-5 ${getDecisionBorder(
+                    pick.decision
+                  )}`}
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div>
@@ -240,25 +265,29 @@ export default function AgentClient() {
                         Best bookmaker: {pick.bookmaker || "unknown"}
                       </div>
 
-                      <div className="mt-3 font-bold text-purple-300">
-                        Agent Score {formatPercent(pick.agentScore)}
+                      <div className={`mt-3 text-2xl font-black ${getDecisionColor(pick.decision)}`}>
+                        {pick.decision}
+                      </div>
+
+                      <div className="mt-2 text-sm text-slate-300">
+                        {pick.decisionReason}
                       </div>
                     </div>
 
                     <div className="rounded-xl bg-slate-950 px-4 py-3 text-right">
                       <div className="text-sm text-slate-400">Paper Stake</div>
                       <div className="mt-1 text-xl font-black">
-                        {formatMoney(stake)}
+                        {pick.decision === "BET" ? formatMoney(stake) : "-"}
                       </div>
                       <div className="mt-2 text-sm text-purple-300">
-                        {decision}
+                        V4 Score {formatPercent(pick.finalScore)}
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-5 grid gap-3 md:grid-cols-4">
                     <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Raw Edge</div>
+                      <div className="text-sm text-slate-400">Edge</div>
                       <div className="mt-2 text-xl font-black text-emerald-300">
                         {formatPercent(pick.edge)}
                       </div>
@@ -272,41 +301,61 @@ export default function AgentClient() {
                     </div>
 
                     <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Learning Boost</div>
-                      <div
-                        className={`mt-2 text-xl font-black ${
-                          pick.confidenceBoost >= 0
-                            ? "text-emerald-300"
-                            : "text-red-300"
-                        }`}
-                      >
-                        {formatPercent(pick.confidenceBoost)}
+                      <div className="text-sm text-slate-400">Context</div>
+                      <div className="mt-2 text-xl font-black text-yellow-300">
+                        {formatPercent(pick.context?.contextScore || 0)}
                       </div>
                     </div>
 
                     <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Confidence</div>
-                      <div className="mt-2 text-xl font-black">
-                        {pick.confidence || "Medium"}
+                      <div className="text-sm text-slate-400">Source Trust</div>
+                      <div className="mt-2 text-xl font-black text-purple-300">
+                        {pick.sourceTrustLabel}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-5 rounded-xl border border-sky-400/20 bg-sky-400/5 p-4">
-                    <div className="font-bold text-sky-300">Agent Reasoning</div>
+                  <div className="mt-5 rounded-xl border border-white/10 bg-slate-950 p-4">
+                    <div className="font-bold text-sky-300">Context Notes</div>
                     <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {getAgentReasoning(pick).map((item) => (
-                        <li key={item}>• {item}</li>
+                      {pick.contextNotes.map((note) => (
+                        <li key={note}>• {note}</li>
                       ))}
                     </ul>
                   </div>
 
-                  <button
-                    onClick={() => addPickToTracking(pick)}
-                    className="mt-5 w-full rounded-xl bg-purple-400 px-4 py-3 font-bold text-slate-950 hover:bg-purple-300"
-                  >
-                    Add Agent Pick To Tracking
-                  </button>
+                  <div className="mt-5 flex flex-wrap gap-3">
+                    {pick.decision === "BET" && (
+                      <button
+                        onClick={() => addPickToTracking(pick)}
+                        className="rounded-xl bg-purple-400 px-4 py-3 font-bold text-slate-950 hover:bg-purple-300"
+                      >
+                        Add BET To Tracking
+                      </button>
+                    )}
+
+                    <button
+                      onClick={() =>
+                        setExpandedReportId(expanded ? null : pick.id)
+                      }
+                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 font-bold text-slate-300 hover:bg-white/10"
+                    >
+                      {expanded ? "Hide Report" : "Show Report"}
+                    </button>
+
+                    <button
+                      onClick={() => copyReport(pick)}
+                      className="rounded-xl border border-sky-400/30 bg-sky-400/10 px-4 py-3 font-bold text-sky-300 hover:bg-sky-400/20"
+                    >
+                      Copy Report
+                    </button>
+                  </div>
+
+                  {expanded && (
+                    <pre className="mt-5 whitespace-pre-wrap rounded-xl border border-white/10 bg-slate-950 p-4 text-xs text-slate-300">
+                      {reportToMarkdown(pick.report)}
+                    </pre>
+                  )}
                 </div>
               );
             })}
@@ -314,41 +363,10 @@ export default function AgentClient() {
         </Panel>
 
         <div className="space-y-6">
-          <Panel title="Agent Learning Memory" subtitle="What the agent has learned">
-            <div className="space-y-3 text-sm text-slate-300">
-              <div className="rounded-xl bg-white/[0.04] p-4">
-                Learning sample:{" "}
-                <span className="font-bold text-sky-300">
-                  {learning?.sampleSize || 0}
-                </span>{" "}
-                settled bets.
-              </div>
-
-              <div className="rounded-xl bg-emerald-400/10 p-4">
-                Best sport:{" "}
-                <span className="font-bold text-emerald-300">
-                  {bestSport ? bestSport[0] : "not enough data"}
-                </span>
-              </div>
-
-              <div className="rounded-xl bg-purple-400/10 p-4">
-                Best market:{" "}
-                <span className="font-bold text-purple-300">
-                  {bestMarket ? bestMarket[0] : "not enough data"}
-                </span>
-              </div>
-
-              <div className="rounded-xl bg-yellow-400/10 p-4">
-                Agent V3 adjusts ranking, not real money staking. It remains
-                paper mode.
-              </div>
-            </div>
-          </Panel>
-
-          <Panel title="Best Current Pick" subtitle="Highest ranked agent idea">
+          <Panel title="Best Current Case" subtitle="Highest ranked V4 decision">
             {!topPick ? (
               <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
-                No top pick available.
+                No pick available.
               </div>
             ) : (
               <div className="space-y-3 text-sm text-slate-300">
@@ -359,14 +377,37 @@ export default function AgentClient() {
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-emerald-400/10 p-4">
-                  Agent Score:{" "}
-                  <span className="font-bold text-emerald-300">
-                    {formatPercent(topPick.agentScore)}
+                <div className={`rounded-xl border p-4 ${getDecisionBorder(topPick.decision)}`}>
+                  Decision:{" "}
+                  <span className={`font-bold ${getDecisionColor(topPick.decision)}`}>
+                    {topPick.decision}
+                  </span>
+                </div>
+
+                <div className="rounded-xl bg-purple-400/10 p-4">
+                  Final Score:{" "}
+                  <span className="font-bold text-purple-300">
+                    {formatPercent(topPick.finalScore)}
                   </span>
                 </div>
               </div>
             )}
+          </Panel>
+
+          <Panel title="Agent V4 Logic" subtitle="What changed">
+            <div className="space-y-3 text-sm text-slate-300">
+              <div className="rounded-xl bg-emerald-400/10 p-4">
+                V4 does not only rank picks. It decides BET, WATCH, WAIT or PASS.
+              </div>
+
+              <div className="rounded-xl bg-sky-400/10 p-4">
+                It combines edge, EV, learning, context, source trust and risk.
+              </div>
+
+              <div className="rounded-xl bg-yellow-400/10 p-4">
+                Reports show why the agent decided what it decided.
+              </div>
+            </div>
           </Panel>
 
           {message && (
