@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
 import { formatPercent } from "../../lib/analysis-engine";
 import { predictFixtures } from "../../lib/prediction-slip-engine";
+import { summarizePredictionSlip } from "../../lib/prediction-summary-engine";
 
 const STORAGE_KEY = "scorecaster_prediction_fixtures";
 
@@ -75,6 +76,7 @@ export default function SimulatorClient() {
 
   const fixtures = parseFixtures(fixturesText);
   const predictions = predictFixtures(fixtures);
+  const summary = summarizePredictionSlip(predictions);
 
   const predictionRow = predictions.map((game) => game.prediction).join(" ");
   const safeRow = predictions.map((game) => game.safePick).join(" ");
@@ -118,6 +120,58 @@ export default function SimulatorClient() {
           koti,vieras,kotiRating,vierasRating,kotiForm,vierasForm,kotiLoukkaantumiset,vierasLoukkaantumiset,kotiFatigue,vierasFatigue,kotietu.
         </p>
       </section>
+
+      <Panel title="AI Row Summary" subtitle="Rivin kokonaisanalyysi">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-xl bg-white/[0.04] p-4">
+            <div className="text-sm text-slate-400">Risk Level</div>
+            <div className="mt-2 text-2xl font-black text-yellow-300">
+              {summary.riskLevel}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white/[0.04] p-4">
+            <div className="text-sm text-slate-400">Strong Picks</div>
+            <div className="mt-2 text-2xl font-black text-emerald-300">
+              {summary.strongCount}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white/[0.04] p-4">
+            <div className="text-sm text-slate-400">Low Confidence</div>
+            <div className="mt-2 text-2xl font-black text-red-300">
+              {summary.lowCount}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-white/[0.04] p-4">
+            <div className="text-sm text-slate-400">Doubles</div>
+            <div className="mt-2 text-2xl font-black text-sky-300">
+              {summary.doubleCount}
+            </div>
+          </div>
+        </div>
+
+        {summary.strongestPick && (
+          <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-slate-300">
+            Vahvin kohde:{" "}
+            <span className="font-bold text-emerald-300">
+              {summary.strongestPick.homeTeam} vs {summary.strongestPick.awayTeam}
+            </span>{" "}
+            — merkki {summary.strongestPick.prediction}.
+          </div>
+        )}
+
+        {summary.weakestPick && (
+          <div className="mt-4 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-slate-300">
+            Heikoin kohde:{" "}
+            <span className="font-bold text-yellow-300">
+              {summary.weakestPick.homeTeam} vs {summary.weakestPick.awayTeam}
+            </span>{" "}
+            — harkitse varmistusta {summary.weakestPick.safePick}.
+          </div>
+        )}
+      </Panel>
 
       <Panel title="Syötä pelit" subtitle="Yksi peli per rivi">
         <textarea
