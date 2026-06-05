@@ -8,6 +8,7 @@ import { calculateAgentScore } from "../../lib/agent-score";
 import { buildAgentV5Pick } from "../../lib/agent-v5-engine";
 import { reportToMarkdown } from "../../lib/agent-report-engine";
 import { saveAgentReport } from "../../lib/report-storage";
+import { createDailyAgentBriefing } from "../../lib/daily-briefing-engine";
 import { formatMoney, formatPercent } from "../../lib/analysis-engine";
 
 const AGENT_BANKROLL = 1000;
@@ -188,12 +189,13 @@ export default function AgentClient() {
     .reduce((sum, pick) => sum + getStake(pick.edge, pick.finalScore), 0);
 
   const topPick = picks[0];
+  const briefing = createDailyAgentBriefing(picks);
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V5 · News + Injury + Lineup
+          AI Agent V5 · Daily Briefing
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -208,9 +210,7 @@ export default function AgentClient() {
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
           Source: <span className="font-bold text-emerald-300">{source}</span>
-
           {loading && <span className="ml-2 text-yellow-300">Loading...</span>}
-
           {learning && (
             <span className="ml-3 text-slate-400">
               Learning sample:{" "}
@@ -258,6 +258,50 @@ export default function AgentClient() {
           <div className="mt-1 text-sm text-slate-500">No clear advantage</div>
         </div>
       </section>
+
+      <Panel title="Daily Agent Briefing" subtitle="Today's decision summary">
+        <div className="grid gap-3 md:grid-cols-4">
+          <div className="rounded-xl bg-white/[0.04] p-4">
+            <div className="text-sm text-slate-400">Total Picks</div>
+            <div className="mt-2 text-2xl font-black">{briefing.total}</div>
+          </div>
+
+          <div className="rounded-xl bg-emerald-400/10 p-4">
+            <div className="text-sm text-slate-400">BET</div>
+            <div className="mt-2 text-2xl font-black text-emerald-300">
+              {briefing.betCount}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-sky-400/10 p-4">
+            <div className="text-sm text-slate-400">WATCH</div>
+            <div className="mt-2 text-2xl font-black text-sky-300">
+              {briefing.watchCount}
+            </div>
+          </div>
+
+          <div className="rounded-xl bg-red-400/10 p-4">
+            <div className="text-sm text-slate-400">Low Data</div>
+            <div className="mt-2 text-2xl font-black text-red-300">
+              {briefing.lowReadinessCount}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-sm text-slate-300">
+          {briefing.summary}
+        </div>
+
+        {briefing.bestPick && (
+          <div className="mt-4 rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4 text-sm text-slate-300">
+            Best case:{" "}
+            <span className="font-bold text-emerald-300">
+              {briefing.bestPick.match}
+            </span>{" "}
+            — {briefing.bestPick.selection} @ {briefing.bestPick.odds}
+          </div>
+        )}
+      </Panel>
 
       <section className="grid gap-6 lg:grid-cols-[1fr_370px]">
         <Panel title="Agent Decisions" subtitle="Ranked live picks with reports">
@@ -556,8 +600,8 @@ export default function AgentClient() {
               </div>
 
               <div className="rounded-xl bg-yellow-400/10 p-4">
-                Reports explain the decision and what information is still
-                missing.
+                Daily briefing summarizes whether today has real opportunities
+                or only watchlist value.
               </div>
             </div>
           </Panel>
