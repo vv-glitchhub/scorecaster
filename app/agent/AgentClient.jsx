@@ -5,11 +5,12 @@ import Panel from "../components/Panel";
 import { addTrackedBet, getTrackedBets } from "../../lib/tracking-storage";
 import { calculateAgentPerformance } from "../../lib/agent-learning";
 import { calculateAgentScore } from "../../lib/agent-score";
-import { buildAgentV5Pick } from "../../lib/agent-v5-engine";
+import { buildAgentV6Pick } from "../../lib/agent-v6-engine";
 import { enrichPickWithLiveIntelligence } from "../../lib/agent-intelligence-loader";
 import { reportToMarkdown } from "../../lib/agent-report-engine";
 import { saveAgentReport } from "../../lib/report-storage";
 import { createDailyAgentBriefing } from "../../lib/daily-briefing-engine";
+import { generateAutonomousTasks } from "../../lib/agent-autonomous-engine";
 import { formatMoney, formatPercent } from "../../lib/analysis-engine";
 
 const AGENT_BANKROLL = 1000;
@@ -79,17 +80,18 @@ export default function AgentClient() {
         const data = await res.json();
         const rawPicks = Array.isArray(data.data) ? data.data : [];
 
-        const v5Picks = rawPicks.map((pick) => {
+        const v6Picks = rawPicks.map((pick) => {
           const score = calculateAgentScore({
             pick,
             learning: learningData
           });
 
-          return buildAgentV5Pick({
+          return buildAgentV6Pick({
             pick: {
               ...pick,
               ...score
             },
+            trackedBets,
             learningBoost: score.confidenceBoost,
             movementSignal: pick.movementSignal || "Stable",
             contextInput: createDefaultContext(),
@@ -109,7 +111,7 @@ export default function AgentClient() {
         });
 
         const enrichedPicks = await Promise.all(
-          v5Picks.map((pick) => enrichPickWithLiveIntelligence(pick))
+          v6Picks.map((pick) => enrichPickWithLiveIntelligence(pick))
         );
 
         setPicks(enrichedPicks.sort((a, b) => b.finalScore - a.finalScore));
@@ -137,14 +139,15 @@ export default function AgentClient() {
       ev: pick.ev,
       stake,
       bankroll: AGENT_BANKROLL,
-      kellyMode: "agent-v5-paper",
-      source: "AI Agent V5",
+      kellyMode: "agent-v6-paper",
+      source: "AI Agent V6",
       sportKey: pick.sportKey,
       marketKey: pick.marketKey,
       league: pick.league,
       leagueTitle: pick.leagueTitle,
       agentScore: pick.finalScore,
       confidenceBoost: pick.confidenceBoost,
+      adaptiveBoost: pick.adaptiveBoost,
       decision: pick.decision,
       decisionReason: pick.decisionReason,
       sourceTrust: pick.sourceTrust,
@@ -159,13 +162,13 @@ export default function AgentClient() {
       missingData: pick.readiness?.missing || [],
       riskLevel: pick.riskLevel,
       riskWarnings: [
-        "AI Agent V5 uses paper betting only.",
-        "Decision is based on model, context, market intelligence, live intelligence, news, injuries, lineup, data readiness, learning and risk rules.",
+        "AI Agent V6 uses paper betting only.",
+        "Decision is based on model, context, market intelligence, live intelligence, memory adaptation, data readiness, learning and risk rules.",
         "This is not a guaranteed profitable bet."
       ]
     });
 
-    setMessage(`${pick.selection} added to tracking as Agent V5 paper pick.`);
+    setMessage(`${pick.selection} added to tracking as Agent V6 paper pick.`);
   }
 
   async function copyReport(pick) {
@@ -183,6 +186,9 @@ export default function AgentClient() {
     ["BET", "WATCH", "WAIT"].includes(pick.decision)
   );
 
+  const briefing = createDailyAgentBriefing(picks);
+  const autonomousTasks = generateAutonomousTasks(picks);
+
   const betCount = picks.filter((pick) => pick.decision === "BET").length;
   const watchCount = picks.filter((pick) => pick.decision === "WATCH").length;
   const waitCount = picks.filter((pick) => pick.decision === "WAIT").length;
@@ -193,23 +199,22 @@ export default function AgentClient() {
     .reduce((sum, pick) => sum + getStake(pick.edge, pick.finalScore), 0);
 
   const topPick = picks[0];
-  const briefing = createDailyAgentBriefing(picks);
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V5 · Live Intelligence
+          AI Agent V6 · Adaptive Intelligence
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
-          Autonomous Intelligence Agent
+          Autonomous Adaptive Agent
         </h1>
 
         <p className="mt-3 text-slate-300">
-          Agentti yhdistää live-kertoimet, learningin, kontekstin,
-          markkinasignaalit, data readinessin, uutiset, loukkaantumiset,
-          kokoonpanot ja intelligence API:n.
+          Agentti yhdistää live-kertoimet, learningin, muistimoottorin,
+          markkinasignaalit, intelligence API:n ja tekee päätöksen: BET, WATCH,
+          WAIT tai PASS.
         </p>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -365,7 +370,7 @@ export default function AgentClient() {
                         {pick.decision === "BET" ? formatMoney(stake) : "-"}
                       </div>
                       <div className="mt-2 text-sm text-purple-300">
-                        V5 Score {formatPercent(pick.finalScore)}
+                        V6 Score {formatPercent(pick.finalScore)}
                       </div>
                     </div>
                   </div>
@@ -386,16 +391,9 @@ export default function AgentClient() {
                     </div>
 
                     <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Context</div>
-                      <div className="mt-2 text-xl font-black text-yellow-300">
-                        {formatPercent(pick.context?.contextScore || 0)}
-                      </div>
-                    </div>
-
-                    <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Market</div>
+                      <div className="text-sm text-slate-400">Adaptive</div>
                       <div className="mt-2 text-xl font-black text-purple-300">
-                        {formatPercent(pick.marketScore || 0)}
+                        {formatPercent(pick.adaptiveBoost || 0)}
                       </div>
                     </div>
 
@@ -403,6 +401,13 @@ export default function AgentClient() {
                       <div className="text-sm text-slate-400">Intel</div>
                       <div className="mt-2 text-xl font-black text-emerald-300">
                         {formatPercent(pick.intelligenceScore || 0)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-slate-950 p-4">
+                      <div className="text-sm text-slate-400">Market</div>
+                      <div className="mt-2 text-xl font-black text-yellow-300">
+                        {formatPercent(pick.marketScore || 0)}
                       </div>
                     </div>
 
@@ -418,6 +423,29 @@ export default function AgentClient() {
                     </div>
                   </div>
 
+                  <div className="mt-5 rounded-xl border border-purple-400/20 bg-purple-400/5 p-4">
+                    <div className="font-bold text-purple-300">
+                      Adaptive Memory
+                    </div>
+
+                    <div className="mt-3 text-sm text-slate-300">
+                      Memory total bets:{" "}
+                      <span className="font-bold text-sky-300">
+                        {pick.memorySummary?.totalBets || 0}
+                      </span>{" "}
+                      · Profit:{" "}
+                      <span className="font-bold text-emerald-300">
+                        {formatMoney(pick.memorySummary?.profit || 0)}
+                      </span>
+                    </div>
+
+                    <ul className="mt-3 space-y-1 text-sm text-slate-300">
+                      {(pick.adaptiveNotes || []).map((note) => (
+                        <li key={note}>• {note}</li>
+                      ))}
+                    </ul>
+                  </div>
+
                   <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4">
                     <div className="font-bold text-emerald-300">
                       Live Intelligence Notes
@@ -425,18 +453,6 @@ export default function AgentClient() {
 
                     <ul className="mt-3 space-y-1 text-sm text-slate-300">
                       {(pick.intelligenceNotes || []).map((note) => (
-                        <li key={note}>• {note}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-5 rounded-xl border border-purple-400/20 bg-purple-400/5 p-4">
-                    <div className="font-bold text-purple-300">
-                      Market Intelligence
-                    </div>
-
-                    <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {(pick.marketNotes || []).map((note) => (
                         <li key={note}>• {note}</li>
                       ))}
                     </ul>
@@ -507,7 +523,7 @@ export default function AgentClient() {
         </Panel>
 
         <div className="space-y-6">
-          <Panel title="Best Current Case" subtitle="Highest ranked V5 decision">
+          <Panel title="Best Current Case" subtitle="Highest ranked V6 decision">
             {!topPick ? (
               <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
                 No pick available.
@@ -546,20 +562,39 @@ export default function AgentClient() {
             )}
           </Panel>
 
-          <Panel title="Agent V5 Logic" subtitle="What changed">
+          <Panel title="Autonomous Tasks" subtitle="What the agent wants next">
+            <div className="space-y-3">
+              {autonomousTasks.length === 0 && (
+                <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
+                  No autonomous follow-up tasks right now.
+                </div>
+              )}
+
+              {autonomousTasks.slice(0, 8).map((task, index) => (
+                <div
+                  key={`${task.match}-${task.type}-${index}`}
+                  className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300"
+                >
+                  <div className="font-bold text-sky-300">{task.type}</div>
+                  <div className="mt-1">{task.match}</div>
+                  <div className="mt-1 text-slate-400">{task.reason}</div>
+                </div>
+              ))}
+            </div>
+          </Panel>
+
+          <Panel title="Agent V6 Logic" subtitle="What changed">
             <div className="space-y-3 text-sm text-slate-300">
+              <div className="rounded-xl bg-purple-400/10 p-4">
+                V6 adapts decisions using historical memory.
+              </div>
+
               <div className="rounded-xl bg-emerald-400/10 p-4">
-                Agent now calls the Intelligence API for each pick.
+                Good historical performance increases confidence.
               </div>
 
-              <div className="rounded-xl bg-sky-400/10 p-4">
-                Intelligence loader is ready for real news, injury, lineup and
-                Polymarket APIs.
-              </div>
-
-              <div className="rounded-xl bg-yellow-400/10 p-4">
-                Placeholder fetchers return safe empty data until real APIs are
-                connected.
+              <div className="rounded-xl bg-red-400/10 p-4">
+                Bad historical performance reduces confidence.
               </div>
             </div>
           </Panel>
