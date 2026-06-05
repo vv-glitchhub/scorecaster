@@ -6,6 +6,7 @@ import { addTrackedBet, getTrackedBets } from "../../lib/tracking-storage";
 import { calculateAgentPerformance } from "../../lib/agent-learning";
 import { calculateAgentScore } from "../../lib/agent-score";
 import { buildAgentV5Pick } from "../../lib/agent-v5-engine";
+import { enrichPickWithLiveIntelligence } from "../../lib/agent-intelligence-loader";
 import { reportToMarkdown } from "../../lib/agent-report-engine";
 import { saveAgentReport } from "../../lib/report-storage";
 import { createDailyAgentBriefing } from "../../lib/daily-briefing-engine";
@@ -78,38 +79,40 @@ export default function AgentClient() {
         const data = await res.json();
         const rawPicks = Array.isArray(data.data) ? data.data : [];
 
-        const scoredPicks = rawPicks
-          .map((pick) => {
-            const score = calculateAgentScore({
-              pick,
-              learning: learningData
-            });
+        const v5Picks = rawPicks.map((pick) => {
+          const score = calculateAgentScore({
+            pick,
+            learning: learningData
+          });
 
-            return buildAgentV5Pick({
-              pick: {
-                ...pick,
-                ...score
-              },
-              learningBoost: score.confidenceBoost,
-              movementSignal: pick.movementSignal || "Stable",
-              contextInput: createDefaultContext(),
-              marketInput: {
-                clv: pick.clv || 0,
-                polymarketDifference: pick.polymarketDifference || 0
-              },
-              newsItems: pick.newsItems || [],
-              injuries: pick.injuries || [],
-              lineup: {
-                startersConfirmed: Boolean(pick.startersConfirmed),
-                goalieConfirmed: Boolean(pick.goalieConfirmed),
-                keyPlayersAvailable: pick.keyPlayersAvailable !== false,
-                lineupStability: Number(pick.lineupStability || 0)
-              }
-            });
-          })
-          .sort((a, b) => b.finalScore - a.finalScore);
+          return buildAgentV5Pick({
+            pick: {
+              ...pick,
+              ...score
+            },
+            learningBoost: score.confidenceBoost,
+            movementSignal: pick.movementSignal || "Stable",
+            contextInput: createDefaultContext(),
+            marketInput: {
+              clv: pick.clv || 0,
+              polymarketDifference: pick.polymarketDifference || 0
+            },
+            newsItems: pick.newsItems || [],
+            injuries: pick.injuries || [],
+            lineup: {
+              startersConfirmed: Boolean(pick.startersConfirmed),
+              goalieConfirmed: Boolean(pick.goalieConfirmed),
+              keyPlayersAvailable: pick.keyPlayersAvailable !== false,
+              lineupStability: Number(pick.lineupStability || 0)
+            }
+          });
+        });
 
-        setPicks(scoredPicks);
+        const enrichedPicks = await Promise.all(
+          v5Picks.map((pick) => enrichPickWithLiveIntelligence(pick))
+        );
+
+        setPicks(enrichedPicks.sort((a, b) => b.finalScore - a.finalScore));
         setSource(data.source || "api");
       } catch (error) {
         setSource("error");
@@ -147,6 +150,7 @@ export default function AgentClient() {
       sourceTrust: pick.sourceTrust,
       contextScore: pick.context?.contextScore,
       marketScore: pick.marketScore,
+      intelligenceScore: pick.intelligenceScore,
       newsScore: pick.newsScore,
       injuryScore: pick.injuryScore,
       lineupScore: pick.lineupScore,
@@ -156,7 +160,7 @@ export default function AgentClient() {
       riskLevel: pick.riskLevel,
       riskWarnings: [
         "AI Agent V5 uses paper betting only.",
-        "Decision is based on model, context, market intelligence, news, injuries, lineup, data readiness, learning and risk rules.",
+        "Decision is based on model, context, market intelligence, live intelligence, news, injuries, lineup, data readiness, learning and risk rules.",
         "This is not a guaranteed profitable bet."
       ]
     });
@@ -195,7 +199,7 @@ export default function AgentClient() {
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
         <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          AI Agent V5 · Daily Briefing
+          AI Agent V5 · Live Intelligence
         </div>
 
         <h1 className="text-4xl font-black tracking-tight">
@@ -204,8 +208,8 @@ export default function AgentClient() {
 
         <p className="mt-3 text-slate-300">
           Agentti yhdistää live-kertoimet, learningin, kontekstin,
-          markkinasignaalit, data readinessin, uutiset, loukkaantumiset ja
-          kokoonpanot.
+          markkinasignaalit, data readinessin, uutiset, loukkaantumiset,
+          kokoonpanot ja intelligence API:n.
         </p>
 
         <div className="mt-4 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
@@ -396,9 +400,9 @@ export default function AgentClient() {
                     </div>
 
                     <div className="rounded-xl bg-slate-950 p-4">
-                      <div className="text-sm text-slate-400">Trust</div>
-                      <div className="mt-2 text-xl font-black text-purple-300">
-                        {pick.sourceTrustLabel}
+                      <div className="text-sm text-slate-400">Intel</div>
+                      <div className="mt-2 text-xl font-black text-emerald-300">
+                        {formatPercent(pick.intelligenceScore || 0)}
                       </div>
                     </div>
 
@@ -416,47 +420,11 @@ export default function AgentClient() {
 
                   <div className="mt-5 rounded-xl border border-emerald-400/20 bg-emerald-400/5 p-4">
                     <div className="font-bold text-emerald-300">
-                      News / Injury / Lineup Intelligence
-                    </div>
-
-                    <div className="mt-3 grid gap-3 md:grid-cols-3">
-                      <div className="rounded-xl bg-slate-950 p-4">
-                        <div className="text-sm text-slate-400">News</div>
-                        <div className="mt-2 text-xl font-black text-sky-300">
-                          {formatPercent(pick.newsScore || 0)}
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl bg-slate-950 p-4">
-                        <div className="text-sm text-slate-400">Injuries</div>
-                        <div className="mt-2 text-xl font-black text-red-300">
-                          {formatPercent(pick.injuryScore || 0)}
-                        </div>
-                      </div>
-
-                      <div className="rounded-xl bg-slate-950 p-4">
-                        <div className="text-sm text-slate-400">Lineup</div>
-                        <div className="mt-2 text-xl font-black text-emerald-300">
-                          {formatPercent(pick.lineupScore || 0)}
-                        </div>
-                      </div>
+                      Live Intelligence Notes
                     </div>
 
                     <ul className="mt-3 space-y-1 text-sm text-slate-300">
-                      {[
-                        ...(pick.newsNotes || []),
-                        ...(pick.injuryNotes || []),
-                        ...(pick.lineupNotes || [])
-                      ].map((note) => (
-                        <li key={note}>• {note}</li>
-                      ))}
-                    </ul>
-                  </div>
-
-                  <div className="mt-5 rounded-xl border border-white/10 bg-slate-950 p-4">
-                    <div className="font-bold text-sky-300">Context Notes</div>
-                    <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {(pick.contextNotes || []).map((note) => (
+                      {(pick.intelligenceNotes || []).map((note) => (
                         <li key={note}>• {note}</li>
                       ))}
                     </ul>
@@ -466,6 +434,7 @@ export default function AgentClient() {
                     <div className="font-bold text-purple-300">
                       Market Intelligence
                     </div>
+
                     <ul className="mt-2 space-y-1 text-sm text-slate-300">
                       {(pick.marketNotes || []).map((note) => (
                         <li key={note}>• {note}</li>
@@ -573,17 +542,6 @@ export default function AgentClient() {
                     {formatPercent(topPick.finalScore)}
                   </span>
                 </div>
-
-                <div className="rounded-xl bg-yellow-400/10 p-4">
-                  Data Readiness:{" "}
-                  <span
-                    className={`font-bold ${getReadinessColor(
-                      topPick.readiness?.level
-                    )}`}
-                  >
-                    {topPick.readiness?.level || "Low"}
-                  </span>
-                </div>
               </div>
             )}
           </Panel>
@@ -591,17 +549,17 @@ export default function AgentClient() {
           <Panel title="Agent V5 Logic" subtitle="What changed">
             <div className="space-y-3 text-sm text-slate-300">
               <div className="rounded-xl bg-emerald-400/10 p-4">
-                V5 adds news, injury and lineup intelligence.
+                Agent now calls the Intelligence API for each pick.
               </div>
 
               <div className="rounded-xl bg-sky-400/10 p-4">
-                It combines odds, EV, learning, context, market signals, source
-                trust, data readiness and reports.
+                Intelligence loader is ready for real news, injury, lineup and
+                Polymarket APIs.
               </div>
 
               <div className="rounded-xl bg-yellow-400/10 p-4">
-                Daily briefing summarizes whether today has real opportunities
-                or only watchlist value.
+                Placeholder fetchers return safe empty data until real APIs are
+                connected.
               </div>
             </div>
           </Panel>
