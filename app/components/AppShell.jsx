@@ -13,6 +13,7 @@ const navItems = [
   { href: "/agent-memory", label: "Memory" },
   { href: "/reports", label: "Reports" },
   { href: "/clv", label: "CLV" },
+  { href: "/bankroll", label: "Bankroll" },
 
   { href: "/simulator", label: "Simulator" },
   { href: "/tournament", label: "Tournament" },
@@ -56,6 +57,10 @@ export default function AppShell({ children }) {
               <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">
                 Intelligence Layer
               </div>
+
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">
+                Bankroll Manager
+              </div>
             </div>
           </div>
 
@@ -95,6 +100,7 @@ export default function AppShell({ children }) {
               <span>Market Intelligence</span>
               <span>Data Readiness</span>
               <span>CLV</span>
+              <span>Bankroll</span>
               <span>Tournament Simulator</span>
             </div>
           </div>
