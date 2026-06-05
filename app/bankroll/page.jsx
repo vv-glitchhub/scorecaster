@@ -3,12 +3,17 @@
 import { useEffect, useState } from "react";
 import Panel from "../components/Panel";
 import { calculateBankrollPlan } from "../../lib/bankroll-manager";
+import { getSavedBankroll, saveBankroll } from "../../lib/bankroll-storage";
 import { formatMoney, formatPercent } from "../../lib/analysis-engine";
 
 export default function BankrollPage() {
   const [bankroll, setBankroll] = useState(1000);
   const [plan, setPlan] = useState(null);
   const [source, setSource] = useState("loading");
+
+  useEffect(() => {
+    setBankroll(getSavedBankroll(1000));
+  }, []);
 
   useEffect(() => {
     async function load() {
@@ -32,6 +37,11 @@ export default function BankrollPage() {
 
     load();
   }, [bankroll]);
+
+  function updateBankroll(value) {
+    setBankroll(value);
+    saveBankroll(value);
+  }
 
   if (!plan) {
     return <div className="text-slate-400">Loading bankroll manager...</div>;
@@ -58,7 +68,7 @@ export default function BankrollPage() {
         </div>
       </section>
 
-      <Panel title="Bankroll Settings" subtitle="Risk limits">
+      <Panel title="Bankroll Settings" subtitle="Tallennettu localStorageen">
         <div className="grid gap-3 md:grid-cols-[1fr_200px]">
           <div className="rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300">
             Bankroll €
@@ -68,7 +78,9 @@ export default function BankrollPage() {
             type="number"
             min="1"
             value={bankroll}
-            onChange={(event) => setBankroll(Number(event.target.value || 0))}
+            onChange={(event) =>
+              updateBankroll(Number(event.target.value || 0))
+            }
             className="rounded-xl border border-white/10 bg-slate-950 px-4 py-3 text-slate-100 outline-none"
           />
         </div>
