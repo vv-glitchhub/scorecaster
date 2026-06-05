@@ -12,6 +12,7 @@ const navItems = [
   { href: "/agent", label: "Agent" },
   { href: "/agent-memory", label: "Memory" },
   { href: "/reports", label: "Reports" },
+  { href: "/clv", label: "CLV" },
 
   { href: "/simulator", label: "Simulator" },
   { href: "/tournament", label: "Tournament" },
@@ -49,7 +50,7 @@ export default function AppShell({ children }) {
 
             <div className="flex items-center gap-3">
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">
-                Agent V5
+                Agent V6
               </div>
 
               <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">
@@ -82,21 +83,18 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6">
-        {children}
-      </main>
+      <main className="mx-auto max-w-7xl px-4 py-6">{children}</main>
 
       <footer className="border-t border-white/10 py-6">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex flex-col gap-2 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-            <div>
-              © {new Date().getFullYear()} Scorecaster
-            </div>
+            <div>© {new Date().getFullYear()} Scorecaster</div>
 
             <div className="flex flex-wrap gap-4">
-              <span>AI Agent V5</span>
+              <span>AI Agent V6</span>
               <span>Market Intelligence</span>
               <span>Data Readiness</span>
+              <span>CLV</span>
               <span>Tournament Simulator</span>
             </div>
           </div>
