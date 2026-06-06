@@ -2,13 +2,13 @@ import { NextResponse } from "next/server";
 import { sportsDataGet } from "../../../lib/sportsdata-fetcher";
 
 const pathsToTest = [
-  "/v3/nhl/scores/json/Teams",
-  "/v3/nhl/scores/json/Injuries",
-  "/v3/nhl/scores/json/Players",
-  "/v3/nba/scores/json/Teams",
-  "/v3/nba/scores/json/Injuries",
+  "/v3/nfl/scores/json/Standings/2025",
   "/v3/nfl/scores/json/Teams",
-  "/v3/nfl/scores/json/Injuries"
+  "/v3/nfl/scores/json/Players",
+  "/v3/nfl/scores/json/Injuries",
+  "/v3/nfl/scores/json/Schedules/2025",
+  "/v3/nfl/scores/json/Scores/2025",
+  "/v3/nfl/scores/json/PlayerSeasonStats/2025"
 ];
 
 export async function GET() {
