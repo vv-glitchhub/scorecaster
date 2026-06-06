@@ -1,6 +1,7 @@
 import { SPORTS } from "../../../lib/sports";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
+import { calculatePickQuality } from "../../../lib/pick-quality-engine";
 
 const DEFAULT_LEAGUES = [
   "icehockey_nhl",
@@ -27,6 +28,33 @@ function getGamesFromResponse(data) {
   return [];
 }
 
+function applyQualityFallback(pick) {
+  const sourceTrust = Number(pick.sourceTrust || 0.45);
+  const quality = calculatePickQuality({
+    ...pick,
+    sourceTrust,
+    sentimentScore: Number(pick.sentimentScore || 0)
+  });
+
+  const finalScore = Number(pick.finalScore || pick.edge || 0);
+  const edge = Number(pick.edge || 0);
+
+  const decision =
+    pick.decision === "BET" ||
+    (quality.qualityGrade === "B" && finalScore >= 0.05 && edge >= 0.045)
+      ? "BET"
+      : pick.decision || "WATCH";
+
+  return {
+    ...pick,
+    decision,
+    sourceTrust,
+    qualityScore: pick.qualityScore || quality.qualityScore,
+    qualityGrade: pick.qualityGrade || quality.qualityGrade,
+    qualityNotes: pick.qualityNotes || quality.qualityNotes
+  };
+}
+
 function rankPick(pick) {
   const decisionWeight = {
     BET: 1,
@@ -38,6 +66,7 @@ function rankPick(pick) {
   return (
     Number(pick.finalScore || 0) +
     Number(pick.edge || 0) +
+    Number(pick.qualityScore || 0) * 0.1 +
     Number(pick.sentimentScore || 0) +
     Number(pick.sourceTrust || 0) * 0.02 +
     Number(decisionWeight[pick.decision] || 0)
@@ -46,15 +75,16 @@ function rankPick(pick) {
 
 async function enrichSafely(pick) {
   try {
-    return await enrichPickWithLiveIntelligence(pick);
+    const enriched = await enrichPickWithLiveIntelligence(pick);
+    return applyQualityFallback(enriched);
   } catch (error) {
-    return {
+    return applyQualityFallback({
       ...pick,
       agentVersion: "fallback",
-      decision: pick.edge > 0.05 ? "WATCH" : "PASS",
+      decision: pick.edge >= 0.045 ? "WATCH" : "PASS",
       finalScore: Number(pick.finalScore || pick.edge || 0),
       intelligenceError: error.message
-    };
+    });
   }
 }
 
