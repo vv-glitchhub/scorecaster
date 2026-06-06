@@ -1,5 +1,6 @@
 import { SPORTS } from "../../../lib/sports";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
+import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 
 const DEFAULT_LEAGUES = [
   "icehockey_nhl",
@@ -26,6 +27,37 @@ function getGamesFromResponse(data) {
   return [];
 }
 
+function rankPick(pick) {
+  const decisionWeight = {
+    BET: 1,
+    WATCH: 0.5,
+    WAIT: 0.15,
+    PASS: -1
+  };
+
+  return (
+    Number(pick.finalScore || 0) +
+    Number(pick.edge || 0) +
+    Number(pick.sentimentScore || 0) +
+    Number(pick.sourceTrust || 0) * 0.02 +
+    Number(decisionWeight[pick.decision] || 0)
+  );
+}
+
+async function enrichSafely(pick) {
+  try {
+    return await enrichPickWithLiveIntelligence(pick);
+  } catch (error) {
+    return {
+      ...pick,
+      agentVersion: "fallback",
+      decision: pick.edge > 0.05 ? "WATCH" : "PASS",
+      finalScore: Number(pick.finalScore || pick.edge || 0),
+      intelligenceError: error.message
+    };
+  }
+}
+
 export async function GET(request) {
   const { origin } = new URL(request.url);
   const allPicks = [];
@@ -50,7 +82,8 @@ export async function GET(request) {
       }).map((pick) => ({
         ...pick,
         league,
-        leagueTitle: findLeagueTitle(league)
+        leagueTitle: findLeagueTitle(league),
+        sportKey: league
       }));
 
       allPicks.push(...picks);
@@ -59,11 +92,20 @@ export async function GET(request) {
     }
   }
 
-  const sorted = allPicks.sort((a, b) => b.edge - a.edge).slice(0, 20);
+  const preFiltered = allPicks
+    .sort((a, b) => Number(b.edge || 0) - Number(a.edge || 0))
+    .slice(0, 25);
+
+  const enriched = await Promise.all(preFiltered.map(enrichSafely));
+
+  const sorted = enriched
+    .sort((a, b) => rankPick(b) - rankPick(a))
+    .slice(0, 20);
 
   return Response.json({
     ok: true,
-    source: "scorecaster-engine-v1",
+    source: "agent-v7-top-picks",
+    agentVersion: "V7",
     count: sorted.length,
     data: sorted
   });
