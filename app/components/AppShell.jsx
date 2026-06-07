@@ -6,6 +6,8 @@ import { usePathname } from "next/navigation";
 const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/agent-v7", label: "Agent V7" },
+  { href: "/analytics", label: "Analytics" },
+  { href: "/paper-trading", label: "Paper Trading" },
   { href: "/betting", label: "Betting" },
   { href: "/open-bets", label: "Open Bets" },
   { href: "/tracking", label: "Tracking" },
@@ -52,15 +54,15 @@ export default function AppShell({ children }) {
 
             <div className="flex items-center gap-3">
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">
-                Agent V6
+                Agent V8
               </div>
 
               <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">
-                Intelligence Layer
+                Learning Layer
               </div>
 
               <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">
-                Bankroll Manager
+                Paper Trading
               </div>
             </div>
           </div>
@@ -97,11 +99,11 @@ export default function AppShell({ children }) {
             <div>© {new Date().getFullYear()} Scorecaster</div>
 
             <div className="flex flex-wrap gap-4">
-              <span>AI Agent V6</span>
+              <span>AI Agent V8</span>
               <span>Market Intelligence</span>
-              <span>Data Readiness</span>
+              <span>Learning Layer</span>
               <span>CLV</span>
-              <span>Bankroll</span>
+              <span>Paper Trading</span>
               <span>Tournament Simulator</span>
             </div>
           </div>
