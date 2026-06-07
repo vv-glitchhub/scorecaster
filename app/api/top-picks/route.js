@@ -111,6 +111,7 @@ export async function GET(request) {
         limit: 10
       }).map((pick) => ({
         ...pick,
+        origin,
         league,
         leagueTitle: findLeagueTitle(league),
         sportKey: league
