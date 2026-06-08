@@ -1,173 +1,76 @@
 import Panel from "../components/Panel";
 
-const liveSignals = [
-  {
-    id: 1,
-    match: "Tappara vs Ilves",
-    league: "Liiga",
-    market: "H2H",
-    movement: "2.10 → 1.92",
-    direction: "down",
-    signal: "Sharp movement",
-    volatility: "High",
-    alert: "Tappara price is dropping quickly. Market may be correcting."
-  },
-  {
-    id: 2,
-    match: "HIFK vs Kärpät",
-    league: "Liiga",
-    market: "Totals",
-    movement: "1.82 → 1.95",
-    direction: "up",
-    signal: "Total drift",
-    volatility: "Medium",
-    alert: "Under price is improving. Wait for confirmation before entry."
-  },
-  {
-    id: 3,
-    match: "Rangers vs Bruins",
-    league: "NHL",
-    market: "H2H",
-    movement: "2.35 → 2.20",
-    direction: "down",
-    signal: "Public fade",
-    volatility: "High",
-    alert: "Market moving against public side. Possible value signal."
+async function getLiveMarket() {
+  try {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "");
+    const response = await fetch(`${siteUrl}/api/live-market?limit=50`, { cache: "no-store" });
+    return await response.json();
+  } catch (error) {
+    return { ok: false, error: error.message, summary: {}, feeds: {} };
   }
-];
-
-function directionClass(direction) {
-  if (direction === "up") return "text-emerald-300";
-  if (direction === "down") return "text-red-300";
-  return "text-slate-300";
 }
 
-export default function LivePage() {
-  const highVolatility = liveSignals.filter(
-    (item) => item.volatility === "High"
-  ).length;
+function percent(value) {
+  return `${(Number(value || 0) * 100).toFixed(1)}%`;
+}
+
+function number(value) {
+  return Number(value || 0).toFixed(1);
+}
+
+export default async function LivePage() {
+  const live = await getLiveMarket();
+  const summary = live?.summary || {};
+  const feeds = live?.feeds || {};
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
-        <div className="mb-2 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1 text-sm text-red-300">
-          Live Market Pulse V1
+    <div className="space-y-8">
+      <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(239,68,68,0.18),transparent_34%),linear-gradient(135deg,#020617,#0f172a_55%,#020617)] p-6 shadow-2xl md:p-8">
+        <div className="mb-3 inline-flex rounded-full border border-red-400/30 bg-red-400/10 px-4 py-2 text-sm font-bold text-red-300">
+          Live Market Center V1
         </div>
-
-        <h1 className="text-4xl font-black tracking-tight">
-          Realtime Intelligence
-        </h1>
-
-        <p className="mt-3 text-slate-300">
-          Seuraa kertoimien liikettä, volatiliteettia, markkinahälytyksiä ja
-          mahdollisia live-value signaaleja.
+        <h1 className="text-4xl font-black tracking-tight md:text-6xl">Realtime Market Intelligence</h1>
+        <p className="mt-4 max-w-3xl text-slate-300">
+          Steam alerts, sharp index, CLV feed and market pressure in one safe manual-refresh view.
+          This page is built for paper trading analysis and API-credit control.
         </p>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Live Signals</div>
-          <div className="mt-2 text-3xl font-black text-red-300">
-            {liveSignals.length}
-          </div>
-          <div className="mt-1 text-sm text-slate-500">Active alerts</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">High Volatility</div>
-          <div className="mt-2 text-3xl font-black text-yellow-300">
-            {highVolatility}
-          </div>
-          <div className="mt-1 text-sm text-slate-500">Risky markets</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Best Action</div>
-          <div className="mt-2 text-3xl font-black text-sky-300">Watch</div>
-          <div className="mt-1 text-sm text-slate-500">Do not force bets</div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
-          <div className="text-sm text-slate-400">Mode</div>
-          <div className="mt-2 text-3xl font-black text-emerald-300">V1</div>
-          <div className="mt-1 text-sm text-slate-500">Static intelligence layer</div>
-        </div>
+        <Card title="Tracked Picks" value={summary.picks || 0} subtitle="Agent V9 feed" tone="sky" />
+        <Card title="Steam Moves" value={summary.steamMoves || 0} subtitle="Fast movement signals" tone="red" />
+        <Card title="Sharp Signals" value={summary.strongSharpSignals || 0} subtitle={`Avg sharp ${number(summary.averageSharpIndex)}`} tone="emerald" />
+        <Card title="CLV Records" value={summary.clvAvailable || 0} subtitle={`${summary.closingLineRecords || 0} closing records`} tone="yellow" />
       </section>
 
-      <section className="grid gap-6 lg:grid-cols-[1fr_360px]">
-        <Panel title="Live Market Signals" subtitle="Line movement and volatility">
-          <div className="space-y-4">
-            {liveSignals.map((item) => (
-              <div
-                key={item.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <div className="text-xl font-black">{item.match}</div>
-                    <div className="mt-1 text-sm text-slate-400">
-                      {item.league} · {item.market}
-                    </div>
-                  </div>
+      <section className="grid gap-6 xl:grid-cols-2">
+        <FeedPanel title="🔥 Steam Alerts" items={feeds.steamMoves} empty="No steam moves detected yet." renderItem={renderMovement} />
+        <FeedPanel title="📈 Sharp Signals" items={feeds.strongestSharpSignals} empty="No strong sharp signals yet." renderItem={renderSharp} />
+        <FeedPanel title="⚡ Market Pressure" items={feeds.pressureMoves} empty="No pressure moves detected yet." renderItem={renderMovement} />
+        <FeedPanel title="🎯 Positive CLV" items={feeds.positiveCLV} empty="No positive CLV records yet." renderItem={renderCLV} />
+      </section>
 
-                  <div className="rounded-xl bg-slate-950 px-4 py-3 text-right">
-                    <div className="text-sm text-slate-400">Movement</div>
-                    <div
-                      className={`mt-1 text-xl font-black ${directionClass(
-                        item.direction
-                      )}`}
-                    >
-                      {item.movement}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-5 grid gap-3 md:grid-cols-3">
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">Signal</div>
-                    <div className="mt-2 text-xl font-black">{item.signal}</div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">Volatility</div>
-                    <div className="mt-2 text-xl font-black text-yellow-300">
-                      {item.volatility}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">AI Alert</div>
-                    <div className="mt-2 text-sm text-slate-300">
-                      {item.alert}
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
+        <Panel title="Reverse Line Moves" subtitle="Possible hidden market pressure">
+          <div className="space-y-3">
+            {(feeds.reverseMoves || []).slice(0, 8).map((item, index) => (
+              <MovementCard key={`${item.key}-${index}`} item={item} />
             ))}
+            {(!feeds.reverseMoves || feeds.reverseMoves.length === 0) && <Empty text="No reverse line moves detected." />}
           </div>
         </Panel>
 
         <div className="space-y-6">
-          <Panel title="Market Pulse Summary" subtitle="AI interpretation">
+          <Panel title="Live Workflow" subtitle="Safe operating mode">
             <div className="space-y-3 text-sm text-slate-300">
-              <div className="rounded-xl bg-red-400/10 p-4">
-                High volatility means position sizing should stay conservative.
-              </div>
-              <div className="rounded-xl bg-emerald-400/10 p-4">
-                Price movement can reveal market correction before final result.
-              </div>
-              <div className="rounded-xl bg-sky-400/10 p-4">
-                Best workflow: detect movement here, confirm edge in Betting,
-                then track the bet.
-              </div>
+              <div className="rounded-xl bg-red-400/10 p-4">1. Detect steam or pressure signal.</div>
+              <div className="rounded-xl bg-sky-400/10 p-4">2. Confirm score, edge and CLV quality.</div>
+              <div className="rounded-xl bg-emerald-400/10 p-4">3. Add only controlled paper exposure.</div>
             </div>
           </Panel>
-
-          <Panel title="V1 Limitation" subtitle="Important">
+          <Panel title="Refresh Mode" subtitle={live?.refreshMode || "manual"}>
             <p className="text-sm text-slate-300">
-              Live Pulse V1 is a static intelligence view. Next upgrade connects
-              directly to Betting Workspace snapshots and real odds movement
-              history.
+              This view uses safe no-store fetches and is designed for manual or slow interval refreshes to avoid wasting odds API credits.
             </p>
           </Panel>
         </div>
@@ -175,3 +78,97 @@ export default function LivePage() {
     </div>
   );
 }
+
+function Card({ title, value, subtitle, tone = "slate" }) {
+  const toneClass = {
+    red: "text-red-300",
+    emerald: "text-emerald-300",
+    sky: "text-sky-300",
+    yellow: "text-yellow-300",
+    slate: "text-white"
+  }[tone];
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+      <div className="text-sm text-slate-400">{title}</div>
+      <div className={`mt-2 text-3xl font-black ${toneClass}`}>{value}</div>
+      <div className="mt-1 text-sm text-slate-500">{subtitle}</div>
+    </div>
+  );
+}
+
+function FeedPanel({ title, items = [], empty, renderItem }) {
+  return (
+    <Panel title={title} subtitle="Live market feed">
+      <div className="space-y-3">
+        {items.slice(0, 8).map((item, index) => renderItem(item, index))}
+        {items.length === 0 && <Empty text={empty} />}
+      </div>
+    </Panel>
+  );
+}
+
+function MovementCard({ item }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-black">{item.selection || "Unknown selection"}</div>
+          <div className="mt-1 text-sm text-slate-400">{item.league || "Unknown"} · {item.marketKey || "Market"}</div>
+        </div>
+        <div className="rounded-full bg-red-400/10 px-3 py-1 text-xs font-bold text-red-300">{item.signal || "signal"}</div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-300">
+        <span>Move {percent(item.movementPercent)}</span>
+        <span>Pressure {item.pressure || "neutral"}</span>
+        <span>Conf {percent(item.confidence)}</span>
+      </div>
+    </div>
+  );
+}
+
+function SharpCard({ item }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-black">{item.selection || "Unknown selection"}</div>
+          <div className="mt-1 text-sm text-slate-400">{item.match || item.league || "Unknown match"}</div>
+        </div>
+        <div className="rounded-full bg-emerald-400/10 px-3 py-1 text-xs font-bold text-emerald-300">{item.label}</div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-300">
+        <span>Sharp {number(item.sharpIndex)}</span>
+        <span>Score {number(item.finalScore100)}</span>
+        <span>{item.decision}</span>
+      </div>
+    </div>
+  );
+}
+
+function CLVCard({ item }) {
+  return (
+    <div className="rounded-2xl border border-white/10 bg-slate-950/70 p-4">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-black">{item.selection || "Unknown selection"}</div>
+          <div className="mt-1 text-sm text-slate-400">{item.league || "Unknown"} · {item.bookmaker || "Bookmaker"}</div>
+        </div>
+        <div className="rounded-full bg-yellow-400/10 px-3 py-1 text-xs font-bold text-yellow-300">{item.clvGrade || "N/A"}</div>
+      </div>
+      <div className="mt-3 grid grid-cols-3 gap-2 text-xs text-slate-300">
+        <span>CLV {number(item.clvPercent)}%</span>
+        <span>Ref {item.referenceOdds || "-"}</span>
+        <span>Close {item.closingOdds || "-"}</span>
+      </div>
+    </div>
+  );
+}
+
+function Empty({ text }) {
+  return <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">{text}</div>;
+}
+
+const renderMovement = (item, index) => <MovementCard key={`${item.key}-${index}`} item={item} />;
+const renderSharp = (item, index) => <SharpCard key={`${item.id}-${item.selection}-${index}`} item={item} />;
+const renderCLV = (item, index) => <CLVCard key={`${item.id || item.game_id}-${item.selection}-${index}`} item={item} />;
