@@ -8,6 +8,7 @@ const navItems = [
   { href: "/", label: "Dashboard" },
   { href: "/agent-v7", label: "Agent V9" },
   { href: "/analytics", label: "Analytics" },
+  { href: "/alerts", label: "Alerts" },
   { href: "/paper-trading", label: "Paper Trading" },
   { href: "/betting", label: "Betting" },
   { href: "/open-bets", label: "Open Bets" },
@@ -51,6 +52,7 @@ export default function AppShell({ children }) {
             <div className="hidden items-center gap-3 lg:flex">
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">Agent V9</div>
               <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">Learning Layer</div>
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">Alerts</div>
               <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">Paper Trading</div>
             </div>
 
@@ -83,9 +85,10 @@ export default function AppShell({ children }) {
 
           {menuOpen && (
             <div className="pb-4 lg:hidden">
-              <div className="mb-3 grid grid-cols-3 gap-2 text-[11px] font-bold">
+              <div className="mb-3 grid grid-cols-4 gap-2 text-[11px] font-bold">
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-2 py-2 text-center text-emerald-300">Agent V9</div>
                 <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-2 py-2 text-center text-purple-300">Learning</div>
+                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-2 py-2 text-center text-yellow-300">Alerts</div>
                 <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-center text-sky-300">Paper</div>
               </div>
 
@@ -120,6 +123,7 @@ export default function AppShell({ children }) {
               <span>AI Agent V9</span>
               <span>Market Intelligence</span>
               <span>Learning Layer</span>
+              <span>Alerts</span>
               <span>CLV</span>
               <span>Paper Trading</span>
               <span>Tournament Simulator</span>
