@@ -22,6 +22,12 @@ const modules = [
     tag: "Core"
   },
   {
+    title: "Risk Control",
+    href: "/risk",
+    description: "Bankroll limits, exposure rules, OK / CAUTION / SKIP logic and responsible-use controls.",
+    tag: "Safety"
+  },
+  {
     title: "Analytics",
     href: "/analytics",
     description: "Learning, CLV, ROI and model performance dashboard.",
@@ -112,6 +118,13 @@ export default function DashboardClient() {
               </Link>
 
               <Link
+                href="/risk"
+                className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-6 py-4 text-center font-black text-emerald-200 hover:bg-emerald-400/20"
+              >
+                Risk Control
+              </Link>
+
+              <Link
                 href="/analytics"
                 className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center font-black text-white hover:bg-white/10"
               >
@@ -197,6 +210,7 @@ export default function DashboardClient() {
               <div className="rounded-xl bg-emerald-400/10 p-4">Agent V9: scoring, grade and decision layer active.</div>
               <div className="rounded-xl bg-sky-400/10 p-4">Learning V4: CLV, ROI and segment weighting ready.</div>
               <div className="rounded-xl bg-yellow-400/10 p-4">Paper Trading: bankroll, Kelly and exposure control active.</div>
+              <div className="rounded-xl bg-red-400/10 p-4">Risk Control: bankroll limits and SKIP logic foundation added.</div>
             </div>
           </Panel>
         </div>
