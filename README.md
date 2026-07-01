@@ -14,11 +14,12 @@ npm run dev
 Then open:
 
 ```text
-http://localhost:3000
+http://localhost:3000/quick-use
 ```
 
 ## Main pages
 
+- `/quick-use` — manual local bet slip and risk test
 - `/` — Scorecaster dashboard
 - `/betting` — Betting workspace
 - `/risk` — Bankroll and responsible risk control
@@ -30,12 +31,13 @@ http://localhost:3000
 
 ## What you can use now
 
+- Add manual picks in `/quick-use`
+- Save local bet slip in the browser
+- Test stake, edge and confidence
+- See OK / CAUTION / SKIP risk decision
 - Open dashboard
-- View Agent picks if the API route has data
 - Open Betting workspace
 - Open Risk Control
-- Use production risk rules foundation
-- Use bet slip engine foundation in code
 - Review Supabase schema draft
 
 ## Environment
@@ -59,6 +61,7 @@ SUPABASE_SERVICE_ROLE_KEY=
 - `lib/bet-slip-engine.js`
 - `supabase/scorecaster_schema.sql`
 - `/risk`
+- `/quick-use`
 
 ## Important
 
