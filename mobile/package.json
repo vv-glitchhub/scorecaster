@@ -8,12 +8,15 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "doctor": "expo-doctor"
+    "doctor": "expo-doctor",
+    "check:expo": "node scripts/check-expo-compat.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
-    "expo": "~56.0.0",
-    "expo-secure-store": "~56.0.3",
+    "expo": "~56.0.15",
+    "expo-file-system": "~56.0.8",
+    "expo-secure-store": "~56.0.4",
+    "expo-sharing": "~56.0.21",
     "expo-status-bar": "~56.0.4",
     "react": "19.2.3",
     "react-native": "0.85.3",

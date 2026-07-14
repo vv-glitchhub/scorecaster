@@ -18,7 +18,8 @@ Open the Supabase SQL editor and run the files in this order:
 
 1. `supabase/scorecaster_schema.sql`
 2. `supabase/scorecaster_auth_cloud.sql`
-3. `supabase/scorecaster_api_rate_limits.sql`
+3. `supabase/scorecaster_paper_risk_limits.sql`
+4. `supabase/scorecaster_api_rate_limits.sql`
 
 The migrations add:
 
@@ -30,6 +31,7 @@ The migrations add:
 - automatic profile creation
 - forced Row Level Security
 - user-specific policies
+- database enforcement for single paper stake and total open paper exposure
 - database-backed per-user API quotas
 
 Do not use the service-role key in browser or mobile code. Normal account operations use the public key, a verified user JWT and RLS. The service-role key is read only by the server for permanent account deletion.
@@ -84,14 +86,17 @@ Redeploy after changing environment variables. Never prefix the service-role, Od
 2. Open `/login`.
 3. Create account A and confirm the email when required.
 4. Open `/profile` and confirm the server validates the account.
-5. Add a manual paper pick in `/quick-use`.
-6. Open `/cloud-sync` and sync the local pick.
-7. Refresh and confirm the cloud history remains visible.
-8. Settle the paper bet and confirm profit/status are calculated by the server.
-9. Create account B and verify it cannot read, update or delete account A's rows.
-10. Repeat a protected request until HTTP 429 and `Retry-After` are returned.
-11. Export account A's data and confirm only A's rows are included.
-12. Delete account A and confirm it can no longer authenticate.
+5. Set account A's virtual bankroll and paper-risk percentages.
+6. Add a manual paper pick in `/quick-use` or the mobile app.
+7. Open `/cloud-sync` and sync the local pick.
+8. Refresh and confirm the cloud history remains visible.
+9. Try a single paper stake above the configured limit and confirm HTTP 400.
+10. Try to exceed the total open paper-exposure limit and confirm the database rejects the write.
+11. Settle a paper bet with optional closing odds and confirm profit, ROI and CLV are calculated.
+12. Create account B and verify it cannot read, update or delete account A's rows.
+13. Repeat a protected request until HTTP 429 and `Retry-After` are returned.
+14. Export account A's data and confirm only A's rows are included.
+15. Delete account A and confirm it can no longer authenticate.
 
 ## Routes
 
@@ -107,11 +112,13 @@ Redeploy after changing environment variables. Never prefix the service-role, Od
 
 ## Security model
 
-Browser and mobile clients use a public Supabase key. Authorization and abuse protection are enforced by:
+Browser and mobile clients use a public Supabase key. Authorization, risk control and abuse protection are enforced by:
 
 - validated Supabase user sessions
 - server-side `getUser()` checks for protected APIs
 - RLS policies using `auth.uid()`
+- server and database paper-stake validation
+- database total-open-exposure validation
 - atomic per-user PostgreSQL request quotas
 - exact-origin validation for cookie mutations
 - API content-type, body-size, text-length and numeric-range validation

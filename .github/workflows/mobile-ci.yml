@@ -35,5 +35,8 @@ jobs:
       - name: Install mobile dependencies
         run: npm install --no-audit --no-fund --silent
 
+      - name: Check Expo dependency compatibility
+        run: npm run check:expo
+
       - name: Typecheck
         run: npm run typecheck
