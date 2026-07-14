@@ -8,7 +8,8 @@
     "android": "expo run:android",
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
-    "doctor": "expo-doctor"
+    "doctor": "expo-doctor",
+    "check:expo": "node scripts/check-expo-compat.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
