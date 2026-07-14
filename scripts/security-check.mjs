@@ -15,6 +15,7 @@ const allowedExtensions = new Set([
   ".sql",
   ".md"
 ]);
+const bundledSourceExtensions = new Set([".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".json"]);
 const ignoredDirectories = new Set([".git", ".next", "node_modules", "dist", "build", ".expo"]);
 const ignoredFiles = new Set([
   "scripts/security-check.mjs",
@@ -87,7 +88,11 @@ for (const absolutePath of files) {
     if (pattern.test(content)) violations.push(`${path}: possible ${name}`);
   }
 
-  if (path.startsWith("mobile/") && /\b(?:SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|ODDS_API_KEY)\b/.test(content)) {
+  if (
+    path.startsWith("mobile/") &&
+    bundledSourceExtensions.has(extname(path)) &&
+    /\b(?:SUPABASE_SERVICE_ROLE_KEY|OPENAI_API_KEY|ODDS_API_KEY)\b/.test(content)
+  ) {
     violations.push(`${path}: server-only key name is not allowed in the mobile bundle`);
   }
 }
