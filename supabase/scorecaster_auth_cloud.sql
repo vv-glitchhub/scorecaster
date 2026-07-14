@@ -51,9 +51,35 @@ create index if not exists idx_bets_user_created
 create index if not exists idx_bets_user_status
   on public.bets(user_id, status);
 
+-- One paper-bankroll settings row per authenticated user.
+create unique index if not exists idx_bankroll_settings_user_unique
+  on public.bankroll_settings(user_id)
+  where user_id is not null;
+create index if not exists idx_bankroll_settings_user
+  on public.bankroll_settings(user_id);
+
+-- Future writes must stay inside conservative paper-tracking bounds. NOT VALID
+-- keeps this migration deployable even if old prototype rows need cleanup.
+alter table public.bets drop constraint if exists bets_status_allowed;
+alter table public.bets add constraint bets_status_allowed
+  check (status in ('open', 'won', 'lost', 'void', 'push')) not valid;
+
+alter table public.bets drop constraint if exists bets_stake_paper_limit;
+alter table public.bets add constraint bets_stake_paper_limit
+  check (stake >= 0 and stake <= 10000000) not valid;
+
+alter table public.bets drop constraint if exists bets_confidence_range;
+alter table public.bets add constraint bets_confidence_range
+  check (confidence is null or (confidence >= 0 and confidence <= 1)) not valid;
+
+alter table public.bets drop constraint if exists bets_edge_range;
+alter table public.bets add constraint bets_edge_range
+  check (edge is null or (edge >= -1 and edge <= 1)) not valid;
+
 create or replace function public.set_updated_at()
 returns trigger
 language plpgsql
+set search_path = public
 as $$
 begin
   new.updated_at = now();
@@ -71,10 +97,16 @@ create trigger profiles_set_updated_at
 before update on public.profiles
 for each row execute function public.set_updated_at();
 
+drop trigger if exists bankroll_settings_set_updated_at on public.bankroll_settings;
+create trigger bankroll_settings_set_updated_at
+before update on public.bankroll_settings
+for each row execute function public.set_updated_at();
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
-security definer set search_path = public
+security definer
+set search_path = public
 as $$
 begin
   insert into public.profiles (id, email)
@@ -90,7 +122,11 @@ after insert or update of email on auth.users
 for each row execute function public.handle_new_user();
 
 alter table public.profiles enable row level security;
+alter table public.profiles force row level security;
 alter table public.bets enable row level security;
+alter table public.bets force row level security;
+alter table public.bankroll_settings enable row level security;
+alter table public.bankroll_settings force row level security;
 
 drop policy if exists "Users read own profile" on public.profiles;
 create policy "Users read own profile"
@@ -118,6 +154,13 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "Users manage own bankroll settings" on public.bankroll_settings;
+create policy "Users manage own bankroll settings"
+on public.bankroll_settings for all
+to authenticated
+using (auth.uid() = user_id)
+with check (auth.uid() = user_id and paper_trading_mode = true);
+
 -- Apply user isolation to the original Production MVP tables when they exist.
 do $$
 declare
@@ -136,6 +179,7 @@ begin
   loop
     if to_regclass('public.' || table_name) is not null then
       execute format('alter table public.%I enable row level security', table_name);
+      execute format('alter table public.%I force row level security', table_name);
       execute format('alter table public.%I alter column user_id set default auth.uid()', table_name);
       execute format('drop policy if exists "Users manage own rows" on public.%I', table_name);
       execute format(
@@ -147,6 +191,13 @@ begin
 end;
 $$;
 
+-- Anonymous clients must not read or write account data. The publishable key is
+-- safe in clients only because authenticated JWTs and RLS decide row access.
+revoke all on public.profiles from anon;
+revoke all on public.bets from anon;
+revoke all on public.bankroll_settings from anon;
+
 grant usage on schema public to authenticated;
 grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.bets to authenticated;
+grant select, insert, update, delete on public.bankroll_settings to authenticated;
