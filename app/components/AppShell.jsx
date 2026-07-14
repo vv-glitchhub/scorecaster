@@ -6,6 +6,10 @@ import { useState } from "react";
 
 const navItems = [
   { href: "/", label: "Dashboard" },
+  { href: "/quick-use", label: "Quick Use" },
+  { href: "/production-status", label: "Status" },
+  { href: "/core-status", label: "Caster Core" },
+  { href: "/risk", label: "Risk" },
   { href: "/agent-v7", label: "Agent V9" },
   { href: "/analytics", label: "Analytics" },
   { href: "/alerts", label: "Alerts" },
@@ -50,10 +54,10 @@ export default function AppShell({ children }) {
             </Link>
 
             <div className="hidden items-center gap-3 lg:flex">
-              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">Agent V9</div>
-              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">Learning Layer</div>
-              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">Alerts</div>
-              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">Paper Trading</div>
+              <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">Production Online</div>
+              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">Agent V9</div>
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">Risk Layer</div>
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">Local First</div>
             </div>
 
             <button
@@ -86,10 +90,10 @@ export default function AppShell({ children }) {
           {menuOpen && (
             <div className="pb-4 lg:hidden">
               <div className="mb-3 grid grid-cols-4 gap-2 text-[11px] font-bold">
-                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-2 py-2 text-center text-emerald-300">Agent V9</div>
-                <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-2 py-2 text-center text-purple-300">Learning</div>
-                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-2 py-2 text-center text-yellow-300">Alerts</div>
-                <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-center text-sky-300">Paper</div>
+                <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-2 py-2 text-center text-emerald-300">Online</div>
+                <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-2 py-2 text-center text-purple-300">Agent V9</div>
+                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-2 py-2 text-center text-yellow-300">Risk</div>
+                <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-center text-sky-300">Local</div>
               </div>
 
               <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -120,13 +124,12 @@ export default function AppShell({ children }) {
           <div className="flex flex-col gap-2 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
             <div>© {new Date().getFullYear()} Scorecaster</div>
             <div className="flex flex-wrap gap-4">
-              <span>AI Agent V9</span>
-              <span>Market Intelligence</span>
-              <span>Learning Layer</span>
-              <span>Alerts</span>
+              <Link href="/production-status" className="hover:text-white">Production Status</Link>
+              <Link href="/api/health" className="hover:text-white">Health API</Link>
+              <span>Agent V9</span>
+              <span>Risk Layer</span>
               <span>CLV</span>
               <span>Paper Trading</span>
-              <span>Tournament Simulator</span>
             </div>
           </div>
         </div>
