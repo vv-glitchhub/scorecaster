@@ -8,7 +8,7 @@ import {
   jsonResponse,
   mutationOriginAllowed,
   readJsonBody
-} from "../lib/api-security.js";
+} from "../lib/api-security-core.mjs";
 
 test("cleanText removes controls, collapses whitespace and limits length", () => {
   assert.equal(cleanText("  hello\u0000   world  ", 20), "hello world");
