@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Scorecaster",
+    "slug": "scorecaster",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "scheme": "scorecaster",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.vvglitchhub.scorecaster",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.vvglitchhub.scorecaster",
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": true
+    },
+    "plugins": [
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow Scorecaster to protect your signed-in session."
+        }
+      ]
+    ],
+    "extra": {
+      "productMode": "sports-analysis-and-paper-tracking",
+      "realMoneyBetting": false
+    }
+  }
+}
