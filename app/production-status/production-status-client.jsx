@@ -34,12 +34,13 @@ export default function ProductionStatusClient() {
           Scorecaster deployment and service status.
         </h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-          This page checks the live health endpoint and shows which local-first and cloud integrations are ready.
+          Tämä sivu tarkistaa live-health-päätteen sekä paikallisen käytön, kirjautumisen ja Cloud Sync -kerroksen valmiuden.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/quick-use" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Quick Use</Link>
+          <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Cloud Sync</Link>
+          <Link href="/profile" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-100">Profile</Link>
+          <Link href="/quick-use" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Quick Use</Link>
           <Link href="/core-status" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Core Status</Link>
-          <Link href="/" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Dashboard</Link>
         </div>
       </section>
 
@@ -54,16 +55,27 @@ export default function ProductionStatusClient() {
         <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-5 text-red-100">{error}</div>
       ) : null}
 
+      {health?.nextStep ? (
+        <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-5 text-sky-100">
+          <strong>Next step:</strong> {health.nextStep}
+        </div>
+      ) : null}
+
       <section className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {services.map(([name, ready]) => (
-          <div key={name} className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
-            <div className="text-sm uppercase tracking-[0.22em] text-slate-500">Service</div>
-            <h2 className="mt-3 text-xl font-black">{formatName(name)}</h2>
-            <div className={`mt-4 inline-flex rounded-full px-3 py-1 text-sm font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : "bg-yellow-400/10 text-yellow-200"}`}>
-              {ready ? "READY" : "NOT CONFIGURED"}
+        {services.map(([name, value]) => {
+          const isBoolean = typeof value === "boolean";
+          const ready = isBoolean ? value : Boolean(value);
+
+          return (
+            <div key={name} className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+              <div className="text-sm uppercase tracking-[0.22em] text-slate-500">Service</div>
+              <h2 className="mt-3 text-xl font-black">{formatName(name)}</h2>
+              <div className={`mt-4 inline-flex rounded-full px-3 py-1 text-sm font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : "bg-yellow-400/10 text-yellow-200"}`}>
+                {isBoolean ? (ready ? "READY" : "NOT CONFIGURED") : String(value)}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </section>
 
       <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">

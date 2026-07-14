@@ -1,144 +1,151 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
+import { createClient } from "../../lib/supabase/client";
 
 function cleanEmail(value) {
-  return String(value || "")
-    .trim()
-    .replaceAll('"', "")
-    .replaceAll("'", "")
-    .toLowerCase();
+  return String(value || "").trim().replaceAll('"', "").replaceAll("'", "").toLowerCase();
 }
 
 export default function LoginPage() {
-  const supabase = createSupabaseBrowserClient();
-
+  const router = useRouter();
+  const [mode, setMode] = useState("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  async function signUp() {
+  async function submit(event) {
+    event.preventDefault();
     setMessage("");
 
     const cleanedEmail = cleanEmail(email);
-
-    const { error } = await supabase.auth.signUp({
-      email: cleanedEmail,
-      password,
-    });
-
-    if (error) {
-      setMessage(error.message);
+    if (!cleanedEmail || password.length < 6) {
+      setMessage("Anna kelvollinen sähköposti ja vähintään 6 merkin salasana.");
       return;
     }
 
-    setMessage("Tili luotu. Tarkista sähköposti jos vahvistus on päällä.");
-  }
+    setLoading(true);
 
-  async function signIn() {
-    setMessage("");
+    try {
+      const supabase = createClient();
 
-    const cleanedEmail = cleanEmail(email);
+      if (mode === "signup") {
+        const { data, error } = await supabase.auth.signUp({
+          email: cleanedEmail,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/auth/confirm?next=/profile`
+          }
+        });
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: cleanedEmail,
-      password,
-    });
+        if (error) throw error;
 
-    if (error) {
-      setMessage(error.message);
-      return;
+        if (data.session) {
+          router.push("/profile");
+          router.refresh();
+          return;
+        }
+
+        setMessage("Tili luotu. Vahvista sähköposti ja palaa sitten Scorecasteriin.");
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithPassword({
+        email: cleanedEmail,
+        password
+      });
+
+      if (error) throw error;
+
+      router.push("/profile");
+      router.refresh();
+    } catch (error) {
+      setMessage(error?.message || "Kirjautuminen epäonnistui.");
+    } finally {
+      setLoading(false);
     }
-
-    window.location.href = "/profile";
-  }
-
-  async function signInWithGoogle() {
-    setMessage("Google-kirjautuminen ei ole vielä käytössä. Käytä email + salasana.");
   }
 
   return (
-    <main style={{ padding: 24, maxWidth: 520, margin: "0 auto", color: "#fff" }}>
-      <section
-        style={{
-          border: "1px solid rgba(255,255,255,0.10)",
-          borderRadius: 22,
-          padding: 20,
-          background: "rgba(2,6,23,0.72)",
-        }}
-      >
-        <h1 style={{ marginTop: 0 }}>Kirjaudu Scorecasteriin</h1>
-
-        <p style={{ color: "#94a3b8", lineHeight: 1.5 }}>
-          Kirjautuminen mahdollistaa cloud-historian, pelikassan ja profiilin.
+    <div className="mx-auto max-w-xl space-y-6">
+      <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.2),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] p-6 md:p-10">
+        <div className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+          Caster Account
+        </div>
+        <h1 className="mt-5 text-4xl font-black tracking-tight md:text-5xl">
+          {mode === "signin" ? "Kirjaudu Scorecasteriin" : "Luo Scorecaster-tili"}
+        </h1>
+        <p className="mt-4 leading-7 text-slate-300">
+          Tili mahdollistaa pilvihistorian, laitteiden välisen synkronoinnin ja myöhemmin yhden kirjautumisen kaikkiin Caster-sovelluksiin.
         </p>
+      </section>
 
-        <div style={{ display: "grid", gap: 12 }}>
-          <input
-            placeholder="Sähköposti"
-            value={email}
-            onChange={(e) => setEmail(cleanEmail(e.target.value))}
-            autoCapitalize="none"
-            autoCorrect="off"
-            inputMode="email"
-            style={inputStyle}
-          />
+      <form onSubmit={submit} className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+        <div className="grid gap-4">
+          <label className="grid gap-2 text-sm font-bold text-slate-300">
+            Sähköposti
+            <input
+              type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4 text-white outline-none focus:border-emerald-400/60"
+              placeholder="sinä@example.com"
+            />
+          </label>
 
-          <input
-            type="password"
-            placeholder="Salasana"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            style={inputStyle}
-          />
+          <label className="grid gap-2 text-sm font-bold text-slate-300">
+            Salasana
+            <input
+              type="password"
+              autoComplete={mode === "signin" ? "current-password" : "new-password"}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              className="rounded-2xl border border-white/10 bg-slate-950/70 px-4 py-4 text-white outline-none focus:border-emerald-400/60"
+              placeholder="Vähintään 6 merkkiä"
+            />
+          </label>
 
-          <button onClick={signIn} style={buttonStyle(true)}>
-            Kirjaudu
+          <button
+            type="submit"
+            disabled={loading}
+            className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {loading ? "Odota..." : mode === "signin" ? "Kirjaudu" : "Luo tili"}
           </button>
 
-          <button onClick={signUp} style={buttonStyle(false)}>
-            Luo tili
-          </button>
-
-          <button onClick={signInWithGoogle} style={buttonStyle(false)}>
-            Kirjaudu Googlella
+          <button
+            type="button"
+            onClick={() => {
+              setMode((current) => (current === "signin" ? "signup" : "signin"));
+              setMessage("");
+            }}
+            className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 font-black text-white"
+          >
+            {mode === "signin" ? "Tarvitsen uuden tilin" : "Minulla on jo tili"}
           </button>
         </div>
 
         {message ? (
-          <div style={{ marginTop: 14, color: "#fde68a", fontWeight: 900 }}>
+          <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm font-bold text-amber-100">
             {message}
           </div>
         ) : null}
-      </section>
-    </main>
+      </form>
+
+      <div className="flex flex-wrap gap-3">
+        <Link href="/quick-use" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white">
+          Käytä paikallisesti
+        </Link>
+        <Link href="/production-status" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-bold text-white">
+          Tarkista palvelun tila
+        </Link>
+      </div>
+    </div>
   );
-}
-
-const inputStyle = {
-  width: "100%",
-  boxSizing: "border-box",
-  border: "1px solid rgba(255,255,255,0.14)",
-  background: "rgba(255,255,255,0.07)",
-  color: "#fff",
-  borderRadius: 14,
-  padding: 14,
-  fontSize: 16,
-  fontWeight: 800,
-};
-
-function buttonStyle(primary) {
-  return {
-    width: "100%",
-    border: primary
-      ? "1px solid rgba(34,197,94,0.55)"
-      : "1px solid rgba(255,255,255,0.14)",
-    background: primary ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
-    color: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    fontWeight: 900,
-    cursor: "pointer",
-  };
 }

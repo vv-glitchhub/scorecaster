@@ -1,109 +1,112 @@
-"use client";
+import Link from "next/link";
+import { createClient } from "../../lib/supabase/server";
+import { getSupabaseConfig } from "../../lib/supabase/config";
 
-import { useEffect, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
-import { fetchCloudBets } from "@/lib/supabase-bets";
+export const dynamic = "force-dynamic";
 
-export default function ProfilePage() {
-  const supabase = createSupabaseBrowserClient();
+export const metadata = {
+  title: "Profile | Scorecaster"
+};
 
-  const [user, setUser] = useState(null);
-  const [bets, setBets] = useState([]);
+export default async function ProfilePage() {
+  const config = getSupabaseConfig();
+  let user = null;
+  let authError = null;
 
-  useEffect(() => {
-    load();
-  }, []);
-
-  async function load() {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      window.location.href = "/login";
-      return;
+  if (config.isConfigured) {
+    try {
+      const supabase = await createClient();
+      const result = await supabase.auth.getUser();
+      user = result.data.user;
+      authError = result.error;
+    } catch (error) {
+      authError = error;
     }
-
-    setUser(user);
-
-    const cloudBets = await fetchCloudBets();
-    setBets(cloudBets);
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    window.location.href = "/login";
+  if (!config.isConfigured) {
+    return (
+      <AccountMessage
+        badge="Setup required"
+        title="Supabase-ympäristömuuttujat puuttuvat."
+        text="Lisää Verceliin NEXT_PUBLIC_SUPABASE_URL ja publishable/anon key. Paikallinen Quick Use toimii silti normaalisti."
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <AccountMessage
+        badge="Signed out"
+        title="Et ole vielä kirjautunut."
+        text={authError?.message || "Kirjaudu sisään, jotta voit synkronoida vedot pilveen."}
+        actionHref="/login"
+        actionLabel="Kirjaudu tai luo tili"
+      />
+    );
   }
 
   return (
-    <main style={{ padding: 24, color: "#fff", maxWidth: 900, margin: "0 auto" }}>
-      <section style={card()}>
-        <h1 style={{ marginTop: 0 }}>Profiili</h1>
-
-        <div style={{ color: "#94a3b8" }}>{user?.email}</div>
-
-        <button onClick={signOut} style={buttonStyle(false)}>
-          Kirjaudu ulos
-        </button>
+    <div className="space-y-8">
+      <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.2),transparent_35%),linear-gradient(135deg,#020617,#0f172a)] p-6 md:p-10">
+        <div className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-bold text-emerald-300">
+          Authenticated Account
+        </div>
+        <h1 className="mt-5 text-4xl font-black tracking-tight md:text-6xl">Scorecaster-profiili</h1>
+        <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
+          Sessio on vahvistettu Supabasen palvelimelta. Pilvitiedot suojataan käyttäjäkohtaisilla RLS-säännöillä.
+        </p>
       </section>
 
-      <section style={{ ...card(), marginTop: 18 }}>
-        <h2 style={{ marginTop: 0 }}>Cloud bet history</h2>
-
-        {bets.length === 0 ? (
-          <div style={{ color: "#94a3b8" }}>Ei cloud-vetoja vielä.</div>
-        ) : (
-          <div style={{ display: "grid", gap: 12 }}>
-            {bets.map((bet) => (
-              <div key={bet.id} style={card({ background: "rgba(255,255,255,0.04)" })}>
-                <b>{bet.label}</b>
-
-                <div style={{ color: "#94a3b8", marginTop: 4 }}>
-                  {bet.home_team} vs {bet.away_team}
-                </div>
-
-                <div style={{ marginTop: 8 }}>
-                  {bet.market} · {bet.bookmaker}
-                </div>
-
-                <div style={{ marginTop: 4 }}>
-                  Odds {bet.odds} · Panos €{Number(bet.stake || 0).toFixed(2)}
-                </div>
-
-                <div style={{ color: "#94a3b8", marginTop: 4 }}>
-                  {bet.status} / {bet.result}
-                </div>
-              </div>
-            ))}
+      <section className="grid gap-4 md:grid-cols-2">
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <div className="text-sm text-slate-400">Sähköposti</div>
+          <div className="mt-2 break-all text-xl font-black">{user.email || "Ei sähköpostia"}</div>
+          <div className="mt-5 text-sm text-slate-400">Käyttäjätunnus</div>
+          <div className="mt-2 break-all font-mono text-xs text-slate-300">{user.id}</div>
+          <div className="mt-5 text-sm text-slate-400">Tili luotu</div>
+          <div className="mt-2 text-slate-300">
+            {user.created_at ? new Date(user.created_at).toLocaleString("fi-FI") : "-"}
           </div>
-        )}
+        </div>
+
+        <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
+          <h2 className="text-2xl font-black">Seuraavat toiminnot</h2>
+          <div className="mt-5 grid gap-3">
+            <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-4 text-center font-black text-slate-950">
+              Avaa Cloud Sync
+            </Link>
+            <Link href="/quick-use" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center font-black text-white">
+              Lisää paikallinen veto
+            </Link>
+            <form action="/auth/signout" method="post">
+              <button className="w-full rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-4 font-black text-red-100">
+                Kirjaudu ulos
+              </button>
+            </form>
+          </div>
+        </div>
       </section>
-    </main>
+    </div>
   );
 }
 
-function card(extra = {}) {
-  return {
-    border: "1px solid rgba(255,255,255,0.10)",
-    borderRadius: 22,
-    padding: 18,
-    background: "rgba(2,6,23,0.72)",
-    ...extra,
-  };
-}
-
-function buttonStyle(primary) {
-  return {
-    width: "100%",
-    marginTop: 16,
-    border: primary
-      ? "1px solid rgba(34,197,94,0.55)"
-      : "1px solid rgba(255,255,255,0.14)",
-    background: primary ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)",
-    color: "#fff",
-    borderRadius: 14,
-    padding: 14,
-    fontWeight: 900,
-    cursor: "pointer",
-  };
+function AccountMessage({ badge, title, text, actionHref = "/quick-use", actionLabel = "Quick Use" }) {
+  return (
+    <div className="mx-auto max-w-3xl rounded-[2rem] border border-white/10 bg-white/[0.04] p-6 md:p-10">
+      <div className="inline-flex rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-100">
+        {badge}
+      </div>
+      <h1 className="mt-5 text-4xl font-black">{title}</h1>
+      <p className="mt-4 leading-7 text-slate-300">{text}</p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Link href={actionHref} className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">
+          {actionLabel}
+        </Link>
+        <Link href="/production-status" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">
+          Production Status
+        </Link>
+      </div>
+    </div>
+  );
 }

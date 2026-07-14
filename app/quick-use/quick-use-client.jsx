@@ -32,7 +32,17 @@ export default function QuickUseClient() {
 
   const settings = useMemo(() => ({ bankroll: Number(bankroll || 1000) }), [bankroll]);
   const totals = useMemo(() => calculateBetSlipTotals(bets), [bets]);
-  const risk = useMemo(() => evaluatePickRisk({ stake: Number(stake || 0), edge: Number(edge || 0), confidence: Number(confidence || 0) }, settings), [stake, edge, confidence, settings]);
+  const risk = useMemo(
+    () => evaluatePickRisk(
+      {
+        stake: Number(stake || 0),
+        edge: Number(edge || 0),
+        confidence: Number(confidence || 0)
+      },
+      settings
+    ),
+    [stake, edge, confidence, settings]
+  );
 
   function addBet() {
     if (!match.trim() || !selection.trim() || !odds) return;
@@ -70,10 +80,12 @@ export default function QuickUseClient() {
           Add manual picks and test risk instantly.
         </h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-          This works in the browser with localStorage. Use it before live odds, accounts and Supabase tracking are connected.
+          Vedot tallentuvat ensin tähän selaimeen. Kirjautumisen jälkeen voit siirtää ne Cloud Sync -sivulta käyttäjäkohtaisesti suojattuun Supabase-tietokantaan.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
-          <Link href="/" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Dashboard</Link>
+          <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Cloud Sync</Link>
+          <Link href="/profile" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-100">Profile</Link>
+          <Link href="/" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Dashboard</Link>
           <Link href="/risk" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Risk Control</Link>
         </div>
       </section>
@@ -82,13 +94,13 @@ export default function QuickUseClient() {
         <div className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
           <h2 className="text-2xl font-black">Add manual pick</h2>
           <div className="mt-5 grid gap-3">
-            <input className="quick-input" value={bankroll} onChange={(event) => setBankroll(event.target.value)} placeholder="Bankroll" />
+            <input className="quick-input" value={bankroll} onChange={(event) => setBankroll(event.target.value)} placeholder="Bankroll" inputMode="decimal" />
             <input className="quick-input" value={match} onChange={(event) => setMatch(event.target.value)} placeholder="Match, e.g. Team A vs Team B" />
             <input className="quick-input" value={selection} onChange={(event) => setSelection(event.target.value)} placeholder="Selection" />
-            <input className="quick-input" value={odds} onChange={(event) => setOdds(event.target.value)} placeholder="Odds, e.g. 2.10" />
-            <input className="quick-input" value={stake} onChange={(event) => setStake(event.target.value)} placeholder="Stake" />
-            <input className="quick-input" value={edge} onChange={(event) => setEdge(event.target.value)} placeholder="Edge decimal, e.g. 0.03" />
-            <input className="quick-input" value={confidence} onChange={(event) => setConfidence(event.target.value)} placeholder="Confidence decimal, e.g. 0.60" />
+            <input className="quick-input" value={odds} onChange={(event) => setOdds(event.target.value)} placeholder="Odds, e.g. 2.10" inputMode="decimal" />
+            <input className="quick-input" value={stake} onChange={(event) => setStake(event.target.value)} placeholder="Stake" inputMode="decimal" />
+            <input className="quick-input" value={edge} onChange={(event) => setEdge(event.target.value)} placeholder="Edge decimal, e.g. 0.03" inputMode="decimal" />
+            <input className="quick-input" value={confidence} onChange={(event) => setConfidence(event.target.value)} placeholder="Confidence decimal, e.g. 0.60" inputMode="decimal" />
             <button onClick={addBet} className="rounded-2xl bg-emerald-400 px-5 py-4 font-black text-slate-950">Add to local slip</button>
           </div>
         </div>
@@ -100,6 +112,9 @@ export default function QuickUseClient() {
             <div className="rounded-2xl bg-slate-950/70 p-4">Total bets: <strong>{bets.length}</strong></div>
             <div className="rounded-2xl bg-slate-950/70 p-4">Total stake: <strong>€{totals.stake.toFixed(2)}</strong></div>
             <div className="rounded-2xl bg-slate-950/70 p-4">Potential return: <strong>€{totals.potentialReturn.toFixed(2)}</strong></div>
+            <Link href="/cloud-sync" className="block w-full rounded-2xl border border-sky-400/30 bg-sky-400/10 px-5 py-4 text-center font-black text-sky-100">
+              Sync {bets.length} bet{bets.length === 1 ? "" : "s"} to cloud
+            </Link>
             <button onClick={clearAll} className="w-full rounded-2xl border border-red-400/30 bg-red-400/10 px-5 py-4 font-black text-red-100">Clear local slip</button>
           </div>
         </div>
