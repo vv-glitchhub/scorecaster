@@ -15,19 +15,28 @@ export async function GET() {
     cloudSyncApi: true,
     paperBetSettlementApi: true,
     paperBankrollApi: true,
+    paperStakeApiValidation: true,
+    paperStakeDatabaseEnforcement: true,
+    openPaperExposureDatabaseEnforcement: true,
     accountExportApi: true,
     accountDeletionConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     authenticatedRateLimits: true,
     publicOddsInputAllowlist: true,
     publicOddsCache: true,
+    dailyTopThree: true,
+    leagueFilters: ["NHL", "NBA", "EPL", "La Liga", "Liiga", "SHL"],
+    mobileRoiAndClv: true,
+    mobileDataExport: true,
     apiSecurityRegressionTests: true,
+    expoDependencyCheck: true,
     securityHeaders: true,
     secretScanCi: true,
     codeQl: true,
-    expoMobileFoundation: true,
+    expoMobileMvp: true,
     realMoneyBetting: false,
     paymentDataStored: false,
     rowLevelSecurityMigration: "supabase/scorecaster_auth_cloud.sql",
+    paperRiskMigration: "supabase/scorecaster_paper_risk_limits.sql",
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
@@ -43,7 +52,7 @@ export async function GET() {
     {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
-      mode: services.supabaseConfigured ? "mobile-auth-cloud-ready" : "local-first",
+      mode: services.supabaseConfigured ? "mobile-mvp-cloud-ready" : "local-first",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -52,7 +61,7 @@ export async function GET() {
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
           ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
-          : "Run two-user isolation and TestFlight/Play internal testing",
+          : "Run paper-risk, two-user, TestFlight and Play internal tests",
       timestamp: new Date().toISOString()
     },
     {
