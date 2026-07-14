@@ -51,11 +51,21 @@ create index if not exists idx_bets_user_created
 create index if not exists idx_bets_user_status
   on public.bets(user_id, status);
 
--- One paper-bankroll settings row per authenticated user.
+-- Keep exactly one paper-bankroll settings row per authenticated user so the
+-- API can use ON CONFLICT (user_id) safely. Null prototype rows are untouched.
+with ranked as (
+  select id,
+         row_number() over (
+           partition by user_id
+           order by updated_at desc nulls last, created_at desc nulls last, id desc
+         ) as row_number
+  from public.bankroll_settings
+  where user_id is not null
+)
+delete from public.bankroll_settings
+where id in (select id from ranked where row_number > 1);
+
 create unique index if not exists idx_bankroll_settings_user_unique
-  on public.bankroll_settings(user_id)
-  where user_id is not null;
-create index if not exists idx_bankroll_settings_user
   on public.bankroll_settings(user_id);
 
 -- Future writes must stay inside conservative paper-tracking bounds. NOT VALID
@@ -75,6 +85,10 @@ alter table public.bets add constraint bets_confidence_range
 alter table public.bets drop constraint if exists bets_edge_range;
 alter table public.bets add constraint bets_edge_range
   check (edge is null or (edge >= -1 and edge <= 1)) not valid;
+
+alter table public.bankroll_settings drop constraint if exists bankroll_paper_mode_only;
+alter table public.bankroll_settings add constraint bankroll_paper_mode_only
+  check (paper_trading_mode = true) not valid;
 
 create or replace function public.set_updated_at()
 returns trigger
@@ -154,6 +168,7 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+drop policy if exists "Users manage own rows" on public.bankroll_settings;
 drop policy if exists "Users manage own bankroll settings" on public.bankroll_settings;
 create policy "Users manage own bankroll settings"
 on public.bankroll_settings for all
@@ -161,13 +176,12 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id and paper_trading_mode = true);
 
--- Apply user isolation to the original Production MVP tables when they exist.
+-- Apply user isolation to the other original Production MVP tables when they exist.
 do $$
 declare
   table_name text;
 begin
   foreach table_name in array array[
-    'bankroll_settings',
     'bet_slips',
     'bet_slip_items',
     'tracked_bets',
