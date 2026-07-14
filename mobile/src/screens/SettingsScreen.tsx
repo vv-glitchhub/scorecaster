@@ -94,9 +94,10 @@ export default function SettingsScreen({ session }: { session: Session }) {
       </Card>
 
       <Card>
-        <Text style={styles.cardTitle}>Säännöt ja turvallisuus</Text>
+        <Text style={styles.cardTitle}>Tuki, säännöt ja turvallisuus</Text>
         <Text style={styles.muted}>Scorecaster ei käsittele oikeaa rahaa, maksukortteja, pankkitilejä tai vedonlyöntitilien tunnuksia.</Text>
         <View style={styles.actionRow}>
+          <ActionButton label="Tuki" onPress={() => Linking.openURL(`${apiBaseUrl}/support`)} tone="secondary" compact />
           <ActionButton label="Tietosuoja" onPress={() => Linking.openURL(`${apiBaseUrl}/privacy`)} tone="secondary" compact />
           <ActionButton label="Käyttöehdot" onPress={() => Linking.openURL(`${apiBaseUrl}/terms`)} tone="secondary" compact />
           <ActionButton label="Vastuullinen käyttö" onPress={() => Linking.openURL(`${apiBaseUrl}/responsible-use`)} tone="secondary" compact />
