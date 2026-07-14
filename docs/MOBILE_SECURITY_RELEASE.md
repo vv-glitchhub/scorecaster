@@ -10,8 +10,9 @@ Scorecaster is sports analysis, AI explanation, risk control and paper tracking.
 Expo iOS / Android app
   -> Supabase Auth with session in Expo SecureStore
   -> HTTPS Scorecaster API with bearer access token
-  -> server revalidates user
+  -> server revalidates user and the single paper-stake limit
   -> database-backed per-user API quota
+  -> PostgreSQL enforces single and total open paper exposure
   -> Supabase queries run under the user's JWT
   -> Row Level Security limits rows to auth.uid()
 ```
@@ -25,6 +26,7 @@ Run in order:
 ```text
 supabase/scorecaster_schema.sql
 supabase/scorecaster_auth_cloud.sql
+supabase/scorecaster_paper_risk_limits.sql
 supabase/scorecaster_api_rate_limits.sql
 ```
 
@@ -38,6 +40,17 @@ SUPABASE_SERVICE_ROLE_KEY  # server only, required for account deletion
 
 The service-role value must never use a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` prefix.
 
+## Paper-risk enforcement
+
+The app displays the user's virtual bankroll, maximum single paper stake and maximum open paper exposure. These controls are also enforced outside the UI:
+
+- the protected API rejects a single paper stake above the configured percentage
+- PostgreSQL rejects a direct or modified-client write above the single-stake limit
+- PostgreSQL also rejects total open paper exposure above the configured exposure percentage
+- database constraint failures are returned as safe HTTP 400 responses without exposing internal SQL details
+
+These are simulation safeguards. They do not turn Scorecaster into a real-money product.
+
 ## Abuse protection
 
 Authenticated account endpoints use an atomic PostgreSQL quota function keyed by the verified `auth.uid()`. The API fails closed if the rate-limit migration is missing. Account deletion and exports use stricter hourly limits than ordinary paper-tracking reads.
@@ -46,17 +59,19 @@ The public odds proxy accepts only known Scorecaster sports and the `h2h`, `spre
 
 Stale rate-limit counters contain only a user ID, bucket name, count and timestamps. They should be deleted after two days by invoking `delete_stale_api_rate_limits()` from trusted server maintenance.
 
-## Two-user isolation test
+## Two-user and risk test
 
 1. Create users A and B.
 2. Sign in as A and save a paper bet plus bankroll settings.
-3. Sign in as B and verify A's rows are absent.
-4. From B, attempt direct select, update and delete operations against A's row IDs.
-5. Confirm every operation returns no row or an authorization error.
-6. Repeat through cookie web auth and bearer mobile auth.
-7. Export each user's data and confirm exports contain only the authenticated account.
-8. Repeatedly call a protected endpoint and confirm the configured quota returns HTTP 429 with `Retry-After`.
-9. Delete user A and confirm A can no longer authenticate and A's rows are removed.
+3. Try a paper stake above A's single-stake percentage and confirm HTTP 400.
+4. Add open paper bets until the total exposure limit would be exceeded and confirm the database rejects the final write.
+5. Sign in as B and verify A's rows are absent.
+6. From B, attempt direct select, update and delete operations against A's row IDs.
+7. Confirm every operation returns no row or an authorization error.
+8. Repeat through cookie web auth and bearer mobile auth.
+9. Export each user's data and confirm exports contain only the authenticated account.
+10. Repeatedly call a protected endpoint and confirm the configured quota returns HTTP 429 with `Retry-After`.
+11. Delete user A and confirm A can no longer authenticate and A's rows are removed.
 
 Public release is blocked until this test passes.
 
@@ -66,6 +81,7 @@ Public release is blocked until this test passes.
 - repository secret scan
 - API security regression tests
 - CodeQL JavaScript/TypeScript analysis
+- Expo dependency compatibility check
 - mobile strict TypeScript check
 - Vercel preview deployment when the Vercel build allowance is available
 
@@ -75,7 +91,7 @@ Public release is blocked until this test passes.
 cd mobile
 cp .env.example .env
 npm install
-npx expo install --fix
+npx expo install --check
 npm run typecheck
 ```
 
@@ -85,7 +101,7 @@ Only public client values belong in `mobile/.env`.
 
 - activate all Supabase migrations in the real project
 - configure production environment values
-- complete two-user isolation and quota tests
+- complete two-user, paper-risk and quota tests
 - link an Expo EAS project
 - create Apple and Google developer accounts
 - add final icon, splash assets and store screenshots
