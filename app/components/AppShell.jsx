@@ -29,6 +29,7 @@ const navItems = [
   { href: "/live", label: "Live" },
   { href: "/intelligence", label: "Intelligence" },
   { href: "/ai-research", label: "AI Research" },
+  { href: "/security", label: "Security" },
   { href: "/about", label: "About" }
 ];
 
@@ -51,15 +52,15 @@ export default function AppShell({ children }) {
               </div>
               <div className="min-w-0">
                 <div className="truncate text-lg font-black tracking-tight md:text-xl">Scorecaster</div>
-                <div className="truncate text-xs text-slate-400">AI Sports Intelligence Platform</div>
+                <div className="truncate text-xs text-slate-400">Sports analysis and paper tracking</div>
               </div>
             </Link>
 
             <div className="hidden items-center gap-3 lg:flex">
               <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-xs font-bold text-emerald-300">Production Online</div>
-              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">Auth Ready</div>
-              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">Agent V9</div>
-              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">Risk Layer</div>
+              <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-xs font-bold text-sky-300">Mobile Foundation</div>
+              <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-3 py-2 text-xs font-bold text-purple-300">Auth + RLS</div>
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-bold text-yellow-300">Paper Only</div>
             </div>
 
             <button
@@ -93,9 +94,9 @@ export default function AppShell({ children }) {
             <div className="pb-4 lg:hidden">
               <div className="mb-3 grid grid-cols-4 gap-2 text-[11px] font-bold">
                 <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-2 py-2 text-center text-emerald-300">Online</div>
-                <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-center text-sky-300">Cloud</div>
-                <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-2 py-2 text-center text-purple-300">Agent V9</div>
-                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-2 py-2 text-center text-yellow-300">Risk</div>
+                <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-2 py-2 text-center text-sky-300">Mobile</div>
+                <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 px-2 py-2 text-center text-purple-300">Auth</div>
+                <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-2 py-2 text-center text-yellow-300">Paper</div>
               </div>
 
               <nav className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -123,16 +124,15 @@ export default function AppShell({ children }) {
 
       <footer className="border-t border-white/10 py-6">
         <div className="mx-auto max-w-7xl px-4">
-          <div className="flex flex-col gap-2 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-            <div>© {new Date().getFullYear()} Scorecaster</div>
+          <div className="flex flex-col gap-3 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
+            <div>© {new Date().getFullYear()} Scorecaster · analysis and paper tracking only</div>
             <div className="flex flex-wrap gap-4">
               <Link href="/profile" className="hover:text-white">Account</Link>
-              <Link href="/cloud-sync" className="hover:text-white">Cloud Sync</Link>
-              <Link href="/production-status" className="hover:text-white">Production Status</Link>
-              <Link href="/api/health" className="hover:text-white">Health API</Link>
-              <span>Agent V9</span>
-              <span>Risk Layer</span>
-              <span>CLV</span>
+              <Link href="/privacy" className="hover:text-white">Privacy</Link>
+              <Link href="/terms" className="hover:text-white">Terms</Link>
+              <Link href="/responsible-use" className="hover:text-white">Responsible use</Link>
+              <Link href="/security" className="hover:text-white">Security</Link>
+              <Link href="/production-status" className="hover:text-white">Status</Link>
             </div>
           </div>
         </div>
