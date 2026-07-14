@@ -116,6 +116,46 @@ create trigger bankroll_settings_set_updated_at
 before update on public.bankroll_settings
 for each row execute function public.set_updated_at();
 
+-- The client can be modified by an attacker, so the database enforces the
+-- user's own virtual-bankroll percentage even for direct authenticated writes.
+create or replace function public.enforce_paper_stake_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_bankroll numeric := 1000;
+  v_max_stake_percent numeric := 2;
+  v_max_stake numeric;
+begin
+  select bankroll, max_stake_percent
+  into v_bankroll, v_max_stake_percent
+  from public.bankroll_settings
+  where user_id = new.user_id;
+
+  v_bankroll := coalesce(v_bankroll, 1000);
+  v_max_stake_percent := coalesce(v_max_stake_percent, 2);
+  v_max_stake := greatest(0, v_bankroll * v_max_stake_percent / 100);
+
+  if new.stake > v_max_stake then
+    raise exception 'Paper stake exceeds the configured virtual-bankroll limit'
+      using errcode = '23514';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public.enforce_paper_stake_limit() from public;
+revoke all on function public.enforce_paper_stake_limit() from anon;
+revoke all on function public.enforce_paper_stake_limit() from authenticated;
+
+drop trigger if exists bets_enforce_paper_stake_limit on public.bets;
+create trigger bets_enforce_paper_stake_limit
+before insert or update of stake, user_id on public.bets
+for each row execute function public.enforce_paper_stake_limit();
+
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
