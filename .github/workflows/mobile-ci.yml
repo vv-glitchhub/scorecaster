@@ -36,7 +36,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Check Expo dependency compatibility
-        run: npx expo install --check
+        run: npm run check:expo
 
       - name: Typecheck
         run: npm run typecheck
