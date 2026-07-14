@@ -1,6 +1,7 @@
 import {
   boundedNumber,
   cleanText,
+  enforceRateLimit,
   getAuthenticatedContext,
   getRequestId,
   jsonResponse,
@@ -103,6 +104,13 @@ export async function GET(request) {
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
 
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bets_read",
+    limit: 120,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
+
   const { data, error } = await auth.supabase
     .from("bets")
     .select(BET_SELECT)
@@ -128,6 +136,13 @@ export async function POST(request) {
 
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bets_create",
+    limit: 30,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
 
   const body = await readJsonBody(request, 96 * 1024);
   if (!body.ok) {
@@ -166,6 +181,13 @@ export async function PATCH(request) {
 
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bets_update",
+    limit: 60,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
 
   const body = await readJsonBody(request, 16 * 1024);
   if (!body.ok) {
@@ -235,6 +257,13 @@ export async function DELETE(request) {
 
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bets_delete",
+    limit: 20,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
 
   const body = await readJsonBody(request, 16 * 1024);
   if (!body.ok) {
