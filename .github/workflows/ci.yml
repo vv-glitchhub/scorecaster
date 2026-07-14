@@ -30,8 +30,11 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
 
-      - name: Security check
+      - name: Secret and repository security check
         run: npm run security:check
+
+      - name: API security regression tests
+        run: npm run test:security
 
       - name: Build
         run: |
