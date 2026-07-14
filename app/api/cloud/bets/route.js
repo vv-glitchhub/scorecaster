@@ -39,8 +39,11 @@ function normalizeBet(bet, userId, index) {
   const match = cleanText(bet?.match, 240);
   const selection = cleanText(bet?.selection || bet?.label, 160);
   const odds = boundedNumber(bet?.odds, { min: 1.001, max: 10000 });
+  const stake = bet?.stake === undefined || bet?.stake === null || bet?.stake === ""
+    ? 0
+    : boundedNumber(bet?.stake, { min: 0, max: 10000000 });
 
-  if (!match || !selection || odds === null) return null;
+  if (!match || !selection || odds === null || stake === null) return null;
 
   const clientRef = cleanText(
     bet?.id || bet?.client_ref || `${match}-${selection}-${odds}-${index}`,
@@ -61,7 +64,7 @@ function normalizeBet(bet, userId, index) {
     home_team: cleanText(bet?.home_team, 160),
     away_team: cleanText(bet?.away_team, 160),
     odds,
-    stake: boundedNumber(bet?.stake, { min: 0, max: 10000000, fallback: 0 }),
+    stake,
     edge: boundedNumber(bet?.edge, { min: -1, max: 1 }),
     ev: boundedNumber(bet?.ev, { min: -10, max: 100 }),
     confidence: boundedNumber(bet?.confidence, { min: 0, max: 1 }),
@@ -97,6 +100,59 @@ async function requireAuth(request, requestId) {
 function rejectUnsafeMutation(request, requestId) {
   if (mutationOriginAllowed(request)) return null;
   return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
+}
+
+function paperLimitError(error, requestId, fallback) {
+  if (error?.code === "23514") {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "Paper stake or open paper exposure exceeds the configured virtual-bankroll limits"
+      },
+      400,
+      requestId
+    );
+  }
+
+  return jsonResponse(
+    { ok: false, error: publicError(error, fallback) },
+    500,
+    requestId
+  );
+}
+
+async function validateSingleStakeLimits(auth, rows, requestId) {
+  const { data, error } = await auth.supabase
+    .from("bankroll_settings")
+    .select("bankroll,max_stake_percent")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  if (error) {
+    return jsonResponse(
+      { ok: false, error: publicError(error, "Paper bankroll limits could not be checked") },
+      500,
+      requestId
+    );
+  }
+
+  const bankroll = Number(data?.bankroll ?? 1000);
+  const maxStakePercent = Number(data?.max_stake_percent ?? 2);
+  const maxPaperStake = Number(Math.max(0, bankroll * maxStakePercent / 100).toFixed(4));
+
+  if (rows.some((row) => Number(row.stake) > maxPaperStake + 0.0001)) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "Paper stake exceeds the configured virtual-bankroll limit",
+        maxPaperStake
+      },
+      400,
+      requestId
+    );
+  }
+
+  return null;
 }
 
 export async function GET(request) {
@@ -158,18 +214,15 @@ export async function POST(request) {
     return jsonResponse({ ok: false, error: "No valid paper bets supplied" }, 400, requestId);
   }
 
+  const invalidStake = await validateSingleStakeLimits(auth, rows, requestId);
+  if (invalidStake) return invalidStake;
+
   const { data, error } = await auth.supabase
     .from("bets")
     .upsert(rows, { onConflict: "user_id,client_ref" })
     .select(BET_SELECT);
 
-  if (error) {
-    return jsonResponse(
-      { ok: false, error: publicError(error, "Paper bets could not be saved") },
-      500,
-      requestId
-    );
-  }
+  if (error) return paperLimitError(error, requestId, "Paper bets could not be saved");
 
   return jsonResponse({ ok: true, synced: data?.length || 0, data: data || [] }, 200, requestId);
 }
@@ -239,13 +292,7 @@ export async function PATCH(request) {
     .select(BET_SELECT)
     .single();
 
-  if (error) {
-    return jsonResponse(
-      { ok: false, error: publicError(error, "Paper bet could not be updated") },
-      500,
-      requestId
-    );
-  }
+  if (error) return paperLimitError(error, requestId, "Paper bet could not be updated");
 
   return jsonResponse({ ok: true, data }, 200, requestId);
 }
