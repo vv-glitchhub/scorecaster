@@ -6,6 +6,14 @@ export const metadata = {
   description: "AI-powered sports intelligence platform"
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  viewportFit: "cover",
+  themeColor: "#020617"
+};
+
 export default function RootLayout({ children }) {
   return (
     <html lang="fi">
