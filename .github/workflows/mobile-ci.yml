@@ -35,8 +35,12 @@ jobs:
       - name: Install mobile dependencies
         run: npm install --no-audit --no-fund --silent
 
-      - name: Check Expo dependency compatibility
-        run: npx expo install --check
+      - name: Verify Expo dependency compatibility
+        run: |
+          npx expo install --fix
+          echo "Expo changed these dependency declarations:"
+          git diff -- package.json
+          git diff --exit-code -- package.json
 
       - name: Typecheck
         run: npm run typecheck
