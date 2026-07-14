@@ -4,7 +4,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "security:check": "node scripts/security-check.mjs"
+    "security:check": "node scripts/security-check.mjs",
+    "test:security": "node --test scripts/api-security.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
