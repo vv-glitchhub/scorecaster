@@ -11,6 +11,7 @@ Expo iOS / Android app
   -> Supabase Auth with session in Expo SecureStore
   -> HTTPS Scorecaster API with bearer access token
   -> server revalidates user
+  -> database-backed per-user API quota
   -> Supabase queries run under the user's JWT
   -> Row Level Security limits rows to auth.uid()
 ```
@@ -24,6 +25,7 @@ Run in order:
 ```text
 supabase/scorecaster_schema.sql
 supabase/scorecaster_auth_cloud.sql
+supabase/scorecaster_api_rate_limits.sql
 ```
 
 Configure:
@@ -36,6 +38,14 @@ SUPABASE_SERVICE_ROLE_KEY  # server only, required for account deletion
 
 The service-role value must never use a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` prefix.
 
+## Abuse protection
+
+Authenticated account endpoints use an atomic PostgreSQL quota function keyed by the verified `auth.uid()`. The API fails closed if the rate-limit migration is missing. Account deletion and exports use stricter hourly limits than ordinary paper-tracking reads.
+
+The public odds proxy accepts only known Scorecaster sports and the `h2h`, `spreads` and `totals` markets. It rejects unknown query keys, forces European decimal odds, applies an upstream timeout and caches normalized responses. Top Picks supports at most six known leagues per request and publishes a cached Top 3 subset.
+
+Stale rate-limit counters contain only a user ID, bucket name, count and timestamps. They should be deleted after two days by invoking `delete_stale_api_rate_limits()` from trusted server maintenance.
+
 ## Two-user isolation test
 
 1. Create users A and B.
@@ -45,7 +55,8 @@ The service-role value must never use a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` prefix.
 5. Confirm every operation returns no row or an authorization error.
 6. Repeat through cookie web auth and bearer mobile auth.
 7. Export each user's data and confirm exports contain only the authenticated account.
-8. Delete user A and confirm A can no longer authenticate and A's rows are removed.
+8. Repeatedly call a protected endpoint and confirm the configured quota returns HTTP 429 with `Retry-After`.
+9. Delete user A and confirm A can no longer authenticate and A's rows are removed.
 
 Public release is blocked until this test passes.
 
@@ -53,9 +64,10 @@ Public release is blocked until this test passes.
 
 - root Next.js production build
 - repository secret scan
+- API security regression tests
 - CodeQL JavaScript/TypeScript analysis
 - mobile strict TypeScript check
-- Vercel preview deployment
+- Vercel preview deployment when the Vercel build allowance is available
 
 ## Mobile configuration
 
@@ -71,9 +83,9 @@ Only public client values belong in `mobile/.env`.
 
 ## Store-release blockers that remain external
 
-- activate Supabase migration in the real project
+- activate all Supabase migrations in the real project
 - configure production environment values
-- complete two-user isolation test
+- complete two-user isolation and quota tests
 - link an Expo EAS project
 - create Apple and Google developer accounts
 - add final icon, splash assets and store screenshots

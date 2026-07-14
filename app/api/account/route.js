@@ -1,6 +1,7 @@
 import { getSupabaseAdminClient } from "../../../lib/supabase";
 import {
   cleanText,
+  enforceRateLimit,
   getAuthenticatedContext,
   getRequestId,
   jsonResponse,
@@ -36,6 +37,13 @@ export async function GET(request) {
     return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
   }
 
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "account_status",
+    limit: 30,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
+
   return jsonResponse(
     {
       ok: true,
@@ -60,6 +68,13 @@ export async function DELETE(request) {
   if (!auth.ok) {
     return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
   }
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "account_delete",
+    limit: 3,
+    windowSeconds: 3600
+  });
+  if (limited) return limited;
 
   const admin = getSupabaseAdminClient();
   if (!admin) {

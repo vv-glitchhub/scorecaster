@@ -17,7 +17,7 @@ Scorecaster is analysis and paper tracking only.
 
 Scorecaster has deployment and security guardrails:
 
-- GitHub Actions runs the secret/security gate and `npm run build`.
+- GitHub Actions runs the secret scan, API security tests and `npm run build`.
 - CodeQL analyzes JavaScript and TypeScript.
 - `/api/health` reports safe runtime and integration readiness.
 - `/production-status` displays the health response in the app.
@@ -25,6 +25,9 @@ Scorecaster has deployment and security guardrails:
 - Supabase sessions are refreshed through the Next.js root `proxy.js`.
 - Mutating account APIs validate auth, origin, JSON type, body size, ranges and record counts.
 - Database Row Level Security isolates user rows.
+- Authenticated APIs use atomic per-user PostgreSQL quotas and return HTTP 429 with `Retry-After`.
+- The public odds proxy only accepts known sports and markets, normalizes requests, times out upstream calls and caches responses.
+- Top Picks supports a bounded league filter, publishes a cached Top 3 and always marks results as paper-only.
 - HTTP security headers block framing, MIME sniffing and unnecessary device permissions.
 
 ## Native mobile application
@@ -36,7 +39,7 @@ It includes:
 - email/password Supabase authentication
 - chunked Expo SecureStore session persistence
 - HTTPS bearer-authenticated user API calls
-- daily picks
+- daily picks with trust and PLAY / CAUTION / SKIP output
 - paper-bet saving and settlement
 - paper-bankroll view
 - data export
@@ -63,6 +66,7 @@ See `mobile/README.md` and `docs/MOBILE_SECURITY_RELEASE.md`.
 ```bash
 npm install --no-audit --no-fund
 npm run security:check
+npm run test:security
 npm run build
 npm run dev
 ```
@@ -96,7 +100,15 @@ https://scorecaster.vercel.app/api/health
 - `GET /api/account/export` — authenticated user-data export
 - `GET/DELETE /api/account` — account-deletion readiness and permanent deletion
 
-The same APIs accept validated web cookie sessions and mobile bearer access tokens.
+The same APIs accept validated web cookie sessions and mobile bearer access tokens. They fail closed when the database-backed quota layer has not been activated.
+
+## Public analysis APIs
+
+- `GET /api/odds?sport=<known-key>&markets=h2h` — normalized cached European decimal odds
+- `GET /api/top-picks` — cached default league set and featured Top 3
+- `GET /api/top-picks?sports=<comma-separated-known-keys>` — one to six supported leagues
+
+Unknown query parameters, unsupported sports and unsupported markets are rejected before an upstream request is made.
 
 ## What you can use
 
@@ -129,9 +141,10 @@ Run these SQL files in order:
 ```text
 supabase/scorecaster_schema.sql
 supabase/scorecaster_auth_cloud.sql
+supabase/scorecaster_api_rate_limits.sql
 ```
 
-Public launch is blocked until the documented two-user isolation test passes.
+Public launch is blocked until the documented two-user isolation and quota tests pass.
 
 ## Environment
 
@@ -155,6 +168,7 @@ Legacy Supabase projects can use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the 
 - `.github/workflows/mobile-ci.yml`
 - `.github/workflows/codeql.yml`
 - `scripts/security-check.mjs`
+- `scripts/api-security.test.mjs`
 - `mobile/`
 - `docs/PRODUCTION_MVP.md`
 - `docs/PRODUCTION_RUNBOOK.md`
@@ -170,6 +184,7 @@ Legacy Supabase projects can use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the 
 - `proxy.js`
 - `supabase/scorecaster_schema.sql`
 - `supabase/scorecaster_auth_cloud.sql`
+- `supabase/scorecaster_api_rate_limits.sql`
 - `/privacy`
 - `/terms`
 - `/responsible-use`

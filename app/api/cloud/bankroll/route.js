@@ -1,5 +1,6 @@
 import {
   boundedNumber,
+  enforceRateLimit,
   getAuthenticatedContext,
   getRequestId,
   jsonResponse,
@@ -36,6 +37,13 @@ export async function GET(request) {
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
 
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bankroll_read",
+    limit: 120,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
+
   const { data, error } = await auth.supabase
     .from("bankroll_settings")
     .select(SELECT)
@@ -61,6 +69,13 @@ export async function PUT(request) {
 
   const auth = await requireAuth(request, requestId);
   if (auth.error) return auth.error;
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "cloud_bankroll_update",
+    limit: 30,
+    windowSeconds: 60
+  });
+  if (limited) return limited;
 
   const body = await readJsonBody(request, 16 * 1024);
   if (!body.ok) {

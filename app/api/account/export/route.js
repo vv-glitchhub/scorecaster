@@ -1,4 +1,5 @@
 import {
+  enforceRateLimit,
   getAuthenticatedContext,
   getRequestId,
   jsonResponse,
@@ -14,6 +15,13 @@ export async function GET(request) {
   if (!auth.ok) {
     return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
   }
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "account_export",
+    limit: 5,
+    windowSeconds: 3600
+  });
+  if (limited) return limited;
 
   const [profileResult, betsResult, bankrollResult] = await Promise.all([
     auth.supabase

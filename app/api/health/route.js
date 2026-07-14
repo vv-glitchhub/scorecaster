@@ -17,6 +17,10 @@ export async function GET() {
     paperBankrollApi: true,
     accountExportApi: true,
     accountDeletionConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    authenticatedRateLimits: true,
+    publicOddsInputAllowlist: true,
+    publicOddsCache: true,
+    apiSecurityRegressionTests: true,
     securityHeaders: true,
     secretScanCi: true,
     codeQl: true,
@@ -24,6 +28,7 @@ export async function GET() {
     realMoneyBetting: false,
     paymentDataStored: false,
     rowLevelSecurityMigration: "supabase/scorecaster_auth_cloud.sql",
+    rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
     supabaseConfigured: Boolean(
@@ -46,7 +51,7 @@ export async function GET() {
       nextStep: !services.supabaseConfigured
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
-          ? "Apply the RLS migration, test two-user isolation and configure server-only account deletion"
+          ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
           : "Run two-user isolation and TestFlight/Play internal testing",
       timestamp: new Date().toISOString()
     },
