@@ -11,7 +11,18 @@ export async function GET() {
     riskEngine: true,
     betSlipEngine: true,
     authLayer: true,
+    mobileBearerAuth: true,
     cloudSyncApi: true,
+    paperBetSettlementApi: true,
+    paperBankrollApi: true,
+    accountExportApi: true,
+    accountDeletionConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+    securityHeaders: true,
+    secretScanCi: true,
+    codeQl: true,
+    expoMobileFoundation: true,
+    realMoneyBetting: false,
+    paymentDataStored: false,
     rowLevelSecurityMigration: "supabase/scorecaster_auth_cloud.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
@@ -27,19 +38,23 @@ export async function GET() {
     {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
-      mode: services.supabaseConfigured ? "auth-cloud-ready" : "local-first",
+      mode: services.supabaseConfigured ? "mobile-auth-cloud-ready" : "local-first",
+      productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
       services,
-      nextStep: services.supabaseConfigured
-        ? "Run the auth/RLS SQL migration and test login + cloud sync"
-        : "Configure Supabase public environment variables",
+      nextStep: !services.supabaseConfigured
+        ? "Configure Supabase public environment variables"
+        : !services.accountDeletionConfigured
+          ? "Apply the RLS migration, test two-user isolation and configure server-only account deletion"
+          : "Run two-user isolation and TestFlight/Play internal testing",
       timestamp: new Date().toISOString()
     },
     {
       status: requiredLocalServicesReady ? 200 : 503,
       headers: {
-        "Cache-Control": "no-store"
+        "Cache-Control": "no-store",
+        "X-Content-Type-Options": "nosniff"
       }
     }
   );
