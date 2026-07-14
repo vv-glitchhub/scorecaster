@@ -19,7 +19,8 @@ export default function PolicyPage({ title, intro, sections }) {
       ))}
 
       <div className="flex flex-wrap gap-3 pb-6">
-        <Link href="/security" className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950">Security</Link>
+        <Link href="/support" className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950">Support</Link>
+        <Link href="/security" className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-white">Security</Link>
         <Link href="/privacy" className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-white">Privacy</Link>
         <Link href="/terms" className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-white">Terms</Link>
         <Link href="/responsible-use" className="rounded-xl border border-white/10 px-4 py-3 text-sm font-black text-white">Responsible use</Link>
