@@ -120,6 +120,7 @@ test("automatic score settlement is authenticated, bounded and server-only", asy
 test("database paper-risk enforcement covers concurrency, league and quality limits", async () => {
   const migration = await readRepositoryFile("supabase/scorecaster_paper_risk_limits.sql");
 
+  assert.match(migration, /pg_advisory_xact_lock/i);
   assert.match(migration, /for update;/i);
   assert.match(migration, /minimum edge/i);
   assert.match(migration, /minimum confidence/i);
