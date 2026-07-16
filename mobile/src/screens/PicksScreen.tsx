@@ -86,6 +86,21 @@ function rankValue(pick: Pick) {
   return decisionScore + Number(pick.trustScore || 0) / 100 + Number(pick.edge || 0) * 4 + Number(pick.confidence || 0);
 }
 
+function personalLimitStatus(pick: Pick, bankroll: Bankroll | null) {
+  const minEdge = Number(bankroll?.min_edge ?? 0.025);
+  const minConfidence = Number(bankroll?.min_confidence ?? 0.58);
+  const edge = Number(pick.edge || 0);
+  const confidence = Number(pick.confidence || 0);
+
+  return {
+    minEdge,
+    minConfidence,
+    edgeOk: edge >= minEdge,
+    confidenceOk: confidence >= minConfidence,
+    allowed: edge >= minEdge && confidence >= minConfidence
+  };
+}
+
 export default function PicksScreen() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>(FILTERS[0]);
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
@@ -178,9 +193,18 @@ export default function PicksScreen() {
     const maximum = bankroll
       ? bankroll.bankroll * bankroll.max_stake_percent / 100
       : maximumStake;
+    const limits = personalLimitStatus(pick, bankroll);
 
     if (!match || !selection || odds <= 1) {
       Alert.alert("Kohde puutteellinen", "Kohteen tietoja ei voida tallentaa turvallisesti.");
+      return;
+    }
+
+    if (!limits.allowed) {
+      Alert.alert(
+        "Oma paperiraja estää tallennuksen",
+        `Vaadittu edge on ${percent(limits.minEdge)} ja confidence ${percent(limits.minConfidence)}. Muuta rajoja Etusivu-välilehdellä vain harkitusti.`
+      );
       return;
     }
 
@@ -199,7 +223,10 @@ export default function PicksScreen() {
         body: {
           bets: [{
             id,
+            eventId: pick.gameId || pick.eventId,
             match,
+            homeTeam: pick.homeTeam,
+            awayTeam: pick.awayTeam,
             selection,
             odds,
             stake,
@@ -292,8 +319,11 @@ export default function PicksScreen() {
       </ScrollView>
 
       <Card>
-        <Text style={styles.cardTitle}>Paperiraja ja aineisto</Text>
+        <Text style={styles.cardTitle}>Omat paperirajat ja aineisto</Text>
         <Text style={styles.value}>Enimmäispanos {money(maximumStake)}</Text>
+        <Text style={styles.muted}>
+          Minimiedge {percent(bankroll?.min_edge ?? 0.025)} · minimi-confidence {percent(bankroll?.min_confidence ?? 0.58)}
+        </Text>
         <Text style={styles.muted}>
           Näytetään {visiblePicks.length}/{picks.length} kohdetta{generatedAt ? ` · analyysi ${new Date(generatedAt).toLocaleTimeString("fi-FI", { hour: "2-digit", minute: "2-digit" })}` : ""}.
         </Text>
@@ -312,12 +342,14 @@ export default function PicksScreen() {
         const consensusProbability = Number(pick.consensusProbability || pick.modelProbability || 0);
         const marketProbability = Number(pick.marketProbability || (pick.odds ? 1 / pick.odds : 0));
         const notes = (pick.qualityNotes || []).slice(0, 2);
+        const limits = personalLimitStatus(pick, bankroll);
+        const canSave = decision !== "SKIP" && limits.allowed;
 
         return (
           <Card key={`${id}-${index}`}>
             <View style={styles.rowBetween}>
-              <View style={[styles.badge, decision === "SKIP" && styles.dangerBadge, decision === "CAUTION" && styles.warningBadge]}>
-                <Text style={styles.badgeText}>{featured ? "TOP · " : ""}{decision}</Text>
+              <View style={[styles.badge, (!canSave || decision === "SKIP") && styles.dangerBadge, canSave && decision === "CAUTION" && styles.warningBadge]}>
+                <Text style={styles.badgeText}>{featured ? "TOP · " : ""}{canSave ? decision : "OMA RAJA"}</Text>
               </View>
               <Text style={styles.muted}>{pick.leagueTitle || pick.league || filter.label}</Text>
             </View>
@@ -339,6 +371,12 @@ export default function PicksScreen() {
 
             {notes.map((note) => <Text key={note} style={styles.muted}>• {note}</Text>)}
 
+            {!limits.allowed && (
+              <Text style={styles.muted}>
+                Kohde ei läpäise omaa rajaa: edge {limits.edgeOk ? "OK" : "liian pieni"}, confidence {limits.confidenceOk ? "OK" : "liian pieni"}.
+              </Text>
+            )}
+
             <Field
               label="Paperipanos (€)"
               value={stakes[id] || initialStake(pick, maximumStake).toFixed(2)}
@@ -348,10 +386,10 @@ export default function PicksScreen() {
             <ActionButton
               label={savingId === id ? "Tallennetaan…" : "Lisää paperiseurantaan"}
               onPress={() => savePick(pick, index)}
-              disabled={savingId !== null || decision === "SKIP"}
+              disabled={savingId !== null || !canSave}
             />
             {decision === "SKIP" && (
-              <Text style={styles.muted}>SKIP tarkoittaa, että hinta tai aineiston laatu ei täytä Scorecasterin rajaa.</Text>
+              <Text style={styles.muted}>SKIP tarkoittaa, että hinta tai aineiston laatu ei täytä Scorecasterin yleistä rajaa.</Text>
             )}
           </Card>
         );
