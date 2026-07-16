@@ -32,8 +32,11 @@ export function ActionButton({
 }) {
   return (
     <Pressable
+      accessibilityLabel={label}
       accessibilityRole="button"
+      accessibilityState={{ disabled }}
       disabled={disabled}
+      hitSlop={compact ? 6 : 3}
       onPress={onPress}
       style={({ pressed }) => [
         styles.button,
@@ -69,12 +72,14 @@ export function Field({
     <View style={styles.fieldWrap}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        accessibilityLabel={label}
         autoCapitalize={autoCapitalize}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
         placeholderTextColor="#64748b"
         secureTextEntry={secureTextEntry}
+        selectionColor="#34d399"
         style={styles.input}
         value={value}
       />
@@ -89,8 +94,9 @@ export const styles = StyleSheet.create({
   authContainer: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 14 },
   screen: { padding: 16, paddingBottom: 36, gap: 12 },
   header: {
-    height: 58,
+    minHeight: 62,
     paddingHorizontal: 18,
+    paddingVertical: 9,
     borderBottomWidth: 1,
     borderColor: "#1e293b",
     flexDirection: "row",
@@ -98,6 +104,7 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between"
   },
   headerBrand: { color: "#f8fafc", fontSize: 20, fontWeight: "900" },
+  headerSubline: { color: "#64748b", fontSize: 10, fontWeight: "700", marginTop: 1 },
   headerMode: { color: "#34d399", fontSize: 11, fontWeight: "900", letterSpacing: 1 },
   logo: {
     alignSelf: "center",
@@ -131,6 +138,7 @@ export const styles = StyleSheet.create({
   label: { color: "#cbd5e1", fontSize: 13, fontWeight: "700" },
   fieldWrap: { gap: 6 },
   input: {
+    minHeight: 46,
     borderWidth: 1,
     borderColor: "#334155",
     borderRadius: 12,
@@ -140,7 +148,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#020617"
   },
   button: {
-    minHeight: 44,
+    minHeight: 46,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 12,
@@ -148,7 +156,7 @@ export const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#10b981"
   },
-  buttonCompact: { minHeight: 38, paddingHorizontal: 12, paddingVertical: 9 },
+  buttonCompact: { minHeight: 40, paddingHorizontal: 12, paddingVertical: 9 },
   buttonSecondary: { backgroundColor: "#334155" },
   buttonDanger: { backgroundColor: "#be123c" },
   buttonMuted: { opacity: 0.55 },
@@ -168,6 +176,7 @@ export const styles = StyleSheet.create({
   dangerBadge: { backgroundColor: "#881337" },
   filterRow: { gap: 8, paddingVertical: 4, paddingRight: 16 },
   filterChip: {
+    minHeight: 40,
     borderWidth: 1,
     borderColor: "#334155",
     borderRadius: 999,
@@ -180,14 +189,15 @@ export const styles = StyleSheet.create({
   filterTextActive: { color: "#d1fae5" },
   divider: { height: 1, backgroundColor: "#1e293b", marginVertical: 2 },
   tabBar: {
-    minHeight: 66,
+    minHeight: 68,
     borderTopWidth: 1,
     borderColor: "#1e293b",
     backgroundColor: "#0f172a",
     flexDirection: "row",
     paddingBottom: 4
   },
-  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
-  tabText: { color: "#64748b", fontSize: 11, fontWeight: "800" },
+  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 2, borderRadius: 10 },
+  tabButtonPressed: { backgroundColor: "#111c31" },
+  tabText: { color: "#64748b", fontSize: 10, fontWeight: "800", textAlign: "center" },
   tabTextActive: { color: "#34d399" }
 });
