@@ -61,8 +61,10 @@ function calculateStreak(bets: PaperBet[]) {
     .slice()
     .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
 
-  if (!decisions.length) return "–";
-  const status = decisions[0].status;
+  const first = decisions.at(0);
+  if (!first) return "–";
+
+  const status = first.status;
   const length = decisions.findIndex((bet) => bet.status !== status);
   const count = length === -1 ? decisions.length : length;
   return `${status === "won" ? "W" : "L"}${count}`;
