@@ -28,12 +28,22 @@ export type PaperAnalytics = {
   openExposure: number;
   maxDrawdown: number;
   currentStreak: string;
+  calibratedBets: number;
+  brierScore: number | null;
+  expectedWinRate: number | null;
+  actualCalibratedWinRate: number | null;
+  calibrationGap: number | null;
   leagues: LeagueAnalytics[];
 };
 
 function finite(value: unknown) {
   const number = Number(value);
   return Number.isFinite(number) ? number : 0;
+}
+
+function modelProbability(bet: PaperBet) {
+  const value = Number(bet.raw_pick?.modelProbability);
+  return Number.isFinite(value) && value >= 0 && value <= 1 ? value : null;
 }
 
 function calculateDrawdown(bets: PaperBet[]) {
@@ -82,6 +92,30 @@ export function calculatePaperAnalytics(bets: PaperBet[] = []): PaperAnalytics {
   const clvValues = settled.map((bet) => Number(bet.clv)).filter(Number.isFinite);
   const positiveClv = clvValues.filter((value) => value > 0).length;
   const oddsValues = decisions.map((bet) => finite(bet.odds)).filter((value) => value > 1);
+
+  const calibrationRows = decisions
+    .map((bet) => {
+      const probability = modelProbability(bet);
+      if (probability === null) return null;
+      return {
+        probability,
+        outcome: bet.status === "won" ? 1 : 0
+      };
+    })
+    .filter((row): row is { probability: number; outcome: number } => row !== null);
+  const calibratedBets = calibrationRows.length;
+  const expectedWinRate = calibratedBets
+    ? calibrationRows.reduce((sum, row) => sum + row.probability, 0) / calibratedBets
+    : null;
+  const actualCalibratedWinRate = calibratedBets
+    ? calibrationRows.reduce((sum, row) => sum + row.outcome, 0) / calibratedBets
+    : null;
+  const brierScore = calibratedBets
+    ? calibrationRows.reduce((sum, row) => sum + ((row.probability - row.outcome) ** 2), 0) / calibratedBets
+    : null;
+  const calibrationGap = expectedWinRate !== null && actualCalibratedWinRate !== null
+    ? actualCalibratedWinRate - expectedWinRate
+    : null;
 
   const leagueMap = new Map<string, PaperBet[]>();
   for (const bet of settled) {
@@ -134,6 +168,11 @@ export function calculatePaperAnalytics(bets: PaperBet[] = []): PaperAnalytics {
     openExposure: open.reduce((sum, bet) => sum + finite(bet.stake), 0),
     maxDrawdown: calculateDrawdown(bets),
     currentStreak: calculateStreak(bets),
+    calibratedBets,
+    brierScore,
+    expectedWinRate,
+    actualCalibratedWinRate,
+    calibrationGap,
     leagues
   };
 }

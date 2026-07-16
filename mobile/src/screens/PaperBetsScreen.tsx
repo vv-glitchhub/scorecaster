@@ -15,6 +15,16 @@ const FILTERS = [
 
 type BetFilter = (typeof FILTERS)[number]["key"];
 type SettlementStatus = "won" | "lost" | "void" | "push";
+type AutoSettlementResponse = {
+  ok: boolean;
+  checked: number;
+  settled: number;
+  pending: number;
+  checkedSports?: string[];
+  skippedSports?: string[];
+  providerWarnings?: { sport: string; error: string }[];
+  updateFailures?: number;
+};
 
 function parseClosingOdds(value: string) {
   if (!value.trim()) return null;
@@ -31,12 +41,18 @@ function statusLabel(status: string) {
   return status.toUpperCase();
 }
 
+function settlementSourceLabel(value?: string | null) {
+  if (value === "odds-api-scores") return "automaattinen tulospalvelu";
+  return value ? "manuaalinen tai muu lähde" : null;
+}
+
 export default function PaperBetsScreen() {
   const [bets, setBets] = useState<PaperBet[]>([]);
   const [filter, setFilter] = useState<BetFilter>("all");
   const [newestFirst, setNewestFirst] = useState(true);
   const [closingOdds, setClosingOdds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [settlingAll, setSettlingAll] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   async function load() {
@@ -59,6 +75,29 @@ export default function PaperBetsScreen() {
   }
 
   useEffect(() => { void load(); }, []);
+
+  async function checkResults() {
+    setSettlingAll(true);
+    try {
+      const response = await apiRequest<AutoSettlementResponse>("/api/cloud/bets/settle", {
+        method: "POST",
+        timeoutMs: 45000
+      });
+      await load();
+
+      const warnings = response.providerWarnings?.length || response.updateFailures
+        ? ` Varoituksia ${Number(response.providerWarnings?.length || 0) + Number(response.updateFailures || 0)}.`
+        : "";
+      Alert.alert(
+        "Tulostarkistus valmis",
+        `Tarkistettiin ${response.checked} avointa paperivetoa ja ratkaistiin ${response.settled}. Avoimeksi jäi ${response.pending}.${warnings}`
+      );
+    } catch (error) {
+      Alert.alert("Tulostarkistus epäonnistui", error instanceof Error ? error.message : "Tuntematon virhe");
+    } finally {
+      setSettlingAll(false);
+    }
+  }
 
   async function settle(id: string, status: SettlementStatus) {
     const rawClosing = closingOdds[id] || "";
@@ -85,7 +124,7 @@ export default function PaperBetsScreen() {
   function remove(id: string) {
     Alert.alert(
       "Poistetaanko paperiveto?",
-      "Poisto vaikuttaa paperiseurannan historiaan ja tunnuslukuihin.",
+      "Poisto vaikuttaa paperiseurannan historiaan, kalibrointiin ja tunnuslukuihin.",
       [
         { text: "Peruuta", style: "cancel" },
         {
@@ -127,9 +166,9 @@ export default function PaperBetsScreen() {
       <View style={styles.rowBetween}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Paperiseuranta</Text>
-          <Text style={styles.subtitle}>Tulos, ROI ja closing line value ilman oikeaa rahaa.</Text>
+          <Text style={styles.subtitle}>Tulos, ROI, closing line value ja mallin kalibrointi ilman oikeaa rahaa.</Text>
         </View>
-        <ActionButton label="Päivitä" onPress={load} tone="secondary" compact disabled={loading} />
+        <ActionButton label="Päivitä" onPress={load} tone="secondary" compact disabled={loading || settlingAll} />
       </View>
 
       <Card>
@@ -141,6 +180,12 @@ export default function PaperBetsScreen() {
         <Text style={styles.muted}>
           Avoimia {analytics.openBets} · avoin altistus {money(analytics.openExposure)} · osumat {percent(analytics.winRate)}
         </Text>
+        <ActionButton
+          label={settlingAll ? "Tarkistetaan tuloksia…" : "Tarkista avoimien tulokset"}
+          onPress={checkResults}
+          disabled={settlingAll || loading || analytics.openBets === 0}
+        />
+        <Text style={styles.muted}>Tulostarkistus on käyttäjän käynnistämä ja rajoitettu. Se ratkaisee automaattisesti vain tuetut H2H-paperikohteet, joille löytyy valmis lopputulos.</Text>
       </Card>
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
@@ -170,47 +215,57 @@ export default function PaperBetsScreen() {
       {loading && <ActivityIndicator color="#34d399" size="large" />}
       {!loading && visibleBets.length === 0 && <Text style={styles.muted}>Tällä suodattimella ei ole paperivetoja.</Text>}
 
-      {visibleBets.map((bet) => (
-        <Card key={bet.id}>
-          <View style={styles.rowBetween}>
-            <View style={[styles.badge, bet.status === "lost" && styles.dangerBadge, bet.status === "open" && styles.warningBadge]}>
-              <Text style={styles.badgeText}>{statusLabel(bet.status)}</Text>
-            </View>
-            <Text style={styles.muted}>{new Date(bet.created_at).toLocaleDateString("fi-FI")}</Text>
-          </View>
-          <Text style={styles.cardTitle}>{bet.match}</Text>
-          <Text style={styles.value}>{bet.label} · {Number(bet.odds).toFixed(2)}</Text>
-          <Text style={styles.muted}>
-            {bet.league || bet.sport || "Muu"}{bet.bookmaker ? ` · ${bet.bookmaker}` : ""}
-          </Text>
-          <Text style={styles.muted}>
-            Paperipanos {money(bet.stake)} · tulos {money(bet.profit)}{bet.clv !== null ? ` · CLV ${Number(bet.clv).toFixed(2)} %` : ""}
-          </Text>
-          {(bet.edge !== null || bet.confidence !== null) && (
-            <Text style={styles.muted}>Tallennushetken edge {percent(bet.edge)} · confidence {percent(bet.confidence)}</Text>
-          )}
+      {visibleBets.map((bet) => {
+        const modelProbability = Number(bet.raw_pick?.modelProbability);
+        const settlementSource = settlementSourceLabel(bet.raw_pick?.settlementSource);
 
-          {bet.status === "open" && (
-            <>
-              <Field
-                label="Päätöskerroin CLV-laskentaan (valinnainen)"
-                value={closingOdds[bet.id] || ""}
-                onChangeText={(value) => setClosingOdds((current) => ({ ...current, [bet.id]: value }))}
-                placeholder="esim. 1,95"
-                keyboardType="decimal-pad"
-              />
-              <View style={styles.actionRow}>
-                <ActionButton label="Voitto" onPress={() => settle(bet.id, "won")} disabled={busyId !== null} compact />
-                <ActionButton label="Tappio" onPress={() => settle(bet.id, "lost")} disabled={busyId !== null} tone="danger" compact />
-                <ActionButton label="Palautus" onPress={() => settle(bet.id, "push")} disabled={busyId !== null} tone="secondary" compact />
-                <ActionButton label="Mitätön" onPress={() => settle(bet.id, "void")} disabled={busyId !== null} tone="secondary" compact />
+        return (
+          <Card key={bet.id}>
+            <View style={styles.rowBetween}>
+              <View style={[styles.badge, bet.status === "lost" && styles.dangerBadge, bet.status === "open" && styles.warningBadge]}>
+                <Text style={styles.badgeText}>{statusLabel(bet.status)}</Text>
               </View>
-            </>
-          )}
+              <Text style={styles.muted}>{new Date(bet.created_at).toLocaleDateString("fi-FI")}</Text>
+            </View>
+            <Text style={styles.cardTitle}>{bet.match}</Text>
+            <Text style={styles.value}>{bet.label} · {Number(bet.odds).toFixed(2)}</Text>
+            <Text style={styles.muted}>
+              {bet.league || bet.sport || "Muu"}{bet.bookmaker ? ` · ${bet.bookmaker}` : ""}
+            </Text>
+            <Text style={styles.muted}>
+              Paperipanos {money(bet.stake)} · tulos {money(bet.profit)}{bet.clv !== null ? ` · CLV ${Number(bet.clv).toFixed(2)} %` : ""}
+            </Text>
+            {(bet.edge !== null || bet.confidence !== null) && (
+              <Text style={styles.muted}>Tallennushetken edge {percent(bet.edge)} · confidence {percent(bet.confidence)}</Text>
+            )}
+            {Number.isFinite(modelProbability) && (
+              <Text style={styles.muted}>Tallennettu mallin todennäköisyys {percent(modelProbability)}</Text>
+            )}
+            {bet.result && <Text style={styles.muted}>Lopputulos: {bet.result}</Text>}
+            {settlementSource && <Text style={styles.muted}>Ratkaisulähde: {settlementSource}</Text>}
 
-          <ActionButton label={busyId === bet.id ? "Odota…" : "Poista"} onPress={() => remove(bet.id)} disabled={busyId !== null} tone="secondary" compact />
-        </Card>
-      ))}
+            {bet.status === "open" && (
+              <>
+                <Field
+                  label="Päätöskerroin CLV-laskentaan (valinnainen)"
+                  value={closingOdds[bet.id] || ""}
+                  onChangeText={(value) => setClosingOdds((current) => ({ ...current, [bet.id]: value }))}
+                  placeholder="esim. 1,95"
+                  keyboardType="decimal-pad"
+                />
+                <View style={styles.actionRow}>
+                  <ActionButton label="Voitto" onPress={() => settle(bet.id, "won")} disabled={busyId !== null || settlingAll} compact />
+                  <ActionButton label="Tappio" onPress={() => settle(bet.id, "lost")} disabled={busyId !== null || settlingAll} tone="danger" compact />
+                  <ActionButton label="Palautus" onPress={() => settle(bet.id, "push")} disabled={busyId !== null || settlingAll} tone="secondary" compact />
+                  <ActionButton label="Mitätön" onPress={() => settle(bet.id, "void")} disabled={busyId !== null || settlingAll} tone="secondary" compact />
+                </View>
+              </>
+            )}
+
+            <ActionButton label={busyId === bet.id ? "Odota…" : "Poista"} onPress={() => remove(bet.id)} disabled={busyId !== null || settlingAll} tone="secondary" compact />
+          </Card>
+        );
+      })}
     </ScrollView>
   );
 }

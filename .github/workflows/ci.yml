@@ -39,6 +39,9 @@ jobs:
       - name: Market consensus regression tests
         run: npm run test:model
 
+      - name: Paper settlement regression tests
+        run: npm run test:settlement
+
       - name: Build
         run: |
           set -o pipefail

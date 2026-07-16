@@ -14,10 +14,15 @@ export async function GET() {
     mobileBearerAuth: true,
     cloudSyncApi: true,
     paperBetSettlementApi: true,
+    automaticH2hScoreSettlement: Boolean(process.env.ODDS_API_KEY),
+    automaticSettlementHourlyQuota: true,
     paperBankrollApi: true,
     paperStakeApiValidation: true,
     paperStakeDatabaseEnforcement: true,
     openPaperExposureDatabaseEnforcement: true,
+    singleLeagueExposureDatabaseEnforcement: true,
+    personalMinimumEdgeEnforcement: true,
+    personalMinimumConfidenceEnforcement: true,
     accountExportApi: true,
     accountDeletionConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
     authenticatedRateLimits: true,
@@ -29,11 +34,14 @@ export async function GET() {
     bookmakerCoverageGate: true,
     marketFreshnessGate: true,
     marketConsensusRegressionTests: true,
+    paperSettlementRegressionTests: true,
     dailyTopThree: true,
     leagueFilters: ["NHL", "NBA", "EPL", "La Liga", "Liiga", "SHL"],
     mobileRoiAndClv: true,
     mobilePerformanceAnalytics: true,
     mobileLeagueAnalytics: true,
+    mobileProbabilityCalibration: true,
+    mobileBrierScore: true,
     mobileDataExport: true,
     apiSecurityRegressionTests: true,
     expoDependencyCheck: true,
@@ -58,7 +66,8 @@ export async function GET() {
     services.riskEngine &&
     services.betSlipEngine &&
     services.noVigMarketConsensus &&
-    services.marketConsensusRegressionTests;
+    services.marketConsensusRegressionTests &&
+    services.paperSettlementRegressionTests;
 
   return Response.json(
     {
@@ -75,7 +84,9 @@ export async function GET() {
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
           ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
-          : "Run paper-risk, two-user, TestFlight and Play internal tests",
+          : !services.automaticH2hScoreSettlement
+            ? "Configure the server-only Odds API key for automatic paper score settlement"
+            : "Run paper-risk, automatic-settlement, two-user, TestFlight and Play internal tests",
       timestamp: new Date().toISOString()
     },
     {

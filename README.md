@@ -1,6 +1,6 @@
 # Scorecaster
 
-AI-powered sports intelligence, odds analysis, risk control, account-based cloud history and paper-tracking workspace.
+AI-assisted sports market intelligence, no-vig odds consensus, risk control, account-based cloud history and paper tracking.
 
 ## Product boundary
 
@@ -13,21 +13,37 @@ Scorecaster is analysis and paper tracking only.
 - No bet execution or bookmaker redirect
 - No guarantee of profit
 
+## Model integrity
+
+The default Top Picks engine:
+
+- removes each bookmaker's market margin
+- creates a robust consensus from available no-vig probabilities
+- compares the best available price with consensus fair odds
+- exposes bookmaker coverage, agreement, freshness and numeric data confidence
+- blocks stale and low-coverage data from receiving PLAY
+- never adds the prototype's old fixed probability boost
+
+Edge means best-price value versus market consensus. It is not proof that the selected team will win.
+
+See `docs/MODEL_TRANSPARENCY.md`.
+
 ## Production and security status
 
 Scorecaster has deployment and security guardrails:
 
-- GitHub Actions runs the secret scan, API security tests and `npm run build`.
+- GitHub Actions runs secret scanning, API security tests, model tests, settlement tests and `npm run build`.
 - CodeQL analyzes JavaScript and TypeScript.
-- `/api/health` reports safe runtime and integration readiness.
+- `/api/health` reports safe runtime, model and integration readiness.
 - `/production-status` displays the health response in the app.
 - Node.js is pinned through `.nvmrc`.
 - Supabase sessions are refreshed through the Next.js root `proxy.js`.
-- Mutating account APIs validate auth, origin, JSON type, body size, ranges and record counts.
+- Mutating account APIs validate authentication, origin, body type, body size, ranges and record counts.
 - Database Row Level Security isolates user rows.
-- The protected API checks the user's single paper-stake limit.
-- PostgreSQL enforces both the single paper-stake limit and total open paper exposure.
+- The protected API checks personal stake, minimum edge and minimum confidence limits.
+- PostgreSQL enforces single stake, total open exposure, single-league exposure and Scorecaster quality thresholds.
 - Authenticated APIs use atomic per-user PostgreSQL quotas and return HTTP 429 with `Retry-After`.
+- Automatic H2H paper result checks are user-triggered, rate-limited and bounded.
 - The public odds proxy only accepts known sports and markets, normalizes requests, times out upstream calls and caches responses.
 - Top Picks supports a bounded league filter, publishes a cached Top 3 and always marks results as paper-only.
 - HTTP security headers block framing, MIME sniffing and unnecessary device permissions.
@@ -42,12 +58,16 @@ It includes:
 - chunked Expo SecureStore session persistence
 - HTTPS bearer-authenticated user API calls
 - NHL, NBA, EPL, La Liga, Liiga and SHL filters
-- daily Top 3 plus wider pick list
+- daily Top 3 plus wider consensus pick list
 - trust score and PLAY / CAUTION / SKIP output
-- editable virtual bankroll and paper-risk percentages
-- server- and database-enforced paper-stake limits
-- paper-bet saving and settlement
+- fair odds, edge, EV, bookmaker coverage and data freshness
+- editable virtual bankroll and personal paper-risk thresholds
+- server- and database-enforced paper limits
+- paper-bet saving and manual settlement
+- user-triggered automatic H2H result checking
 - optional closing odds, CLV, ROI and result summary
+- probability calibration, expected versus actual hit rate and Brier score
+- drawdown, streak, open exposure and league performance
 - JSON data export through the device share sheet
 - in-app account deletion
 - privacy, terms, responsible-use and security links
@@ -66,14 +86,14 @@ npm run typecheck
 npm run start
 ```
 
-See `mobile/README.md` and `docs/MOBILE_SECURITY_RELEASE.md`.
+See `mobile/README.md`, `docs/MODEL_TRANSPARENCY.md` and `docs/MOBILE_SECURITY_RELEASE.md`.
 
 ## Start web locally
 
 ```bash
 npm install --no-audit --no-fund
 npm run security:check
-npm run test:security
+npm test
 npm run build
 npm run dev
 ```
@@ -88,6 +108,7 @@ Production routes:
 
 ```text
 https://scorecaster.vercel.app/quick-use
+https://scorecaster.vercel.app/intelligence
 https://scorecaster.vercel.app/login
 https://scorecaster.vercel.app/profile
 https://scorecaster.vercel.app/cloud-sync
@@ -102,8 +123,9 @@ https://scorecaster.vercel.app/api/health
 
 ## Main protected APIs
 
-- `GET/POST/PATCH/DELETE /api/cloud/bets` — authenticated paper-bet history, result and CLV
-- `GET/PUT /api/cloud/bankroll` — authenticated virtual-bankroll and paper-risk controls
+- `GET/POST/PATCH/DELETE /api/cloud/bets` — authenticated paper history, personal threshold enforcement, result and CLV
+- `POST /api/cloud/bets/settle` — authenticated and rate-limited automatic H2H score check
+- `GET/PUT /api/cloud/bankroll` — authenticated virtual bankroll and paper-risk controls
 - `GET /api/account/export` — authenticated user-data export
 - `GET/DELETE /api/account` — account-deletion readiness and permanent deletion
 
@@ -122,19 +144,20 @@ Unknown query parameters, unsupported sports and unsupported markets are rejecte
 - Add manual picks in `/quick-use`
 - Save a local paper slip in the browser
 - Test stake, edge and confidence
-- See PLAY / CAUTION / SKIP risk decisions
+- See PLAY / CAUTION / SKIP decisions with data-quality explanations
 - Create a Supabase-backed Scorecaster account
 - Validate the session server-side
 - Sync the local paper slip to user-specific cloud history
-- Set and enforce virtual-bankroll risk limits
-- Settle paper bets as won, lost, void or push
-- Track profit, ROI, closing odds and CLV
+- Set and enforce virtual-bankroll, stake, league, edge and confidence limits
+- Settle paper bets manually or check supported H2H results automatically
+- Track profit, ROI, closing odds, CLV, drawdown and league performance
+- Measure probability calibration and Brier score from stored Scorecaster picks
 - Retrieve and delete paper bets through an authenticated API
 - Prevent duplicate syncs with `(user_id, client_ref)` upserts
 - Isolate users with Supabase Row Level Security
 - Export account data
 - Delete an account from the app when server deletion is configured
-- Open Dashboard, Betting, Analytics and Risk Control
+- Open Dashboard, Intelligence, Betting, Analytics and Risk Control
 
 ## Supabase activation
 
@@ -154,7 +177,7 @@ supabase/scorecaster_paper_risk_limits.sql
 supabase/scorecaster_api_rate_limits.sql
 ```
 
-Public launch is blocked until the documented two-user isolation, paper-risk and quota tests pass.
+Re-run `scorecaster_paper_risk_limits.sql` after a release that changes the trigger. Public launch is blocked until the documented two-user isolation, paper-risk, automatic settlement and quota tests pass.
 
 ## Environment
 
@@ -179,12 +202,14 @@ Legacy Supabase projects can use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the 
 - `.github/workflows/codeql.yml`
 - `scripts/security-check.mjs`
 - `scripts/api-security.test.mjs`
+- `scripts/market-consensus.test.mjs`
+- `scripts/paper-settlement.test.mjs`
 - `mobile/`
-- `docs/PRODUCTION_MVP.md`
-- `docs/PRODUCTION_RUNBOOK.md`
-- `docs/CASTER_CORE_FOUNDATION.md`
+- `docs/MODEL_TRANSPARENCY.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
+- `lib/market-consensus-engine.mjs`
+- `lib/paper-settlement-engine.mjs`
 - `lib/api-security.js`
 - `lib/production-risk-rules.js`
 - `lib/bet-slip-engine.js`

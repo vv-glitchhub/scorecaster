@@ -22,6 +22,12 @@ function Metric({ label, value, tone = "neutral" }: { label: string; value: stri
   );
 }
 
+function signedPercent(value: number | null) {
+  if (value === null || !Number.isFinite(value)) return "–";
+  const normalized = Math.abs(value) <= 1 ? value * 100 : value;
+  return `${normalized > 0 ? "+" : ""}${normalized.toFixed(1)} %`;
+}
+
 export default function AnalyticsScreen() {
   const [bets, setBets] = useState<PaperBet[]>([]);
   const [bankroll, setBankroll] = useState<Bankroll | null>(null);
@@ -53,13 +59,20 @@ export default function AnalyticsScreen() {
   const exposureRisk = exposureLimit > 0 && exposurePercent >= exposureLimit * 0.8;
   const profitTone = analytics.totalProfit > 0 ? "positive" : analytics.totalProfit < 0 ? "negative" : "neutral";
   const roiTone = analytics.roi > 0 ? "positive" : analytics.roi < 0 ? "negative" : "neutral";
+  const calibrationTone = analytics.calibrationGap === null
+    ? "neutral"
+    : Math.abs(analytics.calibrationGap) <= 0.05
+      ? "positive"
+      : Math.abs(analytics.calibrationGap) >= 0.15
+        ? "negative"
+        : "neutral";
 
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <View style={styles.rowBetween}>
         <View style={localStyles.titleWrap}>
           <Text style={styles.title}>Analytiikka</Text>
-          <Text style={styles.subtitle}>Mittaa prosessia: ROI, CLV, riski ja liigakohtainen tulos.</Text>
+          <Text style={styles.subtitle}>Mittaa prosessia: ROI, CLV, riski, kalibrointi ja liigakohtainen tulos.</Text>
         </View>
         <ActionButton label="Päivitä" onPress={load} tone="secondary" compact disabled={loading} />
       </View>
@@ -115,6 +128,43 @@ export default function AnalyticsScreen() {
               <Text style={styles.value}>{percent(analytics.positiveClvRate)}</Text>
             </View>
             <Text style={styles.muted}>CLV kertoo yleensä prosessin laadusta nopeammin kuin lyhyen jakson voitto tai tappio. Se ei kuitenkaan takaa tulevaa tuottoa.</Text>
+          </Card>
+
+          <Card>
+            <Text style={styles.cardTitle}>Todennäköisyyksien kalibrointi</Text>
+            {analytics.calibratedBets === 0 ? (
+              <Text style={styles.muted}>Kalibrointi alkaa näkyä, kun Scorecaster-kohteita on ratkaistu. Manuaaliset paperimerkinnät ilman mallin todennäköisyyttä eivät vääristä mittaria.</Text>
+            ) : (
+              <>
+                <View style={localStyles.statRow}>
+                  <Text style={styles.muted}>Kalibroituja kohteita</Text>
+                  <Text style={styles.value}>{analytics.calibratedBets}</Text>
+                </View>
+                <View style={localStyles.statRow}>
+                  <Text style={styles.muted}>Mallin odottama osumataso</Text>
+                  <Text style={styles.value}>{analytics.expectedWinRate === null ? "–" : percent(analytics.expectedWinRate)}</Text>
+                </View>
+                <View style={localStyles.statRow}>
+                  <Text style={styles.muted}>Toteutunut osumataso</Text>
+                  <Text style={styles.value}>{analytics.actualCalibratedWinRate === null ? "–" : percent(analytics.actualCalibratedWinRate)}</Text>
+                </View>
+                <View style={localStyles.statRow}>
+                  <Text style={styles.muted}>Kalibrointiero</Text>
+                  <Text style={[
+                    styles.value,
+                    calibrationTone === "positive" && localStyles.positive,
+                    calibrationTone === "negative" && localStyles.negative
+                  ]}>
+                    {signedPercent(analytics.calibrationGap)}
+                  </Text>
+                </View>
+                <View style={localStyles.statRow}>
+                  <Text style={styles.muted}>Brier score</Text>
+                  <Text style={styles.value}>{analytics.brierScore === null ? "–" : analytics.brierScore.toFixed(3)}</Text>
+                </View>
+                <Text style={styles.muted}>Brier score mittaa todennäköisyyden ja lopputuloksen välistä neliövirhettä; pienempi arvo on parempi. Pieni otos voi näyttää sattuman vuoksi liian hyvältä tai huonolta, joten vahvoja johtopäätöksiä ei tehdä muutamasta kohteesta.</Text>
+              </>
+            )}
           </Card>
 
           <Card>

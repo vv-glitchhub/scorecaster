@@ -7,7 +7,8 @@
     "security:check": "node scripts/security-check.mjs",
     "test:security": "node --test scripts/api-security.test.mjs",
     "test:model": "node --test scripts/market-consensus.test.mjs",
-    "test": "npm run test:security && npm run test:model"
+    "test:settlement": "node --test scripts/paper-settlement.test.mjs",
+    "test": "npm run test:security && npm run test:model && npm run test:settlement"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

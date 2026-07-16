@@ -48,22 +48,46 @@ export type Pick = {
   };
 };
 
+export type PaperBetRawPick = {
+  source?: string | null;
+  eventId?: string | null;
+  modelProbability?: number | null;
+  impliedProbability?: number | null;
+  decision?: string | null;
+  qualityGrade?: string | null;
+  qualityScore?: number | null;
+  settlementSource?: string | null;
+  settledAt?: string | null;
+  completedAt?: string | null;
+  finalScore?: {
+    homeTeam?: string;
+    awayTeam?: string;
+    homeScore?: number;
+    awayScore?: number;
+  } | null;
+};
+
 export type PaperBet = {
   id: string;
+  client_ref?: string | null;
   label: string;
   match: string;
   odds: number;
   stake: number;
   status: string;
+  result?: string | null;
   profit: number | null;
   closing_odds: number | null;
   clv: number | null;
   league?: string | null;
   sport?: string | null;
   bookmaker?: string | null;
+  home_team?: string | null;
+  away_team?: string | null;
   edge?: number | null;
   ev?: number | null;
   confidence?: number | null;
+  raw_pick?: PaperBetRawPick | null;
   created_at: string;
   updated_at?: string;
 };
