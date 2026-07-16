@@ -36,6 +36,9 @@ jobs:
       - name: API security regression tests
         run: npm run test:security
 
+      - name: Market consensus regression tests
+        run: npm run test:model
+
       - name: Build
         run: |
           set -o pipefail
