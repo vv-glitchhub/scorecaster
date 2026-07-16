@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, SafeAreaView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { Session } from "@supabase/supabase-js";
+import AnalyticsScreen from "./screens/AnalyticsScreen";
 import AuthScreen from "./screens/AuthScreen";
 import HomeScreen from "./screens/HomeScreen";
 import PaperBetsScreen from "./screens/PaperBetsScreen";
@@ -11,11 +12,12 @@ import { mobileAuthConfigured, supabase } from "./lib/supabase";
 import type { Tab } from "./types";
 import { styles } from "./ui";
 
-const tabs: { key: Tab; label: string }[] = [
-  { key: "home", label: "Etusivu" },
-  { key: "picks", label: "Kohteet" },
-  { key: "paper", label: "Paperivedot" },
-  { key: "settings", label: "Profiili" }
+const tabs: { key: Tab; label: string; accessibilityLabel: string }[] = [
+  { key: "home", label: "Etusivu", accessibilityLabel: "Etusivu ja papeririskit" },
+  { key: "picks", label: "Kohteet", accessibilityLabel: "Päivän analysoidut kohteet" },
+  { key: "paper", label: "Seuranta", accessibilityLabel: "Paperivetojen seuranta" },
+  { key: "analytics", label: "Analyysi", accessibilityLabel: "Paperiseurannan analytiikka" },
+  { key: "settings", label: "Profiili", accessibilityLabel: "Profiili ja tietosuoja" }
 ];
 
 function MainApp({ session }: { session: Session }) {
@@ -25,7 +27,10 @@ function MainApp({ session }: { session: Session }) {
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.header}>
-        <Text style={styles.headerBrand}>Scorecaster</Text>
+        <View>
+          <Text style={styles.headerBrand}>Scorecaster</Text>
+          <Text style={styles.headerSubline}>Market consensus intelligence</Text>
+        </View>
         <Text style={styles.headerMode}>PAPER MODE</Text>
       </View>
 
@@ -33,17 +38,19 @@ function MainApp({ session }: { session: Session }) {
         {tab === "home" && <HomeScreen />}
         {tab === "picks" && <PicksScreen />}
         {tab === "paper" && <PaperBetsScreen />}
+        {tab === "analytics" && <AnalyticsScreen />}
         {tab === "settings" && <SettingsScreen session={session} />}
       </View>
 
-      <View style={styles.tabBar}>
+      <View accessibilityRole="tablist" style={styles.tabBar}>
         {tabs.map((item) => (
           <Pressable
+            accessibilityLabel={item.accessibilityLabel}
             accessibilityRole="tab"
             accessibilityState={{ selected: tab === item.key }}
             key={item.key}
             onPress={() => setTab(item.key)}
-            style={styles.tabButton}
+            style={({ pressed }) => [styles.tabButton, pressed && styles.tabButtonPressed]}
           >
             <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
           </Pressable>

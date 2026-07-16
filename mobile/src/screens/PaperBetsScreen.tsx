@@ -1,8 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { apiRequest } from "../lib/api";
+import { calculatePaperAnalytics } from "../lib/paperAnalytics";
 import type { PaperBet } from "../types";
 import { ActionButton, Card, Field, money, percent, styles } from "../ui";
+
+const FILTERS = [
+  { key: "all", label: "Kaikki" },
+  { key: "open", label: "Avoimet" },
+  { key: "settled", label: "Ratkaistut" },
+  { key: "won", label: "Voitot" },
+  { key: "lost", label: "Tappiot" }
+] as const;
+
+type BetFilter = (typeof FILTERS)[number]["key"];
+type SettlementStatus = "won" | "lost" | "void" | "push";
 
 function parseClosingOdds(value: string) {
   if (!value.trim()) return null;
@@ -10,8 +22,19 @@ function parseClosingOdds(value: string) {
   return Number.isFinite(number) && number > 1 ? number : null;
 }
 
+function statusLabel(status: string) {
+  if (status === "open") return "AVOIN";
+  if (status === "won") return "VOITTO";
+  if (status === "lost") return "TAPPIO";
+  if (status === "push") return "PALAUTUS";
+  if (status === "void") return "MITÄTÖN";
+  return status.toUpperCase();
+}
+
 export default function PaperBetsScreen() {
   const [bets, setBets] = useState<PaperBet[]>([]);
+  const [filter, setFilter] = useState<BetFilter>("all");
+  const [newestFirst, setNewestFirst] = useState(true);
   const [closingOdds, setClosingOdds] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -37,7 +60,7 @@ export default function PaperBetsScreen() {
 
   useEffect(() => { void load(); }, []);
 
-  async function settle(id: string, status: "won" | "lost" | "void") {
+  async function settle(id: string, status: SettlementStatus) {
     const rawClosing = closingOdds[id] || "";
     const parsedClosing = parseClosingOdds(rawClosing);
     if (rawClosing.trim() && parsedClosing === null) {
@@ -84,23 +107,25 @@ export default function PaperBetsScreen() {
     );
   }
 
-  const metrics = useMemo(() => {
-    const settled = bets.filter((bet) => bet.status !== "open");
-    const totalProfit = settled.reduce((sum, bet) => sum + Number(bet.profit || 0), 0);
-    const totalStake = settled.reduce((sum, bet) => sum + Number(bet.stake || 0), 0);
-    const roi = totalStake > 0 ? totalProfit / totalStake : 0;
-    const clvValues = settled.map((bet) => Number(bet.clv)).filter(Number.isFinite);
-    const averageClv = clvValues.length
-      ? clvValues.reduce((sum, value) => sum + value, 0) / clvValues.length
-      : 0;
+  const analytics = useMemo(() => calculatePaperAnalytics(bets), [bets]);
 
-    return { settled: settled.length, totalProfit, totalStake, roi, averageClv };
-  }, [bets]);
+  const visibleBets = useMemo(() => {
+    const filtered = bets.filter((bet) => {
+      if (filter === "all") return true;
+      if (filter === "settled") return bet.status !== "open";
+      return bet.status === filter;
+    });
+
+    return filtered.slice().sort((a, b) => {
+      const difference = Date.parse(b.created_at) - Date.parse(a.created_at);
+      return newestFirst ? difference : -difference;
+    });
+  }, [bets, filter, newestFirst]);
 
   return (
     <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <View style={styles.rowBetween}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.title}>Paperiseuranta</Text>
           <Text style={styles.subtitle}>Tulos, ROI ja closing line value ilman oikeaa rahaa.</Text>
         </View>
@@ -109,28 +134,61 @@ export default function PaperBetsScreen() {
 
       <Card>
         <Text style={styles.cardTitle}>Yhteenveto</Text>
-        <Text style={styles.metric}>{money(metrics.totalProfit)}</Text>
+        <Text style={styles.metric}>{money(analytics.totalProfit)}</Text>
         <Text style={styles.muted}>
-          Ratkaistu {metrics.settled} · Paperipanokset {money(metrics.totalStake)} · ROI {percent(metrics.roi)} · CLV keskimäärin {metrics.averageClv.toFixed(2)} %
+          Ratkaistu {analytics.settledBets} · paperipanokset {money(analytics.totalStake)} · ROI {percent(analytics.roi)} · CLV {analytics.averageClv.toFixed(2)} %
+        </Text>
+        <Text style={styles.muted}>
+          Avoimia {analytics.openBets} · avoin altistus {money(analytics.openExposure)} · osumat {percent(analytics.winRate)}
         </Text>
       </Card>
 
-      {loading && <ActivityIndicator color="#34d399" size="large" />}
-      {!loading && bets.length === 0 && <Text style={styles.muted}>Paperiseuranta on vielä tyhjä.</Text>}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>
+        {FILTERS.map((item) => {
+          const active = filter === item.key;
+          return (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              key={item.key}
+              onPress={() => setFilter(item.key)}
+              style={[styles.filterChip, active && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
+        <Pressable
+          accessibilityRole="button"
+          onPress={() => setNewestFirst((value) => !value)}
+          style={styles.filterChip}
+        >
+          <Text style={styles.filterText}>{newestFirst ? "Uusin ensin" : "Vanhin ensin"}</Text>
+        </Pressable>
+      </ScrollView>
 
-      {bets.map((bet) => (
+      {loading && <ActivityIndicator color="#34d399" size="large" />}
+      {!loading && visibleBets.length === 0 && <Text style={styles.muted}>Tällä suodattimella ei ole paperivetoja.</Text>}
+
+      {visibleBets.map((bet) => (
         <Card key={bet.id}>
           <View style={styles.rowBetween}>
             <View style={[styles.badge, bet.status === "lost" && styles.dangerBadge, bet.status === "open" && styles.warningBadge]}>
-              <Text style={styles.badgeText}>{bet.status.toUpperCase()}</Text>
+              <Text style={styles.badgeText}>{statusLabel(bet.status)}</Text>
             </View>
             <Text style={styles.muted}>{new Date(bet.created_at).toLocaleDateString("fi-FI")}</Text>
           </View>
           <Text style={styles.cardTitle}>{bet.match}</Text>
           <Text style={styles.value}>{bet.label} · {Number(bet.odds).toFixed(2)}</Text>
           <Text style={styles.muted}>
+            {bet.league || bet.sport || "Muu"}{bet.bookmaker ? ` · ${bet.bookmaker}` : ""}
+          </Text>
+          <Text style={styles.muted}>
             Paperipanos {money(bet.stake)} · tulos {money(bet.profit)}{bet.clv !== null ? ` · CLV ${Number(bet.clv).toFixed(2)} %` : ""}
           </Text>
+          {(bet.edge !== null || bet.confidence !== null) && (
+            <Text style={styles.muted}>Tallennushetken edge {percent(bet.edge)} · confidence {percent(bet.confidence)}</Text>
+          )}
 
           {bet.status === "open" && (
             <>
@@ -144,6 +202,7 @@ export default function PaperBetsScreen() {
               <View style={styles.actionRow}>
                 <ActionButton label="Voitto" onPress={() => settle(bet.id, "won")} disabled={busyId !== null} compact />
                 <ActionButton label="Tappio" onPress={() => settle(bet.id, "lost")} disabled={busyId !== null} tone="danger" compact />
+                <ActionButton label="Palautus" onPress={() => settle(bet.id, "push")} disabled={busyId !== null} tone="secondary" compact />
                 <ActionButton label="Mitätön" onPress={() => settle(bet.id, "void")} disabled={busyId !== null} tone="secondary" compact />
               </View>
             </>

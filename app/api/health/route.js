@@ -23,9 +23,17 @@ export async function GET() {
     authenticatedRateLimits: true,
     publicOddsInputAllowlist: true,
     publicOddsCache: true,
+    noVigMarketConsensus: true,
+    fixedProbabilityBoostRemoved: true,
+    numericDataConfidence: true,
+    bookmakerCoverageGate: true,
+    marketFreshnessGate: true,
+    marketConsensusRegressionTests: true,
     dailyTopThree: true,
     leagueFilters: ["NHL", "NBA", "EPL", "La Liga", "Liiga", "SHL"],
     mobileRoiAndClv: true,
+    mobilePerformanceAnalytics: true,
+    mobileLeagueAnalytics: true,
     mobileDataExport: true,
     apiSecurityRegressionTests: true,
     expoDependencyCheck: true,
@@ -46,13 +54,19 @@ export async function GET() {
   };
 
   const requiredLocalServicesReady =
-    services.localQuickUse && services.riskEngine && services.betSlipEngine;
+    services.localQuickUse &&
+    services.riskEngine &&
+    services.betSlipEngine &&
+    services.noVigMarketConsensus &&
+    services.marketConsensusRegressionTests;
 
   return Response.json(
     {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
-      mode: services.supabaseConfigured ? "mobile-mvp-cloud-ready" : "local-first",
+      mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
+      modelMode: "market-consensus",
+      edgeType: "best-price-vs-no-vig-consensus",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,

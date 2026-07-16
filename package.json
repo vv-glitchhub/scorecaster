@@ -5,7 +5,9 @@
     "start": "next start",
     "lint": "next lint",
     "security:check": "node scripts/security-check.mjs",
-    "test:security": "node --test scripts/api-security.test.mjs"
+    "test:security": "node --test scripts/api-security.test.mjs",
+    "test:model": "node --test scripts/market-consensus.test.mjs",
+    "test": "npm run test:security && npm run test:model"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

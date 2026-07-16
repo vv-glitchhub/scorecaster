@@ -39,4 +39,15 @@ jobs:
         run: npm run check:expo
 
       - name: Typecheck
-        run: npm run typecheck
+        run: |
+          set -o pipefail
+          npm run typecheck 2>&1 | tee typecheck.log
+
+      - name: Upload typecheck log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-mobile-typecheck-${{ github.run_id }}
+          path: mobile/typecheck.log
+          if-no-files-found: ignore
+          retention-days: 7
