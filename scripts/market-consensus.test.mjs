@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { determineDecision } from "../lib/agent-decision-engine.js";
 import {
   calculateDataConfidence,
   estimateConsensusProbability,
@@ -89,4 +90,28 @@ test("invalid or one-sided markets are excluded instead of inventing probabiliti
   }, "h2h", NOW);
 
   assert.deepEqual(prices, []);
+});
+
+test("agent decisions accept numeric confidence from the consensus engine", () => {
+  const decision = determineDecision({
+    edge: 0.09,
+    ev: 0.08,
+    confidence: 0.78,
+    sourceTrust: 0.8,
+    riskLevel: "Low"
+  });
+
+  assert.equal(decision.decision, "BET");
+});
+
+test("legacy confidence labels remain compatible", () => {
+  const decision = determineDecision({
+    edge: 0.06,
+    ev: 0.04,
+    confidence: "Medium-high",
+    sourceTrust: 0.6,
+    riskLevel: "Medium"
+  });
+
+  assert.equal(decision.decision, "WATCH");
 });
