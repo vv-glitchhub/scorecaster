@@ -74,11 +74,10 @@ function applyQualityFallback(pick) {
     sentimentScore: Number(pick.sentimentScore || 0)
   });
 
-  const finalScore = Number(pick.finalScore || 0);
   const edge = Number(pick.edge || 0);
   const ev = Number(pick.ev || 0);
   const gate = dataGate(pick);
-  let decision = pick.decision || "WATCH";
+  let decision;
 
   if (!gate.watchable || edge < 0.005 || ev <= 0) {
     decision = "PASS";
@@ -86,7 +85,7 @@ function applyQualityFallback(pick) {
     decision = "WAIT";
   } else if (edge >= 0.02 && ev >= 0.03 && ["A", "B", "C"].includes(quality.qualityGrade)) {
     decision = "BET";
-  } else if (decision === "BET") {
+  } else {
     decision = "WATCH";
   }
 
