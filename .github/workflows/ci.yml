@@ -42,6 +42,9 @@ jobs:
       - name: Paper settlement regression tests
         run: npm run test:settlement
 
+      - name: Betting Agent and Simulator regression tests
+        run: npm run test:apps
+
       - name: Build
         run: |
           set -o pipefail
