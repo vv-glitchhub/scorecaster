@@ -53,13 +53,15 @@ begin
   v_max_league_exposure := greatest(0, v_bankroll * v_max_league_exposure_percent / 100);
   v_source := lower(coalesce(new.raw_pick ->> 'source', ''));
 
-  if new.stake > v_max_stake then
+  -- Limits guard new or still-open paper exposure. They must not prevent an old
+  -- open row from being settled after the user has tightened their settings.
+  if new.status = 'open' and new.stake > v_max_stake then
     raise exception 'Paper stake exceeds the configured virtual-bankroll limit'
       using errcode = '23514';
   end if;
 
-  -- User quality thresholds govern Scorecaster-generated picks. Manual paper
-  -- entries remain available for comparison and education.
+  -- User quality thresholds govern Scorecaster-generated open picks. Manual
+  -- paper entries remain available for comparison and education.
   if new.status = 'open' and v_source like 'scorecaster%' then
     if new.edge is null or new.edge < v_min_edge then
       raise exception 'Scorecaster pick is below the configured minimum edge'
