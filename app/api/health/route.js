@@ -10,6 +10,18 @@ export async function GET() {
     localQuickUse: true,
     riskEngine: true,
     betSlipEngine: true,
+    bettingConsensusWorkspace: true,
+    bettingFixedProbabilityRemoved: true,
+    bettingPersonalStakeCap: true,
+    agentV8EvidenceEngine: true,
+    agentInventedContextRemoved: true,
+    agentLearningMinimumSample: 20,
+    agentLearningChangesProbability: false,
+    seededPoissonSimulator: true,
+    reproducibleSimulation: true,
+    simulatorInputValidation: true,
+    simulatorUncertaintyIntervals: true,
+    excellenceAppsRegressionTests: true,
     authLayer: true,
     mobileBearerAuth: true,
     cloudSyncApi: true,
@@ -65,9 +77,13 @@ export async function GET() {
     services.localQuickUse &&
     services.riskEngine &&
     services.betSlipEngine &&
+    services.bettingConsensusWorkspace &&
+    services.agentV8EvidenceEngine &&
+    services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
-    services.paperSettlementRegressionTests;
+    services.paperSettlementRegressionTests &&
+    services.excellenceAppsRegressionTests;
 
   return Response.json(
     {
@@ -76,6 +92,8 @@ export async function GET() {
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
+      agentMode: "V8-evidence-priority-without-probability-boosting",
+      simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
@@ -85,8 +103,8 @@ export async function GET() {
         : !services.accountDeletionConfigured
           ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
-            ? "Configure the server-only Odds API key for automatic paper score settlement"
-            : "Run paper-risk, automatic-settlement, two-user, TestFlight and Play internal tests",
+            ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
+            : "Run paper-risk, automatic-settlement, Betting, Agent, Simulator, TestFlight and Play internal tests",
       timestamp: new Date().toISOString()
     },
     {
