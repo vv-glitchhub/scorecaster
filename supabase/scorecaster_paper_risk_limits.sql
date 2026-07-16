@@ -22,8 +22,10 @@ declare
   v_existing_league_exposure numeric := 0;
   v_source text := '';
 begin
-  -- Lock the user's settings row so simultaneous direct writes cannot race past
-  -- the same paper-exposure limit.
+  -- Serialize paper-risk checks for one user even when the bankroll settings row
+  -- has not been created yet. The lock is released automatically at transaction end.
+  perform pg_advisory_xact_lock(hashtextextended(new.user_id::text, 0));
+
   select bankroll,
          max_stake_percent,
          max_daily_exposure_percent,
