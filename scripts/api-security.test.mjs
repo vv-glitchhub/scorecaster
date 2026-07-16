@@ -112,7 +112,7 @@ test("automatic score settlement is authenticated, bounded and server-only", asy
   assert.match(route, /MAX_OPEN_BETS\s*=\s*100/);
   assert.match(route, /MAX_SETTLEMENTS_PER_CHECK\s*=\s*50/);
   assert.match(route, /process\.env\.ODDS_API_KEY/);
-  assert.doesNotMatch(route, /NEXT_PUBLIC_ODDS_API_KEY|EXPO_PUBLIC_ODDS_API_KEY/);
+  assert.doesNotMatch(route, /(?:NEXT|EXPO)_PUBLIC_ODDS_API_KEY/);
   assert.match(route, /\.eq\("user_id",\s*auth\.user\.id\)/);
   assert.match(route, /\.eq\("status",\s*"open"\)/);
 });
