@@ -1,6 +1,6 @@
 # Scorecaster Auth + Cloud Sync Setup
 
-This guide enables user accounts and protected paper-bet storage while keeping Quick Use available locally.
+This guide enables user accounts, protected paper-bet storage, personal paper-risk limits and optional automatic H2H result checking while keeping Quick Use available locally.
 
 ## 1. Supabase project
 
@@ -31,8 +31,12 @@ The migrations add:
 - automatic profile creation
 - forced Row Level Security
 - user-specific policies
-- database enforcement for single paper stake and total open paper exposure
+- database enforcement for single stake, total exposure and single-league exposure
+- database enforcement for Scorecaster minimum edge and confidence
+- user-level transaction locking for concurrent exposure checks
 - database-backed per-user API quotas
+
+The paper-risk migration is idempotent. Run it again after a deployment that changes the trigger definition.
 
 Do not use the service-role key in browser or mobile code. Normal account operations use the public key, a verified user JWT and RLS. The service-role key is read only by the server for permanent account deletion.
 
@@ -78,25 +82,33 @@ Legacy Supabase projects can use this instead of the publishable key:
 NEXT_PUBLIC_SUPABASE_ANON_KEY=
 ```
 
-Redeploy after changing environment variables. Never prefix the service-role, Odds API or OpenAI key with `NEXT_PUBLIC_` or `EXPO_PUBLIC_`.
+`ODDS_API_KEY` powers both live odds and the optional user-triggered H2H score checker. Redeploy after changing environment variables. Never prefix the service-role, Odds API or OpenAI key with `NEXT_PUBLIC_` or `EXPO_PUBLIC_`.
 
 ## 5. Test the full path
 
-1. Open `/production-status` and confirm Supabase is configured.
+1. Open `/production-status` and confirm Supabase and the Odds API are configured.
 2. Open `/login`.
 3. Create account A and confirm the email when required.
 4. Open `/profile` and confirm the server validates the account.
-5. Set account A's virtual bankroll and paper-risk percentages.
-6. Add a manual paper pick in `/quick-use` or the mobile app.
-7. Open `/cloud-sync` and sync the local pick.
-8. Refresh and confirm the cloud history remains visible.
-9. Try a single paper stake above the configured limit and confirm HTTP 400.
-10. Try to exceed the total open paper-exposure limit and confirm the database rejects the write.
-11. Settle a paper bet with optional closing odds and confirm profit, ROI and CLV are calculated.
-12. Create account B and verify it cannot read, update or delete account A's rows.
-13. Repeat a protected request until HTTP 429 and `Retry-After` are returned.
-14. Export account A's data and confirm only A's rows are included.
-15. Delete account A and confirm it can no longer authenticate.
+5. Set account A's virtual bankroll, stake, total exposure, league exposure, minimum edge and minimum confidence.
+6. Add a manual paper pick in `/quick-use` and confirm it remains available for education.
+7. Add a Scorecaster pick below the minimum edge and confirm HTTP 400.
+8. Add a Scorecaster pick below the minimum confidence and confirm HTTP 400.
+9. Add a supported Scorecaster H2H pick and confirm the event ID and model probability are present in the protected history.
+10. Try a single paper stake above the configured limit and confirm HTTP 400.
+11. Try to exceed the total open paper-exposure limit and confirm rejection.
+12. Try to exceed the single-league open exposure limit and confirm rejection.
+13. Trigger two simultaneous writes near an exposure boundary and confirm only the valid transaction succeeds.
+14. After the test event completes, call `POST /api/cloud/bets/settle` or use the mobile result checker.
+15. Confirm the correct row becomes won or lost and stores only the minimal final-score metadata.
+16. Confirm unsupported or incomplete markets remain open.
+17. Repeat the result check until HTTP 429 with `Retry-After` is returned.
+18. Add optional closing odds manually and confirm profit, ROI and CLV are calculated.
+19. Confirm calibration analytics use only won/lost rows with a stored model probability.
+20. Create account B and verify it cannot read, update or delete account A's rows.
+21. Repeat protected flows with both cookie web auth and mobile bearer auth.
+22. Export account A's data and confirm only A's rows are included.
+23. Delete account A and confirm it can no longer authenticate.
 
 ## Routes
 
@@ -105,7 +117,8 @@ Redeploy after changing environment variables. Never prefix the service-role, Od
 - `/profile` — server-validated account and privacy controls
 - `/cloud-sync` — local-to-cloud migration and cloud history
 - `/api/cloud/bets` — authenticated GET / POST / PATCH / DELETE API
-- `/api/cloud/bankroll` — authenticated paper-bankroll settings
+- `/api/cloud/bets/settle` — authenticated, rate-limited H2H result check
+- `/api/cloud/bankroll` — authenticated paper-bankroll and personal risk settings
 - `/api/account/export` — authenticated user-data export
 - `/api/account` — account-deletion status and permanent deletion
 - `/api/health` — deployment and integration status
@@ -118,11 +131,13 @@ Browser and mobile clients use a public Supabase key. Authorization, risk contro
 - server-side `getUser()` checks for protected APIs
 - RLS policies using `auth.uid()`
 - server and database paper-stake validation
-- database total-open-exposure validation
+- database total-open and single-league exposure validation
+- server and database Scorecaster edge/confidence validation
+- user-level PostgreSQL transaction locks for exposure checks
 - atomic per-user PostgreSQL request quotas
 - exact-origin validation for cookie mutations
 - API content-type, body-size, text-length and numeric-range validation
-- maximum batch sizes
+- bounded score-provider sport, row and update counts
 - duplicate-safe `(user_id, client_ref)` upserts
 - server-only integration secrets
 
