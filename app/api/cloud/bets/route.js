@@ -13,14 +13,23 @@ import {
 export const dynamic = "force-dynamic";
 
 const BET_SELECT =
-  "id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,created_at,updated_at";
+  "id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,raw_pick,created_at,updated_at";
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const EVENT_ID_PATTERN = /^([0-9a-f]{32})(?:-|$)/i;
 const ALLOWED_STATUSES = new Set(["open", "won", "lost", "void", "push"]);
+
+function deriveEventId(bet) {
+  const explicit = cleanText(bet?.eventId || bet?.event_id, 180);
+  if (explicit) return explicit;
+
+  const clientRef = cleanText(bet?.id || bet?.client_ref, 240);
+  return clientRef.match(EVENT_ID_PATTERN)?.[1] || "";
+}
 
 function safeRawPick(bet) {
   return {
     source: cleanText(bet?.source, 60, "manual"),
-    eventId: cleanText(bet?.eventId || bet?.event_id, 180),
+    eventId: deriveEventId(bet),
     modelProbability: boundedNumber(bet?.modelProbability ?? bet?.model_probability, {
       min: 0,
       max: 1
@@ -61,8 +70,8 @@ function normalizeBet(bet, userId, index) {
     bookmaker: cleanText(bet?.bookmaker, 120, "manual"),
     sport: cleanText(bet?.sport, 120, "manual"),
     league: cleanText(bet?.league, 120, "manual"),
-    home_team: cleanText(bet?.home_team, 160),
-    away_team: cleanText(bet?.away_team, 160),
+    home_team: cleanText(bet?.home_team || bet?.homeTeam, 160),
+    away_team: cleanText(bet?.away_team || bet?.awayTeam, 160),
     odds,
     stake,
     edge: boundedNumber(bet?.edge, { min: -1, max: 1 }),
@@ -104,11 +113,13 @@ function rejectUnsafeMutation(request, requestId) {
 
 function paperLimitError(error, requestId, fallback) {
   if (error?.code === "23514") {
+    const message = String(error?.message || "").toLowerCase();
+    let publicMessage = "Paper stake, exposure or quality threshold exceeds the configured limits";
+    if (message.includes("minimum edge")) publicMessage = "Pick is below the configured minimum paper edge";
+    if (message.includes("minimum confidence")) publicMessage = "Pick is below the configured minimum paper confidence";
+
     return jsonResponse(
-      {
-        ok: false,
-        error: "Paper stake or open paper exposure exceeds the configured virtual-bankroll limits"
-      },
+      { ok: false, error: publicMessage },
       400,
       requestId
     );
@@ -121,10 +132,10 @@ function paperLimitError(error, requestId, fallback) {
   );
 }
 
-async function validateSingleStakeLimits(auth, rows, requestId) {
+async function validatePaperLimits(auth, rows, requestId) {
   const { data, error } = await auth.supabase
     .from("bankroll_settings")
-    .select("bankroll,max_stake_percent")
+    .select("bankroll,max_stake_percent,min_edge,min_confidence")
     .eq("user_id", auth.user.id)
     .maybeSingle();
 
@@ -138,6 +149,8 @@ async function validateSingleStakeLimits(auth, rows, requestId) {
 
   const bankroll = Number(data?.bankroll ?? 1000);
   const maxStakePercent = Number(data?.max_stake_percent ?? 2);
+  const minEdge = Number(data?.min_edge ?? 0.025);
+  const minConfidence = Number(data?.min_confidence ?? 0.58);
   const maxPaperStake = Number(Math.max(0, bankroll * maxStakePercent / 100).toFixed(4));
 
   if (rows.some((row) => Number(row.stake) > maxPaperStake + 0.0001)) {
@@ -146,6 +159,39 @@ async function validateSingleStakeLimits(auth, rows, requestId) {
         ok: false,
         error: "Paper stake exceeds the configured virtual-bankroll limit",
         maxPaperStake
+      },
+      400,
+      requestId
+    );
+  }
+
+  const scorecasterRows = rows.filter((row) =>
+    String(row.raw_pick?.source || "").startsWith("scorecaster")
+  );
+  const belowEdge = scorecasterRows.find((row) =>
+    row.edge === null || Number(row.edge) < minEdge
+  );
+  if (belowEdge) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "Pick is below the configured minimum paper edge",
+        minEdge
+      },
+      400,
+      requestId
+    );
+  }
+
+  const belowConfidence = scorecasterRows.find((row) =>
+    row.confidence === null || Number(row.confidence) < minConfidence
+  );
+  if (belowConfidence) {
+    return jsonResponse(
+      {
+        ok: false,
+        error: "Pick is below the configured minimum paper confidence",
+        minConfidence
       },
       400,
       requestId
@@ -214,8 +260,8 @@ export async function POST(request) {
     return jsonResponse({ ok: false, error: "No valid paper bets supplied" }, 400, requestId);
   }
 
-  const invalidStake = await validateSingleStakeLimits(auth, rows, requestId);
-  if (invalidStake) return invalidStake;
+  const invalidLimits = await validatePaperLimits(auth, rows, requestId);
+  if (invalidLimits) return invalidLimits;
 
   const { data, error } = await auth.supabase
     .from("bets")
