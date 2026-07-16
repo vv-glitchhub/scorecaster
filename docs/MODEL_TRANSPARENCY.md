@@ -52,6 +52,18 @@ A pick cannot receive PLAY unless the data gate passes. The current production g
 
 Lower-quality positive prices remain CAUTION. Missing, stale or non-positive data becomes SKIP.
 
+## Personal paper thresholds
+
+Each authenticated user can set a personal minimum edge and minimum confidence. These limits apply to Scorecaster-generated paper picks in addition to the global PLAY / CAUTION / SKIP gate.
+
+The limits are enforced in three places:
+
+- the native user interface
+- the authenticated paper-bet API
+- a PostgreSQL trigger
+
+The database also enforces maximum single paper stake, total open paper exposure and single-league open exposure. Manual paper entries remain possible for education and comparison, but they are still subject to stake and exposure limits.
+
 ## Trust score
 
 Trust combines:
@@ -62,6 +74,34 @@ Trust combines:
 - bookmaker coverage
 
 Trust is an explainability and data-quality indicator. It is not a win probability.
+
+## Result settlement
+
+Open H2H paper picks can be checked against the configured server-side scores provider. Automatic settlement:
+
+- is explicitly started by the authenticated user
+- is limited to a small number of requests per hour
+- checks only sports represented by that user's open paper picks
+- has bounded sport, bet and update counts
+- uses the stored odds event ID when available
+- falls back to normalized home/away team matching for older rows
+- updates only the authenticated user's still-open rows
+- leaves incomplete, unsupported or ambiguous markets open
+
+Manual settlement remains available. Automatic settlement never places, modifies or settles a real-money bet.
+
+## Probability calibration
+
+When a Scorecaster pick is saved, its consensus probability is stored in the protected paper history. Won and lost Scorecaster picks can then be used to measure:
+
+- expected win rate
+- actual win rate
+- calibration gap
+- Brier score
+
+The Brier score is the mean squared difference between the stored probability and the binary result. Lower is better, but a small sample is highly unstable. Manual rows without a stored model probability are excluded instead of being assigned an invented probability.
+
+Calibration evaluates whether probability estimates are honest over time. It does not guarantee future profit and must be interpreted together with sample size, CLV and out-of-sample performance.
 
 ## Paper-only boundary
 
@@ -81,7 +121,9 @@ All stakes and bankroll values are virtual paper-tracking values.
 - Multiple bookmakers may copy the same underlying market-making source.
 - Odds can move after the analysis is generated.
 - News, injuries and lineups may be missing, delayed or incorrect.
-- Short-term ROI is noisy and does not validate a model by itself.
+- Automatic settlement currently targets supported H2H markets; other markets require manual review.
+- Team-name fallback matching is conservative and can leave valid older bets unresolved.
+- Short-term ROI and calibration are noisy and do not validate a model by themselves.
 - Positive CLV is useful process evidence but does not guarantee future returns.
 
 ## Validation
@@ -94,5 +136,8 @@ The repository includes regression tests for:
 - confidence behavior
 - freshness classification
 - rejection of incomplete one-sided markets
+- event-ID and team-name score matching
+- home, away and draw settlement
+- rejection of incomplete and unsupported settlement cases
 
 Public release should additionally include long-running calibration, CLV and out-of-sample tracking before any stronger predictive claims are made.
