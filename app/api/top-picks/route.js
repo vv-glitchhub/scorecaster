@@ -18,6 +18,10 @@ const CACHE_HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 
+function clamp(value, min, max) {
+  return Math.max(min, Math.min(max, value));
+}
+
 function findLeagueTitle(key) {
   return ALL_LEAGUES.find((league) => league.key === key)?.title || key;
 }
@@ -33,11 +37,11 @@ function getGamesFromResponse(data) {
 function normalizedTrustScore(pick) {
   const quality = Number(pick.qualityScore || 0);
   const qualityPercent = quality <= 1 ? quality * 100 : quality;
-  const confidence = Number(pick.confidence || 0);
-  const confidencePercent = confidence <= 1 ? confidence * 100 : confidence;
-  const sourceTrust = Number(pick.sourceTrust || 0.45) * 100;
-  const score = qualityPercent * 0.5 + confidencePercent * 0.3 + sourceTrust * 0.2;
-  return Number(Math.min(100, Math.max(0, score)).toFixed(1));
+  const confidence = clamp(Number(pick.confidence || 0), 0, 1) * 100;
+  const sourceTrust = clamp(Number(pick.sourceTrust || pick.confidence || 0.35), 0, 1) * 100;
+  const coverage = clamp(Number(pick.bookmakerCount || 0) / 8, 0, 1) * 100;
+  const score = qualityPercent * 0.35 + confidence * 0.4 + sourceTrust * 0.15 + coverage * 0.1;
+  return Number(clamp(score, 0, 100).toFixed(1));
 }
 
 function productDecision(decision) {
@@ -46,21 +50,53 @@ function productDecision(decision) {
   return "CAUTION";
 }
 
+function dataGate(pick) {
+  const bookmakerCount = Number(pick.bookmakerCount || 0);
+  const confidence = Number(pick.confidence || 0);
+  const freshness = pick.freshnessLabel || pick.dataQuality?.freshness || "unknown";
+  const stale = freshness === "stale";
+
+  return {
+    bookmakerCount,
+    confidence,
+    freshness,
+    stale,
+    playable: bookmakerCount >= 4 && confidence >= 0.55 && !stale,
+    watchable: bookmakerCount >= 2 && confidence >= 0.35 && !stale
+  };
+}
+
 function applyQualityFallback(pick) {
-  const sourceTrust = Number(pick.sourceTrust || 0.45);
+  const sourceTrust = Number(pick.sourceTrust ?? pick.confidence ?? 0.35);
   const quality = calculatePickQuality({
     ...pick,
     sourceTrust,
     sentimentScore: Number(pick.sentimentScore || 0)
   });
 
-  const finalScore = Number(pick.finalScore || pick.edge || 0);
+  const finalScore = Number(pick.finalScore || 0);
   const edge = Number(pick.edge || 0);
-  const decision =
-    pick.decision === "BET" ||
-    (quality.qualityGrade === "B" && finalScore >= 0.05 && edge >= 0.045)
-      ? "BET"
-      : pick.decision || "WATCH";
+  const ev = Number(pick.ev || 0);
+  const gate = dataGate(pick);
+  let decision = pick.decision || "WATCH";
+
+  if (!gate.watchable || edge < 0.005 || ev <= 0) {
+    decision = "PASS";
+  } else if (!gate.playable) {
+    decision = "WAIT";
+  } else if (edge >= 0.02 && ev >= 0.03 && ["A", "B", "C"].includes(quality.qualityGrade)) {
+    decision = "BET";
+  } else if (decision === "BET") {
+    decision = "WATCH";
+  }
+
+  const qualityNotes = [
+    ...(pick.qualityNotes || quality.qualityNotes || []),
+    `${gate.bookmakerCount} bookmakers in consensus.`,
+    `Market-data confidence ${(gate.confidence * 100).toFixed(0)}%.`,
+    `Freshness: ${gate.freshness}.`,
+    "Edge is best-price value versus a no-vig market consensus, not a guaranteed outcome prediction."
+  ];
 
   const result = {
     ...pick,
@@ -68,32 +104,35 @@ function applyQualityFallback(pick) {
     sourceTrust,
     qualityScore: pick.qualityScore || quality.qualityScore,
     qualityGrade: pick.qualityGrade || quality.qualityGrade,
-    qualityNotes: pick.qualityNotes || quality.qualityNotes
+    qualityNotes,
+    dataGate: gate
   };
 
   return {
     ...result,
     trustScore: normalizedTrustScore(result),
     productDecision: productDecision(decision),
-    paperOnly: true
+    paperOnly: true,
+    modelMode: pick.modelMode || "market-consensus",
+    edgeType: pick.edgeType || "best-price-vs-no-vig-consensus"
   };
 }
 
 function rankPick(pick) {
   const decisionWeight = {
     BET: 1,
-    WATCH: 0.5,
-    WAIT: 0.15,
+    WATCH: 0.45,
+    WAIT: 0.1,
     PASS: -1
   };
 
   return (
-    Number(pick.finalScore || 0) +
-    Number(pick.edge || 0) +
-    Number(pick.qualityScore || 0) * 0.1 +
-    Number(pick.sentimentScore || 0) +
-    Number(pick.sourceTrust || 0) * 0.02 +
-    Number(decisionWeight[pick.decision] || 0)
+    Number(decisionWeight[pick.decision] || 0) +
+    Number(pick.edge || 0) * 4 +
+    Number(pick.ev || 0) * 2 +
+    Number(pick.confidence || 0) * 0.4 +
+    Number(pick.trustScore || 0) / 250 +
+    clamp(Number(pick.bookmakerCount || 0) / 10, 0, 0.8)
   );
 }
 
@@ -104,8 +143,8 @@ async function enrichSafely(pick) {
   } catch (error) {
     return applyQualityFallback({
       ...pick,
-      agentVersion: "fallback",
-      decision: pick.edge >= 0.045 ? "WATCH" : "PASS",
+      agentVersion: "consensus-fallback",
+      decision: "WATCH",
       finalScore: Number(pick.finalScore || pick.edge || 0),
       intelligenceError: process.env.NODE_ENV === "production" ? undefined : error.message
     });
@@ -140,8 +179,8 @@ async function loadLeague(origin, league) {
       marketKey: "h2h",
       bankroll: 1000,
       kellyMode: "quarter",
-      minEdge: 0.01,
-      limit: 10
+      minEdge: 0.005,
+      limit: 12
     }).map((pick) => ({
       ...pick,
       origin,
@@ -186,8 +225,8 @@ export async function GET(request) {
   const allPicks = leaguePicks.flat();
 
   const preFiltered = allPicks
-    .sort((a, b) => Number(b.edge || 0) - Number(a.edge || 0))
-    .slice(0, 25);
+    .sort((a, b) => (Number(b.edge || 0) * Number(b.confidence || 0)) - (Number(a.edge || 0) * Number(a.confidence || 0)))
+    .slice(0, 30);
 
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
   const sorted = enriched
@@ -197,13 +236,16 @@ export async function GET(request) {
   return Response.json(
     {
       ok: true,
-      source: "agent-v7-top-picks",
-      agentVersion: "V7",
+      source: "no-vig-market-consensus",
+      agentVersion: "V8-consensus",
+      modelMode: "market-consensus",
+      edgeType: "best-price-vs-no-vig-consensus",
+      generatedAt: new Date().toISOString(),
       paperOnly: true,
-      disclaimer: "Analysis is uncertain and does not guarantee profit. SKIP is a valid result.",
+      disclaimer: "Analysis is uncertain and does not guarantee profit. Probability comes from a no-vig bookmaker consensus; SKIP is a valid result.",
       leagues,
       count: sorted.length,
-      featured: sorted.slice(0, 3),
+      featured: sorted.filter((pick) => pick.productDecision !== "SKIP").slice(0, 3),
       data: sorted
     },
     { headers: CACHE_HEADERS }
