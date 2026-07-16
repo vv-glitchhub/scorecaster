@@ -61,7 +61,7 @@ export default function IntelligencePage() {
           </button>
         </div>
         <div className="mt-4 text-xs text-slate-500">
-          {generatedAt ? `Luotu ${new Date(generatedAt).toLocaleString("fi-FI")}` : "Analyysiä ei ole vielä ladattu"} · paperiseuranta בלבד · ei voittotakuuta
+          {generatedAt ? `Luotu ${new Date(generatedAt).toLocaleString("fi-FI")}` : "Analyysiä ei ole vielä ladattu"} · vain paperiseuranta · ei voittotakuuta
         </div>
       </section>
 
