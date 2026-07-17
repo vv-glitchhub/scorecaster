@@ -69,17 +69,19 @@ test("tampered, expired and wrong-key decision tickets fail closed", () => {
   assert.equal(verifyAgentDecisionTicket(ticket, { key, now: now + 60_001 }).ok, false);
 });
 
-test("portfolio API is authenticated, rate-limited and signs only server-built decisions", async () => {
+test("portfolio API authenticates, bounds context and signs only fully governed decisions", async () => {
   const route = await readFile(new URL("../app/api/agent/portfolio/route.js", import.meta.url), "utf8");
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
   const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
-  const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
+  const contextIndex = route.indexOf("const contextPicks = await loadVerifiedContext");
+  const portfolioIndex = route.indexOf("buildAgentV9Portfolio(contextPicks");
   const governanceIndex = route.indexOf("applyModelLabSafety(portfolio.decisions");
   const signingIndex = route.indexOf("createAgentDecisionTicket(decision)");
 
   assert.ok(authIndex >= 0);
   assert.ok(sourceIndex > authIndex);
-  assert.ok(portfolioIndex > sourceIndex);
+  assert.ok(contextIndex > sourceIndex);
+  assert.ok(portfolioIndex > contextIndex);
   assert.ok(governanceIndex > portfolioIndex);
   assert.ok(signingIndex > governanceIndex);
   assert.match(route, /bucket:\s*"agent_v11_portfolio"/);
@@ -88,6 +90,7 @@ test("portfolio API is authenticated, rate-limited and signs only server-built d
   assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
   assert.match(route, /MAX_HISTORY\s*=\s*500/);
   assert.match(route, /MAX_SPORTS\s*=\s*6/);
+  assert.match(route, /MAX_CONTEXT_PICKS\s*=\s*6/);
   assert.match(route, /buildSelfLearningReport\(history\)/);
 });
 
@@ -107,7 +110,7 @@ test("enhanced explanation requires a verified signed ticket before provider use
   assert.doesNotMatch(route, /contract\.language/);
 });
 
-test("mobile Agent screen uses protected portfolio, model lab and explanation endpoints", async () => {
+test("mobile Agent screen uses protected portfolio, model lab, context and explanation endpoints", async () => {
   const app = await readFile(new URL("../mobile/src/App.tsx", import.meta.url), "utf8");
   const screen = await readFile(new URL("../mobile/src/screens/AgentScreen.tsx", import.meta.url), "utf8");
 
@@ -119,4 +122,6 @@ test("mobile Agent screen uses protected portfolio, model lab and explanation en
   assert.match(screen, /"\/api\/cloud\/bets"/);
   assert.match(screen, /scorecaster-mobile-agent-v11/);
   assert.match(screen, /portfolio\?\.modelLab/);
+  assert.match(screen, /portfolio\?\.sportsIntelligence/);
+  assert.match(screen, /decision\.verifiedIntelligence/);
 });
