@@ -43,9 +43,20 @@ export async function GET() {
     agentV10HourlyQuota: true,
     agentV10LocalExplanationCache: true,
     agentV10RegressionTests: true,
-    mobileAgentV10Tab: true,
-    mobileAgentV10Portfolio: true,
-    mobileAgentV10Explanations: true,
+    agentV11ModelLab: true,
+    agentV11ChronologicalSplit: true,
+    agentV11ChampionChallenger: true,
+    agentV11UntouchedHoldout: true,
+    agentV11MinimumLearningSample: 120,
+    agentV11DriftDetection: true,
+    agentV11CriticalDriftFreezesPlay: true,
+    agentV11ShadowOnly: true,
+    agentV11ProductionProbabilityChangedByLearning: false,
+    agentV11RegressionTests: true,
+    mobileAgentV11Tab: true,
+    mobileAgentV11Portfolio: true,
+    mobileAgentV11ModelLab: true,
+    mobileAgentV11Explanations: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
     simulatorInputValidation: true,
@@ -69,6 +80,9 @@ export async function GET() {
     authenticatedRateLimits: true,
     publicOddsInputAllowlist: true,
     publicOddsCache: true,
+    liveFixtureOnlyTopPicks: true,
+    nearTermTopPicksWindowHours: 168,
+    featuredTopPicksWindowHours: 72,
     noVigMarketConsensus: true,
     fixedProbabilityBoostRemoved: true,
     numericDataConfidence: true,
@@ -76,6 +90,7 @@ export async function GET() {
     marketFreshnessGate: true,
     marketConsensusRegressionTests: true,
     paperSettlementRegressionTests: true,
+    fixtureIntegrityRegressionTests: true,
     dailyTopThree: true,
     leagueFilters: ["NHL", "NBA", "EPL", "La Liga", "Liiga", "SHL"],
     mobileRoiAndClv: true,
@@ -119,11 +134,17 @@ export async function GET() {
     services.agentV10StructuredOutputValidation &&
     services.agentV10DeterministicFallback &&
     services.agentV10RegressionTests &&
-    services.mobileAgentV10Tab &&
+    services.agentV11ModelLab &&
+    services.agentV11ChronologicalSplit &&
+    services.agentV11UntouchedHoldout &&
+    services.agentV11DriftDetection &&
+    services.agentV11RegressionTests &&
+    services.mobileAgentV11Tab &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
     services.paperSettlementRegressionTests &&
+    services.fixtureIntegrityRegressionTests &&
     services.excellenceAppsRegressionTests;
 
   return Response.json(
@@ -131,9 +152,9 @@ export async function GET() {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
-      modelMode: "market-consensus",
+      modelMode: "market-consensus-with-shadow-calibration-lab",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V10-signed-grounded-language-layer-over-V9-server-authoritative-portfolio",
+      agentMode: "V11-chronological-champion-challenger-shadow-over-signed-grounded-V10-and-V9-portfolio",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
@@ -148,8 +169,8 @@ export async function GET() {
             : !services.agentV10DecisionSigningConfigured
               ? "Configure a dedicated server-only Agent decision signing key"
               : !services.openAiConfigured
-                ? "Optional: configure the server-only OpenAI key for Agent V10 grounded explanations"
-                : "Run paper-risk, signed-Agent, automatic-settlement, TestFlight and Play internal tests",
+                ? "Optional: configure the server-only OpenAI key for grounded explanations"
+                : "Collect at least 120 settled probability observations, inspect Agent V11 holdout results and keep the challenger in shadow mode until separately approved",
       timestamp: new Date().toISOString()
     },
     {
