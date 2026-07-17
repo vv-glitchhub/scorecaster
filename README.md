@@ -1,10 +1,10 @@
 # Scorecaster
 
-AI-assisted sports market intelligence, no-vig odds consensus, risk control, account-based cloud history and paper tracking.
+AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, risk control, account-based cloud history and virtual paper tracking.
 
 ## Product boundary
 
-Scorecaster is analysis and paper tracking only.
+Scorecaster is analysis, simulation and paper tracking only.
 
 - No deposits or withdrawals
 - No payment-card or bank data
@@ -28,13 +28,34 @@ Edge means best-price value versus market consensus. It is not proof that the se
 
 See `docs/MODEL_TRANSPARENCY.md`.
 
+## Agent V9
+
+The Agent workspace is an adversarial and portfolio-aware decision layer. It:
+
+- keeps the no-vig consensus probability immutable
+- builds a heuristic stress range from coverage, dispersion and confidence
+- calculates base, downside and upside expected value
+- blocks PLAY when downside EV is not positive
+- shows break-even odds and the minimum price required for a 3% target EV
+- generates a structured counterargument and lists missing evidence
+- sizes paper stakes with quarter Kelly at the stress-range lower probability
+- enforces single-pick, total-portfolio and league exposure caps
+- allows only one PLAY selection per event
+- uses paper history only after a sufficient CLV or probability sample
+- measures ROI, CLV, calibration and Brier score
+- never lets learning or narrative text change probability, edge or EV
+
+The stress range is a conservative heuristic, not a formal 95% confidence interval. The deterministic decision object remains the source of truth even if a language-model explanation is added later.
+
+See `docs/AGENT_V9_TRANSPARENCY.md`.
+
 ## Production and security status
 
 Scorecaster has deployment and security guardrails:
 
-- GitHub Actions runs secret scanning, API security tests, model tests, settlement tests and `npm run build`.
+- GitHub Actions runs secret scanning, API security tests, model tests, settlement tests, app tests, Agent V9 tests and `npm run build`.
 - CodeQL analyzes JavaScript and TypeScript.
-- `/api/health` reports safe runtime, model and integration readiness.
+- `/api/health` reports safe runtime, model, Agent and integration readiness.
 - `/production-status` displays the health response in the app.
 - Node.js is pinned through `.nvmrc`.
 - Supabase sessions are refreshed through the Next.js root `proxy.js`.
@@ -44,9 +65,36 @@ Scorecaster has deployment and security guardrails:
 - PostgreSQL enforces single stake, total open exposure, single-league exposure and Scorecaster quality thresholds.
 - Authenticated APIs use atomic per-user PostgreSQL quotas and return HTTP 429 with `Retry-After`.
 - Automatic H2H paper result checks are user-triggered, rate-limited and bounded.
-- The public odds proxy only accepts known sports and markets, normalizes requests, times out upstream calls and caches responses.
+- The public odds proxy accepts only known sports and markets, normalizes requests, times out upstream calls and caches responses.
 - Top Picks supports a bounded league filter, publishes a cached Top 3 and always marks results as paper-only.
 - HTTP security headers block framing, MIME sniffing and unnecessary device permissions.
+
+## Web workspaces
+
+### Betting
+
+- shared no-vig consensus instead of a fixed model probability
+- fair odds, edge, EV, data confidence and freshness
+- PLAY / CAUTION / SKIP
+- personal virtual stake cap
+- local line-movement history labelled as a price signal, not outcome proof
+
+### Agent
+
+- Agent V9 adversarial audit trail
+- verified evidence, missing evidence and counterargument
+- heuristic probability stress range and downside EV
+- price guard and conservative paper stake
+- portfolio and league exposure control
+- learning from ROI, CLV, calibration and Brier score without changing probability
+
+### Simulator
+
+- seeded and reproducible Poisson simulation
+- validated and bounded fixture input
+- adjustable simulation count
+- Monte Carlo sampling intervals
+- system-row cost warning
 
 ## Native mobile MVP
 
@@ -86,7 +134,7 @@ npm run typecheck
 npm run start
 ```
 
-See `mobile/README.md`, `docs/MODEL_TRANSPARENCY.md` and `docs/MOBILE_SECURITY_RELEASE.md`.
+See `mobile/README.md`, `docs/MODEL_TRANSPARENCY.md`, `docs/AGENT_V9_TRANSPARENCY.md` and `docs/MOBILE_SECURITY_RELEASE.md`.
 
 ## Start web locally
 
@@ -108,6 +156,9 @@ Production routes:
 
 ```text
 https://scorecaster.vercel.app/quick-use
+https://scorecaster.vercel.app/betting
+https://scorecaster.vercel.app/agent
+https://scorecaster.vercel.app/simulator
 https://scorecaster.vercel.app/intelligence
 https://scorecaster.vercel.app/login
 https://scorecaster.vercel.app/profile
@@ -138,26 +189,6 @@ The same APIs accept validated web cookie sessions and mobile bearer access toke
 - `GET /api/top-picks?sports=<comma-separated-known-keys>` — one to six supported leagues
 
 Unknown query parameters, unsupported sports and unsupported markets are rejected before an upstream request is made.
-
-## What you can use
-
-- Add manual picks in `/quick-use`
-- Save a local paper slip in the browser
-- Test stake, edge and confidence
-- See PLAY / CAUTION / SKIP decisions with data-quality explanations
-- Create a Supabase-backed Scorecaster account
-- Validate the session server-side
-- Sync the local paper slip to user-specific cloud history
-- Set and enforce virtual-bankroll, stake, league, edge and confidence limits
-- Settle paper bets manually or check supported H2H results automatically
-- Track profit, ROI, closing odds, CLV, drawdown and league performance
-- Measure probability calibration and Brier score from stored Scorecaster picks
-- Retrieve and delete paper bets through an authenticated API
-- Prevent duplicate syncs with `(user_id, client_ref)` upserts
-- Isolate users with Supabase Row Level Security
-- Export account data
-- Delete an account from the app when server deletion is configured
-- Open Dashboard, Intelligence, Betting, Analytics and Risk Control
 
 ## Supabase activation
 
@@ -204,11 +235,16 @@ Legacy Supabase projects can use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the 
 - `scripts/api-security.test.mjs`
 - `scripts/market-consensus.test.mjs`
 - `scripts/paper-settlement.test.mjs`
+- `scripts/excellence-apps.test.mjs`
+- `scripts/agent-v9.test.mjs`
 - `mobile/`
 - `docs/MODEL_TRANSPARENCY.md`
+- `docs/AGENT_V9_TRANSPARENCY.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
 - `lib/market-consensus-engine.mjs`
+- `lib/agent-v9-engine.mjs`
+- `lib/agent-learning.js`
 - `lib/paper-settlement-engine.mjs`
 - `lib/api-security.js`
 - `lib/production-risk-rules.js`
@@ -221,11 +257,7 @@ Legacy Supabase projects can use `NEXT_PUBLIC_SUPABASE_ANON_KEY` instead of the 
 - `supabase/scorecaster_auth_cloud.sql`
 - `supabase/scorecaster_paper_risk_limits.sql`
 - `supabase/scorecaster_api_rate_limits.sql`
-- `/privacy`
-- `/terms`
-- `/responsible-use`
-- `/security`
 
 ## Important
 
-Scorecaster must not promise profit. The agent must be allowed to say SKIP. Cloud sync keeps the local browser copy after upload until the user explicitly clears it during the alpha phase.
+Scorecaster must not promise profit. The Agent must be allowed to say WATCH or SKIP. A future language model may summarize deterministic evidence but cannot change probability, edge, EV, stake or the final decision.
