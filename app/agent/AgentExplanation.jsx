@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const CACHE_VERSION = "agent-v10-grounded-1";
+const CACHE_VERSION = "agent-v10-signed-grounded-2";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function stableKey(pick = {}) {
@@ -60,7 +60,9 @@ function ExplanationBody({ payload }) {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="font-bold text-fuchsia-200">Agent V10 · Grounded explanation</div>
         <div className="text-xs text-fuchsia-200/70">
-          {payload.enhanced ? "Kielimalli · validoitu" : "Deterministinen varaselitys"}
+          {payload.enhanced && payload.authoritative
+            ? "Kielimalli · palvelimen päätös · validoitu"
+            : "Deterministinen varaselitys"}
         </div>
       </div>
       <p className="text-sm leading-6 text-slate-100">{explanation.summary}</p>
@@ -107,7 +109,7 @@ export default function AgentExplanation({ pick }) {
       const response = await fetch("/api/agent/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: pick })
+        body: JSON.stringify({ decision: pick, ticket: pick.explanationTicket || null })
       });
       const data = await response.json();
       if (!response.ok) {
@@ -136,7 +138,11 @@ export default function AgentExplanation({ pick }) {
         >
           {loading ? "Luodaan valvottua selitystä…" : payload ? "Päivitä Agent V10 -selitys" : "Luo Agent V10 -selitys"}
         </button>
-        <span className="text-xs text-slate-500">Vapaaehtoinen selityskerros ei voi muuttaa laskettua päätöstä.</span>
+        <span className="text-xs text-slate-500">
+          {pick.explanationTicket
+            ? "Palvelimen allekirjoittama päätös; selityskerros ei voi muuttaa laskentaa."
+            : "Ilman palvelimen päätöslippua käytetään vain determinististä varaselitystä."}
+        </span>
       </div>
       {error && <div className="mt-3 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>}
       <ExplanationBody payload={payload} />
