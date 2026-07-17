@@ -14,7 +14,7 @@ import type { Tab } from "./types";
 import { styles } from "./ui";
 
 const tabs: { key: Tab; label: string; accessibilityLabel: string }[] = [
-  { key: "home", label: "Etusivu", accessibilityLabel: "Etusivu ja papeririskit" },
+  { key: "home", label: "Koti", accessibilityLabel: "Etusivu ja papeririskit" },
   { key: "picks", label: "Kohteet", accessibilityLabel: "Päivän analysoidut kohteet" },
   { key: "agent", label: "AI", accessibilityLabel: "Agent V10 päätöskopilotti" },
   { key: "paper", label: "Seuranta", accessibilityLabel: "Paperivetojen seuranta" },
@@ -31,9 +31,9 @@ function MainApp({ session }: { session: Session }) {
       <View style={styles.header}>
         <View>
           <Text style={styles.headerBrand}>Scorecaster</Text>
-          <Text style={styles.headerSubline}>Market consensus intelligence</Text>
+          <Text style={styles.headerSubline}>Urheiluanalyysi ja paperiseuranta</Text>
         </View>
-        <Text style={styles.headerMode}>PAPER MODE</Text>
+        <Text style={styles.headerMode}>PAPERITILA</Text>
       </View>
 
       <View style={styles.content}>
