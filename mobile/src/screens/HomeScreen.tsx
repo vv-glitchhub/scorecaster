@@ -19,6 +19,18 @@ function Metric({ label, value }: { label: string; value: string }) {
   );
 }
 
+function StartStep({ number, title, text }: { number: string; title: string; text: string }) {
+  return (
+    <View style={localStyles.startStep}>
+      <View style={localStyles.stepNumber}><Text style={localStyles.stepNumberText}>{number}</Text></View>
+      <View style={{ flex: 1 }}>
+        <Text style={styles.value}>{title}</Text>
+        <Text style={styles.muted}>{text}</Text>
+      </View>
+    </View>
+  );
+}
+
 export default function HomeScreen() {
   const [bankroll, setBankroll] = useState<Bankroll | null>(null);
   const [bets, setBets] = useState<PaperBet[]>([]);
@@ -32,6 +44,7 @@ export default function HomeScreen() {
   const [status, setStatus] = useState("Tarkistetaan palvelua…");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showRiskSettings, setShowRiskSettings] = useState(false);
 
   async function load() {
     setLoading(true);
@@ -113,6 +126,7 @@ export default function HomeScreen() {
         }
       });
       setBankroll(response.data);
+      setShowRiskSettings(false);
       Alert.alert("Tallennettu", "Virtuaalinen pelikassa ja papeririskin rajat päivitettiin.");
     } catch (error) {
       Alert.alert("Tallennus epäonnistui", error instanceof Error ? error.message : "Tuntematon virhe");
@@ -136,10 +150,17 @@ export default function HomeScreen() {
       <View style={styles.rowBetween}>
         <View style={{ flex: 1 }}>
           <Text style={styles.title}>Tänään</Text>
-          <Text style={styles.subtitle}>Näe päivän tilanne ennen uuden paperipäätöksen tekemistä.</Text>
+          <Text style={styles.subtitle}>Aloita rajasta, lue AI:n vastaväite ja tallenna vain paperiseurantaan.</Text>
         </View>
         <ActionButton label="Päivitä" onPress={load} tone="secondary" compact disabled={loading} />
       </View>
+
+      <Card>
+        <Text style={styles.cardTitle}>Aloita näin</Text>
+        <StartStep number="1" title="Tarkista paperiraja" text="Pidä virtuaalinen panos ja avoin altistus pieninä." />
+        <StartStep number="2" title="Avaa Kohteet tai AI" text="AI-välilehti näyttää myös vastaväitteen ja puuttuvan evidenssin." />
+        <StartStep number="3" title="Seuraa tulosta" text="Seuranta-välilehdellä käsitellään vain virtuaalisia paperikohteita." />
+      </Card>
 
       {loading ? (
         <ActivityIndicator color="#34d399" size="large" />
@@ -172,6 +193,7 @@ export default function HomeScreen() {
                 <Text style={styles.value}>{topPick.match}</Text>
                 <Text style={styles.cardTitle}>{topPick.selection} · {Number(topPick.odds || 0).toFixed(2)}</Text>
                 <Text style={styles.muted}>Edge {percent(topPick.edge)} · confidence {percent(topPick.confidence)} · {Number(topPick.bookmakerCount || 0)} vedonvälittäjää.</Text>
+                <Text style={styles.muted}>Avaa AI-välilehti ennen tallennusta nähdäksesi stressitestin ja vastaväitteen.</Text>
               </>
             ) : (
               <Text style={styles.muted}>Riittävän laadukasta kohdetta ei löytynyt. Tämä on hyväksytty lopputulos.</Text>
@@ -180,15 +202,28 @@ export default function HomeScreen() {
 
           <Card>
             <Text style={styles.cardTitle}>Paperirajat</Text>
-            <Text style={styles.value}>Laskennallinen enimmäispanos {money(suggestedMaximum)}</Text>
-            <Text style={styles.muted}>Rajat suojaavat paperiseurannan prosessia. Ne eivät ole kehotus käyttää enimmäispanosta.</Text>
-            <Field label="Virtuaalikassa (€)" value={bankrollInput} onChangeText={setBankrollInput} keyboardType="decimal-pad" />
-            <Field label="Yksittäisen panoksen yläraja (%)" value={maxStakeInput} onChangeText={setMaxStakeInput} keyboardType="decimal-pad" />
-            <Field label="Päivän enimmäisaltistus (%)" value={dailyExposureInput} onChangeText={setDailyExposureInput} keyboardType="decimal-pad" />
-            <Field label="Yhden liigan enimmäisaltistus (%)" value={leagueExposureInput} onChangeText={setLeagueExposureInput} keyboardType="decimal-pad" />
-            <Field label="Minimiedge (%)" value={minEdgeInput} onChangeText={setMinEdgeInput} keyboardType="decimal-pad" />
-            <Field label="Minimi-confidence (%)" value={minConfidenceInput} onChangeText={setMinConfidenceInput} keyboardType="decimal-pad" />
-            <ActionButton label={saving ? "Tallennetaan…" : "Tallenna paperirajat"} onPress={save} disabled={saving} />
+            <Text style={styles.value}>Enimmäispanos {money(suggestedMaximum)}</Text>
+            <Text style={styles.muted}>
+              Panosraja {percent(bankroll?.max_stake_percent)} · kokonaisaltistus {percent(bankroll?.max_daily_exposure_percent)} · minimiedge {percent(bankroll?.min_edge)}.
+            </Text>
+            <ActionButton
+              label={showRiskSettings ? "Sulje asetukset" : "Muokkaa paperirajoja"}
+              onPress={() => setShowRiskSettings((value) => !value)}
+              tone="secondary"
+            />
+
+            {showRiskSettings && (
+              <>
+                <Text style={styles.muted}>Nämä ovat edistyneitä paperiseurannan asetuksia. Ne eivät ole suosituksia oikean rahan käyttöön.</Text>
+                <Field label="Virtuaalikassa (€)" value={bankrollInput} onChangeText={setBankrollInput} keyboardType="decimal-pad" />
+                <Field label="Yksittäisen panoksen yläraja (%)" value={maxStakeInput} onChangeText={setMaxStakeInput} keyboardType="decimal-pad" />
+                <Field label="Päivän enimmäisaltistus (%)" value={dailyExposureInput} onChangeText={setDailyExposureInput} keyboardType="decimal-pad" />
+                <Field label="Yhden liigan enimmäisaltistus (%)" value={leagueExposureInput} onChangeText={setLeagueExposureInput} keyboardType="decimal-pad" />
+                <Field label="Minimiedge (%)" value={minEdgeInput} onChangeText={setMinEdgeInput} keyboardType="decimal-pad" />
+                <Field label="Minimi-confidence (%)" value={minConfidenceInput} onChangeText={setMinConfidenceInput} keyboardType="decimal-pad" />
+                <ActionButton label={saving ? "Tallennetaan…" : "Tallenna paperirajat"} onPress={save} disabled={saving} />
+              </>
+            )}
           </Card>
         </>
       )}
@@ -222,5 +257,8 @@ const localStyles = StyleSheet.create({
   },
   metricLabel: { color: "#94a3b8", fontSize: 12, fontWeight: "700" },
   metricValue: { color: "#f8fafc", fontSize: 21, fontWeight: "900" },
-  warningTitle: { color: "#fbbf24", fontSize: 17, fontWeight: "900" }
+  warningTitle: { color: "#fbbf24", fontSize: 17, fontWeight: "900" },
+  startStep: { flexDirection: "row", gap: 12, alignItems: "flex-start" },
+  stepNumber: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#34d399", alignItems: "center", justifyContent: "center" },
+  stepNumberText: { color: "#020617", fontWeight: "900" }
 });
