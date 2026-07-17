@@ -23,6 +23,14 @@ export default function PrivacyPage() {
           ]
         },
         {
+          title: "Optional Agent V10 explanation",
+          body: [
+            "A signed-in user may explicitly request an optional language-model explanation for an already calculated Agent decision. The server sends only a bounded market-decision contract containing the match, selection, calculated decision metrics, verified evidence, counterarguments and missing-evidence labels.",
+            "The explanation request does not include the user's email address, name, account identifier, payment information, bookmaker credentials, authentication token or full paper history. The language-model request is sent with provider-side response storage disabled. The provider is not permitted to change the deterministic probability, edge, expected value, stake, portfolio allocation or PLAY/WATCH/SKIP decision.",
+            "If the optional provider is unavailable, not configured or the user is not authenticated, Scorecaster returns a deterministic explanation generated inside Scorecaster instead. The browser may cache the returned explanation locally for a limited period to reduce repeated provider calls."
+          ]
+        },
+        {
           title: "Protection and access",
           body: [
             "Transport uses HTTPS. Supabase authentication and database Row Level Security restrict account rows to the authenticated user. Server-only integration keys are not included in browser or mobile bundles.",
