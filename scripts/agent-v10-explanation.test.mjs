@@ -163,11 +163,13 @@ test("invalid or mutable decisions are rejected before explanation", () => {
 
 test("Agent V10 route keeps provider use authenticated, bounded and non-persistent", async () => {
   const route = await readFile(new URL("../app/api/agent/explain/route.js", import.meta.url), "utf8");
-  const authIndex = route.indexOf("getAuthenticatedContext(request)");
-  const providerIndex = route.indexOf("generateGroundedExplanation(contract)");
+  const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
+  const quotaIndex = route.indexOf("const limited = await enforceRateLimit(auth, requestId");
+  const providerInvocationIndex = route.indexOf("const generated = await generateGroundedExplanation(contract)");
 
   assert.ok(authIndex >= 0);
-  assert.ok(providerIndex > authIndex);
+  assert.ok(quotaIndex > authIndex);
+  assert.ok(providerInvocationIndex > quotaIndex);
   assert.match(route, /bucket:\s*"agent_v10_explanation"/);
   assert.match(route, /limit:\s*12/);
   assert.match(route, /windowSeconds:\s*3600/);
