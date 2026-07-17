@@ -57,6 +57,16 @@ export async function GET() {
     mobileAgentV11Portfolio: true,
     mobileAgentV11ModelLab: true,
     mobileAgentV11Explanations: true,
+    watchlistAlertsV2: true,
+    watchlistServerVerifiedSelections: true,
+    watchlistDecisionChangeAlerts: true,
+    watchlistPriceFloorAlerts: true,
+    watchlistKickoffAlerts: true,
+    watchlistInventedReplacementData: false,
+    watchlistAuthenticatedApi: true,
+    watchlistRlsIsolation: true,
+    watchlistRegressionTests: true,
+    nativeWatchlistScreen: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
     simulatorInputValidation: true,
@@ -110,6 +120,7 @@ export async function GET() {
     rowLevelSecurityMigration: "supabase/scorecaster_auth_cloud.sql",
     paperRiskMigration: "supabase/scorecaster_paper_risk_limits.sql",
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
+    watchlistMigration: "supabase/scorecaster_watchlist_alerts.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
     openAiAgentModel: String(process.env.OPENAI_AGENT_MODEL || "gpt-5-mini").slice(0, 100),
@@ -140,6 +151,11 @@ export async function GET() {
     services.agentV11DriftDetection &&
     services.agentV11RegressionTests &&
     services.mobileAgentV11Tab &&
+    services.watchlistAlertsV2 &&
+    services.watchlistServerVerifiedSelections &&
+    services.watchlistAuthenticatedApi &&
+    services.watchlistRegressionTests &&
+    services.nativeWatchlistScreen &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
@@ -155,6 +171,7 @@ export async function GET() {
       modelMode: "market-consensus-with-shadow-calibration-lab",
       edgeType: "best-price-vs-no-vig-consensus",
       agentMode: "V11-chronological-champion-challenger-shadow-over-signed-grounded-V10-and-V9-portfolio",
+      watchlistMode: "V2-server-verified-user-isolated-manual-refresh-alerts",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
@@ -163,14 +180,14 @@ export async function GET() {
       nextStep: !services.supabaseConfigured
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
-          ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
+          ? "Apply all Supabase migrations, including Watchlist V2, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
             : !services.agentV10DecisionSigningConfigured
               ? "Configure a dedicated server-only Agent decision signing key"
               : !services.openAiConfigured
                 ? "Optional: configure the server-only OpenAI key for grounded explanations"
-                : "Collect at least 120 settled probability observations, inspect Agent V11 holdout results and keep the challenger in shadow mode until separately approved",
+                : "Collect enough settled observations for Agent V11, verify Watchlist V2 isolation and complete real-device release testing",
       timestamp: new Date().toISOString()
     },
     {
