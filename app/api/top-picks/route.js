@@ -2,6 +2,10 @@ import { SPORTS } from "../../../lib/sports";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
+import {
+  filterUpcomingPicks,
+  isUsableLiveFixture
+} from "../../../lib/fixture-integrity.mjs";
 
 const ALL_LEAGUES = SPORTS.flatMap((group) => group.leagues);
 const LEAGUE_KEYS = new Set(ALL_LEAGUES.map((league) => league.key));
@@ -13,6 +17,9 @@ const DEFAULT_LEAGUES = [
   "soccer_epl",
   "soccer_spain_la_liga"
 ];
+const ANALYSIS_WINDOW_HOURS = 24 * 7;
+const FEATURED_WINDOW_HOURS = 72;
+const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
 const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
   "X-Content-Type-Options": "nosniff"
@@ -94,6 +101,7 @@ function applyQualityFallback(pick) {
     `${gate.bookmakerCount} bookmakers in consensus.`,
     `Market-data confidence ${(gate.confidence * 100).toFixed(0)}%.`,
     `Freshness: ${gate.freshness}.`,
+    "Fixture came from the configured live odds provider and is inside the near-term analysis window.",
     "Edge is best-price value versus a no-vig market consensus, not a guaranteed outcome prediction."
   ];
 
@@ -104,7 +112,9 @@ function applyQualityFallback(pick) {
     qualityScore: pick.qualityScore || quality.qualityScore,
     qualityGrade: pick.qualityGrade || quality.qualityGrade,
     qualityNotes,
-    dataGate: gate
+    dataGate: gate,
+    fixtureVerifiedByProvider: true,
+    fixtureSource: "live-odds-provider"
   };
 
   return {
@@ -162,19 +172,32 @@ function parseLeagues(searchParams) {
   return leagues;
 }
 
-async function loadLeague(origin, league) {
+async function loadLeague(origin, league, now) {
   try {
     const response = await fetch(
       `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=h2h`,
       { next: { revalidate: 120 }, signal: AbortSignal.timeout(12000) }
     );
 
-    if (!response.ok) return [];
+    if (!response.ok) return { picks: [], providerGames: 0, acceptedGames: 0 };
     const data = await response.json();
-    const games = getGamesFromResponse(data);
+    if (data?.source !== "live" || data?.ok !== true) {
+      return { picks: [], providerGames: 0, acceptedGames: 0 };
+    }
 
-    return createTopPicksFromGames({
-      games,
+    const providerGames = getGamesFromResponse(data);
+    const structurallyValid = providerGames.filter((game) =>
+      isUsableLiveFixture(game, {
+        now,
+        maxFutureHours: PROVIDER_MAX_FUTURE_HOURS
+      })
+    );
+    const nearTermGames = structurallyValid.filter((game) =>
+      filterUpcomingPicks([{ commenceTime: game.commence_time }], ANALYSIS_WINDOW_HOURS, now).length === 1
+    );
+
+    const picks = createTopPicksFromGames({
+      games: nearTermGames,
       marketKey: "h2h",
       bankroll: 1000,
       kellyMode: "quarter",
@@ -185,10 +208,18 @@ async function loadLeague(origin, league) {
       origin,
       league,
       leagueTitle: findLeagueTitle(league),
-      sportKey: league
+      sportKey: league,
+      fixtureVerifiedByProvider: true,
+      fixtureSource: "live-odds-provider"
     }));
+
+    return {
+      picks,
+      providerGames: providerGames.length,
+      acceptedGames: nearTermGames.length
+    };
   } catch {
-    return [];
+    return { picks: [], providerGames: 0, acceptedGames: 0 };
   }
 }
 
@@ -220,8 +251,9 @@ export async function GET(request) {
   }
 
   const { origin } = url;
-  const leaguePicks = await Promise.all(leagues.map((league) => loadLeague(origin, league)));
-  const allPicks = leaguePicks.flat();
+  const now = Date.now();
+  const leagueResults = await Promise.all(leagues.map((league) => loadLeague(origin, league, now)));
+  const allPicks = leagueResults.flatMap((result) => result.picks);
 
   const preFiltered = allPicks
     .sort((a, b) => (Number(b.edge || 0) * Number(b.confidence || 0)) - (Number(a.edge || 0) * Number(a.confidence || 0)))
@@ -231,20 +263,32 @@ export async function GET(request) {
   const sorted = enriched
     .sort((a, b) => rankPick(b) - rankPick(a))
     .slice(0, 20);
+  const featured = filterUpcomingPicks(sorted, FEATURED_WINDOW_HOURS, now)
+    .filter((pick) => pick.productDecision !== "SKIP")
+    .slice(0, 3);
+
+  const providerGames = leagueResults.reduce((sum, result) => sum + result.providerGames, 0);
+  const acceptedGames = leagueResults.reduce((sum, result) => sum + result.acceptedGames, 0);
 
   return Response.json(
     {
       ok: true,
       source: "no-vig-market-consensus",
+      fixtureSource: "live-odds-provider-only",
       agentVersion: "V8-consensus",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(now).toISOString(),
       paperOnly: true,
-      disclaimer: "Analysis is uncertain and does not guarantee profit. Probability comes from a no-vig bookmaker consensus; SKIP is a valid result.",
+      analysisWindowHours: ANALYSIS_WINDOW_HOURS,
+      featuredWindowHours: FEATURED_WINDOW_HOURS,
+      providerGames,
+      acceptedGames,
+      excludedGames: Math.max(0, providerGames - acceptedGames),
+      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Analysis is uncertain and does not guarantee profit; SKIP is a valid result.",
       leagues,
       count: sorted.length,
-      featured: sorted.filter((pick) => pick.productDecision !== "SKIP").slice(0, 3),
+      featured,
       data: sorted
     },
     { headers: CACHE_HEADERS }
