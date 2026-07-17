@@ -7,6 +7,7 @@ import {
   mutationOriginAllowed,
   readJsonBody
 } from "../../../../lib/api-security";
+import { verifyAgentDecisionTicket } from "../../../../lib/agent-decision-ticket.mjs";
 import {
   AGENT_EXPLANATION_JSON_SCHEMA,
   buildDeterministicAgentExplanation,
@@ -161,19 +162,35 @@ export async function POST(request) {
     return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
   }
 
-  const body = await readJsonBody(request, 32 * 1024);
+  const body = await readJsonBody(request, 40 * 1024);
   if (!body.ok) {
     return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
   }
 
-  const contract = sanitizeAgentExplanationInput(body.data);
-  if (!contract) {
-    return jsonResponse({ ok: false, error: "Invalid Agent V10 decision contract" }, 400, requestId);
+  const clientContract = sanitizeAgentExplanationInput(body.data);
+  const auth = await getAuthenticatedContext(request);
+
+  if (!auth.ok) {
+    if (!clientContract) {
+      return jsonResponse({ ok: false, error: "Invalid Agent V10 decision contract" }, 400, requestId);
+    }
+    return fallbackResponse(
+      clientContract,
+      requestId,
+      "Sign in to use a server-authoritative Agent decision and optional enhanced explanation"
+    );
   }
 
-  const auth = await getAuthenticatedContext(request);
-  if (!auth.ok) {
-    return fallbackResponse(contract, requestId, "Sign in to enable the optional grounded language-model explanation");
+  const verified = verifyAgentDecisionTicket(body.data?.ticket);
+  if (!verified.ok) {
+    if (!clientContract) {
+      return jsonResponse({ ok: false, error: verified.error }, 400, requestId);
+    }
+    return fallbackResponse(
+      clientContract,
+      requestId,
+      "Enhanced explanation requires a current server-signed Agent decision"
+    );
   }
 
   const limited = await enforceRateLimit(auth, requestId, {
@@ -183,6 +200,7 @@ export async function POST(request) {
   });
   if (limited) return limited;
 
+  const contract = verified.contract;
   const generated = await generateGroundedExplanation(contract);
   if (!generated.ok) {
     return fallbackResponse(contract, requestId, generated.reason);
@@ -192,7 +210,9 @@ export async function POST(request) {
     {
       ok: true,
       enhanced: true,
+      authoritative: true,
       decisionHash: decisionHash(contract),
+      ticketExpiresAt: new Date(verified.expiresAt).toISOString(),
       generatedAt: new Date().toISOString(),
       model: generated.model,
       responseId: generated.responseId,

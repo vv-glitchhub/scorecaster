@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, SafeAreaView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { Session } from "@supabase/supabase-js";
+import AgentScreen from "./screens/AgentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import AuthScreen from "./screens/AuthScreen";
 import HomeScreen from "./screens/HomeScreen";
@@ -15,6 +16,7 @@ import { styles } from "./ui";
 const tabs: { key: Tab; label: string; accessibilityLabel: string }[] = [
   { key: "home", label: "Etusivu", accessibilityLabel: "Etusivu ja papeririskit" },
   { key: "picks", label: "Kohteet", accessibilityLabel: "Päivän analysoidut kohteet" },
+  { key: "agent", label: "AI", accessibilityLabel: "Agent V10 päätöskopilotti" },
   { key: "paper", label: "Seuranta", accessibilityLabel: "Paperivetojen seuranta" },
   { key: "analytics", label: "Analyysi", accessibilityLabel: "Paperiseurannan analytiikka" },
   { key: "settings", label: "Profiili", accessibilityLabel: "Profiili ja tietosuoja" }
@@ -37,6 +39,7 @@ function MainApp({ session }: { session: Session }) {
       <View style={styles.content}>
         {tab === "home" && <HomeScreen />}
         {tab === "picks" && <PicksScreen />}
+        {tab === "agent" && <AgentScreen />}
         {tab === "paper" && <PaperBetsScreen />}
         {tab === "analytics" && <AnalyticsScreen />}
         {tab === "settings" && <SettingsScreen session={session} />}

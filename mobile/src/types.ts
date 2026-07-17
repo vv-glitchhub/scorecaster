@@ -1,4 +1,4 @@
-export type Tab = "home" | "picks" | "paper" | "analytics" | "settings";
+export type Tab = "home" | "picks" | "agent" | "paper" | "analytics" | "settings";
 
 export type Pick = {
   id?: string;
@@ -45,6 +45,78 @@ export type Pick = {
     freshness?: string;
     ageHours?: number | null;
     confidence?: number;
+  };
+};
+
+export type AgentDecision = Pick & {
+  decision: "PLAY" | "WATCH" | "SKIP";
+  baseDecision?: string;
+  agentVersion?: string;
+  priorityScore?: number;
+  robustnessScore?: number;
+  suggestedStake?: number;
+  bankroll?: number;
+  maxStakePercent?: number;
+  decisionReason?: string;
+  portfolioReason?: string | null;
+  evidence?: string[];
+  counterArguments?: string[];
+  missingEvidence?: string[];
+  explanationTicket?: string | null;
+  stressTest?: {
+    probability?: number;
+    lower?: number;
+    upper?: number;
+    baseEv?: number;
+    downsideEv?: number;
+    upsideEv?: number;
+    robustPositive?: boolean;
+  };
+  priceGuard?: {
+    currentOdds?: number;
+    breakEvenOdds?: number;
+    minimumPlayOdds?: number;
+    conservativeBreakEvenOdds?: number;
+    buffer?: number;
+  };
+  learningSignal?: {
+    status?: string;
+    note?: string;
+    sampleSize?: number;
+    segment?: string | null;
+  };
+};
+
+export type AgentPortfolio = {
+  ok: boolean;
+  source: string;
+  generatedAt: string;
+  paperOnly: true;
+  signingConfigured: boolean;
+  explanationMode: string;
+  warnings?: string[];
+  counts: { PLAY: number; WATCH: number; SKIP: number };
+  totalAllocated: number;
+  totalCap: number;
+  leagueCap: number;
+  exposurePercent: number;
+  decisions: AgentDecision[];
+};
+
+export type AgentExplanationPayload = {
+  ok: boolean;
+  enhanced: boolean;
+  authoritative?: boolean;
+  decisionHash?: string;
+  model?: string;
+  reason?: string;
+  explanation: {
+    summary: string;
+    strongestReason: string;
+    counterpoint: string;
+    nextChecks: string[];
+    limitation: string;
+    mode?: string;
   };
 };
 
