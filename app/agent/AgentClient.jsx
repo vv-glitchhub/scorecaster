@@ -2,12 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Panel from "../components/Panel";
+import { useLanguage } from "../components/LanguageProvider";
 import AgentExplanation from "./AgentExplanation";
 import { addTrackedBet, getTrackedBets } from "../../lib/tracking-storage";
 import { calculateAgentPerformance } from "../../lib/agent-learning";
 import { buildAgentV9Portfolio } from "../../lib/agent-v9-engine.mjs";
 import { getSettings, saveSettings } from "../../lib/settings-storage";
-import { formatMoney, formatPercent } from "../../lib/analysis-engine";
+import { formatPercent } from "../../lib/analysis-engine";
 
 function decisionClass(decision) {
   if (decision === "PLAY") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
@@ -32,15 +33,11 @@ function optionalNumber(value, digits = 3) {
 }
 
 function Metric({ label, value, tone = "text-slate-100" }) {
-  return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-      <div className="text-sm text-slate-400">{label}</div>
-      <div className={`mt-1 text-2xl font-black ${tone}`}>{value}</div>
-    </div>
-  );
+  return <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4"><div className="text-sm text-slate-400">{label}</div><div className={`mt-1 text-2xl font-black ${tone}`}>{value}</div></div>;
 }
 
 export default function AgentClient() {
+  const { tr, t, locale } = useLanguage();
   const [rawPicks, setRawPicks] = useState([]);
   const [learning, setLearning] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +49,7 @@ export default function AgentClient() {
   const [maxLeagueExposurePercent, setMaxLeagueExposurePercent] = useState(2);
   const [filter, setFilter] = useState("ALL");
   const [expandedId, setExpandedId] = useState(null);
+  const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
 
   useEffect(() => {
     const settings = getSettings();
@@ -71,15 +69,14 @@ export default function AgentClient() {
       const learningData = calculateAgentPerformance(trackedBets);
       const response = await fetch("/api/top-picks", { cache: "no-store" });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Agentin kohteita ei voitu ladata.");
-
+      if (!response.ok) throw new Error(data?.error || tr({ fi: "Agentin kohteita ei voitu ladata.", en: "Agent picks could not be loaded.", es: "No se pudieron cargar los pronósticos del Agent." }));
       setLearning(learningData);
       setRawPicks(Array.isArray(data.data) ? data.data : []);
       setSource(data.source || "no-vig-market-consensus");
     } catch (error) {
       setRawPicks([]);
       setSource("error");
-      setMessage(error instanceof Error ? error.message : "Tuntematon virhe");
+      setMessage(error instanceof Error ? error.message : tr({ fi: "Tuntematon virhe", en: "Unknown error", es: "Error desconocido" }));
     } finally {
       setLoading(false);
     }
@@ -94,10 +91,7 @@ export default function AgentClient() {
   }), [rawPicks, learning, bankroll, maxStakePercent, maxTotalExposurePercent, maxLeagueExposurePercent]);
 
   const decisions = portfolio.decisions;
-  const visibleDecisions = useMemo(
-    () => decisions.filter((pick) => filter === "ALL" || pick.decision === filter),
-    [decisions, filter]
-  );
+  const visibleDecisions = useMemo(() => decisions.filter((pick) => filter === "ALL" || pick.decision === filter), [decisions, filter]);
 
   function saveAgentSettings(next) {
     saveSettings({ ...getSettings(), ...next });
@@ -160,7 +154,7 @@ export default function AgentClient() {
       paperOnly: true
     });
 
-    setMessage(`${pick.selection} lisättiin Agent V10 -paperiseurantaan.`);
+    setMessage(tr({ fi: `${pick.selection} lisättiin Agent V10 -paperiseurantaan.`, en: `${pick.selection} was added to Agent V10 paper tracking.`, es: `${pick.selection} se añadió al seguimiento simulado de Agent V10.` }));
   }
 
   const learningTone = Number(learning?.roi || 0) > 0 ? "text-emerald-300" : Number(learning?.roi || 0) < 0 ? "text-red-300" : "text-slate-100";
@@ -168,185 +162,91 @@ export default function AgentClient() {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-6">
-        <div className="mb-2 inline-flex rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-sm text-fuchsia-300">
-          Agent V10 · Grounded Adversarial AI
-        </div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Scorecaster Decision Copilot</h1>
-        <p className="mt-3 max-w-4xl text-slate-300">
-          Deterministinen V9-ydin lukitsee todennäköisyyden, stressitestin, päätöksen ja paperialtistuksen. V10 lisää vapaaehtoisen valvotun kielimalliselityksen, joka saa vain tiivistää jo laskettua evidenssiä eikä voi muuttaa yhtään päätöslukua.
-        </p>
+        <div className="mb-2 inline-flex rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-sm text-fuchsia-300">Agent V10 · Grounded Adversarial AI</div>
+        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{tr({ fi: "Scorecaster-päätöskopilotti", en: "Scorecaster Decision Copilot", es: "Copiloto de decisiones Scorecaster" })}</h1>
+        <p className="mt-3 max-w-4xl text-slate-300">{tr({
+          fi: "Deterministinen ydin lukitsee todennäköisyyden, stressitestin, päätöksen ja paperialtistuksen. Valvottu kielimalliselitys saa vain tiivistää evidenssiä eikä muuttaa päätöslukuja.",
+          en: "The deterministic core locks the probability, stress test, decision and paper exposure. The governed language-model explanation may summarize evidence but cannot change decision metrics.",
+          es: "El núcleo determinista bloquea la probabilidad, la prueba de estrés, la decisión y la exposición simulada. La explicación controlada solo puede resumir la evidencia, no cambiar las métricas."
+        })}</p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           <Metric label="PLAY" value={portfolio.counts.PLAY} tone="text-emerald-300" />
           <Metric label="WATCH" value={portfolio.counts.WATCH} tone="text-yellow-300" />
           <Metric label="SKIP" value={portfolio.counts.SKIP} tone="text-red-300" />
-          <Metric label="Suunniteltu altistus" value={formatMoney(portfolio.totalAllocated)} tone="text-sky-300" />
-          <Metric label="Altistus kassasta" value={formatPercent(portfolio.exposurePercent)} tone="text-purple-300" />
+          <Metric label={tr({ fi: "Suunniteltu altistus", en: "Planned exposure", es: "Exposición prevista" })} value={money(portfolio.totalAllocated)} tone="text-sky-300" />
+          <Metric label={tr({ fi: "Altistus kassasta", en: "Bankroll exposure", es: "Exposición de la banca" })} value={formatPercent(portfolio.exposurePercent)} tone="text-purple-300" />
         </div>
 
-        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
-            Virtuaalinen pelikassa
-            <input type="number" min="0" value={bankroll} onChange={updateNumber(setBankroll, "bankroll", 1000, 0, 10000000)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" />
-          </label>
-          <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
-            Yksittäinen panos %
-            <input type="number" min="0.1" max="5" step="0.1" value={maxStakePercent} onChange={updateNumber(setMaxStakePercent, "agentMaxStakePercent", 1, 0.1, 5)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" />
-          </label>
-          <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
-            Kokonaisaltistus %
-            <input type="number" min="0.5" max="20" step="0.5" value={maxTotalExposurePercent} onChange={updateNumber(setMaxTotalExposurePercent, "agentMaxTotalExposurePercent", 4, 0.5, 20)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" />
-          </label>
-          <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">
-            Liiga-altistus %
-            <input type="number" min="0.25" max="10" step="0.25" value={maxLeagueExposurePercent} onChange={updateNumber(setMaxLeagueExposurePercent, "agentMaxLeagueExposurePercent", 2, 0.25, 10)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" />
-          </label>
-          <button onClick={() => void loadAgentPicks()} disabled={loading} className="rounded-xl bg-fuchsia-400 px-5 py-3 font-bold text-slate-950 disabled:opacity-50">
-            {loading ? "Analysoidaan…" : "Päivitä Agent V10"}
-          </button>
-        </div>
+        <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
+          <summary className="cursor-pointer font-black text-slate-200">{tr({ fi: "AI-portfolion paperirajat", en: "AI portfolio paper limits", es: "Límites simulados de la cartera IA" })}</summary>
+          <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">{t("term.bankroll")}<input type="number" min="0" value={bankroll} onChange={updateNumber(setBankroll, "bankroll", 1000, 0, 10000000)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" /></label>
+            <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">{tr({ fi: "Yksittäinen panos %", en: "Single stake %", es: "Importe individual %" })}<input type="number" min="0.1" max="5" step="0.1" value={maxStakePercent} onChange={updateNumber(setMaxStakePercent, "agentMaxStakePercent", 1, 0.1, 5)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" /></label>
+            <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">{tr({ fi: "Kokonaisaltistus %", en: "Total exposure %", es: "Exposición total %" })}<input type="number" min="0.5" max="20" step="0.5" value={maxTotalExposurePercent} onChange={updateNumber(setMaxTotalExposurePercent, "agentMaxTotalExposurePercent", 4, 0.5, 20)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" /></label>
+            <label className="rounded-xl border border-white/10 bg-white/[0.04] p-3 text-sm text-slate-300">{tr({ fi: "Liiga-altistus %", en: "League exposure %", es: "Exposición por liga %" })}<input type="number" min="0.25" max="10" step="0.25" value={maxLeagueExposurePercent} onChange={updateNumber(setMaxLeagueExposurePercent, "agentMaxLeagueExposurePercent", 2, 0.25, 10)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" /></label>
+            <button onClick={() => void loadAgentPicks()} disabled={loading} className="rounded-xl bg-fuchsia-400 px-5 py-3 font-bold text-slate-950 disabled:opacity-50">{loading ? tr({ fi: "Analysoidaan…", en: "Analyzing…", es: "Analizando…" }) : tr({ fi: "Päivitä Agent V10", en: "Refresh Agent V10", es: "Actualizar Agent V10" })}</button>
+          </div>
+        </details>
 
         <div className="mt-4 grid gap-3 text-sm text-slate-400 sm:grid-cols-2 xl:grid-cols-4">
-          <div>Lähde <span className="font-bold text-emerald-300">{source}</span></div>
-          <div>Oppimisotos <span className="font-bold text-sky-300">{learning?.sampleSize || 0}</span></div>
-          <div>Historian ROI <span className={`font-bold ${learningTone}`}>{optionalPercent(learning?.roi)}</span></div>
+          <div>{tr({ fi: "Lähde", en: "Source", es: "Fuente" })} <span className="font-bold text-emerald-300">{source}</span></div>
+          <div>{tr({ fi: "Oppimisotos", en: "Learning sample", es: "Muestra de aprendizaje" })} <span className="font-bold text-sky-300">{learning?.sampleSize || 0}</span></div>
+          <div>{tr({ fi: "Historian ROI", en: "Historical ROI", es: "ROI histórico" })} <span className={`font-bold ${learningTone}`}>{optionalPercent(learning?.roi)}</span></div>
           <div>CLV / Brier <span className="font-bold text-purple-300">{optionalPercent(learning?.averageClv)} / {optionalNumber(learning?.brierScore)}</span></div>
         </div>
-        <div className="mt-2 text-xs text-slate-500">
-          Oppiminen vaikuttaa vain prioriteettiin. Vapaaehtoinen V10-selitys tiivistää laskettua audit trailia, mutta ei muuta konsensustodennäköisyyttä, edgeä, EV:tä, panosta eikä päätöstä.
-        </div>
+        <div className="mt-2 text-xs text-slate-500">{tr({ fi: "Oppiminen vaikuttaa vain prioriteettiin. Selitys ei muuta todennäköisyyttä, edgeä, EV:tä, panosta eikä päätöstä.", en: "Learning affects priority only. The explanation does not change probability, edge, EV, stake or decision.", es: "El aprendizaje solo afecta a la prioridad. La explicación no cambia probabilidad, ventaja, EV, importe ni decisión." })}</div>
       </section>
 
-      <div className="flex flex-wrap gap-2">
-        {["ALL", "PLAY", "WATCH", "SKIP"].map((item) => (
-          <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-sm font-bold ${filter === item ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200" : "border-white/10 bg-white/5 text-slate-400"}`}>{item}</button>
-        ))}
-      </div>
-
+      <div className="flex flex-wrap gap-2">{["ALL", "PLAY", "WATCH", "SKIP"].map((item) => <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-sm font-bold ${filter === item ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200" : "border-white/10 bg-white/5 text-slate-400"}`}>{item === "ALL" ? tr({ fi: "KAIKKI", en: "ALL", es: "TODOS" }) : item}</button>)}</div>
       {message && <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm text-sky-200">{message}</div>}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_370px]">
         <div className="space-y-4">
-          {!loading && visibleDecisions.length === 0 && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-slate-400">Tällä suodattimella ei ole agenttipäätöksiä.</div>}
+          {!loading && visibleDecisions.length === 0 && <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 text-slate-400">{tr({ fi: "Tällä suodattimella ei ole agenttipäätöksiä.", en: "No Agent decisions match this filter.", es: "No hay decisiones del Agent con este filtro." })}</div>}
           {visibleDecisions.map((pick, index) => {
             const id = String(pick.id || pick.gameId || `${pick.match}-${pick.selection}-${index}`);
             const expanded = expandedId === id;
             const stress = pick.stressTest || {};
             const priceGuard = pick.priceGuard || {};
-
             return (
               <article key={id} className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-xl sm:p-5">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                  <div>
-                    <div className="text-sm text-slate-400">#{index + 1} · {pick.leagueTitle || pick.league || pick.sportKey || "Sport"}</div>
-                    <h2 className="mt-1 text-xl font-black">{pick.match || `${pick.homeTeam || ""} vs ${pick.awayTeam || ""}`}</h2>
-                    <p className="mt-1 text-slate-300">{pick.selection} @ {Number(pick.odds || 0).toFixed(2)} · {pick.bookmaker || "paras hinta"}</p>
-                  </div>
+                  <div><div className="text-sm text-slate-400">#{index + 1} · {pick.leagueTitle || pick.league || pick.sportKey || "Sport"}</div><h2 className="mt-1 text-xl font-black">{pick.match || `${pick.homeTeam || ""} vs ${pick.awayTeam || ""}`}</h2><p className="mt-1 text-slate-300">{pick.selection} @ {Number(pick.odds || 0).toFixed(2)} · {pick.bookmaker || tr({ fi: "paras hinta", en: "best price", es: "mejor cuota" })}</p></div>
                   <span className={`inline-flex rounded-full border px-3 py-1 text-sm font-bold ${decisionClass(pick.decision)}`}>{pick.decision}</span>
                 </div>
-
                 <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Konsensus</div><div className="mt-1 font-black">{formatPercent(stress.probability)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Heuristinen stressialue</div><div className="mt-1 font-black">{formatPercent(stress.lower)}–{formatPercent(stress.upper)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Perus-EV</div><div className="mt-1 font-black text-sky-300">{formatPercent(stress.baseEv)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Alarajan EV</div><div className={`mt-1 font-black ${Number(stress.downsideEv) > 0 ? "text-emerald-300" : "text-red-300"}`}>{formatPercent(stress.downsideEv)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Robustness</div><div className="mt-1 font-black">{formatPercent(pick.robustnessScore)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Paperipanos</div><div className="mt-1 font-black text-purple-300">{formatMoney(pick.suggestedStake)}</div></div>
+                  <Metric label={tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} value={formatPercent(stress.probability)} />
+                  <Metric label={tr({ fi: "Stressialue", en: "Stress range", es: "Rango de estrés" })} value={`${formatPercent(stress.lower)}–${formatPercent(stress.upper)}`} />
+                  <Metric label={tr({ fi: "Perus-EV", en: "Base EV", es: "EV base" })} value={formatPercent(stress.baseEv)} tone="text-sky-300" />
+                  <Metric label={tr({ fi: "Alarajan EV", en: "Downside EV", es: "EV a la baja" })} value={formatPercent(stress.downsideEv)} tone={Number(stress.downsideEv) > 0 ? "text-emerald-300" : "text-red-300"} />
+                  <Metric label={tr({ fi: "Kestävyys", en: "Robustness", es: "Robustez" })} value={formatPercent(pick.robustnessScore)} />
+                  <Metric label={t("term.paperStake")} value={money(pick.suggestedStake)} tone="text-purple-300" />
                 </div>
-
                 <div className="mt-4 rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 text-sm text-slate-200">{pick.decisionReason}</div>
-                {pick.portfolioReason && <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-sm text-sky-200">Portfolio: {pick.portfolioReason}</div>}
-                <div className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2">
-                  <div>Data {freshnessLabel(pick)} · {pick.bookmakerCount || 0} vedonvälittäjää</div>
-                  <div>Nykyinen kerroin {Number(priceGuard.currentOdds || 0).toFixed(2)} · PLAY-raja {Number(priceGuard.minimumPlayOdds || 0).toFixed(2)}</div>
-                </div>
-
-                <div className="mt-4 flex flex-wrap gap-2">
-                  <button onClick={() => setExpandedId(expanded ? null : id)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-300">{expanded ? "Piilota AI-auditointi" : "Näytä AI-auditointi"}</button>
-                  <button onClick={() => addPickToTracking(pick)} disabled={pick.decision !== "PLAY" || pick.suggestedStake <= 0} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">Lisää paperiseurantaan</button>
-                </div>
-
-                {expanded && (
-                  <div className="mt-4 grid gap-4 lg:grid-cols-2">
-                    <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4">
-                      <div className="font-bold text-emerald-300">Todennettu evidenssi</div>
-                      <ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.evidence.map((item) => <li key={item}>• {item}</li>)}</ul>
-                    </div>
-                    <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-4">
-                      <div className="font-bold text-red-300">AI:n vastaväite</div>
-                      <ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.counterArguments.map((item) => <li key={item}>• {item}</li>)}</ul>
-                    </div>
-                    <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4">
-                      <div className="font-bold text-yellow-300">Puuttuva evidenssi</div>
-                      {pick.missingEvidence.length ? <ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.missingEvidence.map((item) => <li key={item}>• {item}</li>)}</ul> : <p className="mt-2 text-sm text-slate-300">Ei tunnistettuja puutteita.</p>}
-                    </div>
-                    <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4">
-                      <div className="font-bold text-sky-300">Hinta- ja päätösrajat</div>
-                      <div className="mt-2 space-y-1 text-sm text-slate-300">
-                        <p>Break-even-kerroin {Number(priceGuard.breakEvenOdds || 0).toFixed(2)}</p>
-                        <p>3 % tavoite-EV:n minimikerroin {Number(priceGuard.minimumPlayOdds || 0).toFixed(2)}</p>
-                        <p>Alarajan break-even {Number(priceGuard.conservativeBreakEvenOdds || 0).toFixed(2)}</p>
-                        <p>Hintapuskuri {Number(priceGuard.buffer || 0).toFixed(2)}</p>
-                      </div>
-                    </div>
-                    <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 lg:col-span-2">
-                      <div className="font-bold text-purple-300">Oppimissignaali</div>
-                      <p className="mt-2 text-sm text-slate-300">{pick.learningSignal.note}</p>
-                      <p className="mt-2 text-xs text-slate-400">
-                        Segmentti {pick.learningSignal.segment || "ei valittu"} · otos {pick.learningSignal.sampleSize} · ROI {optionalPercent(pick.learningSignal.metrics?.roi)} · CLV {optionalPercent(pick.learningSignal.metrics?.averageClv)} · Brier {optionalNumber(pick.learningSignal.metrics?.brierScore)}. Todennäköisyyttä ei muutettu.
-                      </p>
-                    </div>
-                    <div className="lg:col-span-2">
-                      <AgentExplanation pick={pick} />
-                    </div>
-                  </div>
-                )}
+                {pick.portfolioReason && <div className="mt-3 rounded-xl border border-sky-400/20 bg-sky-400/10 p-3 text-sm text-sky-200">{tr({ fi: "Portfolio", en: "Portfolio", es: "Cartera" })}: {pick.portfolioReason}</div>}
+                <div className="mt-3 grid gap-2 text-sm text-slate-400 sm:grid-cols-2"><div>{tr({ fi: "Data", en: "Data", es: "Datos" })} {freshnessLabel(pick)} · {pick.bookmakerCount || 0} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })}</div><div>{tr({ fi: "Nykyinen kerroin", en: "Current odds", es: "Cuota actual" })} {Number(priceGuard.currentOdds || 0).toFixed(2)} · PLAY {Number(priceGuard.minimumPlayOdds || 0).toFixed(2)}</div></div>
+                <div className="mt-4 flex flex-wrap gap-2"><button onClick={() => setExpandedId(expanded ? null : id)} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 text-sm font-bold text-slate-300">{expanded ? tr({ fi: "Piilota AI-auditointi", en: "Hide AI audit", es: "Ocultar auditoría IA" }) : tr({ fi: "Näytä AI-auditointi", en: "Show AI audit", es: "Mostrar auditoría IA" })}</button><button onClick={() => addPickToTracking(pick)} disabled={pick.decision !== "PLAY" || pick.suggestedStake <= 0} className="rounded-xl bg-emerald-400 px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-40">{tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })}</button></div>
+                {expanded && <div className="mt-4 grid gap-4 lg:grid-cols-2">
+                  <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-4"><div className="font-bold text-emerald-300">{tr({ fi: "Todennettu evidenssi", en: "Verified evidence", es: "Evidencia verificada" })}</div><ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.evidence.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+                  <div className="rounded-xl border border-red-400/20 bg-red-400/10 p-4"><div className="font-bold text-red-300">{tr({ fi: "AI:n vastaväite", en: "AI counterargument", es: "Contraargumento de la IA" })}</div><ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.counterArguments.map((item) => <li key={item}>• {item}</li>)}</ul></div>
+                  <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4"><div className="font-bold text-yellow-300">{tr({ fi: "Puuttuva evidenssi", en: "Missing evidence", es: "Evidencia faltante" })}</div>{pick.missingEvidence.length ? <ul className="mt-2 space-y-1 text-sm text-slate-300">{pick.missingEvidence.map((item) => <li key={item}>• {item}</li>)}</ul> : <p className="mt-2 text-sm text-slate-300">{tr({ fi: "Ei tunnistettuja puutteita.", en: "No identified gaps.", es: "No se detectaron carencias." })}</p>}</div>
+                  <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4"><div className="font-bold text-sky-300">{tr({ fi: "Hinta- ja päätösrajat", en: "Price and decision limits", es: "Límites de cuota y decisión" })}</div><div className="mt-2 space-y-1 text-sm text-slate-300"><p>Break-even {Number(priceGuard.breakEvenOdds || 0).toFixed(2)}</p><p>{tr({ fi: "PLAY-minimikerroin", en: "Minimum PLAY odds", es: "Cuota mínima PLAY" })} {Number(priceGuard.minimumPlayOdds || 0).toFixed(2)}</p><p>{tr({ fi: "Konservatiivinen break-even", en: "Conservative break-even", es: "Break-even conservador" })} {Number(priceGuard.conservativeBreakEvenOdds || 0).toFixed(2)}</p><p>{tr({ fi: "Hintapuskuri", en: "Price buffer", es: "Margen de cuota" })} {Number(priceGuard.buffer || 0).toFixed(2)}</p></div></div>
+                  <div className="rounded-xl border border-purple-400/20 bg-purple-400/10 p-4 lg:col-span-2"><div className="font-bold text-purple-300">{tr({ fi: "Oppimissignaali", en: "Learning signal", es: "Señal de aprendizaje" })}</div><p className="mt-2 text-sm text-slate-300">{pick.learningSignal.note}</p><p className="mt-2 text-xs text-slate-400">{tr({ fi: "Otos", en: "Sample", es: "Muestra" })} {pick.learningSignal.sampleSize} · ROI {optionalPercent(pick.learningSignal.metrics?.roi)} · CLV {optionalPercent(pick.learningSignal.metrics?.averageClv)} · Brier {optionalNumber(pick.learningSignal.metrics?.brierScore)}. {tr({ fi: "Todennäköisyyttä ei muutettu.", en: "Probability was not changed.", es: "La probabilidad no se modificó." })}</p></div>
+                  <div className="lg:col-span-2"><AgentExplanation pick={pick} /></div>
+                </div>}
               </article>
             );
           })}
         </div>
 
         <div className="space-y-6">
-          <Panel title="Agent V10 -päätösketju" subtitle="Laskenta ensin, kieli vasta sen jälkeen">
-            <div className="space-y-3 text-sm text-slate-300">
-              <p>1. V9-ydin lukee no-vig-markkinakonsensuksen muuttamatta sitä.</p>
-              <p>2. Se stressaa alarajan, vastaväitteen, hinnan ja portfolioaltistuksen.</p>
-              <p>3. Deterministinen PLAY, WATCH tai SKIP lukitaan ennen kielimallia.</p>
-              <p>4. V10 lähettää vain rajatun ei-henkilökohtaisen päätössopimuksen palvelimelle.</p>
-              <p>5. Selitys tuotetaan ilman verkkohakua, työkaluja tai uusia numeroita.</p>
-              <p>6. Palvelin validoi rakenteen ja kielletyt varmuusväitteet.</p>
-              <p>7. Virheessä käytetään turvallista determinististä varaselitystä.</p>
-            </div>
+          <Panel title={tr({ fi: "Agent V10 -päätösketju", en: "Agent V10 decision chain", es: "Cadena de decisión Agent V10" })} subtitle={tr({ fi: "Laskenta ensin, kieli vasta sen jälkeen", en: "Calculation first, language second", es: "Primero el cálculo, después el lenguaje" })}>
+            <div className="space-y-3 text-sm text-slate-300"><p>1. {tr({ fi: "Ydin lukee no-vig-markkinakonsensuksen muuttamatta sitä.", en: "The core reads no-vig market consensus without changing it.", es: "El núcleo lee el consenso sin margen sin modificarlo." })}</p><p>2. {tr({ fi: "Se stressaa alarajan, vastaväitteen, hinnan ja portfolioaltistuksen.", en: "It stress-tests downside, counterargument, price and portfolio exposure.", es: "Somete a estrés la baja, el contraargumento, la cuota y la exposición." })}</p><p>3. {tr({ fi: "PLAY, WATCH tai SKIP lukitaan ennen kielimallia.", en: "PLAY, WATCH or SKIP is locked before the language model.", es: "PLAY, WATCH o SKIP se bloquea antes del modelo de lenguaje." })}</p><p>4. {tr({ fi: "Kieli muuttaa vain selityksen esitystapaa, ei allekirjoitettua päätöstä.", en: "Language changes presentation only, not the signed decision.", es: "El idioma solo cambia la presentación, no la decisión firmada." })}</p></div>
           </Panel>
-
-          <Panel title="V10-tietosuoja" subtitle="Minimoitu AI-syöte">
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>• Ei sähköpostia, nimeä, käyttäjätunnusta tai maksutietoja.</p>
-              <p>• Ei vedonvälittäjätunnuksia eikä palvelinsalaisuuksia.</p>
-              <p>• Ei koko paperihistoriaa tai vapaata käyttäjätekstiä.</p>
-              <p>• Selityspyyntö tallennetaan palveluntarjoajalle asetuksella store false.</p>
-              <p>• Selainvälimuisti säilyttää valmiin selityksen rajatun ajan vain tällä laitteella.</p>
-            </div>
-          </Panel>
-
-          <Panel title="Portfolioportit" subtitle="Virtuaalinen papeririski">
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>Kokonaiskatto: <span className="font-bold text-sky-300">{formatMoney(portfolio.totalCap)}</span></p>
-              <p>Liigakohtainen katto: <span className="font-bold text-purple-300">{formatMoney(portfolio.leagueCap)}</span></p>
-              <p>Yksi PLAY-valinta per tapahtuma.</p>
-              <p>Stressialueen alarajan Kelly, ei optimistisen keskiarvon Kelly.</p>
-            </div>
-          </Panel>
-
-          <Panel title="Tuoteraja" subtitle="Paper only">
-            <div className="space-y-2 text-sm text-slate-300">
-              <p>• Ei oikean rahan vetoja tai automaattista toimeksiantoa.</p>
-              <p>• Ei vedonvälittäjätunnuksia tai maksutietoja.</p>
-              <p>• Ei keksittyjä uutisia, kokoonpanoja tai loukkaantumisia.</p>
-              <p>• Kielimalliselitys ei voi muuttaa laskettua evidenssiä.</p>
-              <p>• Ei tuottolupausta.</p>
-            </div>
-          </Panel>
+          <Panel title={tr({ fi: "V10-tietosuoja", en: "V10 privacy", es: "Privacidad V10" })} subtitle={tr({ fi: "Minimoitu AI-syöte", en: "Minimized AI input", es: "Entrada IA minimizada" })}><div className="space-y-2 text-sm text-slate-300"><p>• {tr({ fi: "Ei sähköpostia, nimeä, käyttäjätunnusta tai maksutietoja.", en: "No email, name, user ID or payment data.", es: "Sin correo, nombre, identificador de usuario ni datos de pago." })}</p><p>• {tr({ fi: "Ei koko paperihistoriaa tai vapaata käyttäjätekstiä.", en: "No full paper history or unrestricted user text.", es: "Sin historial completo ni texto libre del usuario." })}</p><p>• store false</p></div></Panel>
+          <Panel title={tr({ fi: "Portfolioportit", en: "Portfolio gates", es: "Filtros de cartera" })} subtitle={t("common.paperOnly")}><div className="space-y-2 text-sm text-slate-300"><p>{tr({ fi: "Kokonaiskatto", en: "Total cap", es: "Límite total" })}: <span className="font-bold text-sky-300">{money(portfolio.totalCap)}</span></p><p>{tr({ fi: "Liigakohtainen katto", en: "League cap", es: "Límite por liga" })}: <span className="font-bold text-purple-300">{money(portfolio.leagueCap)}</span></p><p>{tr({ fi: "Yksi PLAY-valinta per tapahtuma.", en: "One PLAY selection per event.", es: "Una selección PLAY por evento." })}</p></div></Panel>
+          <Panel title={tr({ fi: "Tuoteraja", en: "Product boundary", es: "Límite del producto" })} subtitle="Paper only"><div className="space-y-2 text-sm text-slate-300"><p>• {tr({ fi: "Ei oikean rahan vetoja tai automaattista toimeksiantoa.", en: "No real-money bets or automatic execution.", es: "Sin apuestas con dinero real ni ejecución automática." })}</p><p>• {tr({ fi: "Ei keksittyjä uutisia, kokoonpanoja tai loukkaantumisia.", en: "No invented news, lineups or injuries.", es: "Sin noticias, alineaciones ni lesiones inventadas." })}</p><p>• {tr({ fi: "Ei tuottolupausta.", en: "No profit promise.", es: "Sin promesa de beneficios." })}</p></div></Panel>
         </div>
       </section>
     </div>
