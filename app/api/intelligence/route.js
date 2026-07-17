@@ -1,85 +1,45 @@
-import { NextResponse } from "next/server";
+import { cleanText, getRequestId, jsonResponse, readJsonBody } from "../../../lib/api-security";
+import { buildIntelligenceReadiness } from "../../../lib/intelligence-readiness.mjs";
+import { fetchNewsForMatch } from "../../../lib/news-fetcher";
+import { fetchInjuriesForMatch } from "../../../lib/injury-fetcher";
+import { fetchLineupForMatch } from "../../../lib/lineup-fetcher";
 
-import { fetchNewsForMatch } from "@/lib/news-fetcher";
-import { fetchInjuriesForMatch } from "@/lib/injury-fetcher";
-import { fetchLineupForMatch } from "@/lib/lineup-fetcher";
-import { fetchPolymarketForMatch } from "@/lib/polymarket-fetcher";
+export const dynamic = "force-dynamic";
 
-export async function POST(req) {
-  try {
-    const body = await req.json();
+function normalizeInput(data = {}) {
+  const homeTeam = cleanText(data.homeTeam, 120);
+  const awayTeam = cleanText(data.awayTeam, 120);
+  const sport = cleanText(data.sport, 120);
+  const league = cleanText(data.league, 120);
 
-    const {
-      homeTeam,
-      awayTeam,
-      sport,
-      league
-    } = body;
+  if (!homeTeam || !awayTeam || !sport) return null;
+  if (homeTeam.toLowerCase() === awayTeam.toLowerCase()) return null;
+  return { homeTeam, awayTeam, sport, league };
+}
 
-    const [
-      news,
-      injuries,
-      lineup,
-      polymarket
-    ] = await Promise.all([
-      fetchNewsForMatch({
-        homeTeam,
-        awayTeam,
-        sport,
-        league
-      }),
+export async function POST(request) {
+  const requestId = getRequestId(request);
+  const parsed = await readJsonBody(request, 8192);
+  if (!parsed.ok) return jsonResponse({ ok: false, error: parsed.error }, parsed.status, requestId);
 
-      fetchInjuriesForMatch({
-        homeTeam,
-        awayTeam,
-        sport,
-        league
-      }),
+  const match = normalizeInput(parsed.data);
+  if (!match) return jsonResponse({ ok: false, error: "Invalid match input" }, 400, requestId);
 
-      fetchLineupForMatch({
-        homeTeam,
-        awayTeam,
-        sport,
-        league
-      }),
+  const [news, injuries, lineup] = await Promise.all([
+    fetchNewsForMatch(match),
+    fetchInjuriesForMatch(match),
+    fetchLineupForMatch(match)
+  ]);
 
-      fetchPolymarketForMatch({
-        homeTeam,
-        awayTeam,
-        sport,
-        league
-      })
-    ]);
+  const intelligence = { news, injuries, lineup };
+  const readiness = buildIntelligenceReadiness(intelligence);
 
-    return NextResponse.json({
-      success: true,
-      generatedAt: new Date().toISOString(),
-
-      match: {
-        homeTeam,
-        awayTeam,
-        sport,
-        league
-      },
-
-      intelligence: {
-        news,
-        injuries,
-        lineup,
-        polymarket
-      }
-    });
-  } catch (error) {
-    console.error(error);
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: error.message
-      },
-      {
-        status: 500
-      }
-    );
-  }
+  return jsonResponse({
+    ok: true,
+    generatedAt: new Date().toISOString(),
+    match,
+    readiness,
+    intelligence,
+    paperOnly: true
+  }, 200, requestId);
 }
