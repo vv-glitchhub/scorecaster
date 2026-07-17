@@ -9,12 +9,17 @@ import {
   readJsonBody
 } from "../../../../lib/api-security";
 import { calculateAgentPerformance } from "../../../../lib/agent-learning.js";
+import { enrichPickWithLiveIntelligence } from "../../../../lib/agent-intelligence-loader.js";
 import { buildSelfLearningReport } from "../../../../lib/agent-self-learning.mjs";
 import {
   applyModelLabSafety,
   summarizeGovernedDecisions
 } from "../../../../lib/agent-model-governance.mjs";
 import { buildAgentV9Portfolio } from "../../../../lib/agent-v9-engine.mjs";
+import {
+  attachVerifiedSportsIntelligence,
+  buildUnevaluatedSportsIntelligence
+} from "../../../../lib/verified-sports-intelligence.mjs";
 import {
   agentDecisionSigningConfigured,
   createAgentDecisionTicket
@@ -27,6 +32,7 @@ export const dynamic = "force-dynamic";
 const SUPPORTED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const MAX_SPORTS = 6;
 const MAX_HISTORY = 500;
+const MAX_CONTEXT_PICKS = 6;
 
 function parseSports(value) {
   if (!Array.isArray(value)) return [];
@@ -103,6 +109,39 @@ async function loadTopPicks(request, sports) {
   return { ok: true, payload };
 }
 
+async function loadVerifiedContext(picks) {
+  const input = Array.isArray(picks) ? picks.slice(0, 20) : [];
+  const evaluated = await Promise.all(input.slice(0, MAX_CONTEXT_PICKS).map(async (pick) => {
+    try {
+      return await enrichPickWithLiveIntelligence(pick);
+    } catch {
+      return attachVerifiedSportsIntelligence(
+        pick,
+        buildUnevaluatedSportsIntelligence(pick.commenceTime)
+      );
+    }
+  }));
+  const unevaluated = input.slice(MAX_CONTEXT_PICKS).map((pick) =>
+    attachVerifiedSportsIntelligence(pick, buildUnevaluatedSportsIntelligence(pick.commenceTime))
+  );
+  return [...evaluated, ...unevaluated];
+}
+
+function summarizeContext(picks) {
+  const reports = picks.map((pick) => pick.verifiedIntelligence).filter(Boolean);
+  return {
+    version: "real-sports-intelligence-v1",
+    evaluated: reports.filter((report) => report.status !== "not_evaluated").length,
+    maximumEvaluatedPerRequest: MAX_CONTEXT_PICKS,
+    verified: reports.filter((report) => report.status === "verified").length,
+    partial: reports.filter((report) => report.status === "partial").length,
+    unavailable: reports.filter((report) => report.status === "unavailable").length,
+    blockedByVerifiedContext: reports.filter((report) => report.playGate?.blocked).length,
+    probabilityAdjusted: false,
+    externalMarketUsedForDecision: false
+  };
+}
+
 export async function POST(request) {
   const requestId = getRequestId(request);
   if (!mutationOriginAllowed(request)) {
@@ -137,7 +176,9 @@ export async function POST(request) {
     return jsonResponse({ ok: false, error: source.error }, source.status, requestId);
   }
 
-  const portfolio = buildAgentV9Portfolio(source.payload?.data || [], {
+  const contextPicks = await loadVerifiedContext(source.payload?.data || []);
+  const contextSummary = summarizeContext(contextPicks);
+  const portfolio = buildAgentV9Portfolio(contextPicks, {
     ...settings,
     learning: learningResult.learning
   });
@@ -149,10 +190,15 @@ export async function POST(request) {
     explanationTicket: signingConfigured ? createAgentDecisionTicket(decision) : null
   }));
 
+  const warnings = [learningResult.warning].filter(Boolean);
+  if (contextSummary.evaluated === 0) {
+    warnings.push("Verified sports context is unavailable; missing context remains visible and probability was not changed");
+  }
+
   return jsonResponse(
     {
       ok: true,
-      agentVersion: "V11-model-lab-shadow",
+      agentVersion: "V11-model-lab-real-intelligence-v1",
       source: source.payload?.source || "no-vig-market-consensus",
       fixtureSource: source.payload?.fixtureSource || "live-odds-provider-only",
       generatedAt: new Date().toISOString(),
@@ -162,9 +208,11 @@ export async function POST(request) {
         ? "signed-grounded-provider-or-fallback"
         : "deterministic-fallback-only",
       learningMode: "chronological-champion-challenger-shadow",
-      warnings: [learningResult.warning].filter(Boolean),
+      intelligenceMode: "verified-context-safety-gate-no-probability-adjustment",
+      warnings,
       settings,
       modelLab: learningResult.modelLab,
+      sportsIntelligence: contextSummary,
       counts: governedSummary.counts,
       totalAllocated: governedSummary.totalAllocated,
       totalCap: portfolio.totalCap,
