@@ -11,7 +11,8 @@
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
     "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10"
+    "test:agent-ticket": "node --test scripts/agent-decision-ticket.test.mjs",
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
