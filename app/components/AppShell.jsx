@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import ContextHelp from "./ContextHelp";
 
 const primaryItems = [
   { href: "/", label: "Etusivu", short: "Etusivu" },
@@ -184,7 +185,10 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 lg:pb-8">{children}</main>
+      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 lg:pb-8">
+        <ContextHelp />
+        {children}
+      </main>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label="Pikavalikko">
         {mobileItems.map((item) => (
