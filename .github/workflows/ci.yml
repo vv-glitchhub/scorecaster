@@ -55,6 +55,11 @@ jobs:
           set -o pipefail
           npm run test:agent-v10 2>&1 | tee agent-v10.log
 
+      - name: Signed Agent decision and mobile AI tests
+        run: |
+          set -o pipefail
+          npm run test:agent-ticket 2>&1 | tee agent-ticket.log
+
       - name: Build
         run: |
           set -o pipefail
@@ -68,6 +73,7 @@ jobs:
           path: |
             agent-v9.log
             agent-v10.log
+            agent-ticket.log
             build.log
           if-no-files-found: ignore
           retention-days: 7
