@@ -7,7 +7,7 @@ import Panel from "./components/Panel";
 import { useLanguage } from "./components/LanguageProvider";
 import { getTrackedBets } from "../lib/tracking-storage";
 import { calculateTrackingStats } from "../lib/tracking-engine";
-import { formatMoney, formatPercent } from "../lib/analysis-engine";
+import { formatPercent } from "../lib/analysis-engine";
 
 function decisionLabel(pick) {
   if (pick.productDecision) return pick.productDecision;
@@ -22,11 +22,24 @@ function decisionClass(decision) {
   return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
 }
 
+function kickoffLabel(value, locale, fallback) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 export default function DashboardClient() {
   const { t, tr, locale } = useLanguage();
   const [topPicks, setTopPicks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState("loading");
+  const [featuredHours, setFeaturedHours] = useState(72);
   const [trackingStats, setTrackingStats] = useState(null);
 
   const steps = useMemo(() => [
@@ -102,8 +115,9 @@ export default function DashboardClient() {
         const response = await fetch("/api/top-picks", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || "Top Picks unavailable");
-        setTopPicks(Array.isArray(data.featured) && data.featured.length ? data.featured : (Array.isArray(data.data) ? data.data.slice(0, 3) : []));
-        setSource(data.source || "no-vig-market-consensus");
+        setTopPicks(Array.isArray(data.featured) ? data.featured : []);
+        setFeaturedHours(Number(data.featuredWindowHours || 72));
+        setSource(data.fixtureSource || data.source || "live-odds-provider-only");
       } catch {
         setTopPicks([]);
         setSource(tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" }));
@@ -162,8 +176,8 @@ export default function DashboardClient() {
       </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title={t("home.topTitle")} value={loading ? "…" : String(topPicks.length)} subtitle={`${tr({ fi: "Lähde", en: "Source", es: "Fuente" })}: ${source}`} tone="blue" />
-        <StatCard title="PLAY" value={loading ? "…" : String(summary.play)} subtitle={tr({ fi: "Vain läpäisseet kohteet", en: "Only picks that pass all gates", es: "Solo pronósticos que superan los filtros" })} tone="green" />
+        <StatCard title={t("home.topTitle")} value={loading ? "…" : String(topPicks.length)} subtitle={`${tr({ fi: "Ottelulähde", en: "Fixture source", es: "Fuente de partidos" })}: ${source}`} tone="blue" />
+        <StatCard title="PLAY" value={loading ? "…" : String(summary.play)} subtitle={tr({ fi: "Vain lähiajan portit läpäisseet kohteet", en: "Only near-term picks that pass all gates", es: "Solo pronósticos próximos que superan todos los filtros" })} tone="green" />
         <StatCard title={tr({ fi: "Korkein edge", en: "Highest edge", es: "Mayor ventaja" })} value={loading ? "…" : formatPercent(summary.bestEdge)} subtitle={tr({ fi: "Paras hinta vs konsensus", en: "Best price versus consensus", es: "Mejor cuota frente al consenso" })} />
         <StatCard title={t("home.paperResult")} value={trackingStats ? money(trackingStats.totalProfit) : money(0)} subtitle={trackingStats ? `${trackingStats.totalBets} ${tr({ fi: "tallennettua", en: "saved", es: "guardados" })}` : tr({ fi: "Ei historiaa", en: "No history", es: "Sin historial" })} tone={trackingStats?.totalProfit >= 0 ? "green" : "red"} />
       </section>
@@ -182,18 +196,19 @@ export default function DashboardClient() {
         </Panel>
 
         <div className="space-y-6">
-          <Panel title={tr({ fi: "Päivän Top 3", en: "Today's Top 3", es: "Top 3 de hoy" })} subtitle={t("home.topDescription")}>
+          <Panel title={tr({ fi: "Lähiajan Top 3", en: "Near-term Top 3", es: "Top 3 próximos" })} subtitle={t("home.topDescription")}>
             <div className="space-y-3">
-              {loading && <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">{tr({ fi: "Analysoidaan markkinaa…", en: "Analyzing the market…", es: "Analizando el mercado…" })}</div>}
-              {!loading && topPicks.length === 0 && <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-100">{t("home.noPicks")}</div>}
+              {loading && <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">{tr({ fi: "Tarkistetaan oikeita lähiajan otteluita…", en: "Checking real near-term fixtures…", es: "Comprobando partidos reales próximos…" })}</div>}
+              {!loading && topPicks.length === 0 && <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-100">{t("home.noPicks")} <span className="mt-2 block text-xs text-yellow-200/70">{tr({ fi: `Lista näyttää vain seuraavan ${featuredHours} tunnin ottelut.`, en: `This list only shows fixtures in the next ${featuredHours} hours.`, es: `Esta lista solo muestra partidos de las próximas ${featuredHours} horas.` })}</span></div>}
               {topPicks.map((pick, index) => {
                 const decision = decisionLabel(pick);
                 return (
                   <div key={`${pick.id || pick.match}-${pick.selection}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="text-xs text-slate-500">{pick.leagueTitle || pick.league || tr({ fi: "Urheilu", en: "Sport", es: "Deporte" })}</div>
-                        <div className="mt-1 truncate font-black">{pick.match || `${pick.homeTeam || ""} – ${pick.awayTeam || ""}`}</div>
+                        <div className="text-xs font-bold text-emerald-300">{kickoffLabel(pick.commenceTime, locale, tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" }))}</div>
+                        <div className="mt-1 text-xs text-slate-500">{pick.leagueTitle || pick.league || tr({ fi: "Urheilu", en: "Sport", es: "Deporte" })} · {tr({ fi: "live-API", en: "live API", es: "API en vivo" })}</div>
+                        <div className="mt-1 font-black">{pick.match || `${pick.homeTeam || ""} – ${pick.awayTeam || ""}`}</div>
                         <div className="mt-1 text-sm text-slate-400">{pick.selection || pick.label || tr({ fi: "Valinta", en: "Selection", es: "Selección" })} @ {Number(pick.odds || 0).toFixed(2)}</div>
                       </div>
                       <div className={`rounded-full border px-3 py-1 text-xs font-black ${decisionClass(decision)}`}>{decision}</div>
@@ -206,7 +221,7 @@ export default function DashboardClient() {
                   </div>
                 );
               })}
-              <Link href="/agent" className="block rounded-xl bg-fuchsia-400 px-4 py-3 text-center text-sm font-black text-slate-950 hover:bg-fuchsia-300">{tr({ fi: "Avaa perustelut ja vastaväitteet", en: "Open reasoning and counterarguments", es: "Abrir motivos y contraargumentos" })}</Link>
+              <Link href="/agent" className="block rounded-xl bg-emerald-400 px-4 py-3 text-center text-sm font-black text-slate-950 hover:bg-emerald-300">{tr({ fi: "Avaa perustelut ja vastaväitteet", en: "Open reasoning and counterarguments", es: "Abrir motivos y contraargumentos" })}</Link>
             </div>
           </Panel>
 
