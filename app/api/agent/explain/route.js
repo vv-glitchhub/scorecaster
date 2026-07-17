@@ -21,6 +21,18 @@ export const dynamic = "force-dynamic";
 const OPENAI_URL = "https://api.openai.com/v1/responses";
 const DEFAULT_MODEL = "gpt-5-mini";
 const REQUEST_TIMEOUT_MS = 18000;
+const SUPPORTED_LANGUAGES = new Set(["fi", "en", "es"]);
+
+function normalizeLanguage(value) {
+  const language = String(value || "fi").toLowerCase().split(/[-_]/)[0];
+  return SUPPORTED_LANGUAGES.has(language) ? language : "fi";
+}
+
+function languageName(language) {
+  if (language === "en") return "English";
+  if (language === "es") return "Spanish";
+  return "Finnish";
+}
 
 function decisionHash(contract) {
   return createHash("sha256")
@@ -33,24 +45,24 @@ function extractOutputText(payload) {
   if (typeof payload?.output_text === "string") return payload.output_text;
   for (const item of Array.isArray(payload?.output) ? payload.output : []) {
     for (const content of Array.isArray(item?.content) ? item.content : []) {
-      if (content?.type === "output_text" && typeof content.text === "string") {
-        return content.text;
-      }
+      if (content?.type === "output_text" && typeof content.text === "string") return content.text;
     }
   }
   return "";
 }
 
-function fallbackResponse(contract, requestId, reason, status = 200) {
+function fallbackResponse(contract, requestId, reason, language, status = 200) {
   return jsonResponse(
     {
       ok: true,
       enhanced: false,
+      authoritative: false,
+      language,
       decisionHash: decisionHash(contract),
       generatedAt: new Date().toISOString(),
       model: "deterministic",
       reason,
-      explanation: buildDeterministicAgentExplanation(contract)
+      explanation: buildDeterministicAgentExplanation(contract, language)
     },
     status,
     requestId,
@@ -58,9 +70,11 @@ function fallbackResponse(contract, requestId, reason, status = 200) {
   );
 }
 
-function systemInstruction() {
+function systemInstruction(language) {
+  const requestedLanguage = languageName(language);
   return [
-    "You are Scorecaster Agent V10's grounded Finnish explanation layer.",
+    "You are Scorecaster Agent V10's grounded explanation layer.",
+    `Write the summary and limitation in ${requestedLanguage}.`,
     "The deterministic decision object is the sole source of truth.",
     "Never change or dispute its decision, probability, edge, EV, stake, price guard or portfolio allocation.",
     "Write only a qualitative summary and limitation without digits or new facts.",
@@ -68,11 +82,11 @@ function systemInstruction() {
     "The server, not you, will render the actual evidence, counterargument and verification text from those indexes.",
     "Do not invent news, injuries, lineups, weather, motivation, form or private information.",
     "Do not instruct the user to place a real-money bet and do not promise profit.",
-    "Write concise, calm Finnish. Return only the required JSON object."
+    "Return only the required JSON object."
   ].join(" ");
 }
 
-async function generateGroundedExplanation(contract) {
+async function generateGroundedExplanation(contract, language) {
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, reason: "OpenAI explanation service is not configured" };
 
@@ -94,10 +108,7 @@ async function generateGroundedExplanation(contract) {
         reasoning: { effort: "low" },
         max_output_tokens: 700,
         input: [
-          {
-            role: "system",
-            content: [{ type: "input_text", text: systemInstruction() }]
-          },
+          { role: "system", content: [{ type: "input_text", text: systemInstruction(language) }] },
           {
             role: "user",
             content: [{
@@ -110,7 +121,7 @@ async function generateGroundedExplanation(contract) {
           format: {
             type: "json_schema",
             name: "scorecaster_agent_v10_explanation",
-            description: "Grounded Finnish explanation that cannot alter the deterministic Scorecaster decision.",
+            description: `Grounded ${languageName(language)} explanation that cannot alter the deterministic Scorecaster decision.`,
             strict: true,
             schema: AGENT_EXPLANATION_JSON_SCHEMA
           }
@@ -118,9 +129,7 @@ async function generateGroundedExplanation(contract) {
       })
     });
 
-    if (!response.ok) {
-      return { ok: false, reason: `Explanation provider returned ${response.status}` };
-    }
+    if (!response.ok) return { ok: false, reason: `Explanation provider returned ${response.status}` };
 
     const payload = await response.json();
     const raw = extractOutputText(payload);
@@ -133,10 +142,8 @@ async function generateGroundedExplanation(contract) {
       return { ok: false, reason: "Explanation provider returned invalid JSON" };
     }
 
-    const explanation = validateGeneratedAgentExplanation(parsed, contract);
-    if (!explanation) {
-      return { ok: false, reason: "Generated explanation failed grounding validation" };
-    }
+    const explanation = validateGeneratedAgentExplanation(parsed, contract, language);
+    if (!explanation) return { ok: false, reason: "Generated explanation failed grounding validation" };
 
     return {
       ok: true,
@@ -147,9 +154,7 @@ async function generateGroundedExplanation(contract) {
   } catch (error) {
     return {
       ok: false,
-      reason: error?.name === "AbortError"
-        ? "Explanation provider timed out"
-        : "Explanation provider request failed"
+      reason: error?.name === "AbortError" ? "Explanation provider timed out" : "Explanation provider request failed"
     };
   } finally {
     clearTimeout(timeout);
@@ -158,39 +163,24 @@ async function generateGroundedExplanation(contract) {
 
 export async function POST(request) {
   const requestId = getRequestId(request);
-  if (!mutationOriginAllowed(request)) {
-    return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
-  }
+  if (!mutationOriginAllowed(request)) return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
 
   const body = await readJsonBody(request, 40 * 1024);
-  if (!body.ok) {
-    return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
-  }
+  if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
 
+  const language = normalizeLanguage(body.data?.language);
   const clientContract = sanitizeAgentExplanationInput(body.data);
   const auth = await getAuthenticatedContext(request);
 
   if (!auth.ok) {
-    if (!clientContract) {
-      return jsonResponse({ ok: false, error: "Invalid Agent V10 decision contract" }, 400, requestId);
-    }
-    return fallbackResponse(
-      clientContract,
-      requestId,
-      "Sign in to use a server-authoritative Agent decision and optional enhanced explanation"
-    );
+    if (!clientContract) return jsonResponse({ ok: false, error: "Invalid Agent V10 decision contract" }, 400, requestId);
+    return fallbackResponse(clientContract, requestId, "Sign in to use a server-authoritative Agent decision and optional enhanced explanation", language);
   }
 
   const verified = verifyAgentDecisionTicket(body.data?.ticket);
   if (!verified.ok) {
-    if (!clientContract) {
-      return jsonResponse({ ok: false, error: verified.error }, 400, requestId);
-    }
-    return fallbackResponse(
-      clientContract,
-      requestId,
-      "Enhanced explanation requires a current server-signed Agent decision"
-    );
+    if (!clientContract) return jsonResponse({ ok: false, error: verified.error }, 400, requestId);
+    return fallbackResponse(clientContract, requestId, "Enhanced explanation requires a current server-signed Agent decision", language);
   }
 
   const limited = await enforceRateLimit(auth, requestId, {
@@ -201,16 +191,15 @@ export async function POST(request) {
   if (limited) return limited;
 
   const contract = verified.contract;
-  const generated = await generateGroundedExplanation(contract);
-  if (!generated.ok) {
-    return fallbackResponse(contract, requestId, generated.reason);
-  }
+  const generated = await generateGroundedExplanation(contract, language);
+  if (!generated.ok) return fallbackResponse(contract, requestId, generated.reason, language);
 
   return jsonResponse(
     {
       ok: true,
       enhanced: true,
       authoritative: true,
+      language,
       decisionHash: decisionHash(contract),
       ticketExpiresAt: new Date(verified.expiresAt).toISOString(),
       generatedAt: new Date().toISOString(),
