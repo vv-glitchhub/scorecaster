@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-const CACHE_VERSION = "agent-v10-signed-grounded-2";
+const CACHE_VERSION = "agent-v10-signed-grounded-3";
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 
 function stableKey(pick = {}) {
@@ -49,6 +49,38 @@ function writeCache(key, payload) {
   } catch {
     // Explanation caching is optional and must never block the Agent UI.
   }
+}
+
+function sameDecision(left, right) {
+  const leftEvent = String(left?.gameId || left?.eventId || left?.id || left?.match || "");
+  const rightEvent = String(right?.gameId || right?.eventId || right?.id || right?.match || "");
+  return leftEvent === rightEvent &&
+    String(left?.selection || "") === String(right?.selection || "") &&
+    String(left?.decision || "") === String(right?.decision || "");
+}
+
+async function resolveServerDecision(pick) {
+  if (pick?.explanationTicket) return pick;
+
+  const sports = pick?.sportKey ? [pick.sportKey] : [];
+  const response = await fetch("/api/agent/portfolio", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sports,
+      settings: {
+        bankroll: Number(pick?.bankroll || 1000),
+        maxStakePercent: Number(pick?.maxStakePercent || 1),
+        maxTotalExposurePercent: 4,
+        maxLeagueExposurePercent: 2
+      }
+    })
+  });
+
+  if (!response.ok) return pick;
+  const data = await response.json();
+  const authoritative = (data.decisions || []).find((candidate) => sameDecision(candidate, pick));
+  return authoritative?.explanationTicket ? authoritative : pick;
 }
 
 function ExplanationBody({ payload }) {
@@ -106,10 +138,14 @@ export default function AgentExplanation({ pick }) {
     setLoading(true);
     setError("");
     try {
+      const authoritative = await resolveServerDecision(pick);
       const response = await fetch("/api/agent/explain", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision: pick, ticket: pick.explanationTicket || null })
+        body: JSON.stringify({
+          decision: authoritative,
+          ticket: authoritative.explanationTicket || null
+        })
       });
       const data = await response.json();
       if (!response.ok) {
@@ -136,12 +172,10 @@ export default function AgentExplanation({ pick }) {
           disabled={loading}
           className="rounded-xl border border-fuchsia-400/30 bg-fuchsia-400/10 px-4 py-2 text-sm font-bold text-fuchsia-200 disabled:opacity-50"
         >
-          {loading ? "Luodaan valvottua selitystä…" : payload ? "Päivitä Agent V10 -selitys" : "Luo Agent V10 -selitys"}
+          {loading ? "Vahvistetaan päätös ja luodaan selitystä…" : payload ? "Päivitä Agent V10 -selitys" : "Luo Agent V10 -selitys"}
         </button>
         <span className="text-xs text-slate-500">
-          {pick.explanationTicket
-            ? "Palvelimen allekirjoittama päätös; selityskerros ei voi muuttaa laskentaa."
-            : "Ilman palvelimen päätöslippua käytetään vain determinististä varaselitystä."}
+          Palvelin yrittää vahvistaa saman päätöksen ennen kielimallia. Epäonnistuessa käytetään vain determinististä varaselitystä.
         </span>
       </div>
       {error && <div className="mt-3 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>}
