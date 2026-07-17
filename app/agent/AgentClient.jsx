@@ -19,11 +19,15 @@ function freshnessLabel(pick) {
 }
 
 function optionalPercent(value) {
-  return Number.isFinite(Number(value)) ? formatPercent(Number(value)) : "–";
+  if (value === null || value === undefined || value === "") return "–";
+  const number = Number(value);
+  return Number.isFinite(number) ? formatPercent(number) : "–";
 }
 
 function optionalNumber(value, digits = 3) {
-  return Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
+  if (value === null || value === undefined || value === "") return "–";
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "–";
 }
 
 function Metric({ label, value, tone = "text-slate-100" }) {
@@ -149,7 +153,7 @@ export default function AgentClient() {
       riskWarnings: [
         "Agent V9 uses virtual paper tracking only.",
         "The probability is not changed by local learning or an LLM narrative.",
-        "The stake uses the uncertainty interval's lower probability and portfolio exposure caps.",
+        "The stake uses the heuristic stress range's lower probability and portfolio exposure caps.",
         "No result or profit is guaranteed."
       ],
       paperOnly: true
@@ -242,7 +246,7 @@ export default function AgentClient() {
 
                 <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-6">
                   <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Konsensus</div><div className="mt-1 font-black">{formatPercent(stress.probability)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">95 % stressialue</div><div className="mt-1 font-black">{formatPercent(stress.lower)}–{formatPercent(stress.upper)}</div></div>
+                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Heuristinen stressialue</div><div className="mt-1 font-black">{formatPercent(stress.lower)}–{formatPercent(stress.upper)}</div></div>
                   <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Perus-EV</div><div className="mt-1 font-black text-sky-300">{formatPercent(stress.baseEv)}</div></div>
                   <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Alarajan EV</div><div className={`mt-1 font-black ${Number(stress.downsideEv) > 0 ? "text-emerald-300" : "text-red-300"}`}>{formatPercent(stress.downsideEv)}</div></div>
                   <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">Robustness</div><div className="mt-1 font-black">{formatPercent(pick.robustnessScore)}</div></div>
@@ -302,7 +306,7 @@ export default function AgentClient() {
           <Panel title="Agent V9 -päätösketju" subtitle="AI:n audit trail">
             <div className="space-y-3 text-sm text-slate-300">
               <p>1. Lukee no-vig-markkinakonsensuksen muuttamatta sitä.</p>
-              <p>2. Rakentaa epävarmuusvälin kattavuudesta, hajonnasta ja tuoreudesta.</p>
+              <p>2. Rakentaa heuristisen stressialueen kattavuudesta, hajonnasta ja tuoreudesta.</p>
               <p>3. Testaa, säilyykö EV positiivisena alarajalla.</p>
               <p>4. Muodostaa oman vastaväitteen ja listaa puuttuvan evidenssin.</p>
               <p>5. Tarkistaa hinta-, tapahtuma-, liiga- ja kokonaisaltistusrajat.</p>
@@ -316,7 +320,7 @@ export default function AgentClient() {
               <p>Kokonaiskatto: <span className="font-bold text-sky-300">{formatMoney(portfolio.totalCap)}</span></p>
               <p>Liigakohtainen katto: <span className="font-bold text-purple-300">{formatMoney(portfolio.leagueCap)}</span></p>
               <p>Yksi PLAY-valinta per tapahtuma.</p>
-              <p>Alarajan Kelly, ei optimistisen keskiarvon Kelly.</p>
+              <p>Stressialueen alarajan Kelly, ei optimistisen keskiarvon Kelly.</p>
             </div>
           </Panel>
 
