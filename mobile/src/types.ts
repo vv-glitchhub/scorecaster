@@ -1,4 +1,4 @@
-export type Tab = "home" | "picks" | "agent" | "paper" | "analytics" | "settings";
+export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings";
 
 export type Pick = {
   id?: string;
@@ -63,15 +63,6 @@ export type AgentDecision = Pick & {
   counterArguments?: string[];
   missingEvidence?: string[];
   explanationTicket?: string | null;
-  selfLearning?: {
-    version?: string;
-    status?: string;
-    mode?: string;
-    sampleSize?: number;
-    promotionEligible?: boolean;
-    driftStatus?: string;
-    probabilityApplied?: boolean;
-  };
   stressTest?: {
     probability?: number;
     lower?: number;
@@ -96,59 +87,13 @@ export type AgentDecision = Pick & {
   };
 };
 
-export type ModelLabMetricSet = {
-  count?: number;
-  brierScore?: number | null;
-  logLoss?: number | null;
-  expectedWinRate?: number | null;
-  actualWinRate?: number | null;
-  calibrationGap?: number | null;
-};
-
-export type AgentModelLab = {
-  version?: string;
-  mode?: string;
-  status?: string;
-  sampleSize?: number;
-  minimumSamples?: number;
-  trainSize?: number;
-  holdoutSize?: number;
-  champion?: { id?: string; holdout?: ModelLabMetricSet } | null;
-  challenger?: {
-    id?: string;
-    holdout?: ModelLabMetricSet;
-    holdoutImprovement?: { brier?: number; logLoss?: number; calibration?: number };
-  } | null;
-  drift?: {
-    status?: string;
-    brierChange?: number | null;
-    calibrationGapChange?: number | null;
-    meanProbabilityChange?: number | null;
-    note?: string;
-  };
-  promotion?: {
-    eligible?: boolean;
-    reasons?: string[];
-  };
-  safety?: {
-    chronologicalSplit?: boolean;
-    candidateSelectedOnTrainingOnly?: boolean;
-    evaluatedOnUntouchedHoldout?: boolean;
-    probabilityAppliedToProduction?: boolean;
-  };
-};
-
 export type AgentPortfolio = {
   ok: boolean;
-  agentVersion?: string;
   source: string;
-  fixtureSource?: string;
   generatedAt: string;
   paperOnly: true;
   signingConfigured: boolean;
   explanationMode: string;
-  learningMode?: string;
-  modelLab?: AgentModelLab;
   warnings?: string[];
   counts: { PLAY: number; WATCH: number; SKIP: number };
   totalAllocated: number;
@@ -156,6 +101,14 @@ export type AgentPortfolio = {
   leagueCap: number;
   exposurePercent: number;
   decisions: AgentDecision[];
+  modelLab?: {
+    status?: string;
+    sampleSize?: number;
+    minimumSamples?: number;
+    probabilityAppliedToProduction?: boolean;
+    challenger?: { id?: string; status?: string } | null;
+    drift?: { status?: string };
+  };
 };
 
 export type AgentExplanationPayload = {
