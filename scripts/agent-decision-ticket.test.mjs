@@ -70,8 +70,8 @@ test("tampered, expired and wrong-key decision tickets fail closed", () => {
 
 test("portfolio API is authenticated, rate-limited and signs only server-built decisions", async () => {
   const route = await readFile(new URL("../app/api/agent/portfolio/route.js", import.meta.url), "utf8");
-  const authIndex = route.indexOf("getAuthenticatedContext(request)");
-  const sourceIndex = route.indexOf("loadTopPicks(request, sports)");
+  const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
+  const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
   const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
   const signingIndex = route.indexOf("createAgentDecisionTicket(decision)");
 
