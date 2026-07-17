@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import Panel from "../components/Panel";
-
 import {
   getTrackedBets,
   settleTrackedBet,
@@ -10,26 +10,19 @@ import {
   clearTrackedBets,
   updateClosingOdds
 } from "../../lib/tracking-storage";
-
 import {
   calculateTrackingStats,
   calculateProfitLoss,
   calculateCLV
 } from "../../lib/tracking-engine";
-
 import { formatPercent, formatMoney } from "../../lib/analysis-engine";
 
 function StatBox({ title, value, subtitle, tone = "default" }) {
   const color =
-    tone === "green"
-      ? "text-emerald-300"
-      : tone === "red"
-      ? "text-red-300"
-      : tone === "blue"
-      ? "text-sky-300"
-      : tone === "yellow"
-      ? "text-yellow-300"
-      : "text-white";
+    tone === "green" ? "text-emerald-300" :
+    tone === "red" ? "text-red-300" :
+    tone === "blue" ? "text-sky-300" :
+    tone === "yellow" ? "text-yellow-300" : "text-white";
 
   return (
     <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
@@ -38,6 +31,20 @@ function StatBox({ title, value, subtitle, tone = "default" }) {
       {subtitle && <div className="mt-1 text-sm text-slate-500">{subtitle}</div>}
     </div>
   );
+}
+
+function resultLabel(result) {
+  if (result === "win") return "Voitto";
+  if (result === "loss") return "Tappio";
+  if (result === "push") return "Palautus";
+  return "Avoin";
+}
+
+function resultClass(result) {
+  if (result === "win") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
+  if (result === "loss") return "border-red-400/30 bg-red-400/10 text-red-300";
+  if (result === "push") return "border-sky-400/30 bg-sky-400/10 text-sky-300";
+  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
 }
 
 export default function TrackingPage() {
@@ -58,12 +65,14 @@ export default function TrackingPage() {
     refresh();
   }
 
-  function deleteBet(id) {
+  function removeBet(id) {
+    if (!window.confirm("Poistetaanko tämä paperikohde historiasta?")) return;
     deleteTrackedBet(id);
     refresh();
   }
 
   function clearAll() {
+    if (!window.confirm("Poistetaanko koko paikallinen paperihistoria? Tätä ei voi perua.")) return;
     clearTrackedBets();
     refresh();
   }
@@ -74,7 +83,6 @@ export default function TrackingPage() {
   }
 
   const stats = calculateTrackingStats(bets);
-
   const filteredBets = bets
     .filter((bet) => {
       if (filter === "all") return true;
@@ -88,261 +96,144 @@ export default function TrackingPage() {
     .sort((a, b) => {
       const dateA = new Date(a.createdAt || 0).getTime();
       const dateB = new Date(b.createdAt || 0).getTime();
-
       return sortOrder === "newest" ? dateB - dateA : dateA - dateB;
     });
 
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-6 shadow-2xl">
-        <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-sm text-emerald-300">
-          Tracking System V2
+        <div className="mb-2 inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1 text-sm font-black text-emerald-300">
+          Paikallinen paperiseuranta
         </div>
-
-        <h1 className="text-4xl font-black tracking-tight">
-          Performance Tracking
-        </h1>
-
-        <p className="mt-3 text-slate-300">
-          Seuraa ROI:ta, profitia, CLV:tä, edgeä, EV:tä, streakkejä ja mallin
-          onnistumista.
+        <h1 className="text-4xl font-black tracking-tight">Seuranta</h1>
+        <p className="mt-3 max-w-3xl text-slate-300">
+          Kirjaa virtuaaliset lopputulokset ja seuraa päätöksenteon laatua. Tällä sivulla ei aseteta oikean rahan vetoja.
         </p>
-
-        {bets.length > 0 && (
-          <button
-            onClick={clearAll}
-            className="mt-5 rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2 font-bold text-red-300 hover:bg-red-400/20"
-          >
-            Clear All Local Bets
-          </button>
-        )}
+        <div className="mt-5 flex flex-wrap gap-3">
+          <Link href="/betting" className="rounded-xl bg-emerald-400 px-4 py-3 text-sm font-black text-slate-950">Lisää paperikohde</Link>
+          <Link href="/analytics" className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-sm font-black">Avaa tarkempi analyysi</Link>
+          {bets.length > 0 && (
+            <button onClick={clearAll} className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm font-black text-red-300 hover:bg-red-400/20">
+              Tyhjennä paikallinen historia
+            </button>
+          )}
+        </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <StatBox
-          title="Total Bets"
-          value={stats.totalBets}
-          subtitle={`${stats.openBets} open`}
-        />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatBox title="Paperikohteet" value={stats.totalBets} subtitle={`${stats.openBets} avoinna`} />
         <StatBox title="ROI" value={formatPercent(stats.roi)} tone="blue" />
-        <StatBox
-          title="Profit"
-          value={formatMoney(stats.totalProfit)}
-          tone={stats.totalProfit >= 0 ? "green" : "red"}
-        />
-        <StatBox
-          title="Win Rate"
-          value={formatPercent(stats.winRate)}
-          tone="yellow"
-        />
-
-        <StatBox
-          title="Average Edge"
-          value={formatPercent(stats.averageEdge)}
-          tone="green"
-        />
-        <StatBox
-          title="Average EV"
-          value={formatPercent(stats.averageEV)}
-          tone="blue"
-        />
-        <StatBox
-          title="Average CLV"
-          value={formatPercent(stats.averageCLV)}
-          tone={stats.averageCLV >= 0 ? "green" : "red"}
-        />
-        <StatBox title="Average Odds" value={stats.averageOdds.toFixed(2)} />
-
-        <StatBox title="Wins" value={stats.wins} tone="green" />
-        <StatBox title="Losses" value={stats.losses} tone="red" />
-        <StatBox title="Pushes" value={stats.pushes} />
-        <StatBox title="Current Streak" value={stats.currentStreak} />
+        <StatBox title="Paperitulos" value={formatMoney(stats.totalProfit)} tone={stats.totalProfit >= 0 ? "green" : "red"} />
+        <StatBox title="Osumaprosentti" value={formatPercent(stats.winRate)} tone="yellow" />
       </section>
+
+      <details className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <summary className="cursor-pointer font-black text-slate-200">Näytä edistyneet mittarit</summary>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <StatBox title="Keskimääräinen edge" value={formatPercent(stats.averageEdge)} tone="green" />
+          <StatBox title="Keskimääräinen EV" value={formatPercent(stats.averageEV)} tone="blue" />
+          <StatBox title="Keskimääräinen CLV" value={formatPercent(stats.averageCLV)} tone={stats.averageCLV >= 0 ? "green" : "red"} />
+          <StatBox title="Keskimääräinen kerroin" value={stats.averageOdds.toFixed(2)} />
+          <StatBox title="Voitot" value={stats.wins} tone="green" />
+          <StatBox title="Tappiot" value={stats.losses} tone="red" />
+          <StatBox title="Palautukset" value={stats.pushes} />
+          <StatBox title="Nykyinen putki" value={stats.currentStreak} />
+        </div>
+      </details>
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
         <div className="grid gap-3 md:grid-cols-2">
-          <select
-            value={filter}
-            onChange={(event) => setFilter(event.target.value)}
-            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
-          >
-            <option value="all">All Bets</option>
-            <option value="open">Open Bets</option>
-            <option value="settled">Settled Bets</option>
-            <option value="wins">Wins</option>
-            <option value="losses">Losses</option>
-            <option value="pushes">Pushes</option>
-          </select>
-
-          <select
-            value={sortOrder}
-            onChange={(event) => setSortOrder(event.target.value)}
-            className="rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none"
-          >
-            <option value="newest">Newest First</option>
-            <option value="oldest">Oldest First</option>
-          </select>
+          <label className="text-sm font-bold text-slate-300">
+            Näytä
+            <select aria-label="Suodata paperikohteita" value={filter} onChange={(event) => setFilter(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none">
+              <option value="all">Kaikki kohteet</option>
+              <option value="open">Avoimet</option>
+              <option value="settled">Ratkaistut</option>
+              <option value="wins">Voitot</option>
+              <option value="losses">Tappiot</option>
+              <option value="pushes">Palautukset</option>
+            </select>
+          </label>
+          <label className="text-sm font-bold text-slate-300">
+            Järjestys
+            <select aria-label="Järjestä paperikohteet" value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100 outline-none">
+              <option value="newest">Uusin ensin</option>
+              <option value="oldest">Vanhin ensin</option>
+            </select>
+          </label>
         </div>
       </section>
 
-      <Panel title="Tracked Bets" subtitle="Bet history, settlement and CLV">
+      <Panel title="Paperikohteet" subtitle="Lopputulos, paperitulos ja päätöskerroin">
         <div className="space-y-4">
           {filteredBets.length === 0 && (
-            <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">
-              No tracked bets found with current filters.
+            <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-100">
+              Tällä suodattimella ei ole kohteita. Lisää ensimmäinen kohde Kohteet- tai AI-sivulta.
             </div>
           )}
 
           {filteredBets.map((bet) => {
-            const profit = calculateProfitLoss({
-              stake: bet.stake,
-              odds: bet.odds,
-              result: bet.result
-            });
-
-            const clv = calculateCLV({
-              odds: bet.odds,
-              closingOdds: bet.closingOdds
-            });
+            const profit = calculateProfitLoss({ stake: bet.stake, odds: bet.odds, result: bet.result });
+            const clv = calculateCLV({ odds: bet.odds, closingOdds: bet.closingOdds });
 
             return (
-              <div
-                key={bet.id}
-                className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
-              >
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div>
-                    <div className="text-xl font-black">{bet.match}</div>
-
-                    <div className="mt-2 text-sm text-slate-400">
-                      {bet.selection} @ {bet.odds}
+              <article key={bet.id} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className={`rounded-full border px-3 py-1 text-xs font-black ${resultClass(bet.result)}`}>{resultLabel(bet.result)}</span>
+                      <span className="text-xs text-slate-500">{bet.createdAt ? new Date(bet.createdAt).toLocaleString("fi-FI") : "Päivämäärä puuttuu"}</span>
                     </div>
-
-                    <div className="mt-2 text-xs text-slate-500">
-                      {bet.createdAt
-                        ? new Date(bet.createdAt).toLocaleString("fi-FI")
-                        : "No date"}
-                    </div>
+                    <h2 className="mt-3 text-xl font-black">{bet.match}</h2>
+                    <div className="mt-2 text-sm text-slate-400">{bet.selection} @ {bet.odds}</div>
                   </div>
-
-                  <div className="rounded-xl bg-slate-950 px-4 py-3 text-right">
-                    <div className="text-sm text-slate-400">Stake</div>
-                    <div className="mt-1 text-xl font-black text-emerald-300">
-                      {formatMoney(bet.stake)}
-                    </div>
+                  <div className="rounded-xl bg-slate-950 px-4 py-3 lg:text-right">
+                    <div className="text-sm text-slate-400">Paperipanos</div>
+                    <div className="mt-1 text-xl font-black text-emerald-300">{formatMoney(bet.stake)}</div>
                   </div>
                 </div>
 
-                <div className="mt-5 grid gap-3 md:grid-cols-5">
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">Edge</div>
-                    <div className="mt-2 text-xl font-black text-emerald-300">
-                      {formatPercent(bet.edge)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">EV</div>
-                    <div className="mt-2 text-xl font-black text-sky-300">
-                      {formatPercent(bet.ev)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">Closing Odds</div>
-                    <input
-                      value={bet.closingOdds || ""}
-                      onChange={(event) =>
-                        changeClosingOdds(bet.id, event.target.value)
-                      }
-                      placeholder="1.95"
-                      className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm outline-none"
-                    />
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">CLV</div>
-                    <div
-                      className={`mt-2 text-xl font-black ${
-                        clv >= 0 ? "text-emerald-300" : "text-red-300"
-                      }`}
-                    >
-                      {formatPercent(clv)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl bg-slate-950 p-4">
-                    <div className="text-sm text-slate-400">Profit</div>
-                    <div
-                      className={`mt-2 text-xl font-black ${
-                        profit >= 0 ? "text-emerald-300" : "text-red-300"
-                      }`}
-                    >
-                      {formatMoney(profit)}
-                    </div>
-                  </div>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+                  <div className="rounded-xl bg-slate-950 p-4"><div className="text-sm text-slate-400">Edge</div><div className="mt-2 text-xl font-black text-emerald-300">{formatPercent(bet.edge)}</div></div>
+                  <div className="rounded-xl bg-slate-950 p-4"><div className="text-sm text-slate-400">EV</div><div className="mt-2 text-xl font-black text-sky-300">{formatPercent(bet.ev)}</div></div>
+                  <label className="rounded-xl bg-slate-950 p-4 text-sm text-slate-400">
+                    Päätöskerroin
+                    <input aria-label={`Päätöskerroin kohteelle ${bet.match}`} value={bet.closingOdds || ""} onChange={(event) => changeClosingOdds(bet.id, event.target.value)} placeholder="esim. 1,95" inputMode="decimal" className="mt-2 w-full rounded-lg border border-white/10 bg-slate-900 px-3 py-2 text-sm text-white outline-none" />
+                  </label>
+                  <div className="rounded-xl bg-slate-950 p-4"><div className="text-sm text-slate-400">CLV</div><div className={`mt-2 text-xl font-black ${clv >= 0 ? "text-emerald-300" : "text-red-300"}`}>{formatPercent(clv)}</div></div>
+                  <div className="rounded-xl bg-slate-950 p-4"><div className="text-sm text-slate-400">Paperitulos</div><div className={`mt-2 text-xl font-black ${profit >= 0 ? "text-emerald-300" : "text-red-300"}`}>{formatMoney(profit)}</div></div>
                 </div>
 
                 {bet.riskWarnings?.length > 0 && (
-                  <div className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4">
-                    <div className="font-bold text-yellow-300">
-                      Risk Warnings
-                    </div>
+                  <details className="mt-5 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4">
+                    <summary className="cursor-pointer font-bold text-yellow-300">Näytä riskivaroitukset</summary>
                     <ul className="mt-2 space-y-1 text-sm text-slate-300">
-                      {bet.riskWarnings.map((warning) => (
-                        <li key={warning}>• {warning}</li>
-                      ))}
+                      {bet.riskWarnings.map((warning) => <li key={warning}>• {warning}</li>)}
                     </ul>
-                  </div>
+                  </details>
                 )}
 
                 <div className="mt-5 flex flex-wrap gap-3">
-                  {bet.result === "pending" && (
+                  {bet.result === "pending" ? (
                     <>
-                      <button
-                        onClick={() => settleBet(bet.id, "win")}
-                        className="rounded-xl bg-emerald-400 px-4 py-2 font-bold text-slate-950 hover:bg-emerald-300"
-                      >
-                        Mark Win
-                      </button>
-
-                      <button
-                        onClick={() => settleBet(bet.id, "loss")}
-                        className="rounded-xl bg-red-400 px-4 py-2 font-bold text-slate-950 hover:bg-red-300"
-                      >
-                        Mark Loss
-                      </button>
-
-                      <button
-                        onClick={() => settleBet(bet.id, "push")}
-                        className="rounded-xl bg-yellow-400 px-4 py-2 font-bold text-slate-950 hover:bg-yellow-300"
-                      >
-                        Mark Push
-                      </button>
+                      <button onClick={() => settleBet(bet.id, "win")} className="rounded-xl bg-emerald-400 px-4 py-2 font-black text-slate-950 hover:bg-emerald-300">Merkitse voitoksi</button>
+                      <button onClick={() => settleBet(bet.id, "loss")} className="rounded-xl bg-red-400 px-4 py-2 font-black text-slate-950 hover:bg-red-300">Merkitse tappioksi</button>
+                      <button onClick={() => settleBet(bet.id, "push")} className="rounded-xl bg-yellow-400 px-4 py-2 font-black text-slate-950 hover:bg-yellow-300">Merkitse palautukseksi</button>
                     </>
+                  ) : (
+                    <button onClick={() => settleBet(bet.id, "pending")} className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-black text-slate-300 hover:bg-white/10">Avaa uudelleen</button>
                   )}
-
-                  {bet.result !== "pending" && (
-                    <button
-                      onClick={() => settleBet(bet.id, "pending")}
-                      className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-bold text-slate-300 hover:bg-white/10"
-                    >
-                      Reopen
-                    </button>
-                  )}
-
-                  <button
-                    onClick={() => deleteBet(bet.id)}
-                    className="rounded-xl border border-white/10 bg-white/5 px-4 py-2 font-bold text-slate-300 hover:bg-white/10"
-                  >
-                    Delete
-                  </button>
+                  <button onClick={() => removeBet(bet.id)} className="rounded-xl border border-red-400/30 bg-red-400/10 px-4 py-2 font-black text-red-300 hover:bg-red-400/20">Poista</button>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       </Panel>
+
+      <div className="rounded-2xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm leading-6 text-sky-100">
+        Tämä sivu käyttää selaimen paikallista historiaa. Kirjautuneen käyttäjän suojattu pilvihistoria löytyy mobiilisovelluksesta ja Pilvisynkronointi-sivulta, kun Supabase-tuotanto on aktivoitu.
+      </div>
     </div>
   );
 }
