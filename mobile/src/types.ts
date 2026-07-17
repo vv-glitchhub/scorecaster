@@ -1,4 +1,4 @@
-export type Tab = "home" | "picks" | "agent" | "paper" | "analytics" | "settings";
+export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings";
 
 export type Pick = {
   id?: string;

@@ -9,6 +9,7 @@ import HomeScreen from "./screens/HomeScreen";
 import PaperBetsScreen from "./screens/PaperBetsScreen";
 import PicksScreen from "./screens/PicksScreen";
 import SettingsScreen from "./screens/SettingsScreen";
+import WatchlistScreen from "./screens/WatchlistScreen";
 import { LanguageProvider, useLanguage } from "./i18n";
 import { mobileAuthConfigured, supabase } from "./lib/supabase";
 import type { Tab } from "./types";
@@ -19,10 +20,11 @@ function MainApp({ session }: { session: Session }) {
   const [tab, setTab] = useState<Tab>("home");
   const tabs = useMemo(() => [
     { key: "home" as Tab, label: tr({ fi: "Koti", en: "Home", es: "Inicio" }), accessibilityLabel: tr({ fi: "Etusivu ja papeririskit", en: "Home and paper risks", es: "Inicio y riesgos simulados" }) },
-    { key: "picks" as Tab, label: tr({ fi: "Kohteet", en: "Picks", es: "Pronósticos" }), accessibilityLabel: tr({ fi: "Päivän analysoidut kohteet", en: "Today's analyzed picks", es: "Pronósticos analizados de hoy" }) },
-    { key: "agent" as Tab, label: "AI", accessibilityLabel: tr({ fi: "Agent V10 päätöskopilotti", en: "Agent V10 decision copilot", es: "Copiloto de decisiones Agent V10" }) },
-    { key: "paper" as Tab, label: tr({ fi: "Seuranta", en: "Tracking", es: "Seguimiento" }), accessibilityLabel: tr({ fi: "Paperivetojen seuranta", en: "Paper-pick tracking", es: "Seguimiento de pronósticos simulados" }) },
-    { key: "analytics" as Tab, label: tr({ fi: "Analyysi", en: "Analytics", es: "Analítica" }), accessibilityLabel: tr({ fi: "Paperiseurannan analytiikka", en: "Paper-tracking analytics", es: "Analítica del seguimiento simulado" }) },
+    { key: "picks" as Tab, label: tr({ fi: "Kohteet", en: "Picks", es: "Pronóst." }), accessibilityLabel: tr({ fi: "Lähiajan analysoidut kohteet", en: "Near-term analyzed picks", es: "Pronósticos próximos analizados" }) },
+    { key: "watchlist" as Tab, label: tr({ fi: "Vahti", en: "Watch", es: "Lista" }), accessibilityLabel: tr({ fi: "Varmennettu seurantalista ja hälytykset", en: "Verified watchlist and alerts", es: "Lista verificada y alertas" }) },
+    { key: "agent" as Tab, label: "AI", accessibilityLabel: tr({ fi: "Agent V11 päätöskopilotti", en: "Agent V11 decision copilot", es: "Copiloto de decisiones Agent V11" }) },
+    { key: "paper" as Tab, label: tr({ fi: "Paperi", en: "Paper", es: "Papel" }), accessibilityLabel: tr({ fi: "Paperivetojen seuranta", en: "Paper-pick tracking", es: "Seguimiento de pronósticos simulados" }) },
+    { key: "analytics" as Tab, label: tr({ fi: "Data", en: "Data", es: "Datos" }), accessibilityLabel: tr({ fi: "Paperiseurannan analytiikka", en: "Paper-tracking analytics", es: "Analítica del seguimiento simulado" }) },
     { key: "settings" as Tab, label: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), accessibilityLabel: tr({ fi: "Profiili, kieli ja tietosuoja", en: "Profile, language and privacy", es: "Perfil, idioma y privacidad" }) }
   ], [tr]);
 
@@ -40,6 +42,7 @@ function MainApp({ session }: { session: Session }) {
       <View style={styles.content}>
         {tab === "home" && <HomeScreen />}
         {tab === "picks" && <PicksScreen />}
+        {tab === "watchlist" && <WatchlistScreen />}
         {tab === "agent" && <AgentScreen />}
         {tab === "paper" && <PaperBetsScreen />}
         {tab === "analytics" && <AnalyticsScreen />}
@@ -56,7 +59,7 @@ function MainApp({ session }: { session: Session }) {
             onPress={() => setTab(item.key)}
             style={({ pressed }) => [styles.tabButton, pressed && styles.tabButtonPressed]}
           >
-            <Text style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
           </Pressable>
         ))}
       </View>

@@ -1,16 +1,10 @@
 # Scorecaster Auth + Cloud Sync Setup
 
-This guide enables user accounts, protected paper-bet storage, personal paper-risk limits and optional automatic H2H result checking while keeping Quick Use available locally.
+This guide enables user accounts, protected paper history, personal paper-risk limits, verified watchlists and optional paper-result checking.
 
 ## 1. Supabase project
 
-Create or open the Supabase project used by Scorecaster.
-
-Copy these values from the project Connect dialog:
-
-- Project URL
-- Publishable key (or legacy anon key)
-- Service-role key for server-only account deletion
+Create or open the Supabase project used by Scorecaster and configure the public project connection values in the deployment environment.
 
 ## 2. Database schema and security
 
@@ -20,37 +14,34 @@ Open the Supabase SQL editor and run the files in this order:
 2. `supabase/scorecaster_auth_cloud.sql`
 3. `supabase/scorecaster_paper_risk_limits.sql`
 4. `supabase/scorecaster_api_rate_limits.sql`
+5. `supabase/scorecaster_watchlist_alerts.sql`
 
 The migrations add:
 
-- `profiles`
-- the cloud `bets` table
+- profiles and authenticated paper history
 - paper-bankroll settings
-- a stable local `client_ref` for duplicate-safe sync
-- indexes and data constraints
-- automatic profile creation
-- forced Row Level Security
-- user-specific policies
-- database enforcement for single stake, total exposure and single-league exposure
-- database enforcement for Scorecaster minimum edge and confidence
+- user-specific verified watchlist rows
+- stable duplicate-safe client references
+- indexes and bounded data constraints
+- forced Row Level Security and user-specific policies
+- paper stake, total exposure, league exposure, edge and confidence enforcement
 - user-level transaction locking for concurrent exposure checks
 - database-backed per-user API quotas
+- unique per-user watchlist selections and bounded alert thresholds
 
-The paper-risk migration is idempotent. Run it again after a deployment that changes the trigger definition.
-
-Do not use the service-role key in browser or mobile code. Normal account operations use the public key, a verified user JWT and RLS. The service-role key is read only by the server for permanent account deletion.
+The paper-risk and watchlist migrations are idempotent. Run the paper-risk migration again after a release that changes its trigger definition.
 
 ## 3. Supabase Auth settings
 
 Enable Email + Password authentication.
 
-Set the Site URL to the production address:
+Set the production Site URL to:
 
 ```text
 https://scorecaster.vercel.app
 ```
 
-Add this Redirect URL:
+Add the production confirmation redirect:
 
 ```text
 https://scorecaster.vercel.app/auth/confirm
@@ -64,81 +55,65 @@ http://localhost:3000/auth/confirm
 
 The native app uses Supabase mobile sessions and must be tested with the `scorecaster://` application scheme before store release.
 
-## 4. Vercel environment variables
+## 4. Deployment configuration
 
-Add these to the Scorecaster Vercel project:
-
-```text
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-ODDS_API_KEY=
-OPENAI_API_KEY=
-```
-
-Legacy Supabase projects can use this instead of the publishable key:
-
-```text
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
-
-`ODDS_API_KEY` powers both live odds and the optional user-triggered H2H score checker. Redeploy after changing environment variables. Never prefix the service-role, Odds API or OpenAI key with `NEXT_PUBLIC_` or `EXPO_PUBLIC_`.
+Configure the public Supabase connection and the required server-only integration settings in the deployment platform. Keep server-only values out of browser code, native application configuration and version control. Redeploy after changing deployment settings.
 
 ## 5. Test the full path
 
-1. Open `/production-status` and confirm Supabase and the Odds API are configured.
-2. Open `/login`.
-3. Create account A and confirm the email when required.
-4. Open `/profile` and confirm the server validates the account.
-5. Set account A's virtual bankroll, stake, total exposure, league exposure, minimum edge and minimum confidence.
-6. Add a manual paper pick in `/quick-use` and confirm it remains available for education.
-7. Add a Scorecaster pick below the minimum edge and confirm HTTP 400.
-8. Add a Scorecaster pick below the minimum confidence and confirm HTTP 400.
-9. Add a supported Scorecaster H2H pick and confirm the event ID and model probability are present in the protected history.
-10. Try a single paper stake above the configured limit and confirm HTTP 400.
-11. Try to exceed the total open paper-exposure limit and confirm rejection.
-12. Try to exceed the single-league open exposure limit and confirm rejection.
-13. Trigger two simultaneous writes near an exposure boundary and confirm only the valid transaction succeeds.
-14. After the test event completes, call `POST /api/cloud/bets/settle` or use the mobile result checker.
-15. Confirm the correct row becomes won or lost and stores only the minimal final-score metadata.
-16. Confirm unsupported or incomplete markets remain open.
-17. Repeat the result check until HTTP 429 with `Retry-After` is returned.
-18. Add optional closing odds manually and confirm profit, ROI and CLV are calculated.
-19. Confirm calibration analytics use only won/lost rows with a stored model probability.
-20. Create account B and verify it cannot read, update or delete account A's rows.
-21. Repeat protected flows with both cookie web auth and mobile bearer auth.
-22. Export account A's data and confirm only A's rows are included.
-23. Delete account A and confirm it can no longer authenticate.
+1. Open `/production-status` and confirm required integrations are reported correctly.
+2. Create account A and confirm its email when required.
+3. Confirm `/profile` validates account A on the server.
+4. Save account A's virtual bankroll and paper-risk settings.
+5. Verify minimum edge, minimum confidence, single-stake, total-exposure and league-exposure rejections.
+6. Trigger two simultaneous writes near an exposure boundary and confirm only the valid transaction succeeds.
+7. Save a supported paper selection and confirm its event ID and model probability are retained.
+8. Settle a completed supported H2H paper row and confirm minimal result metadata, paper profit and analytics.
+9. Add optional closing odds and confirm CLV calculation.
+10. Add a current verified selection to account A's Watchlist V2.
+11. Confirm the stored event, selection, kickoff, odds and decision came from the server-confirmed Top Picks row.
+12. Submit a fabricated event ID directly to `POST /api/cloud/watchlist` and confirm rejection.
+13. Change watchlist thresholds and confirm invalid ranges are rejected.
+14. Pause the item and confirm it emits no alerts.
+15. Reactivate it and confirm a verified price, decision or kickoff change produces the expected alert.
+16. Create account B.
+17. Confirm B cannot read, update or delete A's paper rows, bankroll settings or watchlist rows.
+18. Repeat protected paper, Agent and watchlist flows with both web-cookie and mobile-bearer sessions.
+19. Exceed protected endpoint quotas and confirm HTTP 429 plus `Retry-After`.
+20. Export account A's data and confirm only A's records are included.
+21. Delete account A and confirm it can no longer authenticate.
 
 ## Routes
 
 - `/login` — sign in and account creation
-- `/auth/confirm` — email confirmation / PKCE callback
-- `/profile` — server-validated account and privacy controls
-- `/cloud-sync` — local-to-cloud migration and cloud history
-- `/api/cloud/bets` — authenticated GET / POST / PATCH / DELETE API
-- `/api/cloud/bets/settle` — authenticated, rate-limited H2H result check
-- `/api/cloud/bankroll` — authenticated paper-bankroll and personal risk settings
-- `/api/account/export` — authenticated user-data export
-- `/api/account` — account-deletion status and permanent deletion
+- `/auth/confirm` — email confirmation callback
+- `/profile` — account and privacy controls
+- `/cloud-sync` — local-to-cloud paper migration
+- `/watchlist` — verified watchlist and user-triggered alerts
+- `/api/cloud/bets` — authenticated paper-history API
+- `/api/cloud/bets/settle` — authenticated paper-result check
+- `/api/cloud/bankroll` — authenticated virtual-bankroll settings
+- `/api/cloud/watchlist` — authenticated verified watchlist API
+- `/api/agent/portfolio` — authenticated Agent portfolio and Model Lab state
+- `/api/agent/explain` — authenticated governed explanation
+- `/api/account/export` — authenticated data export
+- `/api/account` — account status and deletion
 - `/api/health` — deployment and integration status
 
 ## Security model
 
-Browser and mobile clients use a public Supabase key. Authorization, risk control and abuse protection are enforced by:
+Authorization, risk control and abuse protection are enforced through:
 
-- validated Supabase user sessions
-- server-side `getUser()` checks for protected APIs
-- RLS policies using `auth.uid()`
-- server and database paper-stake validation
-- database total-open and single-league exposure validation
-- server and database Scorecaster edge/confidence validation
-- user-level PostgreSQL transaction locks for exposure checks
-- atomic per-user PostgreSQL request quotas
+- validated user sessions
+- server-side user validation for protected APIs
+- forced Row Level Security using `auth.uid()`
+- server and database paper-risk validation
+- user-level transaction locking
+- server re-resolution of watchlist selections from current Top Picks
+- unique user/event/market/selection watchlist rows
+- atomic per-user request quotas
 - exact-origin validation for cookie mutations
-- API content-type, body-size, text-length and numeric-range validation
-- bounded score-provider sport, row and update counts
-- duplicate-safe `(user_id, client_ref)` upserts
-- server-only integration secrets
+- bounded request content, numbers, strings and record counts
+- server-only integration settings
 
-The local browser copy is not deleted automatically after sync. This prevents data loss while the cloud layer is being tested.
+The browser paper copy is not deleted automatically after sync during testing. Watchlist V2 is separate from the paper slip and stores only server-verified comparison data.
