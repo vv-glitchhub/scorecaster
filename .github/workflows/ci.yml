@@ -50,6 +50,11 @@ jobs:
           set -o pipefail
           npm run test:agent-v9 2>&1 | tee agent-v9.log
 
+      - name: Agent V10 grounded explanation tests
+        run: |
+          set -o pipefail
+          npm run test:agent-v10 2>&1 | tee agent-v10.log
+
       - name: Build
         run: |
           set -o pipefail
@@ -62,6 +67,7 @@ jobs:
           name: scorecaster-diagnostics-${{ github.run_id }}
           path: |
             agent-v9.log
+            agent-v10.log
             build.log
           if-no-files-found: ignore
           retention-days: 7

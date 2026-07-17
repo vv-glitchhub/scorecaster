@@ -10,7 +10,8 @@
     "test:settlement": "node --test scripts/paper-settlement.test.mjs",
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9"
+    "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

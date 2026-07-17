@@ -26,6 +26,16 @@ export async function GET() {
     agentLearningUsesClvCalibrationAndBrier: true,
     agentLearningChangesProbability: false,
     agentV9RegressionTests: true,
+    agentV10GroundedExplanationApi: true,
+    agentV10StructuredOutputValidation: true,
+    agentV10NoNewNumbersRule: true,
+    agentV10NoExternalTools: true,
+    agentV10ProviderStorageDisabled: true,
+    agentV10DeterministicFallback: true,
+    agentV10AuthenticatedProviderAccess: true,
+    agentV10HourlyQuota: true,
+    agentV10LocalExplanationCache: true,
+    agentV10RegressionTests: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
     simulatorInputValidation: true,
@@ -77,6 +87,7 @@ export async function GET() {
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
+    openAiAgentModel: String(process.env.OPENAI_AGENT_MODEL || "gpt-5-mini").slice(0, 100),
     supabaseConfigured: Boolean(
       process.env.NEXT_PUBLIC_SUPABASE_URL && supabaseKeyConfigured
     )
@@ -91,6 +102,10 @@ export async function GET() {
     services.agentProbabilityStressTest &&
     services.agentPortfolioExposureCap &&
     services.agentV9RegressionTests &&
+    services.agentV10GroundedExplanationApi &&
+    services.agentV10StructuredOutputValidation &&
+    services.agentV10DeterministicFallback &&
+    services.agentV10RegressionTests &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
@@ -104,7 +119,7 @@ export async function GET() {
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V9-adversarial-stress-tested-portfolio-without-probability-boosting",
+      agentMode: "V10-grounded-language-layer-over-V9-immutable-adversarial-portfolio",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
@@ -116,7 +131,9 @@ export async function GET() {
           ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
-            : "Run paper-risk, automatic-settlement, Agent V9, Betting, Simulator, TestFlight and Play internal tests",
+            : !services.openAiConfigured
+              ? "Optional: configure the server-only OpenAI key for Agent V10 grounded explanations"
+              : "Run paper-risk, automatic-settlement, Agent V10, Betting, Simulator, TestFlight and Play internal tests",
       timestamp: new Date().toISOString()
     },
     {
