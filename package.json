@@ -12,7 +12,8 @@
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
     "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
     "test:agent-ticket": "node --test scripts/agent-decision-ticket.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket"
+    "test:easy-use": "node --test scripts/easy-use-ui.test.mjs",
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:easy-use"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
