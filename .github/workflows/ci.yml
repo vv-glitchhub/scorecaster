@@ -65,6 +65,11 @@ jobs:
           set -o pipefail
           npm run test:easy-use 2>&1 | tee easy-use.log
 
+      - name: Finnish English Spanish coverage tests
+        run: |
+          set -o pipefail
+          npm run test:i18n 2>&1 | tee i18n.log
+
       - name: Build
         run: |
           set -o pipefail
@@ -80,6 +85,7 @@ jobs:
             agent-v10.log
             agent-ticket.log
             easy-use.log
+            i18n.log
             build.log
           if-no-files-found: ignore
           retention-days: 7

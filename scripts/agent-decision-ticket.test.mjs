@@ -55,6 +55,7 @@ test("signed decision tickets preserve the sanitized immutable contract", () => 
   assert.equal(verified.contract.email, undefined);
   assert.equal(verified.contract.accessToken, undefined);
   assert.equal(verified.contract.selection, "Home FC");
+  assert.equal(verified.contract.language, undefined);
   assert.equal(verified.expiresAt, now + 600_000);
 });
 
@@ -92,7 +93,7 @@ test("enhanced explanation requires a verified signed ticket before provider use
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
   const verifyIndex = route.indexOf("const verified = verifyAgentDecisionTicket");
   const quotaIndex = route.indexOf("const limited = await enforceRateLimit(auth, requestId");
-  const providerIndex = route.indexOf("const generated = await generateGroundedExplanation(contract)");
+  const providerIndex = route.indexOf("const generated = await generateGroundedExplanation(contract, language)");
 
   assert.ok(authIndex >= 0);
   assert.ok(verifyIndex > authIndex);
@@ -100,6 +101,7 @@ test("enhanced explanation requires a verified signed ticket before provider use
   assert.ok(providerIndex > quotaIndex);
   assert.match(route, /Enhanced explanation requires a current server-signed Agent decision/);
   assert.match(route, /authoritative:\s*true/);
+  assert.doesNotMatch(route, /contract\.language/);
 });
 
 test("mobile Agent screen uses protected portfolio and explanation endpoints", async () => {
@@ -110,7 +112,7 @@ test("mobile Agent screen uses protected portfolio and explanation endpoints", a
   assert.match(app, /<AgentScreen\s*\/>/);
   assert.match(screen, /"\/api\/agent\/portfolio"/);
   assert.match(screen, /"\/api\/agent\/explain"/);
-  assert.match(screen, /ticket:\s*decision\.explanationTicket/);
+  assert.match(screen, /ticket:\s*decision\.explanationTicket \|\| null, language/);
   assert.match(screen, /"\/api\/cloud\/bets"/);
   assert.match(screen, /scorecaster-mobile-agent-v10/);
 });

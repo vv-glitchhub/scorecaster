@@ -1,12 +1,13 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
+import { LanguageProvider } from "./components/LanguageProvider";
 
 export const metadata = {
   title: {
     default: "Scorecaster",
     template: "%s | Scorecaster"
   },
-  description: "Urheiluanalyysi, riskinhallinta ja virtuaalinen paperiseuranta ilman oikean rahan vedonlyöntiä."
+  description: "Sports analysis, risk control and virtual paper tracking in Finnish, English and Spanish."
 };
 
 export const viewport = {
@@ -18,9 +19,11 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="fi">
+    <html lang="fi" suppressHydrationWarning>
       <body>
-        <AppShell>{children}</AppShell>
+        <LanguageProvider>
+          <AppShell>{children}</AppShell>
+        </LanguageProvider>
       </body>
     </html>
   );

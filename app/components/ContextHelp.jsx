@@ -2,77 +2,124 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useLanguage } from "./LanguageProvider";
 
-const guides = {
+const guideDefinitions = {
   "/betting": {
-    title: "Näin käytät Kohteet-sivua",
-    steps: ["Valitse laji, liiga ja markkina.", "Avaa kiinnostava kerroin ja lue päätös sekä riskivaroitukset.", "Tallenna vain PLAY- tai CAUTION-kohde paperiseurantaan."],
-    link: { href: "/help", label: "Mitä edge ja EV tarkoittavat?" }
+    title: { fi: "Näin käytät Kohteet-sivua", en: "How to use Picks", es: "Cómo usar Pronósticos" },
+    steps: [
+      { fi: "Valitse laji, liiga ja markkina.", en: "Choose a sport, league and market.", es: "Elige deporte, liga y mercado." },
+      { fi: "Avaa kiinnostava kerroin ja lue päätös sekä riskivaroitukset.", en: "Open an interesting price and read the decision and risk warnings.", es: "Abre una cuota interesante y lee la decisión y los avisos de riesgo." },
+      { fi: "Tallenna vain PLAY- tai CAUTION-kohde paperiseurantaan.", en: "Save only PLAY or CAUTION picks to paper tracking.", es: "Guarda solo pronósticos PLAY o CAUTION en el seguimiento simulado." }
+    ],
+    link: { href: "/help", label: { fi: "Mitä edge ja EV tarkoittavat?", en: "What do edge and EV mean?", es: "¿Qué significan ventaja y EV?" } }
   },
   "/agent": {
-    title: "Näin käytät AI-analyysia",
-    steps: ["Tarkista PLAY-, WATCH- ja SKIP-määrät.", "Avaa kohde ja lue myös AI:n vastaväite sekä puuttuva evidenssi.", "Tallenna vain palvelimen hyväksymä PLAY-kohde paperiseurantaan."],
-    link: { href: "/help", label: "Lue AI:n turvallisuusrajat" }
+    title: { fi: "Näin käytät AI-analyysia", en: "How to use AI analysis", es: "Cómo usar el análisis IA" },
+    steps: [
+      { fi: "Tarkista PLAY-, WATCH- ja SKIP-määrät.", en: "Check the PLAY, WATCH and SKIP counts.", es: "Comprueba los totales PLAY, WATCH y SKIP." },
+      { fi: "Avaa kohde ja lue myös AI:n vastaväite sekä puuttuva evidenssi.", en: "Open a pick and also read the AI counterargument and missing evidence.", es: "Abre un pronóstico y lee también el contraargumento y la evidencia faltante." },
+      { fi: "Tallenna vain palvelimen hyväksymä PLAY-kohde paperiseurantaan.", en: "Save only a server-approved PLAY pick to paper tracking.", es: "Guarda solo un pronóstico PLAY aprobado por el servidor." }
+    ],
+    link: { href: "/help", label: { fi: "Lue AI:n turvallisuusrajat", en: "Read the AI safety limits", es: "Lee los límites de seguridad de la IA" } }
   },
   "/tracking": {
-    title: "Näin käytät Seurantaa",
-    steps: ["Tarkista avoimet paperikohteet.", "Kirjaa tai tarkista lopputulos.", "Arvioi pidemmällä aikavälillä ROI:ta, CLV:tä ja kalibrointia."],
-    link: { href: "/analytics", label: "Avaa tarkempi analyysi" }
+    title: { fi: "Näin käytät Seurantaa", en: "How to use Tracking", es: "Cómo usar Seguimiento" },
+    steps: [
+      { fi: "Tarkista avoimet paperikohteet.", en: "Review open paper picks.", es: "Revisa los pronósticos simulados abiertos." },
+      { fi: "Kirjaa tai tarkista lopputulos.", en: "Record or verify the result.", es: "Registra o verifica el resultado." },
+      { fi: "Arvioi pidemmällä aikavälillä ROI:ta, CLV:tä ja kalibrointia.", en: "Evaluate ROI, CLV and calibration over time.", es: "Evalúa ROI, CLV y calibración a largo plazo." }
+    ],
+    link: { href: "/analytics", label: { fi: "Avaa tarkempi analyysi", en: "Open detailed analytics", es: "Abrir analítica detallada" } }
   },
   "/analytics": {
-    title: "Näin luet Analyysi-sivua",
-    steps: ["Katso ensin otoskoko.", "Vertaa ROI:n lisäksi CLV:tä ja Brier scorea.", "Älä tee johtopäätöstä muutaman kohteen perusteella."],
-    link: { href: "/help", label: "Avaa termien selitykset" }
+    title: { fi: "Näin luet Analyysi-sivua", en: "How to read Analytics", es: "Cómo leer Analítica" },
+    steps: [
+      { fi: "Katso ensin otoskoko.", en: "Start with the sample size.", es: "Empieza por el tamaño de la muestra." },
+      { fi: "Vertaa ROI:n lisäksi CLV:tä ja Brier scorea.", en: "Compare CLV and Brier score as well as ROI.", es: "Compara CLV y puntuación Brier además del ROI." },
+      { fi: "Älä tee johtopäätöstä muutaman kohteen perusteella.", en: "Do not draw conclusions from only a few picks.", es: "No saques conclusiones con pocos pronósticos." }
+    ],
+    link: { href: "/help", label: { fi: "Avaa termien selitykset", en: "Open terminology guide", es: "Abrir guía de términos" } }
   },
   "/simulator": {
-    title: "Näin käytät Simulaattoria",
-    steps: ["Syötä joukkueiden ratingit ja haluamasi siemen.", "Aja riittävä määrä simulaatioita.", "Lue tulos epävarmuusvälinä, ei varmana ennusteena."],
-    link: { href: "/help", label: "Muista mallin rajoitukset" }
+    title: { fi: "Näin käytät Simulaattoria", en: "How to use Simulator", es: "Cómo usar el Simulador" },
+    steps: [
+      { fi: "Syötä joukkueiden ratingit ja haluamasi siemen.", en: "Enter team ratings and your chosen seed.", es: "Introduce los ratings de los equipos y una semilla." },
+      { fi: "Aja riittävä määrä simulaatioita.", en: "Run a sufficient number of simulations.", es: "Ejecuta un número suficiente de simulaciones." },
+      { fi: "Lue tulos epävarmuusvälinä, ei varmana ennusteena.", en: "Read the result as an uncertainty range, not a certain prediction.", es: "Lee el resultado como un intervalo de incertidumbre, no como una predicción segura." }
+    ],
+    link: { href: "/help", label: { fi: "Muista mallin rajoitukset", en: "Remember the model limits", es: "Recuerda los límites del modelo" } }
   },
   "/risk": {
-    title: "Näin asetat paperirajat",
-    steps: ["Syötä vain virtuaalinen pelikassa.", "Pidä yksittäisen paperipanoksen ja kokonaisaltistuksen rajat pieninä.", "Tallenna asetukset ennen kohteiden lisäämistä."],
-    link: { href: "/responsible-use", label: "Lue vastuullisen käytön ohje" }
+    title: { fi: "Näin asetat paperirajat", en: "How to set paper limits", es: "Cómo definir límites simulados" },
+    steps: [
+      { fi: "Syötä vain virtuaalinen pelikassa.", en: "Enter a virtual bankroll only.", es: "Introduce solo una banca virtual." },
+      { fi: "Pidä yksittäisen paperipanoksen ja kokonaisaltistuksen rajat pieninä.", en: "Keep individual stake and total exposure limits small.", es: "Mantén bajos los límites por importe y exposición total." },
+      { fi: "Tallenna asetukset ennen kohteiden lisäämistä.", en: "Save settings before adding picks.", es: "Guarda los ajustes antes de añadir pronósticos." }
+    ],
+    link: { href: "/responsible-use", label: { fi: "Lue vastuullisen käytön ohje", en: "Read responsible-use guidance", es: "Leer la guía de uso responsable" } }
   },
   "/paper-trading": {
-    title: "Näin käytät Paperisalkkua",
-    steps: ["Tarkista käytettävissä oleva virtuaalikassa.", "Vältä liian suurta kokonais- tai liigakohtaista altistusta.", "Käsittele kaikki summat simulaationa, ei oikeana rahana."],
-    link: { href: "/risk", label: "Muuta paperirajoja" }
+    title: { fi: "Näin käytät Paperisalkkua", en: "How to use the paper portfolio", es: "Cómo usar la cartera simulada" },
+    steps: [
+      { fi: "Tarkista käytettävissä oleva virtuaalikassa.", en: "Check the available virtual bankroll.", es: "Comprueba la banca virtual disponible." },
+      { fi: "Vältä liian suurta kokonais- tai liigakohtaista altistusta.", en: "Avoid excessive total or league exposure.", es: "Evita una exposición total o por liga excesiva." },
+      { fi: "Käsittele kaikki summat simulaationa, ei oikeana rahana.", en: "Treat all amounts as simulation, not real money.", es: "Trata todos los importes como simulación, no como dinero real." }
+    ],
+    link: { href: "/risk", label: { fi: "Muuta paperirajoja", en: "Change paper limits", es: "Cambiar límites simulados" } }
   },
   "/quick-use": {
-    title: "Näin lisäät oman paperikohteen",
-    steps: ["Kirjoita ottelu, valinta ja kerroin.", "Tarkista virtuaalinen panos ja riskipäätös.", "Tallenna paikalliseen seurantaan ilman oikean rahan tapahtumaa."],
-    link: { href: "/tracking", label: "Avaa tallennetut kohteet" }
+    title: { fi: "Näin lisäät oman paperikohteen", en: "How to add your own paper pick", es: "Cómo añadir tu pronóstico simulado" },
+    steps: [
+      { fi: "Kirjoita ottelu, valinta ja kerroin.", en: "Enter the match, selection and odds.", es: "Introduce el partido, la selección y la cuota." },
+      { fi: "Tarkista virtuaalinen panos ja riskipäätös.", en: "Check the virtual stake and risk decision.", es: "Comprueba el importe virtual y la decisión de riesgo." },
+      { fi: "Tallenna paikalliseen seurantaan ilman oikean rahan tapahtumaa.", en: "Save to local tracking without a real-money transaction.", es: "Guarda en el seguimiento local sin transacción de dinero real." }
+    ],
+    link: { href: "/tracking", label: { fi: "Avaa tallennetut kohteet", en: "Open saved picks", es: "Abrir pronósticos guardados" } }
   },
   "/profile": {
-    title: "Tilin hallinta",
-    steps: ["Tarkista kirjautunut tili.", "Vie omat tiedot tarvittaessa.", "Poista tili pysyvästi vain, kun olet varma."],
-    link: { href: "/privacy", label: "Lue tietosuojaseloste" }
+    title: { fi: "Tilin hallinta", en: "Account management", es: "Gestión de la cuenta" },
+    steps: [
+      { fi: "Tarkista kirjautunut tili.", en: "Check the signed-in account.", es: "Comprueba la cuenta iniciada." },
+      { fi: "Vie omat tiedot tarvittaessa.", en: "Export your data when needed.", es: "Exporta tus datos cuando sea necesario." },
+      { fi: "Poista tili pysyvästi vain, kun olet varma.", en: "Delete the account permanently only when you are sure.", es: "Elimina la cuenta permanentemente solo cuando estés seguro." }
+    ],
+    link: { href: "/privacy", label: { fi: "Lue tietosuojaseloste", en: "Read the privacy notice", es: "Leer el aviso de privacidad" } }
   },
   "/cloud-sync": {
-    title: "Pilvisynkronoinnin käyttö",
-    steps: ["Kirjaudu omalle tilille.", "Tarkista paikalliset paperikohteet ennen siirtoa.", "Varmista synkronoinnin jälkeen, ettei samoja rivejä syntynyt kahdesti."],
-    link: { href: "/security", label: "Lue tietoturvamalli" }
+    title: { fi: "Pilvisynkronoinnin käyttö", en: "Using cloud sync", es: "Uso de la sincronización en la nube" },
+    steps: [
+      { fi: "Kirjaudu omalle tilille.", en: "Sign in to your account.", es: "Inicia sesión en tu cuenta." },
+      { fi: "Tarkista paikalliset paperikohteet ennen siirtoa.", en: "Review local paper picks before transfer.", es: "Revisa los pronósticos locales antes de transferirlos." },
+      { fi: "Varmista synkronoinnin jälkeen, ettei samoja rivejä syntynyt kahdesti.", en: "After syncing, confirm that no duplicate rows were created.", es: "Después de sincronizar, confirma que no se hayan creado duplicados." }
+    ],
+    link: { href: "/security", label: { fi: "Lue tietoturvamalli", en: "Read the security model", es: "Leer el modelo de seguridad" } }
   }
 };
 
 function guideForPath(pathname) {
-  const exact = guides[pathname];
+  const exact = guideDefinitions[pathname];
   if (exact) return exact;
-  const prefix = Object.keys(guides).find((path) => pathname?.startsWith(`${path}/`));
-  return prefix ? guides[prefix] : null;
+  const prefix = Object.keys(guideDefinitions).find((path) => pathname?.startsWith(`${path}/`));
+  return prefix ? guideDefinitions[prefix] : null;
 }
 
 export default function ContextHelp() {
   const pathname = usePathname();
+  const { tr, t } = useLanguage();
   const [hiddenPath, setHiddenPath] = useState(null);
-  const guide = guideForPath(pathname);
+  const definition = guideForPath(pathname);
+  const guide = useMemo(() => definition ? {
+    title: tr(definition.title),
+    steps: definition.steps.map((step) => tr(step)),
+    link: { href: definition.link.href, label: tr(definition.link.label) }
+  } : null, [definition, tr]);
 
   if (!guide || hiddenPath === pathname) return null;
 
   return (
-    <aside className="mb-6 rounded-2xl border border-sky-400/20 bg-sky-400/[0.08] p-4" aria-label="Sivun käyttöohje">
+    <aside className="mb-6 rounded-2xl border border-sky-400/20 bg-sky-400/[0.08] p-4" aria-label={guide.title}>
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <h2 className="font-black text-sky-200">{guide.title}</h2>
@@ -84,12 +131,10 @@ export default function ContextHelp() {
               </li>
             ))}
           </ol>
-          <Link href={guide.link.href} className="mt-3 inline-flex text-sm font-black text-sky-300 hover:text-sky-200">
-            {guide.link.label} →
-          </Link>
+          <Link href={guide.link.href} className="mt-3 inline-flex text-sm font-black text-sky-300 hover:text-sky-200">{guide.link.label} →</Link>
         </div>
-        <button type="button" onClick={() => setHiddenPath(pathname)} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-white/5" aria-label="Piilota tämän sivun käyttöohje">
-          Piilota
+        <button type="button" onClick={() => setHiddenPath(pathname)} className="shrink-0 rounded-lg border border-white/10 px-3 py-2 text-xs font-bold text-slate-400 hover:bg-white/5" aria-label={`${t("common.hide")}: ${guide.title}`}>
+          {t("common.hide")}
         </button>
       </div>
     </aside>
