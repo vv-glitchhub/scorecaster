@@ -46,18 +46,22 @@ jobs:
         run: npm run test:apps
 
       - name: Agent V9 adversarial portfolio tests
-        run: npm run test:agent-v9
+        run: |
+          set -o pipefail
+          npm run test:agent-v9 2>&1 | tee agent-v9.log
 
       - name: Build
         run: |
           set -o pipefail
           npm run build 2>&1 | tee build.log
 
-      - name: Upload build log
+      - name: Upload diagnostic logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scorecaster-build-log-${{ github.run_id }}
-          path: build.log
+          name: scorecaster-diagnostics-${{ github.run_id }}
+          path: |
+            agent-v9.log
+            build.log
           if-no-files-found: ignore
           retention-days: 7
