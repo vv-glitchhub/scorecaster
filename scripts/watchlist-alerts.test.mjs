@@ -107,6 +107,17 @@ test("watchlist migration forces RLS and isolates rows by auth uid", async () =>
   assert.match(migration, /unique index[\s\S]*user_id, event_id, market, selection/i);
 });
 
+test("account export and deletion cover watchlist rows", async () => {
+  const exportRoute = await readFile(new URL("../app/api/account/export/route.js", import.meta.url), "utf8");
+  const accountRoute = await readFile(new URL("../app/api/account/route.js", import.meta.url), "utf8");
+
+  assert.match(exportRoute, /\.from\("watchlist_items"\)/);
+  assert.match(exportRoute, /watchlist:\s*watchlistResult/);
+  assert.match(exportRoute, /\.eq\("user_id", auth\.user\.id\)/);
+  assert.match(accountRoute, /"watchlist_items"/);
+  assert.match(accountRoute, /"verified watchlist"/);
+});
+
 test("native app exposes a separate watchlist tab and does not create a paper stake", async () => {
   const app = await readFile(new URL("../mobile/src/App.tsx", import.meta.url), "utf8");
   const picks = await readFile(new URL("../mobile/src/screens/PicksScreen.tsx", import.meta.url), "utf8");
