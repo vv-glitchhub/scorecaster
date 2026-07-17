@@ -48,6 +48,34 @@ test("help page explains the product in plain Finnish", async () => {
   assert.match(help, /ei ole vedonlyöntipalvelu eikä käsittele oikeaa rahaa/i);
 });
 
+test("canonical simulator page renders the validated reproducible client", async () => {
+  const page = await read("app/simulator/page.jsx");
+  assert.match(page, /import SimulatorClient/);
+  assert.match(page, /<SimulatorClient \/>/);
+  assert.doesNotMatch(page, /getMonteCarlo|worldCupFixtures|Monte Carlo Risk Lab/);
+});
+
+test("betting keeps advanced paper settings out of the primary flow", async () => {
+  const betting = await read("app/betting/BettingClient.jsx");
+  assert.match(betting, /Päivän kohteet/);
+  assert.match(betting, /Edistyneet paperiasetukset/);
+  assert.match(betting, /<details/);
+  assert.match(betting, /aria-label="Valitse laji"/);
+  assert.match(betting, /aria-label="Valitse liiga"/);
+  assert.match(betting, /aria-label="Valitse markkina"/);
+  assert.doesNotMatch(betting, /Betting Decision Workspace|Paper Bet Slip|bookkeria/);
+});
+
+test("tracking uses Finnish labels and confirmation for destructive actions", async () => {
+  const tracking = await read("app/tracking/page.jsx");
+  assert.match(tracking, /Seuranta/);
+  assert.match(tracking, /Näytä edistyneet mittarit/);
+  assert.match(tracking, /window\.confirm\("Poistetaanko tämä paperikohde/);
+  assert.match(tracking, /window\.confirm\("Poistetaanko koko paikallinen paperihistoria/);
+  assert.match(tracking, /Merkitse voitoksi/);
+  assert.doesNotMatch(tracking, /Clear All Local Bets|Mark Win|Mark Loss|Tracked Bets/);
+});
+
 test("native home keeps advanced risk fields collapsed by default", async () => {
   const app = await read("mobile/src/App.tsx");
   const home = await read("mobile/src/screens/HomeScreen.tsx");
