@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Panel from "../components/Panel";
+import AgentExplanation from "./AgentExplanation";
 import { addTrackedBet, getTrackedBets } from "../../lib/tracking-storage";
 import { calculateAgentPerformance } from "../../lib/agent-learning";
 import { buildAgentV9Portfolio } from "../../lib/agent-v9-engine.mjs";
@@ -130,8 +131,8 @@ export default function AgentClient() {
       fairOdds: pick.fairOdds,
       stake: pick.suggestedStake,
       bankroll,
-      kellyMode: "agent-v9-conservative-quarter-kelly",
-      source: "scorecaster-agent-v9-adversarial-portfolio",
+      kellyMode: "agent-v10-grounded-conservative-quarter-kelly",
+      source: "scorecaster-agent-v10-grounded-adversarial-portfolio",
       sportKey: pick.sportKey,
       marketKey: pick.marketKey || pick.market,
       league: pick.league,
@@ -151,15 +152,15 @@ export default function AgentClient() {
       missingEvidence: pick.missingEvidence,
       portfolioReason: pick.portfolioReason,
       riskWarnings: [
-        "Agent V9 uses virtual paper tracking only.",
-        "The probability is not changed by local learning or an LLM narrative.",
+        "Agent V10 uses virtual paper tracking only.",
+        "The deterministic probability and decision are not changed by local learning or a language-model explanation.",
         "The stake uses the heuristic stress range's lower probability and portfolio exposure caps.",
         "No result or profit is guaranteed."
       ],
       paperOnly: true
     });
 
-    setMessage(`${pick.selection} lisättiin Agent V9 -paperiseurantaan.`);
+    setMessage(`${pick.selection} lisättiin Agent V10 -paperiseurantaan.`);
   }
 
   const learningTone = Number(learning?.roi || 0) > 0 ? "text-emerald-300" : Number(learning?.roi || 0) < 0 ? "text-red-300" : "text-slate-100";
@@ -167,12 +168,12 @@ export default function AgentClient() {
   return (
     <div className="space-y-6">
       <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-6">
-        <div className="mb-2 inline-flex rounded-full border border-purple-400/30 bg-purple-400/10 px-3 py-1 text-sm text-purple-300">
-          Agent V9 · Adversarial Portfolio AI
+        <div className="mb-2 inline-flex rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-3 py-1 text-sm text-fuchsia-300">
+          Agent V10 · Grounded Adversarial AI
         </div>
         <h1 className="text-3xl font-black tracking-tight sm:text-4xl">Scorecaster Decision Copilot</h1>
         <p className="mt-3 max-w-4xl text-slate-300">
-          Agentti yrittää nyt myös kumota oman suosituksensa. Se stressaa todennäköisyyden alarajan, näyttää hinnan jolla etu katoaa ja rakentaa koko paperiportfolion yksittäisen kohteen sijaan.
+          Deterministinen V9-ydin lukitsee todennäköisyyden, stressitestin, päätöksen ja paperialtistuksen. V10 lisää vapaaehtoisen valvotun kielimalliselityksen, joka saa vain tiivistää jo laskettua evidenssiä eikä voi muuttaa yhtään päätöslukua.
         </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
@@ -200,8 +201,8 @@ export default function AgentClient() {
             Liiga-altistus %
             <input type="number" min="0.25" max="10" step="0.25" value={maxLeagueExposurePercent} onChange={updateNumber(setMaxLeagueExposurePercent, "agentMaxLeagueExposurePercent", 2, 0.25, 10)} className="mt-2 w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-slate-100" />
           </label>
-          <button onClick={() => void loadAgentPicks()} disabled={loading} className="rounded-xl bg-purple-400 px-5 py-3 font-bold text-slate-950 disabled:opacity-50">
-            {loading ? "Analysoidaan…" : "Päivitä Agent V9"}
+          <button onClick={() => void loadAgentPicks()} disabled={loading} className="rounded-xl bg-fuchsia-400 px-5 py-3 font-bold text-slate-950 disabled:opacity-50">
+            {loading ? "Analysoidaan…" : "Päivitä Agent V10"}
           </button>
         </div>
 
@@ -212,13 +213,13 @@ export default function AgentClient() {
           <div>CLV / Brier <span className="font-bold text-purple-300">{optionalPercent(learning?.averageClv)} / {optionalNumber(learning?.brierScore)}</span></div>
         </div>
         <div className="mt-2 text-xs text-slate-500">
-          Oppiminen vaikuttaa vain prioriteettiin riittävän otoksen jälkeen. Se ei muuta konsensustodennäköisyyttä, edgeä eikä EV:tä.
+          Oppiminen vaikuttaa vain prioriteettiin. Vapaaehtoinen V10-selitys tiivistää laskettua audit trailia, mutta ei muuta konsensustodennäköisyyttä, edgeä, EV:tä, panosta eikä päätöstä.
         </div>
       </section>
 
       <div className="flex flex-wrap gap-2">
         {["ALL", "PLAY", "WATCH", "SKIP"].map((item) => (
-          <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-sm font-bold ${filter === item ? "border-purple-400/40 bg-purple-400/15 text-purple-200" : "border-white/10 bg-white/5 text-slate-400"}`}>{item}</button>
+          <button key={item} onClick={() => setFilter(item)} className={`rounded-full border px-4 py-2 text-sm font-bold ${filter === item ? "border-fuchsia-400/40 bg-fuchsia-400/15 text-fuchsia-200" : "border-white/10 bg-white/5 text-slate-400"}`}>{item}</button>
         ))}
       </div>
 
@@ -295,6 +296,9 @@ export default function AgentClient() {
                         Segmentti {pick.learningSignal.segment || "ei valittu"} · otos {pick.learningSignal.sampleSize} · ROI {optionalPercent(pick.learningSignal.metrics?.roi)} · CLV {optionalPercent(pick.learningSignal.metrics?.averageClv)} · Brier {optionalNumber(pick.learningSignal.metrics?.brierScore)}. Todennäköisyyttä ei muutettu.
                       </p>
                     </div>
+                    <div className="lg:col-span-2">
+                      <AgentExplanation pick={pick} />
+                    </div>
                   </div>
                 )}
               </article>
@@ -303,15 +307,25 @@ export default function AgentClient() {
         </div>
 
         <div className="space-y-6">
-          <Panel title="Agent V9 -päätösketju" subtitle="AI:n audit trail">
+          <Panel title="Agent V10 -päätösketju" subtitle="Laskenta ensin, kieli vasta sen jälkeen">
             <div className="space-y-3 text-sm text-slate-300">
-              <p>1. Lukee no-vig-markkinakonsensuksen muuttamatta sitä.</p>
-              <p>2. Rakentaa heuristisen stressialueen kattavuudesta, hajonnasta ja tuoreudesta.</p>
-              <p>3. Testaa, säilyykö EV positiivisena alarajalla.</p>
-              <p>4. Muodostaa oman vastaväitteen ja listaa puuttuvan evidenssin.</p>
-              <p>5. Tarkistaa hinta-, tapahtuma-, liiga- ja kokonaisaltistusrajat.</p>
-              <p>6. Käyttää historiaa vain riittävällä CLV-, Brier- tai kalibrointiotoksella.</p>
-              <p>7. Saa aina sanoa WATCH tai SKIP.</p>
+              <p>1. V9-ydin lukee no-vig-markkinakonsensuksen muuttamatta sitä.</p>
+              <p>2. Se stressaa alarajan, vastaväitteen, hinnan ja portfolioaltistuksen.</p>
+              <p>3. Deterministinen PLAY, WATCH tai SKIP lukitaan ennen kielimallia.</p>
+              <p>4. V10 lähettää vain rajatun ei-henkilökohtaisen päätössopimuksen palvelimelle.</p>
+              <p>5. Selitys tuotetaan ilman verkkohakua, työkaluja tai uusia numeroita.</p>
+              <p>6. Palvelin validoi rakenteen ja kielletyt varmuusväitteet.</p>
+              <p>7. Virheessä käytetään turvallista determinististä varaselitystä.</p>
+            </div>
+          </Panel>
+
+          <Panel title="V10-tietosuoja" subtitle="Minimoitu AI-syöte">
+            <div className="space-y-2 text-sm text-slate-300">
+              <p>• Ei sähköpostia, nimeä, käyttäjätunnusta tai maksutietoja.</p>
+              <p>• Ei vedonvälittäjätunnuksia eikä palvelinsalaisuuksia.</p>
+              <p>• Ei koko paperihistoriaa tai vapaata käyttäjätekstiä.</p>
+              <p>• Selityspyyntö tallennetaan palveluntarjoajalle asetuksella store false.</p>
+              <p>• Selainvälimuisti säilyttää valmiin selityksen rajatun ajan vain tällä laitteella.</p>
             </div>
           </Panel>
 
@@ -329,7 +343,7 @@ export default function AgentClient() {
               <p>• Ei oikean rahan vetoja tai automaattista toimeksiantoa.</p>
               <p>• Ei vedonvälittäjätunnuksia tai maksutietoja.</p>
               <p>• Ei keksittyjä uutisia, kokoonpanoja tai loukkaantumisia.</p>
-              <p>• Ei AI:n kirjoittamaa väitettä ilman laskettua evidenssiä.</p>
+              <p>• Kielimalliselitys ei voi muuttaa laskettua evidenssiä.</p>
               <p>• Ei tuottolupausta.</p>
             </div>
           </Panel>
