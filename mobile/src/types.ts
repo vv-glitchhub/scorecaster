@@ -1,5 +1,46 @@
 export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings";
 
+export type VerifiedSourceStatus = {
+  category?: string;
+  provider?: string;
+  mode?: string;
+  live?: boolean;
+  searched?: boolean;
+  count?: number;
+  retrievedAt?: string | null;
+};
+
+export type VerifiedEvidenceItem = {
+  category?: string;
+  subject?: string;
+  status?: string;
+  detail?: string;
+  source?: string;
+  sourceType?: string;
+  observedAt?: string | null;
+  freshness?: string;
+  trust?: number;
+  verified?: boolean;
+};
+
+export type VerifiedSportsIntelligence = {
+  version?: string;
+  generatedAt?: string;
+  status?: string;
+  readiness?: string;
+  coverageScore?: number;
+  kickoffHours?: number | null;
+  sources?: VerifiedSourceStatus[];
+  evidence?: VerifiedEvidenceItem[];
+  missing?: string[];
+  counts?: { news?: number; injuries?: number; lineup?: number; externalMarkets?: number };
+  playGate?: { blocked?: boolean; reasons?: string[] };
+  probabilityAdjusted?: boolean;
+  edgeAdjusted?: boolean;
+  evAdjusted?: boolean;
+  externalMarketUsedForDecision?: boolean;
+};
+
 export type Pick = {
   id?: string;
   eventId?: string;
@@ -37,6 +78,8 @@ export type Pick = {
   modelMode?: string;
   edgeType?: string;
   explanation?: string;
+  verifiedIntelligence?: VerifiedSportsIntelligence;
+  probabilityAdjustedByContext?: boolean;
   dataQuality?: {
     bookmakerCount?: number;
     sampleCount?: number;
@@ -55,14 +98,28 @@ export type AgentDecision = Pick & {
   priorityScore?: number;
   robustnessScore?: number;
   suggestedStake?: number;
+  allocatedStake?: number;
   bankroll?: number;
   maxStakePercent?: number;
   decisionReason?: string;
   portfolioReason?: string | null;
+  blockers?: string[];
   evidence?: string[];
   counterArguments?: string[];
   missingEvidence?: string[];
   explanationTicket?: string | null;
+  contextGovernance?: {
+    version?: string;
+    status?: string;
+    readiness?: string;
+    coverageScore?: number;
+    blocked?: boolean;
+    reasons?: string[];
+    probabilityAdjusted?: boolean;
+    edgeAdjusted?: boolean;
+    evAdjusted?: boolean;
+    decisionPromoted?: boolean;
+  };
   selfLearning?: {
     version?: string;
     status?: string;
@@ -148,7 +205,20 @@ export type AgentPortfolio = {
   signingConfigured: boolean;
   explanationMode: string;
   learningMode?: string;
+  intelligenceMode?: string;
   modelLab?: AgentModelLab;
+  sportsIntelligence?: {
+    version?: string;
+    evaluated?: number;
+    maximumEvaluatedPerRequest?: number;
+    verified?: number;
+    partial?: number;
+    unavailable?: number;
+    notEvaluated?: number;
+    blockedByVerifiedContext?: number;
+    probabilityAdjusted?: boolean;
+    externalMarketUsedForDecision?: boolean;
+  };
   warnings?: string[];
   counts: { PLAY: number; WATCH: number; SKIP: number };
   totalAllocated: number;
