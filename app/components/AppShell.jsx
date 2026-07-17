@@ -2,54 +2,56 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import ContextHelp from "./ContextHelp";
-
-const primaryItems = [
-  { href: "/", label: "Etusivu", short: "Etusivu" },
-  { href: "/betting", label: "Kohteet", short: "Kohteet" },
-  { href: "/agent", label: "AI-analyysi", short: "AI" },
-  { href: "/tracking", label: "Seuranta", short: "Seuranta" },
-  { href: "/analytics", label: "Analyysi", short: "Analyysi" },
-  { href: "/simulator", label: "Simulaattori", short: "Simulaattori" }
-];
-
-const secondaryGroups = [
-  {
-    title: "Aloita ja hallitse",
-    items: [
-      { href: "/quick-use", label: "Nopea paperikohde", description: "Lisää oma kohde ilman oikeaa rahaa." },
-      { href: "/risk", label: "Riskiasetukset", description: "Virtuaalikassa ja paperirajat." },
-      { href: "/paper-trading", label: "Paperisalkku", description: "Virtuaaliset panokset ja altistus." },
-      { href: "/cloud-sync", label: "Pilvisynkronointi", description: "Siirrä paikallinen historia omalle tilille." }
-    ]
-  },
-  {
-    title: "Tili ja apu",
-    items: [
-      { href: "/profile", label: "Profiili", description: "Tili, tietojen vienti ja poistaminen." },
-      { href: "/help", label: "Ohje", description: "Selkokielinen käyttöopas ja termit." },
-      { href: "/responsible-use", label: "Vastuullinen käyttö", description: "Paperitilan rajat ja turvallinen käyttö." },
-      { href: "/security", label: "Tietoturva", description: "Miten Scorecaster suojaa tietoja." }
-    ]
-  },
-  {
-    title: "Edistyneet työkalut",
-    items: [
-      { href: "/intelligence", label: "Intelligence", description: "Markkina- ja malliauditointi." },
-      { href: "/clv", label: "CLV", description: "Päätöskertoimen seuranta." },
-      { href: "/reports", label: "Raportit", description: "Koosteet ja suorituskyky." },
-      { href: "/production-status", label: "Järjestelmän tila", description: "Palveluiden ja integraatioiden valmius." }
-    ]
-  }
-];
-
-const mobileItems = primaryItems.slice(0, 5);
+import { LanguageSwitcher, useLanguage } from "./LanguageProvider";
 
 export default function AppShell({ children }) {
   const pathname = usePathname();
+  const { t } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+
+  const primaryItems = useMemo(() => [
+    { href: "/", label: t("nav.home"), short: t("nav.home") },
+    { href: "/betting", label: t("nav.picks"), short: t("nav.picks") },
+    { href: "/agent", label: t("nav.ai"), short: "AI" },
+    { href: "/tracking", label: t("nav.tracking"), short: t("nav.tracking") },
+    { href: "/analytics", label: t("nav.analytics"), short: t("nav.analytics") },
+    { href: "/simulator", label: t("nav.simulator"), short: t("nav.simulator") }
+  ], [t]);
+
+  const secondaryGroups = useMemo(() => [
+    {
+      title: t("group.start"),
+      items: [
+        { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
+        { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
+        { href: "/paper-trading", label: t("more.portfolio"), description: t("more.portfolioDescription") },
+        { href: "/cloud-sync", label: t("more.cloud"), description: t("more.cloudDescription") }
+      ]
+    },
+    {
+      title: t("group.account"),
+      items: [
+        { href: "/profile", label: t("more.profile"), description: t("more.profileDescription") },
+        { href: "/help", label: t("more.help"), description: t("more.helpDescription") },
+        { href: "/responsible-use", label: t("more.responsible"), description: t("more.responsibleDescription") },
+        { href: "/security", label: t("more.security"), description: t("more.securityDescription") }
+      ]
+    },
+    {
+      title: t("group.advanced"),
+      items: [
+        { href: "/intelligence", label: t("more.intelligence"), description: t("more.intelligenceDescription") },
+        { href: "/clv", label: t("more.clv"), description: t("more.clvDescription") },
+        { href: "/reports", label: t("more.reports"), description: t("more.reportsDescription") },
+        { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
+      ]
+    }
+  ], [t]);
+
+  const mobileItems = primaryItems.slice(0, 5);
 
   useEffect(() => {
     setMenuOpen(false);
@@ -66,37 +68,35 @@ export default function AppShell({ children }) {
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex items-center justify-between gap-3 py-3 md:py-4">
             <Link href="/" className="flex min-w-0 items-center gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 font-black text-slate-950 shadow-lg md:h-12 md:w-12">
-                S
-              </div>
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 font-black text-slate-950 shadow-lg md:h-12 md:w-12">S</div>
               <div className="min-w-0">
                 <div className="truncate text-lg font-black tracking-tight md:text-xl">Scorecaster</div>
-                <div className="truncate text-xs text-slate-400">Urheiluanalyysi ja paperiseuranta</div>
+                <div className="truncate text-xs text-slate-400">{t("brand.tagline")}</div>
               </div>
             </Link>
 
             <div className="hidden items-center gap-2 md:flex">
-              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-200">
-                PAPERITILA · EI OIKEAA RAHAA
-              </div>
-              <Link href="/help" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08]">
-                Ohje
-              </Link>
+              <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-200">{t("mode.paper")}</div>
+              <LanguageSwitcher compact />
+              <Link href="/help" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08]">{t("nav.help")}</Link>
             </div>
 
-            <button
-              type="button"
-              onClick={() => setMenuOpen((value) => !value)}
-              className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-white lg:hidden"
-              aria-expanded={menuOpen}
-              aria-controls="mobile-navigation"
-            >
-              {menuOpen ? "Sulje" : "Valikko"}
-            </button>
+            <div className="flex items-center gap-2 lg:hidden">
+              <LanguageSwitcher compact />
+              <button
+                type="button"
+                onClick={() => setMenuOpen((value) => !value)}
+                className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-white"
+                aria-expanded={menuOpen}
+                aria-controls="mobile-navigation"
+              >
+                {menuOpen ? t("nav.close") : t("nav.menu")}
+              </button>
+            </div>
           </div>
 
           <div className="hidden items-center gap-2 pb-4 lg:flex">
-            <nav className="flex flex-1 gap-2" aria-label="Päävalikko">
+            <nav className="flex flex-1 gap-2" aria-label={t("nav.mainAria")}>
               {primaryItems.map((item) => (
                 <Link
                   key={item.href}
@@ -119,7 +119,7 @@ export default function AppShell({ children }) {
                 className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/[0.08]"
                 aria-expanded={moreOpen}
               >
-                Lisää ▾
+                {t("nav.more")} ▾
               </button>
               {moreOpen && (
                 <div className="absolute right-0 top-12 z-50 w-[680px] max-w-[90vw] rounded-2xl border border-white/10 bg-slate-900 p-4 shadow-2xl">
@@ -145,19 +145,15 @@ export default function AppShell({ children }) {
 
           {menuOpen && (
             <div id="mobile-navigation" className="max-h-[72vh] overflow-y-auto pb-4 lg:hidden">
-              <div className="mb-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-3 text-center text-xs font-black text-yellow-200">
-                Paperitila: Scorecaster ei aseta oikean rahan vetoja.
-              </div>
+              <div className="mb-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-3 text-center text-xs font-black text-yellow-200">{t("mode.paperDescription")}</div>
 
-              <nav className="grid grid-cols-2 gap-2" aria-label="Mobiilin päävalikko">
+              <nav className="grid grid-cols-2 gap-2" aria-label={t("nav.mobileAria")}>
                 {primaryItems.map((item) => (
                   <Link
                     key={item.href}
                     href={item.href}
                     className={`rounded-xl px-3 py-3 text-center text-sm font-bold ${
-                      isActive(item)
-                        ? "bg-emerald-400 text-slate-950"
-                        : "border border-white/10 bg-white/[0.04] text-slate-300"
+                      isActive(item) ? "bg-emerald-400 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300"
                     }`}
                   >
                     {item.label}
@@ -190,7 +186,7 @@ export default function AppShell({ children }) {
         {children}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label="Pikavalikko">
+      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label={t("nav.quickAria")}>
         {mobileItems.map((item) => (
           <Link
             key={item.href}
@@ -207,14 +203,14 @@ export default function AppShell({ children }) {
       <footer className="border-t border-white/10 py-7">
         <div className="mx-auto max-w-7xl px-4">
           <div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between">
-            <div>© {new Date().getFullYear()} Scorecaster · urheiluanalyysi ja paperiseuranta</div>
+            <div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div>
             <div className="flex flex-wrap gap-4">
-              <Link href="/help" className="hover:text-white">Ohje</Link>
-              <Link href="/profile" className="hover:text-white">Tili</Link>
-              <Link href="/privacy" className="hover:text-white">Tietosuoja</Link>
-              <Link href="/terms" className="hover:text-white">Ehdot</Link>
-              <Link href="/responsible-use" className="hover:text-white">Vastuullinen käyttö</Link>
-              <Link href="/production-status" className="hover:text-white">Tila</Link>
+              <Link href="/help" className="hover:text-white">{t("nav.help")}</Link>
+              <Link href="/profile" className="hover:text-white">{t("footer.account")}</Link>
+              <Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link>
+              <Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link>
+              <Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link>
+              <Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link>
             </div>
           </div>
         </div>
