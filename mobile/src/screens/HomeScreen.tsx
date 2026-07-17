@@ -24,11 +24,24 @@ function StartStep({ number, title, text }: { number: string; title: string; tex
   );
 }
 
+function kickoffLabel(value: string | undefined, locale: string, fallback: string) {
+  const date = new Date(value || "");
+  if (Number.isNaN(date.getTime())) return fallback;
+  return new Intl.DateTimeFormat(locale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 export default function HomeScreen() {
   const { tr, locale } = useLanguage();
   const [bankroll, setBankroll] = useState<Bankroll | null>(null);
   const [bets, setBets] = useState<PaperBet[]>([]);
   const [topPick, setTopPick] = useState<Pick | null>(null);
+  const [featuredHours, setFeaturedHours] = useState(72);
   const [bankrollInput, setBankrollInput] = useState("1000");
   const [maxStakeInput, setMaxStakeInput] = useState("2");
   const [dailyExposureInput, setDailyExposureInput] = useState("8");
@@ -49,7 +62,7 @@ export default function HomeScreen() {
         apiRequest<{ status?: string; mode?: string }>("/api/health", { authenticated: false }),
         apiRequest<{ data: Bankroll }>("/api/cloud/bankroll"),
         apiRequest<{ data: PaperBet[] }>("/api/cloud/bets"),
-        apiRequest<{ featured?: Pick[]; data?: Pick[] }>("/api/top-picks", { authenticated: false, timeoutMs: 30000 })
+        apiRequest<{ featured?: Pick[]; data?: Pick[]; featuredWindowHours?: number }>("/api/top-picks", { authenticated: false, timeoutMs: 30000 })
       ]);
 
       setStatus(healthResult.status === "fulfilled"
@@ -67,7 +80,10 @@ export default function HomeScreen() {
         setMinConfidenceInput(String(Number(next.min_confidence || 0.58) * 100));
       }
       if (betsResult.status === "fulfilled") setBets(betsResult.value.data || []);
-      if (picksResult.status === "fulfilled") setTopPick(picksResult.value.featured?.[0] || picksResult.value.data?.[0] || null);
+      if (picksResult.status === "fulfilled") {
+        setTopPick(picksResult.value.featured?.[0] || null);
+        setFeaturedHours(Number(picksResult.value.featuredWindowHours || 72));
+      }
     } catch (error) {
       setStatus(error instanceof Error ? error.message : tr({ fi: "Palveluvirhe", en: "Service error", es: "Error del servicio" }));
     } finally {
@@ -132,7 +148,7 @@ export default function HomeScreen() {
   return (
     <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <View style={styles.rowBetween}>
-        <View style={{ flex: 1 }}><Text style={styles.title}>{tr({ fi: "Tänään", en: "Today", es: "Hoy" })}</Text><Text style={styles.subtitle}>{tr({ fi: "Aloita rajasta, lue AI:n vastaväite ja tallenna vain paperiseurantaan.", en: "Start with limits, read the AI counterargument and save only to paper tracking.", es: "Empieza por los límites, lee el contraargumento de la IA y guarda solo en seguimiento simulado." })}</Text></View>
+        <View style={{ flex: 1 }}><Text style={styles.title}>{tr({ fi: "Lähiaika", en: "Near term", es: "Próximamente" })}</Text><Text style={styles.subtitle}>{tr({ fi: "Aloita rajasta, lue AI:n vastaväite ja tallenna vain paperiseurantaan.", en: "Start with limits, read the AI counterargument and save only to paper tracking.", es: "Empieza por los límites, lee el contraargumento de la IA y guarda solo en seguimiento simulado." })}</Text></View>
         <ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={load} tone="secondary" compact disabled={loading} />
       </View>
 
@@ -155,14 +171,15 @@ export default function HomeScreen() {
           {closeToLimit && <Card><Text style={localStyles.warningTitle}>{tr({ fi: "Riskiraja lähestyy", en: "Risk limit is close", es: "El límite de riesgo está cerca" })}</Text><Text style={styles.muted}>{tr({ fi: `Avoin altistus on ${percent(exposurePercent)} virtuaalikassasta. SKIP voi olla hyvä päätös.`, en: `Open exposure is ${percent(exposurePercent)} of the virtual bankroll. SKIP may be a good decision.`, es: `La exposición abierta es ${percent(exposurePercent)} de la banca virtual. SKIP puede ser una buena decisión.` })}</Text></Card>}
 
           <Card>
-            <Text style={styles.cardTitle}>{tr({ fi: "Päivän paras markkina-arvo", en: "Today's best market value", es: "Mejor valor de mercado de hoy" })}</Text>
+            <Text style={styles.cardTitle}>{tr({ fi: "Lähiajan paras markkina-arvo", en: "Best near-term market value", es: "Mejor valor próximo del mercado" })}</Text>
             {topPick ? <>
               <View style={styles.rowBetween}><View style={[styles.badge, topPick.productDecision === "CAUTION" && styles.warningBadge]}><Text style={styles.badgeText}>{topPick.productDecision || "CAUTION"}</Text></View><Text style={styles.muted}>{topPick.leagueTitle || topPick.league || ""}</Text></View>
+              <Text style={localStyles.kickoff}>{kickoffLabel(topPick.commenceTime, locale, tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" }))}</Text>
               <Text style={styles.value}>{topPick.match}</Text>
               <Text style={styles.cardTitle}>{topPick.selection} · {Number(topPick.odds || 0).toFixed(2)}</Text>
-              <Text style={styles.muted}>Edge {percent(topPick.edge)} · confidence {percent(topPick.confidence)} · {Number(topPick.bookmakerCount || 0)} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })}.</Text>
-              <Text style={styles.muted}>{tr({ fi: "Avaa AI-välilehti ennen tallennusta nähdäksesi stressitestin ja vastaväitteen.", en: "Open the AI tab before saving to see the stress test and counterargument.", es: "Abre la pestaña IA antes de guardar para ver la prueba de estrés y el contraargumento." })}</Text>
-            </> : <Text style={styles.muted}>{tr({ fi: "Riittävän laadukasta kohdetta ei löytynyt. Tämä on hyväksytty lopputulos.", en: "No pick met the quality threshold. This is a valid outcome.", es: "Ningún pronóstico alcanzó el umbral de calidad. Es un resultado válido." })}</Text>}
+              <Text style={styles.muted}>Edge {percent(topPick.edge)} · {tr({ fi: "datan confidence", en: "data confidence", es: "confianza de datos" })} {percent(topPick.confidence)} · {Number(topPick.bookmakerCount || 0)} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })}.</Text>
+              <Text style={styles.muted}>{tr({ fi: "Ottelu tulee live-kertoimien tarjoajalta. Avaa AI-välilehti nähdäksesi stressitestin ja vastaväitteen.", en: "The fixture comes from the live odds provider. Open AI to see the stress test and counterargument.", es: "El partido procede del proveedor de cuotas en vivo. Abre IA para ver la prueba de estrés y el contraargumento." })}</Text>
+            </> : <Text style={styles.muted}>{tr({ fi: `Seuraavan ${featuredHours} tunnin aikana ei löytynyt riittävän laadukasta live-API-kohdetta. Kaukaisia otteluita ei näytetä päivän kohteina.`, en: `No sufficiently strong live-API pick was found in the next ${featuredHours} hours. Distant fixtures are not presented as today's picks.`, es: `No se encontró un pronóstico suficiente de la API en vivo para las próximas ${featuredHours} horas. Los partidos lejanos no se presentan como pronósticos de hoy.` })}</Text>}
           </Card>
 
           <Card>
@@ -194,6 +211,7 @@ const localStyles = StyleSheet.create({
   metricBox: { width: "48%", minHeight: 86, borderWidth: 1, borderColor: "#1e293b", backgroundColor: "#0f172a", borderRadius: 16, padding: 13, justifyContent: "space-between" },
   metricLabel: { color: "#94a3b8", fontSize: 12, fontWeight: "700" },
   metricValue: { color: "#f8fafc", fontSize: 21, fontWeight: "900" },
+  kickoff: { color: "#34d399", fontSize: 14, fontWeight: "900" },
   warningTitle: { color: "#fbbf24", fontSize: 17, fontWeight: "900" },
   startStep: { flexDirection: "row", gap: 12, alignItems: "flex-start", marginTop: 12 },
   stepNumber: { width: 32, height: 32, borderRadius: 11, alignItems: "center", justifyContent: "center", backgroundColor: "#34d399" },
