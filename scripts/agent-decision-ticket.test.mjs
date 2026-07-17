@@ -2,73 +2,78 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  agentDecisionSigningConfigured,
   createAgentDecisionTicket,
-  signingConfigured,
   verifyAgentDecisionTicket
 } from "../lib/agent-decision-ticket.mjs";
-import { canonicalAgentExplanationInput, sanitizeAgentExplanationInput } from "../lib/agent-v10-explanation.mjs";
 
-const originalKey = process.env.AGENT_DECISION_SIGNING_KEY;
+const key = "agent-ticket-test-key-that-is-longer-than-thirty-two-characters";
 
-function restoreKey() {
-  if (originalKey === undefined) delete process.env.AGENT_DECISION_SIGNING_KEY;
-  else process.env.AGENT_DECISION_SIGNING_KEY = originalKey;
+function decision(overrides = {}) {
+  return {
+    decision: "PLAY",
+    match: "Home FC vs Away FC",
+    selection: "Home FC",
+    odds: 2.1,
+    edge: 0.06,
+    ev: 0.12,
+    confidence: 0.8,
+    trustScore: 80,
+    bookmakerCount: 6,
+    stressTest: {
+      probability: 0.55,
+      lower: 0.51,
+      upper: 0.59,
+      baseEv: 0.155,
+      downsideEv: 0.071
+    },
+    evidence: ["Markkinakonsensus tukee valintaa."],
+    counterArguments: ["Konsensus voi olla väärässä."],
+    missingEvidence: ["vahvistettu kokoonpano"],
+    suggestedStake: 8,
+    ...overrides
+  };
 }
 
-test.afterEach(restoreKey);
-
 test("decision signing requires a dedicated sufficiently long key", () => {
-  delete process.env.AGENT_DECISION_SIGNING_KEY;
-  assert.equal(signingConfigured(), false);
-  assert.equal(createAgentDecisionTicket({ decision: "PLAY" }), null);
-
-  process.env.AGENT_DECISION_SIGNING_KEY = "short";
-  assert.equal(signingConfigured(), false);
-
-  process.env.AGENT_DECISION_SIGNING_KEY = "scorecaster-agent-signing-key-for-tests-only-123456";
-  assert.equal(signingConfigured(), true);
+  assert.equal(agentDecisionSigningConfigured("short"), false);
+  assert.equal(agentDecisionSigningConfigured(key), true);
+  assert.equal(createAgentDecisionTicket(decision(), { key: "short" }), null);
 });
 
 test("signed decision tickets preserve the sanitized immutable contract", () => {
-  process.env.AGENT_DECISION_SIGNING_KEY = "scorecaster-agent-signing-key-for-tests-only-123456";
-  const source = {
-    decision: "WATCH",
-    match: "Alpha vs Beta",
-    selection: "Alpha",
-    odds: 2.1,
-    evidence: ["Verified evidence"],
-    counterArguments: ["Strong counterpoint"],
-    missingEvidence: ["latest market data"],
-    email: "private@example.com"
-  };
-  const expected = sanitizeAgentExplanationInput(source);
-  const signed = createAgentDecisionTicket(source, { now: 1000, ttlMs: 60000 });
-  assert.ok(signed?.token);
-  const verified = verifyAgentDecisionTicket(signed.token, { now: 2000 });
+  const now = Date.parse("2026-07-17T03:30:00Z");
+  const ticket = createAgentDecisionTicket({
+    ...decision(),
+    email: "private@example.com",
+    accessToken: "not-forwarded"
+  }, { key, now, ttlMs: 600_000 });
+  const verified = verifyAgentDecisionTicket(ticket, { key, now: now + 60_000 });
+
   assert.equal(verified.ok, true);
-  assert.equal(canonicalAgentExplanationInput(verified.contract), canonicalAgentExplanationInput(expected));
-  assert.equal("email" in verified.contract, false);
+  assert.equal(verified.contract.decision, "PLAY");
+  assert.equal(verified.contract.email, undefined);
+  assert.equal(verified.contract.accessToken, undefined);
+  assert.equal(verified.contract.selection, "Home FC");
+  assert.equal(verified.contract.language, undefined);
+  assert.equal(verified.expiresAt, now + 600_000);
 });
 
 test("tampered, expired and wrong-key decision tickets fail closed", () => {
-  process.env.AGENT_DECISION_SIGNING_KEY = "scorecaster-agent-signing-key-for-tests-only-123456";
-  const signed = createAgentDecisionTicket({ decision: "SKIP", match: "A vs B", selection: "B" }, { now: 1000, ttlMs: 1000 });
-  assert.ok(signed?.token);
+  const now = Date.parse("2026-07-17T03:30:00Z");
+  const ticket = createAgentDecisionTicket(decision(), { key, now, ttlMs: 60_000 });
+  const tampered = `${ticket.slice(0, -1)}${ticket.endsWith("a") ? "b" : "a"}`;
 
-  const [payload, signature] = signed.token.split(".");
-  const tampered = `${payload.slice(0, -1)}${payload.endsWith("A") ? "B" : "A"}.${signature}`;
-  assert.equal(verifyAgentDecisionTicket(tampered, { now: 1500 }).ok, false);
-  assert.equal(verifyAgentDecisionTicket(signed.token, { now: 3000 }).ok, false);
-
-  process.env.AGENT_DECISION_SIGNING_KEY = "different-agent-signing-key-for-tests-only-654321";
-  assert.equal(verifyAgentDecisionTicket(signed.token, { now: 1500 }).ok, false);
+  assert.equal(verifyAgentDecisionTicket(tampered, { key, now }).ok, false);
+  assert.equal(verifyAgentDecisionTicket(ticket, { key: `${key}-wrong`, now }).ok, false);
+  assert.equal(verifyAgentDecisionTicket(ticket, { key, now: now + 60_001 }).ok, false);
 });
 
 test("portfolio API is authenticated, rate-limited and signs only server-built decisions", async () => {
   const route = await readFile(new URL("../app/api/agent/portfolio/route.js", import.meta.url), "utf8");
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
-  const sourceIndex = route.indexOf("const source = await loadSourcePicks");
-  const portfolioIndex = route.indexOf("const portfolio = buildAgentV9Portfolio");
+  const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
+  const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
   const signingIndex = route.indexOf("createAgentDecisionTicket(decision)");
 
   assert.ok(authIndex >= 0);
