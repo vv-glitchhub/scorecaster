@@ -65,6 +65,11 @@ jobs:
           set -o pipefail
           npm run test:agent-v11 2>&1 | tee agent-v11.log
 
+      - name: Watchlist and verified alert tests
+        run: |
+          set -o pipefail
+          npm run test:watchlist 2>&1 | tee watchlist.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -95,6 +100,7 @@ jobs:
             agent-v10.log
             agent-ticket.log
             agent-v11.log
+            watchlist.log
             easy-use.log
             i18n.log
             fixture-integrity.log
