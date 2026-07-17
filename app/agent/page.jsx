@@ -1,10 +1,10 @@
-import AgentClient from "./AgentClient";
+import AgentServerClient from "./AgentServerClient";
 
 export const metadata = {
   title: "AI-analyysi",
-  description: "Agent V10:n stressitesti, vastaväitteet ja virtuaalinen paperiportfolio."
+  description: "Agent V11:n palvelimella laskettu Model Lab, varmennettu urheilukonteksti ja virtuaalinen paperiportfolio."
 };
 
 export default function AgentPage() {
-  return <AgentClient />;
+  return <AgentServerClient />;
 }
