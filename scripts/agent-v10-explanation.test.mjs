@@ -38,7 +38,7 @@ function sourceDecision(overrides = {}) {
     },
     evidence: ["No-vig-konsensus tukee valintaa.", "Markkina on tuore."],
     counterArguments: ["Konsensus voi olla väärässä."],
-    missingEvidence: ["vahvistettu kokoonpano"],
+    missingEvidence: ["vahvistettu kokoonpano", "riippumaton uutisvahvistus"],
     learningSignal: {
       note: "Oppiminen ei muuttanut todennäköisyyttä.",
       sampleSize: 35
@@ -60,7 +60,7 @@ test("sanitizer keeps only the bounded non-personal decision contract", () => {
   });
 
   assert.ok(contract);
-  assert.equal(contract.contractVersion, "agent-v10-grounded-1");
+  assert.equal(contract.contractVersion, "agent-v10-grounded-2");
   assert.equal(contract.email, undefined);
   assert.equal(contract.accessToken, undefined);
   assert.equal(contract.evidence.length, 6);
@@ -68,10 +68,21 @@ test("sanitizer keeps only the bounded non-personal decision contract", () => {
   assert.equal(contract.paperOnly, true);
 });
 
+test("sanitizer supplies deterministic source lists when optional arrays are empty", () => {
+  const contract = sanitizeAgentExplanationInput(sourceDecision({
+    evidence: [],
+    counterArguments: [],
+    missingEvidence: []
+  }));
+
+  assert.equal(contract.evidence.length, 1);
+  assert.equal(contract.counterArguments.length, 1);
+  assert.equal(contract.missingEvidence.length, 1);
+});
+
 test("canonical decision input is stable regardless of object insertion order", () => {
   const first = sanitizeAgentExplanationInput(sourceDecision());
-  const second = { ...first };
-  const reversed = Object.fromEntries(Object.entries(second).reverse());
+  const reversed = Object.fromEntries(Object.entries(first).reverse());
 
   assert.equal(canonicalAgentExplanationInput(first), canonicalAgentExplanationInput(reversed));
 });
@@ -83,39 +94,66 @@ test("deterministic fallback remains useful without a language-model key", () =>
   assert.equal(explanation.mode, "deterministic-fallback");
   assert.match(explanation.summary, /Home FC/);
   assert.match(explanation.summary, /PLAY/);
+  assert.equal(explanation.strongestReason, contract.evidence[0]);
+  assert.equal(explanation.counterpoint, contract.counterArguments[0]);
   assert.ok(explanation.nextChecks.length >= 1);
   assert.match(explanation.limitation, /paperiseurannan/);
 });
 
-test("grounded validator accepts concise qualitative output", () => {
+test("grounded validator maps model-selected indexes back to immutable source text", () => {
+  const contract = sanitizeAgentExplanationInput(sourceDecision());
   const value = validateGeneratedAgentExplanation({
     summary: "Päätös perustuu laskettuun markkinaevidenssiin, mutta epävarmuus säilyy.",
-    strongestReason: "Paras peruste on tuore ja riittävän laaja markkinakonsensus.",
-    counterpoint: "Konsensus voi silti olla väärässä tai muuttua ennen tapahtumaa.",
-    nextChecks: ["Vahvista kokoonpano.", "Tarkista markkinan tuoreus."],
+    strongestEvidenceIndex: 1,
+    counterArgumentIndex: 0,
+    nextCheckIndexes: [1, 0],
     limitation: "Tämä on paperiseurannan päätöstuki eikä tuottolupaus."
-  });
+  }, contract);
 
   assert.ok(value);
   assert.equal(value.mode, "grounded-language-model");
+  assert.equal(value.strongestReason, contract.evidence[1]);
+  assert.equal(value.counterpoint, contract.counterArguments[0]);
+  assert.deepEqual(value.nextChecks, [
+    `Vahvista ${contract.missingEvidence[1]}.`,
+    `Vahvista ${contract.missingEvidence[0]}.`
+  ]);
 });
 
-test("grounded validator rejects new numbers and certainty claims", () => {
-  assert.equal(validateGeneratedAgentExplanation({
-    summary: "Kohde voittaa varmasti ja todennäköisyys on 70 prosenttia.",
-    strongestReason: "Taattu voitto.",
-    counterpoint: "Ei riskiä.",
-    nextChecks: ["Pelaa nyt."],
-    limitation: "Riskitön."
-  }), null);
+test("grounded validator rejects new numbers, certainty claims and invalid indexes", () => {
+  const contract = sanitizeAgentExplanationInput(sourceDecision());
 
   assert.equal(validateGeneratedAgentExplanation({
-    summary: "Laadukas kohde.",
-    strongestReason: "Markkina tukee valintaa.",
-    counterpoint: "Konsensus voi olla väärässä.",
-    nextChecks: ["Tarkista 2 asiaa."],
-    limitation: "Paper only."
-  }), null);
+    summary: "Kohde voittaa varmasti ja todennäköisyys on 70 prosenttia.",
+    strongestEvidenceIndex: 0,
+    counterArgumentIndex: 0,
+    nextCheckIndexes: [0],
+    limitation: "Riskitön."
+  }, contract), null);
+
+  assert.equal(validateGeneratedAgentExplanation({
+    summary: "Laadukas mutta epävarma kohde.",
+    strongestEvidenceIndex: 99,
+    counterArgumentIndex: 0,
+    nextCheckIndexes: [0],
+    limitation: "Paperiseurannan päätöstuki."
+  }, contract), null);
+});
+
+test("grounded validator rejects unsupported external facts in free text", () => {
+  const contract = sanitizeAgentExplanationInput(sourceDecision({
+    evidence: ["Markkinakonsensus tukee valintaa."],
+    counterArguments: ["Konsensus voi olla väärässä."],
+    missingEvidence: ["markkinadatan tuoreus"]
+  }));
+
+  assert.equal(validateGeneratedAgentExplanation({
+    summary: "Joukkueen loukkaantumistilanne tukee valintaa.",
+    strongestEvidenceIndex: 0,
+    counterArgumentIndex: 0,
+    nextCheckIndexes: [0],
+    limitation: "Tämä on paperiseurannan päätöstuki."
+  }, contract), null);
 });
 
 test("invalid or mutable decisions are rejected before explanation", () => {
@@ -136,6 +174,7 @@ test("Agent V10 route keeps provider use authenticated, bounded and non-persiste
   assert.match(route, /store:\s*false/);
   assert.match(route, /text:\s*\{\s*format:\s*\{/s);
   assert.match(route, /type:\s*"json_schema"/);
+  assert.match(route, /validateGeneratedAgentExplanation\(parsed, contract\)/);
   assert.match(route, /REQUEST_TIMEOUT_MS\s*=\s*18000/);
   assert.doesNotMatch(route, /web_search|file_search|tools\s*:/);
   assert.doesNotMatch(route, /NEXT_PUBLIC_OPENAI|EXPO_PUBLIC_OPENAI/);
