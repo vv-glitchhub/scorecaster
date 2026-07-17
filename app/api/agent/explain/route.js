@@ -62,9 +62,10 @@ function systemInstruction() {
     "You are Scorecaster Agent V10's grounded Finnish explanation layer.",
     "The deterministic decision object is the sole source of truth.",
     "Never change or dispute its decision, probability, edge, EV, stake, price guard or portfolio allocation.",
-    "Use only the supplied evidence, counterarguments and missing-evidence fields.",
+    "Write only a qualitative summary and limitation without digits or new facts.",
+    "For strongestEvidenceIndex, counterArgumentIndex and nextCheckIndexes, select only valid indexes from the supplied arrays.",
+    "The server, not you, will render the actual evidence, counterargument and verification text from those indexes.",
     "Do not invent news, injuries, lineups, weather, motivation, form or private information.",
-    "Do not introduce any digits, percentages, odds, dates, counts or other numbers in the output.",
     "Do not instruct the user to place a real-money bet and do not promise profit.",
     "Write concise, calm Finnish. Return only the required JSON object."
   ].join(" ");
@@ -100,7 +101,7 @@ async function generateGroundedExplanation(contract) {
             role: "user",
             content: [{
               type: "input_text",
-              text: `Explain this immutable decision object without adding facts or numbers:\n${JSON.stringify(contract)}`
+              text: `Explain this immutable decision contract without adding facts or changing metrics:\n${JSON.stringify(contract)}`
             }]
           }
         ],
@@ -131,7 +132,7 @@ async function generateGroundedExplanation(contract) {
       return { ok: false, reason: "Explanation provider returned invalid JSON" };
     }
 
-    const explanation = validateGeneratedAgentExplanation(parsed);
+    const explanation = validateGeneratedAgentExplanation(parsed, contract);
     if (!explanation) {
       return { ok: false, reason: "Generated explanation failed grounding validation" };
     }
