@@ -12,10 +12,11 @@
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
     "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
     "test:agent-ticket": "node --test scripts/agent-decision-ticket.test.mjs",
+    "test:agent-v11": "node --test scripts/agent-v11-self-learning.test.mjs",
     "test:easy-use": "node --test scripts/easy-use-ui.test.mjs",
     "test:i18n": "node --test scripts/i18n.test.mjs",
     "test:fixtures": "node --test scripts/fixture-integrity.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-v11 && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
   },
   "dependencies": {
     "@supabase/ssr": "latest",

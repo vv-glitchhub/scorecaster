@@ -9,6 +9,11 @@ import {
   readJsonBody
 } from "../../../../lib/api-security";
 import { calculateAgentPerformance } from "../../../../lib/agent-learning.js";
+import { buildSelfLearningReport } from "../../../../lib/agent-self-learning.mjs";
+import {
+  applyModelLabSafety,
+  summarizeGovernedDecisions
+} from "../../../../lib/agent-model-governance.mjs";
 import { buildAgentV9Portfolio } from "../../../../lib/agent-v9-engine.mjs";
 import {
   agentDecisionSigningConfigured,
@@ -51,6 +56,7 @@ function mapCloudBet(row) {
   return {
     id: row.id,
     result,
+    createdAt: row.created_at,
     stake: Number(row.stake || 0),
     odds: Number(row.odds || 0),
     closingOdds: row.closing_odds === null ? null : Number(row.closing_odds),
@@ -64,15 +70,24 @@ function mapCloudBet(row) {
 async function loadLearning(auth) {
   const { data, error } = await auth.supabase
     .from("bets")
-    .select("id,status,stake,odds,closing_odds,sport,league,market,raw_pick")
+    .select("id,status,created_at,stake,odds,closing_odds,sport,league,market,raw_pick")
     .eq("user_id", auth.user.id)
     .neq("status", "open")
     .order("created_at", { ascending: false })
     .limit(MAX_HISTORY);
 
-  if (error) return { learning: null, warning: "Paper history could not be included" };
+  if (error) {
+    return {
+      learning: null,
+      modelLab: buildSelfLearningReport([]),
+      warning: "Paper history could not be included"
+    };
+  }
+
+  const history = (data || []).map(mapCloudBet);
   return {
-    learning: calculateAgentPerformance((data || []).map(mapCloudBet)),
+    learning: calculateAgentPerformance(history),
+    modelLab: buildSelfLearningReport(history),
     warning: null
   };
 }
@@ -100,7 +115,7 @@ export async function POST(request) {
   }
 
   const limited = await enforceRateLimit(auth, requestId, {
-    bucket: "agent_v10_portfolio",
+    bucket: "agent_v11_portfolio",
     limit: 20,
     windowSeconds: 300
   });
@@ -126,8 +141,10 @@ export async function POST(request) {
     ...settings,
     learning: learningResult.learning
   });
+  const governedDecisions = applyModelLabSafety(portfolio.decisions, learningResult.modelLab);
+  const governedSummary = summarizeGovernedDecisions(governedDecisions);
   const signingConfigured = agentDecisionSigningConfigured();
-  const decisions = portfolio.decisions.map((decision) => ({
+  const decisions = governedDecisions.map((decision) => ({
     ...decision,
     explanationTicket: signingConfigured ? createAgentDecisionTicket(decision) : null
   }));
@@ -135,20 +152,24 @@ export async function POST(request) {
   return jsonResponse(
     {
       ok: true,
+      agentVersion: "V11-model-lab-shadow",
       source: source.payload?.source || "no-vig-market-consensus",
+      fixtureSource: source.payload?.fixtureSource || "live-odds-provider-only",
       generatedAt: new Date().toISOString(),
       paperOnly: true,
       signingConfigured,
       explanationMode: signingConfigured
         ? "signed-grounded-provider-or-fallback"
         : "deterministic-fallback-only",
+      learningMode: "chronological-champion-challenger-shadow",
       warnings: [learningResult.warning].filter(Boolean),
       settings,
-      counts: portfolio.counts,
-      totalAllocated: portfolio.totalAllocated,
+      modelLab: learningResult.modelLab,
+      counts: governedSummary.counts,
+      totalAllocated: governedSummary.totalAllocated,
       totalCap: portfolio.totalCap,
       leagueCap: portfolio.leagueCap,
-      exposurePercent: portfolio.exposurePercent,
+      exposurePercent: settings.bankroll > 0 ? governedSummary.totalAllocated / settings.bankroll : 0,
       decisions
     },
     200,

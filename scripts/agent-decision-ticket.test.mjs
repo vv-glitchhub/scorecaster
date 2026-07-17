@@ -74,18 +74,21 @@ test("portfolio API is authenticated, rate-limited and signs only server-built d
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
   const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
   const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
+  const governanceIndex = route.indexOf("applyModelLabSafety(portfolio.decisions");
   const signingIndex = route.indexOf("createAgentDecisionTicket(decision)");
 
   assert.ok(authIndex >= 0);
   assert.ok(sourceIndex > authIndex);
   assert.ok(portfolioIndex > sourceIndex);
-  assert.ok(signingIndex > portfolioIndex);
-  assert.match(route, /bucket:\s*"agent_v10_portfolio"/);
+  assert.ok(governanceIndex > portfolioIndex);
+  assert.ok(signingIndex > governanceIndex);
+  assert.match(route, /bucket:\s*"agent_v11_portfolio"/);
   assert.match(route, /limit:\s*20/);
   assert.match(route, /windowSeconds:\s*300/);
   assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
   assert.match(route, /MAX_HISTORY\s*=\s*500/);
   assert.match(route, /MAX_SPORTS\s*=\s*6/);
+  assert.match(route, /buildSelfLearningReport\(history\)/);
 });
 
 test("enhanced explanation requires a verified signed ticket before provider use", async () => {
@@ -104,7 +107,7 @@ test("enhanced explanation requires a verified signed ticket before provider use
   assert.doesNotMatch(route, /contract\.language/);
 });
 
-test("mobile Agent screen uses protected portfolio and explanation endpoints", async () => {
+test("mobile Agent screen uses protected portfolio, model lab and explanation endpoints", async () => {
   const app = await readFile(new URL("../mobile/src/App.tsx", import.meta.url), "utf8");
   const screen = await readFile(new URL("../mobile/src/screens/AgentScreen.tsx", import.meta.url), "utf8");
 
@@ -114,5 +117,6 @@ test("mobile Agent screen uses protected portfolio and explanation endpoints", a
   assert.match(screen, /"\/api\/agent\/explain"/);
   assert.match(screen, /ticket:\s*decision\.explanationTicket \|\| null, language/);
   assert.match(screen, /"\/api\/cloud\/bets"/);
-  assert.match(screen, /scorecaster-mobile-agent-v10/);
+  assert.match(screen, /scorecaster-mobile-agent-v11/);
+  assert.match(screen, /portfolio\?\.modelLab/);
 });

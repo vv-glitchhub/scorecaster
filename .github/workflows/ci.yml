@@ -60,6 +60,11 @@ jobs:
           set -o pipefail
           npm run test:agent-ticket 2>&1 | tee agent-ticket.log
 
+      - name: Agent V11 self-learning model lab tests
+        run: |
+          set -o pipefail
+          npm run test:agent-v11 2>&1 | tee agent-v11.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -89,6 +94,7 @@ jobs:
             agent-v9.log
             agent-v10.log
             agent-ticket.log
+            agent-v11.log
             easy-use.log
             i18n.log
             fixture-integrity.log
