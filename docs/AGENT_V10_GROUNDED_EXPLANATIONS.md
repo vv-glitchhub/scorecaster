@@ -23,11 +23,11 @@ Agent V9 deterministic decision
   -> bounded Agent V10 decision contract
   -> authenticated and rate-limited server endpoint
   -> optional language-model structured output
-  -> grounding validator
+  -> source-index and grounding validator
   -> UI explanation
 ```
 
-When authentication, provider configuration, rate limiting or generated-output validation fails, Scorecaster returns a deterministic local explanation instead.
+When authentication, provider configuration or generated-output validation fails, Scorecaster returns a deterministic local explanation instead. When the authenticated provider quota is exhausted, the endpoint returns a rate-limit response and the already calculated Agent decision remains available.
 
 ## Minimal decision contract
 
@@ -68,17 +68,27 @@ The configurable server model is `OPENAI_AGENT_MODEL`; the default is `gpt-5-min
 
 ## Output contract
 
-The language model may return only:
+The language model may write only:
 
-- a concise qualitative summary
-- the strongest supplied reason
-- a serious supplied counterpoint
-- one to four verification steps
-- a paper-only limitation statement
+- a concise qualitative summary without digits
+- a paper-only limitation statement without digits
 
-Generated output may not contain digits. This prevents the explanation from inventing, rounding or changing probabilities, odds, stakes, dates or sample counts. The deterministic UI remains responsible for every number.
+For all factual sections, it may return only indexes:
 
-The validator also rejects certainty and execution language such as guaranteed wins, risk-free claims or instructions to place a real-money bet.
+- one index into the immutable evidence array
+- one index into the immutable counterargument array
+- one to four indexes into the immutable missing-evidence array
+
+The server validates every index and then renders the actual evidence, counterargument and verification text from the original sanitized contract. The model cannot replace those source strings with its own factual wording.
+
+Generated free text may not contain digits. This prevents the explanation from inventing, rounding or changing probabilities, odds, stakes, dates or sample counts. The deterministic UI remains responsible for every number.
+
+The validator also rejects:
+
+- certainty and guaranteed-profit language
+- instructions to place a real-money bet
+- unsupported claims about injuries, lineups, weather, motivation, news, form or playing condition
+- invalid source indexes
 
 ## Deterministic fallback
 
@@ -86,7 +96,6 @@ The fallback explanation is built from the same sanitized contract and requires 
 
 - the user is not authenticated
 - the optional provider key is not configured
-- the quota is unavailable or exceeded
 - the provider times out or returns an error
 - structured output is missing or malformed
 - grounding validation fails
@@ -127,12 +136,15 @@ The regression suite checks:
 
 - unknown and personal fields are removed
 - lists and numbers are bounded
+- empty source lists receive deterministic safe defaults
 - canonical decision input is stable
 - fallback output remains useful
-- valid qualitative structured output is accepted
+- valid source-index structured output is accepted
+- source indexes map back to immutable source strings
 - new numbers are rejected
 - certainty and real-money execution language are rejected
-- invalid decisions are rejected
+- unsupported external facts are rejected
+- invalid decisions and invalid indexes are rejected
 - provider use occurs after authentication
 - the provider call is rate-limited, non-persistent and tool-free
 
