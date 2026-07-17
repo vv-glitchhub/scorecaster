@@ -70,6 +70,11 @@ jobs:
           set -o pipefail
           npm run test:i18n 2>&1 | tee i18n.log
 
+      - name: Live fixture integrity tests
+        run: |
+          set -o pipefail
+          npm run test:fixtures 2>&1 | tee fixture-integrity.log
+
       - name: Build
         run: |
           set -o pipefail
@@ -86,6 +91,7 @@ jobs:
             agent-ticket.log
             easy-use.log
             i18n.log
+            fixture-integrity.log
             build.log
           if-no-files-found: ignore
           retention-days: 7
