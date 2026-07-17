@@ -1,3 +1,4 @@
+import WatchlistCandidates from "./WatchlistCandidates";
 import WatchlistClient from "./WatchlistClient";
 
 export const metadata = {
@@ -5,5 +6,10 @@ export const metadata = {
 };
 
 export default function WatchlistPage() {
-  return <WatchlistClient />;
+  return (
+    <div className="space-y-7">
+      <WatchlistCandidates />
+      <WatchlistClient />
+    </div>
+  );
 }
