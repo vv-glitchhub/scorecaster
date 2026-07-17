@@ -53,9 +53,25 @@ export async function GET() {
     agentV11ShadowOnly: true,
     agentV11ProductionProbabilityChangedByLearning: false,
     agentV11RegressionTests: true,
+    realSportsIntelligenceV1: true,
+    publicTopPicksMarketOnly: true,
+    agentContextMaximumPicks: 6,
+    agentContextAuthenticatedApi: true,
+    agentContextCanOnlyDowngrade: true,
+    agentContextChangesProbability: false,
+    agentContextChangesEdgeOrEv: false,
+    placeholderLineupClaimsRemoved: true,
+    irrelevantNewsFallbackRemoved: true,
+    externalMarketContextDecisionInput: false,
+    verifiedContextRegressionTests: true,
+    newsContextConfigured: Boolean(process.env.NEWS_API_KEY),
+    injuryContextConfigured: Boolean(process.env.SPORTSDATA_API_KEY),
+    lineupContextConfigured: false,
+    externalMarketContextEnabled: process.env.ENABLE_EXTERNAL_MARKET_CONTEXT === "true",
     mobileAgentV11Tab: true,
     mobileAgentV11Portfolio: true,
     mobileAgentV11ModelLab: true,
+    mobileAgentV11VerifiedContext: true,
     mobileAgentV11Explanations: true,
     watchlistAlertsV2: true,
     watchlistServerVerifiedSelections: true,
@@ -150,7 +166,13 @@ export async function GET() {
     services.agentV11UntouchedHoldout &&
     services.agentV11DriftDetection &&
     services.agentV11RegressionTests &&
+    services.realSportsIntelligenceV1 &&
+    services.publicTopPicksMarketOnly &&
+    services.agentContextAuthenticatedApi &&
+    services.agentContextCanOnlyDowngrade &&
+    services.verifiedContextRegressionTests &&
     services.mobileAgentV11Tab &&
+    services.mobileAgentV11VerifiedContext &&
     services.watchlistAlertsV2 &&
     services.watchlistServerVerifiedSelections &&
     services.watchlistAuthenticatedApi &&
@@ -170,7 +192,8 @@ export async function GET() {
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
       modelMode: "market-consensus-with-shadow-calibration-lab",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V11-chronological-champion-challenger-shadow-over-signed-grounded-V10-and-V9-portfolio",
+      agentMode: "V11-model-lab-with-signed-explanations-and-downgrade-only-verified-sports-context",
+      intelligenceMode: "authenticated-bounded-sourced-context-no-probability-adjustment",
       watchlistMode: "V2-server-verified-user-isolated-manual-refresh-alerts",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
@@ -180,14 +203,16 @@ export async function GET() {
       nextStep: !services.supabaseConfigured
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
-          ? "Apply all Supabase migrations, including Watchlist V2, test two-user isolation and configure server-only account deletion"
+          ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
-            ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
+            ? "Configure the server-only Odds API key for live consensus and paper result checks"
             : !services.agentV10DecisionSigningConfigured
               ? "Configure a dedicated server-only Agent decision signing key"
-              : !services.openAiConfigured
-                ? "Optional: configure the server-only OpenAI key for grounded explanations"
-                : "Collect enough settled observations for Agent V11, verify Watchlist V2 isolation and complete real-device release testing",
+              : !services.newsContextConfigured && !services.injuryContextConfigured
+                ? "Configure and validate approved sports-context providers or keep missing context explicit"
+                : !services.openAiConfigured
+                  ? "Optional: configure the server-only OpenAI key for grounded explanations"
+                  : "Collect enough settled observations for Agent V11 and complete context, watchlist and real-device release tests",
       timestamp: new Date().toISOString()
     },
     {
