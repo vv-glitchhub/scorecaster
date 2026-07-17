@@ -10,8 +10,14 @@ function decisionTone(decision: AgentDecision["decision"]) {
   if (decision === "WATCH") return styles.warningBadge;
   return styles.dangerBadge;
 }
+
 function decisionKey(decision: AgentDecision, index: number) {
   return String(decision.gameId || decision.eventId || decision.id || `${decision.match}-${decision.selection}-${index}`);
+}
+
+function optionalNumber(value: unknown, digits = 3) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(digits) : "–";
 }
 
 export default function AgentScreen() {
@@ -65,9 +71,9 @@ export default function AgentScreen() {
     try {
       await apiRequest("/api/cloud/bets", {
         method: "POST",
-        body: { bets: [{ id, eventId: decision.gameId || decision.eventId || decision.id, match: decision.match || [decision.homeTeam, decision.awayTeam].filter(Boolean).join(" – "), homeTeam: decision.homeTeam, awayTeam: decision.awayTeam, selection: decision.selection || decision.label, odds: decision.odds, stake: decision.suggestedStake, edge: decision.edge, ev: decision.ev, confidence: decision.confidence, league: decision.league || decision.leagueTitle, sport: decision.sportKey, bookmaker: decision.bookmaker, decision: decision.decision, qualityScore: decision.trustScore, modelProbability: decision.stressTest?.probability || decision.consensusProbability, impliedProbability: decision.marketProbability, source: "scorecaster-mobile-agent-v10" }] }
+        body: { bets: [{ id, eventId: decision.gameId || decision.eventId || decision.id, match: decision.match || [decision.homeTeam, decision.awayTeam].filter(Boolean).join(" – "), homeTeam: decision.homeTeam, awayTeam: decision.awayTeam, selection: decision.selection || decision.label, odds: decision.odds, stake: decision.suggestedStake, edge: decision.edge, ev: decision.ev, confidence: decision.confidence, league: decision.league || decision.leagueTitle, sport: decision.sportKey, bookmaker: decision.bookmaker, decision: decision.decision, qualityScore: decision.trustScore, modelProbability: decision.stressTest?.probability || decision.consensusProbability, impliedProbability: decision.marketProbability, source: "scorecaster-mobile-agent-v11", agentVersion: decision.agentVersion, learningStatus: decision.selfLearning?.status, learningSampleSize: decision.selfLearning?.sampleSize, probabilityAdjustedByLearning: false }] }
       });
-      Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: "Agent V10 -kohde lisättiin virtuaaliseen seurantaan. Oikeaa vetoa ei asetettu.", en: "The Agent V10 pick was added to virtual tracking. No real bet was placed.", es: "El pronóstico de Agent V10 se añadió al seguimiento virtual. No se realizó ninguna apuesta real." }));
+      Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: "Agent V11 -kohde lisättiin virtuaaliseen seurantaan. Todennäköisyyttä ei muutettu oppimiskerroksella.", en: "The Agent V11 pick was added to virtual tracking. The learning layer did not alter the probability.", es: "El pronóstico de Agent V11 se añadió al seguimiento virtual. La capa de aprendizaje no modificó la probabilidad." }));
     } catch (error) {
       Alert.alert(tr({ fi: "Tallennus epäonnistui", en: "Save failed", es: "No se pudo guardar" }), error instanceof Error ? error.message : tr({ fi: "Tuntematon virhe", en: "Unknown error", es: "Error desconocido" }));
     } finally {
@@ -75,13 +81,27 @@ export default function AgentScreen() {
     }
   }
 
+  const modelLab = portfolio?.modelLab;
+  const improvement = modelLab?.challenger?.holdoutImprovement?.brier;
+
   return (
     <ScrollView contentContainerStyle={styles.screen}>
-      <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.title}>Agent V10</Text><Text style={styles.subtitle}>{tr({ fi: "Palvelimen laskema stressitesti, portfoliohallinta ja valvottu selitys. Vain paperiseuranta.", en: "Server-calculated stress test, portfolio management and governed explanation. Paper tracking only.", es: "Prueba de estrés calculada por el servidor, gestión de cartera y explicación controlada. Solo seguimiento simulado." })}</Text></View><ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={load} compact tone="secondary" disabled={loading || busyId !== null} /></View>
+      <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.title}>Agent V11</Text><Text style={styles.subtitle}>{tr({ fi: "Palvelimen laskema stressitesti, portfoliohallinta, valvottu selitys ja kronologinen champion–challenger-oppimislaboratorio.", en: "Server-calculated stress test, portfolio management, governed explanation and chronological champion–challenger learning lab.", es: "Prueba de estrés, gestión de cartera, explicación controlada y laboratorio cronológico champion–challenger calculados por el servidor." })}</Text></View><ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={load} compact tone="secondary" disabled={loading || busyId !== null} /></View>
       {loading && <ActivityIndicator color="#34d399" size="large" />}
 
       {!loading && portfolio && <>
         <Card><Text style={styles.cardTitle}>{tr({ fi: "AI-portfolio", en: "AI portfolio", es: "Cartera IA" })}</Text><Text style={styles.metric}>{money(portfolio.totalAllocated)}</Text><Text style={styles.muted}>PLAY {portfolio.counts.PLAY} · WATCH {portfolio.counts.WATCH} · SKIP {portfolio.counts.SKIP}</Text><Text style={styles.muted}>{tr({ fi: "Altistus", en: "Exposure", es: "Exposición" })} {percent(portfolio.exposurePercent)} · {tr({ fi: "kokonaiskatto", en: "total cap", es: "límite total" })} {money(portfolio.totalCap)} · {tr({ fi: "liigakatto", en: "league cap", es: "límite por liga" })} {money(portfolio.leagueCap)}</Text><Text style={styles.muted}>{tr({ fi: "Selitystila", en: "Explanation mode", es: "Modo de explicación" })}: {portfolio.signingConfigured ? tr({ fi: "palvelimen allekirjoittama", en: "server-signed", es: "firmada por el servidor" }) : tr({ fi: "deterministinen varaselitys", en: "deterministic fallback", es: "alternativa determinista" })}</Text>{(portfolio.warnings || []).map((warning) => <Text key={warning} style={styles.muted}>• {warning}</Text>)}</Card>
+
+        <Card>
+          <Text style={styles.cardTitle}>{tr({ fi: "Agent V11 Model Lab", en: "Agent V11 Model Lab", es: "Model Lab de Agent V11" })}</Text>
+          <Text style={styles.value}>{modelLab?.status || tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Otos", en: "Sample", es: "Muestra" })} {modelLab?.sampleSize || 0}/{modelLab?.minimumSamples || 120} · {tr({ fi: "koulutus", en: "train", es: "entrenamiento" })} {modelLab?.trainSize || 0} · holdout {modelLab?.holdoutSize || 0}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Champion", en: "Champion", es: "Champion" })}: {modelLab?.champion?.id || "identity"} · {tr({ fi: "Challenger", en: "Challenger", es: "Challenger" })}: {modelLab?.challenger?.id || "–"}</Text>
+          <Text style={styles.muted}>Holdout Brier {modelLab?.champion?.holdout ? optionalNumber(modelLab.champion.holdout.brierScore) : "–"} → {modelLab?.challenger?.holdout ? optionalNumber(modelLab.challenger.holdout.brierScore) : "–"} · Δ {optionalNumber(improvement)}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Drift", en: "Drift", es: "Drift" })}: {modelLab?.drift?.status || "unknown"}. {modelLab?.drift?.note || ""}</Text>
+          <Text style={styles.muted}>{modelLab?.promotion?.eligible ? tr({ fi: "Ehdokas läpäisi portin, mutta pysyy varjotilassa erilliseen hyväksyntään asti.", en: "The challenger passed the gate but remains in shadow mode until separately approved.", es: "El challenger superó el filtro, pero permanece en modo sombra hasta una aprobación separada." }) : tr({ fi: "Ehdokasta ei oteta käyttöön. Nykyinen todennäköisyys pysyy muuttumattomana.", en: "The challenger is not activated. The current probability remains unchanged.", es: "El challenger no se activa. La probabilidad actual permanece sin cambios." })}</Text>
+          {(modelLab?.promotion?.reasons || []).slice(0, 3).map((reason) => <Text key={reason} style={styles.muted}>• {reason}</Text>)}
+        </Card>
 
         {portfolio.decisions.slice(0, 12).map((decision, index) => {
           const id = decisionKey(decision, index);
@@ -92,6 +112,7 @@ export default function AgentScreen() {
             <View style={styles.rowBetween}><View style={[styles.badge, decisionTone(decision.decision)]}><Text style={styles.badgeText}>{decision.decision}</Text></View><Text style={styles.muted}>{decision.leagueTitle || decision.league || decision.sportKey || "Sport"}</Text></View>
             <Text style={styles.cardTitle}>{decision.match || `${decision.homeTeam || ""} – ${decision.awayTeam || ""}`}</Text><Text style={styles.value}>{decision.selection || decision.label} · {Number(decision.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{decision.bookmaker || tr({ fi: "Paras saatavilla oleva hinta", en: "Best available price", es: "Mejor cuota disponible" })}</Text>
             <View style={styles.divider} /><Text style={styles.muted}>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(stress.probability)} · {tr({ fi: "stressialue", en: "stress range", es: "rango de estrés" })} {percent(stress.lower)}–{percent(stress.upper)}</Text><Text style={styles.muted}>{tr({ fi: "Perus-EV", en: "Base EV", es: "EV base" })} {percent(stress.baseEv)} · {tr({ fi: "alarajan EV", en: "downside EV", es: "EV a la baja" })} {percent(stress.downsideEv)} · robustness {percent(decision.robustnessScore)}</Text><Text style={styles.muted}>{tr({ fi: "Kerroinraja", en: "Odds floor", es: "Cuota mínima" })} {Number(price.minimumPlayOdds || 0).toFixed(2)} · {tr({ fi: "paperipanos", en: "paper stake", es: "importe simulado" })} {money(decision.suggestedStake)}</Text><Text style={styles.muted}>{decision.decisionReason || tr({ fi: "Päätös perustuu deterministiseen ytimeen.", en: "The decision is based on the deterministic core.", es: "La decisión se basa en el núcleo determinista." })}</Text>{decision.portfolioReason && <Text style={styles.muted}>{tr({ fi: "Portfolio", en: "Portfolio", es: "Cartera" })}: {decision.portfolioReason}</Text>}
+            <Text style={styles.muted}>{tr({ fi: "Oppiminen", en: "Learning", es: "Aprendizaje" })}: {decision.selfLearning?.status || "shadow"} · {tr({ fi: "otos", en: "sample", es: "muestra" })} {decision.selfLearning?.sampleSize || 0} · drift {decision.selfLearning?.driftStatus || "unknown"} · {tr({ fi: "todennäköisyyttä ei muutettu", en: "probability unchanged", es: "probabilidad sin cambios" })}</Text>
             <View style={styles.actionRow}><ActionButton label={busyId === id ? tr({ fi: "Odota…", en: "Wait…", es: "Espera…" }) : tr({ fi: "AI-selitys", en: "AI explanation", es: "Explicación IA" })} onPress={() => explain(decision, id)} disabled={busyId !== null} compact tone="secondary" /><ActionButton label={tr({ fi: "Paperiseurantaan", en: "Paper tracking", es: "Seguimiento simulado" })} onPress={() => save(decision, id)} disabled={busyId !== null || decision.decision !== "PLAY" || !decision.suggestedStake} compact /></View>
             {explanation && <View style={{ gap: 8 }}><Text style={styles.cardTitle}>{explanation.enhanced && explanation.authoritative ? tr({ fi: "Valvottu AI-selitys", en: "Governed AI explanation", es: "Explicación IA controlada" }) : tr({ fi: "Deterministinen selitys", en: "Deterministic explanation", es: "Explicación determinista" })}</Text><Text style={styles.muted}>{explanation.explanation.summary}</Text><Text style={styles.value}>{tr({ fi: "Vahvin peruste", en: "Strongest reason", es: "Motivo principal" })}</Text><Text style={styles.muted}>{explanation.explanation.strongestReason}</Text><Text style={styles.value}>{tr({ fi: "Vastaväite", en: "Counterargument", es: "Contraargumento" })}</Text><Text style={styles.muted}>{explanation.explanation.counterpoint}</Text><Text style={styles.value}>{tr({ fi: "Tarkista seuraavaksi", en: "Check next", es: "Comprueba después" })}</Text>{explanation.explanation.nextChecks.map((item) => <Text key={item} style={styles.muted}>• {item}</Text>)}<Text style={styles.muted}>{explanation.explanation.limitation}</Text></View>}
           </Card>;
