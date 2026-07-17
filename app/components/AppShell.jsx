@@ -21,10 +21,17 @@ export default function AppShell({ children }) {
     { href: "/simulator", label: t("nav.simulator"), short: t("nav.simulator") }
   ], [t]);
 
+  const watchlistItem = useMemo(() => ({
+    href: "/watchlist",
+    label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Lista de seguimiento" }),
+    description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." })
+  }), [tr]);
+
   const secondaryGroups = useMemo(() => [
     {
       title: t("group.start"),
       items: [
+        watchlistItem,
         { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
         { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
         { href: "/paper-trading", label: t("more.portfolio"), description: t("more.portfolioDescription") },
@@ -43,14 +50,13 @@ export default function AppShell({ children }) {
     {
       title: t("group.advanced"),
       items: [
-        { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Lista de seguimiento" }), description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." }) },
         { href: "/intelligence", label: t("more.intelligence"), description: t("more.intelligenceDescription") },
         { href: "/clv", label: t("more.clv"), description: t("more.clvDescription") },
         { href: "/reports", label: t("more.reports"), description: t("more.reportsDescription") },
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, tr]);
+  ], [t, watchlistItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 
