@@ -1,6 +1,6 @@
 # Scorecaster
 
-AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, verified watchlists, risk control and virtual paper tracking.
+AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, verified sports context, watchlists, risk control and virtual paper tracking.
 
 ## Product boundary
 
@@ -23,6 +23,7 @@ The default Top Picks engine:
 - exposes bookmaker coverage, agreement, freshness and numeric data confidence
 - blocks stale and low-coverage data from receiving PLAY
 - accepts only verified live-provider fixtures inside bounded near-term windows
+- remains market-only; optional sports context is evaluated later by the authenticated Agent
 - never adds the prototype's old fixed probability boost
 
 Edge means best-price value versus market consensus. It is not proof that the selected team will win.
@@ -79,6 +80,22 @@ Agent V11 evaluates challenger probability calibrators without silently replacin
 
 See `docs/AGENT_V11_MODEL_LAB.md`.
 
+## Real Sports Intelligence V1
+
+The authenticated Agent can evaluate bounded, sourced sports context separately from the market model.
+
+- evaluates at most six high-priority selections per request
+- accepts context evidence only from provider responses explicitly marked live
+- exposes source, mode, retrieval time, freshness and missing evidence
+- removes placeholder lineup claims and unrelated fallback news
+- leaves unconfigured lineups explicitly unknown
+- keeps external-market context disabled by default and never uses it as a decision input
+- may downgrade PLAY to WATCH and remove the planned paper allocation
+- cannot promote a decision or change probability, edge or expected value
+- leaves lower-priority unevaluated selections without PLAY paper allocation
+
+See `docs/REAL_SPORTS_INTELLIGENCE_V1.md`.
+
 ## Watchlist & Alerts V2
 
 The authenticated watchlist tracks server-verified live selections without creating a paper stake.
@@ -90,7 +107,7 @@ The authenticated watchlist tracks server-verified live selections without creat
 - alerts cover kickoff proximity, decision changes, meaningful price moves and a broken PLAY price floor
 - missing current data is shown as unavailable; no replacement market is invented
 - paused items remain stored but emit no alerts
-- legacy `/alerts` now routes to the verified watchlist
+- legacy `/alerts` routes to the verified watchlist
 - current V2 refresh is user-triggered; background push delivery is not claimed yet
 
 See `docs/WATCHLIST_ALERTS_V2.md`.
@@ -107,13 +124,14 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 
 ### Agent
 
-- Agent V9 adversarial portfolio engine
+- server-authoritative Agent V9 adversarial portfolio engine
 - Agent V10 optional grounded explanation
 - Agent V11 chronological champion–challenger Model Lab
+- Real Sports Intelligence V1 source audit and downgrade-only safety gate
 - verified evidence, missing evidence and counterargument
 - heuristic probability stress range and downside EV
 - price guard and conservative paper stake
-- portfolio, league and drift controls
+- portfolio, league, drift and context controls
 
 ### Watchlist
 
@@ -133,16 +151,17 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 
 ## Security guardrails
 
-- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent and Watchlist tests plus a production build.
+- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent, context and Watchlist tests plus a production build.
 - CodeQL analyzes JavaScript and TypeScript.
 - Supabase Row Level Security isolates account, paper and watchlist rows.
 - Protected APIs validate authentication, origin, body size, ranges and record counts.
 - Authenticated APIs use atomic per-user database quotas.
 - PostgreSQL enforces paper stake, total exposure, league exposure, edge and confidence limits.
 - Watchlist writes are independently resolved against server Top Picks rather than trusted from the client.
+- Sports-context requests are authenticated, bounded and normalized before reaching the Agent.
 - Server-only integration keys are not included in browser or mobile bundles.
 - Automatic H2H paper-result checking is user-triggered, bounded and rate-limited.
-- `/api/health` reports safe model and integration readiness without exposing secrets.
+- `/api/health` reports safe model and integration readiness without exposing secret values.
 
 ## Native mobile MVP
 
@@ -152,7 +171,8 @@ The `mobile/` directory contains the Expo iOS and Android application with:
 - session persistence in Expo SecureStore
 - HTTPS bearer-authenticated API calls
 - NHL, NBA, EPL, La Liga, Liiga and SHL filters
-- near-term Top Picks and Agent V11
+- near-term Top Picks and server-authoritative Agent V11
+- source-audited verified sports context
 - separate verified Watchlist screen and native watch actions
 - virtual bankroll and personal paper-risk limits
 - paper-bet saving and result tracking
@@ -213,6 +233,7 @@ Main routes:
 - `GET/POST/PATCH/DELETE /api/cloud/watchlist`
 - `POST /api/agent/portfolio`
 - `POST /api/agent/explain`
+- `POST /api/intelligence`
 - `GET /api/account/export`
 - `GET/DELETE /api/account`
 
@@ -250,9 +271,12 @@ ODDS_API_KEY=
 AGENT_DECISION_SIGNING_KEY=
 OPENAI_API_KEY=
 OPENAI_AGENT_MODEL=
+NEWS_API_KEY=
+SPORTSDATA_API_KEY=
+ENABLE_EXTERNAL_MARKET_CONTEXT=false
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `AGENT_DECISION_SIGNING_KEY` and `OPENAI_API_KEY` are server-only. Never expose them to browser or mobile code.
+Server-only integration values must never be exposed to browser or mobile code. Optional sports-context sources may remain unconfigured; the Agent must show missing data rather than fabricate it.
 
 ## Important documentation
 
@@ -260,8 +284,9 @@ OPENAI_AGENT_MODEL=
 - `docs/AGENT_V9_TRANSPARENCY.md`
 - `docs/AGENT_V10_GROUNDED_EXPLANATIONS.md`
 - `docs/AGENT_V11_MODEL_LAB.md`
+- `docs/REAL_SPORTS_INTELLIGENCE_V1.md`
 - `docs/WATCHLIST_ALERTS_V2.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
 
-Scorecaster must not promise profit. The Agent must be allowed to say WATCH or SKIP. Optional language output and shadow learning never override the authoritative deterministic decision without a separately reviewed model-promotion process.
+Scorecaster must not promise profit. The Agent must be allowed to say WATCH or SKIP. Optional language output, shadow learning and verified sports context never override the authoritative probability calculation.
