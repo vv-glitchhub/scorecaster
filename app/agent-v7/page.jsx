@@ -1,5 +1,5 @@
-import AgentV7Dashboard from "./AgentV7Dashboard";
+import { redirect } from "next/navigation";
 
 export default function AgentV7Page() {
-  return <AgentV7Dashboard />;
+  redirect("/agent");
 }

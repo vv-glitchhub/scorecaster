@@ -60,6 +60,11 @@ jobs:
           set -o pipefail
           npm run test:agent-ticket 2>&1 | tee agent-ticket.log
 
+      - name: Easy-use navigation and onboarding tests
+        run: |
+          set -o pipefail
+          npm run test:easy-use 2>&1 | tee easy-use.log
+
       - name: Build
         run: |
           set -o pipefail
@@ -74,6 +79,7 @@ jobs:
             agent-v9.log
             agent-v10.log
             agent-ticket.log
+            easy-use.log
             build.log
           if-no-files-found: ignore
           retention-days: 7
