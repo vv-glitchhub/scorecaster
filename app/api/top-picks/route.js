@@ -259,7 +259,7 @@ export async function GET(request) {
     .sort((a, b) => (Number(b.edge || 0) * Number(b.confidence || 0)) - (Number(a.edge || 0) * Number(a.confidence || 0)))
     .slice(0, 30);
 
-  const enriched = await Promise.all(preFiltered.map(enrichSafely));
+  const enriched = preFiltered.map(applyQualityFallback);
   const sorted = enriched
     .sort((a, b) => rankPick(b) - rankPick(a))
     .slice(0, 20);
@@ -275,8 +275,9 @@ export async function GET(request) {
       ok: true,
       source: "no-vig-market-consensus",
       fixtureSource: "live-odds-provider-only",
-      agentVersion: "V8-consensus",
+      agentVersion: "V8-consensus-market-only",
       modelMode: "market-consensus",
+      intelligenceMode: "authenticated-agent-only",
       edgeType: "best-price-vs-no-vig-consensus",
       generatedAt: new Date(now).toISOString(),
       paperOnly: true,
@@ -285,7 +286,7 @@ export async function GET(request) {
       providerGames,
       acceptedGames,
       excludedGames: Math.max(0, providerGames - acceptedGames),
-      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Analysis is uncertain and does not guarantee profit; SKIP is a valid result.",
+      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Optional sports context is evaluated separately by the authenticated Agent and does not alter this market probability.",
       leagues,
       count: sorted.length,
       featured,
