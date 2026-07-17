@@ -13,10 +13,19 @@ export async function GET() {
     bettingConsensusWorkspace: true,
     bettingFixedProbabilityRemoved: true,
     bettingPersonalStakeCap: true,
-    agentV8EvidenceEngine: true,
+    agentV9AdversarialEngine: true,
+    agentProbabilityStressTest: true,
+    agentCounterArgumentGeneration: true,
+    agentPriceGuard: true,
+    agentPortfolioExposureCap: true,
+    agentLeagueExposureCap: true,
+    agentSinglePlayPerEvent: true,
+    agentConservativeLowerBoundKelly: true,
     agentInventedContextRemoved: true,
-    agentLearningMinimumSample: 20,
+    agentLearningMinimumSample: 30,
+    agentLearningUsesClvCalibrationAndBrier: true,
     agentLearningChangesProbability: false,
+    agentV9RegressionTests: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
     simulatorInputValidation: true,
@@ -78,7 +87,10 @@ export async function GET() {
     services.riskEngine &&
     services.betSlipEngine &&
     services.bettingConsensusWorkspace &&
-    services.agentV8EvidenceEngine &&
+    services.agentV9AdversarialEngine &&
+    services.agentProbabilityStressTest &&
+    services.agentPortfolioExposureCap &&
+    services.agentV9RegressionTests &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
@@ -92,7 +104,7 @@ export async function GET() {
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V8-evidence-priority-without-probability-boosting",
+      agentMode: "V9-adversarial-stress-tested-portfolio-without-probability-boosting",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
@@ -104,7 +116,7 @@ export async function GET() {
           ? "Apply all Supabase migrations, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
-            : "Run paper-risk, automatic-settlement, Betting, Agent, Simulator, TestFlight and Play internal tests",
+            : "Run paper-risk, automatic-settlement, Agent V9, Betting, Simulator, TestFlight and Play internal tests",
       timestamp: new Date().toISOString()
     },
     {
