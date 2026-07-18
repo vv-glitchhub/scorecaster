@@ -1,14 +1,10 @@
 # Scorecaster Auth + Cloud Sync Setup
 
-This guide enables user accounts, protected paper history, personal paper-risk limits, verified watchlists, deduplicated alert history and optional paper-result checking.
+This guide enables user accounts, protected paper history, personal paper-risk limits, verified watchlists, deduplicated Alert Inbox history and preferences, and optional paper-result checking.
 
-## 1. Supabase project
+## Database schema and security
 
-Create or open the Supabase project used by Scorecaster and configure the public project connection values in the deployment environment.
-
-## 2. Database schema and security
-
-Open the Supabase SQL editor and run the files in this order:
+Run the Supabase SQL files in this order:
 
 1. `supabase/scorecaster_schema.sql`
 2. `supabase/scorecaster_auth_cloud.sql`
@@ -16,115 +12,63 @@ Open the Supabase SQL editor and run the files in this order:
 4. `supabase/scorecaster_api_rate_limits.sql`
 5. `supabase/scorecaster_watchlist_alerts.sql`
 6. `supabase/scorecaster_alert_inbox.sql`
+7. `supabase/scorecaster_alert_inbox_v2.sql`
 
-The migrations add:
+The migrations add forced Row Level Security, user-specific paper data, verified Watchlist rows, deduplicated Alert Inbox history, read and resolved state, soft dismissal, severity and category preferences, paper-risk enforcement and database-backed per-user quotas.
 
-- profiles and authenticated paper history
-- paper-bankroll settings
-- user-specific verified watchlist rows
-- user-specific deduplicated alert history with read and resolved state
-- stable duplicate-safe client references
-- indexes and bounded data constraints
-- forced Row Level Security and user-specific policies
-- paper stake, total exposure, league exposure, edge and confidence enforcement
-- user-level transaction locking for concurrent exposure checks
-- database-backed per-user API quotas
-- unique per-user watchlist selections and bounded alert thresholds
-- unique per-user Alert Inbox fingerprints
+## Authentication redirects
 
-The paper-risk, watchlist and Alert Inbox migrations are idempotent. Run the paper-risk migration again after a release that changes its trigger definition.
-
-## 3. Supabase Auth settings
-
-Enable Email + Password authentication.
-
-Set the production Site URL to:
-
-```text
-https://scorecaster.vercel.app
-```
-
-Add the production confirmation redirect:
+Configure the production website callback and allow the native Scorecaster callback pattern:
 
 ```text
 https://scorecaster.vercel.app/auth/confirm
+scorecaster://**
 ```
 
-For local development also add:
+Test the native callback on signed devices before store release.
 
-```text
-http://localhost:3000/auth/confirm
-```
+## Required verification
 
-The native app uses Supabase mobile sessions and must be tested with the `scorecaster://` application scheme before store release.
-
-## 4. Deployment configuration
-
-Configure the public Supabase connection and the required server-only integration settings in the deployment platform. Keep server-only values out of browser code, native application configuration and version control. Redeploy after changing deployment settings.
-
-## 5. Test the full path
-
-1. Open `/production-status` and confirm required integrations are reported correctly.
-2. Create account A and confirm its email when required.
-3. Confirm `/profile` validates account A on the server.
-4. Save account A's virtual bankroll and paper-risk settings.
-5. Verify minimum edge, minimum confidence, single-stake, total-exposure and league-exposure rejections.
-6. Trigger two simultaneous writes near an exposure boundary and confirm only the valid transaction succeeds.
-7. Save a supported paper selection and confirm its event ID and model probability are retained.
-8. Settle a completed supported H2H paper row and confirm minimal result metadata, paper profit and analytics.
-9. Add optional closing odds and confirm CLV calculation.
-10. Add a current verified selection to account A's Watchlist V2.
-11. Confirm the stored event, selection, kickoff, odds and decision came from the server-confirmed Top Picks row.
-12. Submit a fabricated event ID directly to `POST /api/cloud/watchlist` and confirm rejection.
-13. Change watchlist thresholds and confirm invalid ranges are rejected.
-14. Pause the item and confirm it emits no alerts.
-15. Reactivate it and confirm a verified price, decision or kickoff change produces the expected alert.
-16. Refresh repeatedly and confirm the Alert Inbox contains only one row per fingerprint.
-17. Mark one alert read and confirm its read timestamp persists on the next refresh.
-18. Remove the alert condition and confirm the inbox row becomes resolved rather than disappearing.
-19. Recreate the condition and confirm the row becomes active and unread.
-20. Create account B.
-21. Confirm B cannot read, update or delete A's paper rows, bankroll settings, watchlist rows or inbox rows.
-22. Repeat protected paper, Agent, watchlist and Alert Inbox flows with both web-cookie and mobile-bearer sessions.
-23. Exceed protected endpoint quotas and confirm HTTP 429 plus `Retry-After`.
-24. Export account A's data and confirm only A's records and inbox rows are included.
-25. Delete account A and confirm it can no longer authenticate and its inbox rows are removed.
+1. Create account A and verify its email.
+2. Save A's virtual bankroll and paper-risk settings.
+3. Confirm invalid stake, total exposure, league exposure, minimum edge and minimum confidence writes are rejected.
+4. Add a current server-verified selection to A's Watchlist.
+5. Submit a fabricated event ID directly to the Watchlist API and confirm rejection.
+6. Refresh repeatedly and confirm one Alert Inbox row per fingerprint.
+7. Mark an alert read, unread and read again across web and native clients.
+8. Remove the current condition and confirm the inbox row becomes resolved.
+9. Recreate the condition and confirm it becomes active and unread.
+10. Set minimum severity to high and verify lower-severity conditions are filtered on the next refresh.
+11. Disable one category and verify only that category is filtered.
+12. Dismiss a continuing condition and verify it stays hidden after refresh.
+13. Resolve and recreate the dismissed condition and verify it reopens visible and unread.
+14. Create account B.
+15. Confirm B cannot read, update, dismiss or configure A's paper, Watchlist or Alert Inbox rows.
+16. Repeat protected flows with web-cookie and mobile-bearer sessions.
+17. Exceed quotas and confirm HTTP 429 plus `Retry-After`.
+18. Export the main account package and the Alert Inbox V2 package, confirming only A's rows are included.
+19. Delete A and confirm settings, inbox, Watchlist and authentication rows are removed.
 
 ## Routes
 
-- `/login` — sign in and account creation
-- `/auth/confirm` — email confirmation callback
-- `/profile` — account and privacy controls
-- `/cloud-sync` — local-to-cloud paper migration
-- `/watchlist` — verified watchlist and Alert Inbox
-- `/api/cloud/bets` — authenticated paper-history API
-- `/api/cloud/bets/settle` — authenticated paper-result check
-- `/api/cloud/bankroll` — authenticated virtual-bankroll settings
-- `/api/cloud/watchlist` — authenticated verified watchlist and inbox synchronization API
-- `/api/cloud/alerts` — authenticated Alert Inbox read and acknowledgement API
-- `/api/intelligence` — authenticated and rate-limited manual sports-context API
-- `/api/agent/portfolio` — authenticated Agent portfolio and Model Lab state
-- `/api/agent/explain` — authenticated governed explanation
-- `/api/account/export` — authenticated data export
-- `/api/account` — account status and deletion
-- `/api/health` — deployment and integration status
+- `/watchlist` — verified Watchlist and compact current alert view
+- `/alerts` — Alert Inbox V2 history, filters and preferences
+- `/api/cloud/watchlist` — authenticated Watchlist and inbox synchronization
+- `/api/cloud/alerts` — authenticated inbox read, preferences, read state and dismissal
+- `/api/account/export` — main authenticated account export
+- `/api/account/alert-inbox-export` — authenticated Alert Inbox V2 settings and history export
+- `/api/account` — account status and permanent deletion
 
 ## Security model
 
-Authorization, risk control and abuse protection are enforced through:
-
-- validated user sessions
-- server-side user validation for protected APIs
-- forced Row Level Security using `auth.uid()`
-- server and database paper-risk validation
-- user-level transaction locking
-- server re-resolution of watchlist selections from current Top Picks
-- unique user/event/market/selection watchlist rows
-- server-generated Alert Inbox content and unique user fingerprints
-- explicit user filters on alert acknowledgement
-- atomic per-user request quotas
+- validated cookie or mobile bearer session
 - exact-origin validation for cookie mutations
-- bounded request content, numbers, strings and record counts
+- forced RLS using `auth.uid()`
+- explicit authenticated-user filters on every inbox mutation
+- server-generated inbox content only
+- unique `(user_id, fingerprint)` deduplication
+- bounded preferences and request bodies
+- database-backed per-user quotas
 - server-only integration settings
 
-The browser paper copy is not deleted automatically after sync during testing. Watchlist V2 and Alert Inbox V1 are separate from the paper slip and store only server-verified comparison and alert data. Alert Inbox V1 does not claim background push delivery.
+Alert Inbox V2 remains in-app and user-refreshed. It does not register a device push token, request operating-system notification permission or claim background delivery.
