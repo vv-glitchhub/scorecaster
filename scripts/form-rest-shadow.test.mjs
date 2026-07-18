@@ -146,7 +146,7 @@ test("shadow lab accepts only server-audited chronological samples", () => {
 test("audited save route verifies current server analysis before attaching snapshot", async () => {
   const route = await readFile(new URL("../app/api/cloud/bets/audited/route.js", import.meta.url), "utf8");
   const authIndex = route.indexOf("getAuthenticatedContext(request)");
-  const topPicksIndex = route.indexOf("loadCurrentPicks(request, bets)");
+  const topPicksIndex = route.indexOf("const current = await loadCurrentPicks(request, bets)");
   const saveIndex = route.indexOf("savePaperBets(forwardedRequest");
   const updateIndex = route.indexOf("featureSnapshotSource: \"server-top-picks\"");
   assert.ok(authIndex >= 0);
