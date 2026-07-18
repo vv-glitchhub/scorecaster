@@ -30,13 +30,15 @@ test("inbox synchronization preserves read state, reopens resolved alerts and re
   assert.doesNotMatch(service, /service_role|SUPABASE_SERVICE_ROLE_KEY/);
 });
 
-test("Watchlist refresh synchronizes only server-generated alerts into the inbox", async () => {
+test("Watchlist refresh filters server-generated alerts before inbox synchronization", async () => {
   const route = await source("app/api/cloud/watchlist/route.js");
   const stateIndex = route.indexOf("buildWatchlistState({ items: rows, currentPicks })");
-  const syncIndex = route.indexOf("syncAlertInbox(auth.supabase, auth.user.id, state.alerts");
+  const filterIndex = route.indexOf("const allowedAlerts = state.alerts.filter");
+  const syncIndex = route.indexOf("syncAlertInbox(auth.supabase, auth.user.id, allowedAlerts");
 
   assert.ok(stateIndex >= 0);
-  assert.ok(syncIndex > stateIndex);
+  assert.ok(filterIndex > stateIndex);
+  assert.ok(syncIndex > filterIndex);
   assert.match(route, /watchlist-alerts-v2\+alert-inbox-v1/);
   assert.match(route, /inboxResult\.available === true/);
   assert.match(route, /Alert Inbox could not be synchronized/);
