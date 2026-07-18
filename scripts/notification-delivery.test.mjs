@@ -12,6 +12,8 @@ test("delivery migration isolates metadata, deduplicates devices and atomically 
   assert.match(sql, /for update skip locked/i);
   assert.match(sql, /lease_expires_at = now\(\) \+ interval '5 minutes'/i);
   assert.match(sql, /attempt_count < 5/i);
+  assert.match(sql, /worker_lease_exhausted/i);
+  assert.match(sql, /status = 'sending'[\s\S]*lease_expires_at < now\(\)[\s\S]*attempt_count >= 5/i);
   assert.match(sql, /force row level security/i);
   assert.match(sql, /auth\.uid\(\) = user_id/i);
   assert.match(sql, /grant select on public\.notification_deliveries to authenticated/i);
@@ -33,6 +35,8 @@ test("delivery worker batches Expo sends and checks receipts after the safety de
   assert.match(worker, /MessageRateExceeded/);
   assert.match(worker, /attempt_count \|\| 0\) >= MAX_ATTEMPTS/);
   assert.match(worker, /update\(\{ enabled: false \}\)/);
+  assert.match(worker, /\.is\("read_at", null\)/);
+  assert.match(worker, /\.is\("dismissed_at", null\)/);
 });
 
 test("internal delivery route fails closed and never accepts an unprotected invocation", async () => {
@@ -49,14 +53,19 @@ test("internal delivery route fails closed and never accepts an unprotected invo
   assert.doesNotMatch(route, /expo_push_token|SUPABASE_SERVICE_ROLE_KEY|EXPO_ACCESS_TOKEN/);
 });
 
-test("notification API reports configured delivery state without exposing tokens", async () => {
+test("notification API and health report configured delivery state without exposing tokens", async () => {
   const route = await source("app/api/cloud/notifications/route.js");
+  const health = await source("app/api/health/route.js");
   assert.match(route, /notificationDeliveryConfiguration/);
   assert.match(route, /deliveryActive: configuration\.deliveryActive/);
   assert.match(route, /deliverySchedulingManagedExternally/);
   assert.match(route, /const DEVICE_SELECT = "id,platform,app_version,build_version,enabled,last_seen_at,created_at,updated_at"/);
   assert.doesNotMatch(route, /select\([^\n]*expo_push_token/);
   assert.doesNotMatch(route, /select\([^\n]*token_hash/);
+  assert.match(health, /notificationDeliveryV1/);
+  assert.match(health, /notificationDeliveryTicketAndReceiptTracking: true/);
+  assert.match(health, /alertInboxBackgroundPushDelivery: notificationDelivery\.deliveryActive/);
+  assert.match(health, /opt-in-expo-push-with-ticket-and-receipt-audit/);
 });
 
 test("export and deletion include delivery metadata but exclude raw tokens", async () => {
@@ -71,8 +80,15 @@ test("export and deletion include delivery metadata but exclude raw tokens", asy
   assert.match(accountRoute, /"notification delivery history"/);
 });
 
-test("Vercel configuration does not add an invalid high-frequency Hobby cron", async () => {
+test("opt-in scheduler uses repository controls while Vercel Hobby config stays deployable", async () => {
   const vercel = JSON.parse(await source("vercel.json"));
+  const scheduler = await source(".github/workflows/notification-delivery.yml");
   assert.ok(Array.isArray(vercel.crons));
   assert.equal(vercel.crons.some((entry) => entry.path === "/api/internal/notification-delivery"), false);
+  assert.match(scheduler, /cron: "\*\/15 \* \* \* \*"/);
+  assert.match(scheduler, /vars\.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true'/);
+  assert.match(scheduler, /secrets\.SCORECASTER_NOTIFICATION_DELIVERY_URL/);
+  assert.match(scheduler, /secrets\.SCORECASTER_CRON_SECRET/);
+  assert.match(scheduler, /Authorization: Bearer \$\{CRON_SECRET\}/);
+  assert.match(scheduler, /https:\/\/\*\)/);
 });
