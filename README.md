@@ -1,6 +1,6 @@
 # Scorecaster
 
-AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, team-attributed sports intelligence, verified watchlists, alert history, risk control and virtual paper tracking.
+AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, team-attributed sports intelligence, verified watchlists, alert history, optional notification-device registration, risk control and virtual paper tracking.
 
 ## Product boundary
 
@@ -110,8 +110,7 @@ The authenticated watchlist tracks server-verified live selections without creat
 - alerts cover kickoff proximity, decision changes, meaningful price moves and a broken PLAY price floor
 - missing current data is shown as unavailable; no replacement market is invented
 - paused items remain stored but emit no alerts
-- legacy `/alerts` now routes to the verified watchlist
-- current V2 refresh is user-triggered; background push delivery is not claimed yet
+- current refresh is user-triggered
 
 See `docs/WATCHLIST_ALERTS_V2.md`.
 
@@ -126,9 +125,25 @@ Alert Inbox V1 persists verified Watchlist changes as deduplicated user history.
 - one or all unread alerts can be marked read
 - web and native clients use the same authenticated inbox
 - export and account deletion include inbox rows
-- no background push delivery is claimed in V1
 
 See `docs/ALERT_INBOX_V1.md`.
+
+## Notification Preferences & Device Registry V1
+
+The notification registry adds user-controlled categories and explicit native device opt-in without claiming that background delivery is active.
+
+- web and native clients edit the same notification categories
+- Watchlist filters active Alert Inbox conditions before synchronization
+- native token registration starts only after the user presses the enable button
+- operating-system permission and a real EAS project ID are required
+- PostgreSQL computes the token SHA-256 hash and assigns one token to one user
+- API responses and account exports exclude raw tokens and token hashes
+- the final device removal disables the push preference
+- native sign-out attempts to unregister the current device first
+- permanent account deletion removes devices and preferences
+- the background delivery worker and receipt processing remain disabled
+
+See `docs/NOTIFICATION_REGISTRY_V1.md`.
 
 ## Web workspaces
 
@@ -159,6 +174,14 @@ See `docs/ALERT_INBOX_V1.md`.
 - pause and remove controls
 - trilingual verified alerts
 - deduplicated unread, active and resolved inbox history
+- user-selected severity and event-category filters
+
+### Profile
+
+- account and privacy controls
+- in-app notification preferences
+- registered-device count and delivery-disabled status
+- account export and deletion
 
 ### Simulator
 
@@ -170,24 +193,25 @@ See `docs/ALERT_INBOX_V1.md`.
 
 ## Security guardrails
 
-- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent, Sports Intelligence, Watchlist and Alert Inbox tests plus a production build.
+- GitHub Actions runs secret scanning, API security, model, settlement, Agent, Sports Intelligence, Watchlist, Alert Inbox and notification-registry tests plus a production build.
 - CodeQL analyzes JavaScript and TypeScript.
-- Supabase Row Level Security isolates account, paper, watchlist and alert-inbox rows.
+- Supabase Row Level Security isolates account, paper, watchlist, alert-inbox, notification-preference and device rows.
 - Protected APIs validate authentication, origin, body size, ranges and record counts.
 - Authenticated APIs use atomic per-user database quotas.
 - PostgreSQL enforces paper stake, total exposure, league exposure, edge and confidence limits.
 - Watchlist writes are independently resolved against server Top Picks rather than trusted from the client.
 - Alert Inbox accepts only server-generated Watchlist alerts; clients cannot submit arbitrary alert content.
+- Push tokens are claimed through a database function that computes the token hash itself.
+- Notification APIs never select or return raw push tokens or token hashes.
 - Server-only integration keys are not included in browser or mobile bundles.
-- The News provider key is sent in a request header rather than a URL.
 - Automatic H2H paper-result checking is user-triggered, bounded and rate-limited.
-- `/api/health` reports safe model and integration readiness without exposing secrets.
+- `/api/health` reports safe readiness without exposing secrets or claiming inactive delivery.
 
 ## Native mobile MVP
 
 The `mobile/` directory contains the Expo iOS and Android application with:
 
-- Supabase email authentication
+- Supabase email authentication and native auth callbacks
 - session persistence in Expo SecureStore
 - HTTPS bearer-authenticated API calls
 - NHL, NBA, EPL, La Liga, Liiga and SHL filters
@@ -195,6 +219,8 @@ The `mobile/` directory contains the Expo iOS and Android application with:
 - team-attributed Sports Intelligence status on Agent decisions
 - separate verified Watchlist screen and native watch actions
 - unread, active and resolved Alert Inbox controls
+- optional notification preferences and physical-device token registration
+- explicit permission request and fail-closed EAS project ID check
 - virtual bankroll and personal paper-risk limits
 - paper-bet saving and result tracking
 - automatic supported H2H result checking
@@ -253,13 +279,14 @@ Main routes:
 - `GET/PUT /api/cloud/bankroll`
 - `GET/POST/PATCH/DELETE /api/cloud/watchlist`
 - `GET/PATCH /api/cloud/alerts`
+- `GET/PUT/POST/DELETE /api/cloud/notifications`
 - `POST /api/intelligence`
 - `POST /api/agent/portfolio`
 - `POST /api/agent/explain`
 - `GET /api/account/export`
 - `GET/DELETE /api/account`
 
-The protected endpoints accept validated browser-cookie and mobile-bearer sessions. Watchlist, Alert Inbox and current comparisons remain user-specific. `/api/intelligence` is not a public provider proxy.
+The protected endpoints accept validated browser-cookie and mobile-bearer sessions. Watchlist, Alert Inbox, notification preferences and device registrations remain user-specific. `/api/intelligence` is not a public provider proxy.
 
 ## Public analysis APIs
 
@@ -280,9 +307,10 @@ supabase/scorecaster_paper_risk_limits.sql
 supabase/scorecaster_api_rate_limits.sql
 supabase/scorecaster_watchlist_alerts.sql
 supabase/scorecaster_alert_inbox.sql
+supabase/scorecaster_notification_registry.sql
 ```
 
-Public launch is blocked until the documented two-user isolation, paper-risk, quota, watchlist, Alert Inbox, export and deletion tests pass.
+Public launch is blocked until the documented two-user isolation, paper-risk, quota, watchlist, Alert Inbox, notification-registry, export and deletion tests pass. Background push delivery remains a separate release gate.
 
 ## Environment
 
@@ -301,7 +329,7 @@ LINEUP_API_URL=
 LINEUP_API_KEY=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `AGENT_DECISION_SIGNING_KEY`, `OPENAI_API_KEY`, `NEWS_API_KEY`, `SPORTSDATA_API_KEY` and `LINEUP_API_KEY` are server-only. Never expose them to browser or mobile code.
+`SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `AGENT_DECISION_SIGNING_KEY`, `OPENAI_API_KEY`, `NEWS_API_KEY`, `SPORTSDATA_API_KEY` and `LINEUP_API_KEY` are server-only. Never expose them to browser or mobile code. The EAS project ID is public project configuration, but it must be linked to the correct owned Expo project rather than invented.
 
 ## Important documentation
 
@@ -313,6 +341,7 @@ LINEUP_API_KEY=
 - `docs/PROVIDER_FIREWALL_V1.md`
 - `docs/WATCHLIST_ALERTS_V2.md`
 - `docs/ALERT_INBOX_V1.md`
+- `docs/NOTIFICATION_REGISTRY_V1.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
 
