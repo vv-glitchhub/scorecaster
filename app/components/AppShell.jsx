@@ -27,6 +27,12 @@ export default function AppShell({ children }) {
     description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." })
   }), [tr]);
 
+  const formRestLabItem = useMemo(() => ({
+    href: "/form-rest-lab",
+    label: tr({ fi: "Vire- ja lepomallin laboratorio", en: "Form & Rest Model Lab", es: "Laboratorio de forma y descanso" }),
+    description: tr({ fi: "Varjomallin kronologinen vertailu markkinakonsensukseen.", en: "Chronological shadow-model comparison against market consensus.", es: "Comparación cronológica del modelo sombra con el consenso de mercado." })
+  }), [tr]);
+
   const secondaryGroups = useMemo(() => [
     {
       title: t("group.start"),
@@ -50,13 +56,14 @@ export default function AppShell({ children }) {
     {
       title: t("group.advanced"),
       items: [
+        formRestLabItem,
         { href: "/intelligence", label: t("more.intelligence"), description: t("more.intelligenceDescription") },
         { href: "/clv", label: t("more.clv"), description: t("more.clvDescription") },
         { href: "/reports", label: t("more.reports"), description: t("more.reportsDescription") },
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, watchlistItem]);
+  ], [t, watchlistItem, formRestLabItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 
@@ -105,7 +112,7 @@ export default function AppShell({ children }) {
             </div>
           </div>
 
-          {menuOpen && <div id="mobile-navigation" className="max-h-[72vh] overflow-y-auto pb-4 lg:hidden"><div className="mb-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-3 text-center text-xs font-black text-yellow-200">{t("mode.paperDescription")}</div><nav className="grid grid-cols-2 gap-2" aria-label={t("nav.mobileAria")}>{primaryItems.map((item) => <Link key={item.href} href={item.href} className={`rounded-xl px-3 py-3 text-center text-sm font-bold ${isActive(item) ? "bg-emerald-400 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300"}`}>{item.label}</Link>)}</nav><div className="mt-5 space-y-5">{secondaryGroups.slice(0, 2).map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><div className="text-sm font-black text-white">{item.label}</div><div className="mt-1 text-xs text-slate-400">{item.description}</div></Link>)}</div></section>)}</div></div>}
+          {menuOpen && <div id="mobile-navigation" className="max-h-[72vh] overflow-y-auto pb-4 lg:hidden"><div className="mb-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-3 text-center text-xs font-black text-yellow-200">{t("mode.paperDescription")}</div><nav className="grid grid-cols-2 gap-2" aria-label={t("nav.mobileAria")}>{primaryItems.map((item) => <Link key={item.href} href={item.href} className={`rounded-xl px-3 py-3 text-center text-sm font-bold ${isActive(item) ? "bg-emerald-400 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300"}`}>{item.label}</Link>)}</nav><div className="mt-5 space-y-5">{secondaryGroups.map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><div className="text-sm font-black text-white">{item.label}</div><div className="mt-1 text-xs text-slate-400">{item.description}</div></Link>)}</div></section>)}</div></div>}
         </div>
       </header>
 

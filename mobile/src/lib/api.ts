@@ -12,6 +12,17 @@ function validateBaseUrl(value: string): string {
   return url.origin;
 }
 
+function auditedPaperPath(path: string, body: unknown): string {
+  if (path !== "/api/cloud/bets" || !body || typeof body !== "object") return path;
+  const bets = (body as { bets?: unknown }).bets;
+  if (!Array.isArray(bets) || bets.length === 0) return path;
+  const scorecasterOnly = bets.every((item) => {
+    if (!item || typeof item !== "object") return false;
+    return String((item as { source?: unknown }).source || "").startsWith("scorecaster");
+  });
+  return scorecasterOnly ? "/api/cloud/bets/audited" : path;
+}
+
 export const apiBaseUrl = validateBaseUrl(configuredBaseUrl);
 
 export class ApiError extends Error {
@@ -36,6 +47,7 @@ type ApiOptions = {
 export async function apiRequest<T>(path: string, options: ApiOptions = {}): Promise<T> {
   const method = options.method || "GET";
   const authenticated = options.authenticated ?? true;
+  const requestPath = method === "POST" ? auditedPaperPath(path, options.body) : path;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 15000);
 
@@ -53,7 +65,7 @@ export async function apiRequest<T>(path: string, options: ApiOptions = {}): Pro
       headers.Authorization = `Bearer ${data.session.access_token}`;
     }
 
-    const response = await fetch(`${apiBaseUrl}${path}`, {
+    const response = await fetch(`${apiBaseUrl}${requestPath}`, {
       method,
       headers,
       body: options.body === undefined ? undefined : JSON.stringify(options.body),
