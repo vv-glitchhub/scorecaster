@@ -75,6 +75,11 @@ jobs:
           set -o pipefail
           npm run test:alert-inbox 2>&1 | tee alert-inbox.log
 
+      - name: Notification registry tests
+        run: |
+          set -o pipefail
+          npm run test:notifications 2>&1 | tee notifications.log
+
       - name: Trusted intelligence evidence tests
         run: |
           set -o pipefail
@@ -122,6 +127,7 @@ jobs:
             agent-v11.log
             watchlist.log
             alert-inbox.log
+            notifications.log
             intelligence.log
             sports-intelligence.log
             provider-firewall.log
