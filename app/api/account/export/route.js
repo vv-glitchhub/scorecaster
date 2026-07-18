@@ -27,7 +27,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [profileResult, betsResult, bankrollResult, watchlistResult] = await Promise.all([
+  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult] = await Promise.all([
     auth.supabase
       .from("profiles")
       .select("id,email,display_name,created_at,updated_at")
@@ -49,12 +49,18 @@ export async function GET(request) {
       .select("id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false })
+      .limit(500),
+    auth.supabase
+      .from("alert_inbox")
+      .select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .order("last_seen_at", { ascending: false })
       .limit(500)
   ]);
 
-  const errors = [profileResult.error, betsResult.error, bankrollResult.error]
-    .filter(Boolean);
+  const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
   if (watchlistResult.error && !isMissingTable(watchlistResult.error)) errors.push(watchlistResult.error);
+  if (alertInboxResult.error && !isMissingTable(alertInboxResult.error)) errors.push(alertInboxResult.error);
   const firstError = errors[0] || null;
 
   if (firstError) {
@@ -70,7 +76,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, verified watchlist and account data; no payment data",
+      dataClassification: "paper-tracking, verified watchlist, alert inbox and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
@@ -79,7 +85,8 @@ export async function GET(request) {
       profile: profileResult.data || null,
       bankroll: bankrollResult.data || null,
       paperBets: betsResult.data || [],
-      watchlist: watchlistResult.error ? [] : watchlistResult.data || []
+      watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
+      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || []
     },
     200,
     requestId
