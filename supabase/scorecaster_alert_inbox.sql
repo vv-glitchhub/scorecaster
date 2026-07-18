@@ -1,4 +1,4 @@
--- Scorecaster Alert Inbox V1
+-- Scorecaster Alert Inbox V2
 -- Run after scorecaster_watchlist_alerts.sql and scorecaster_api_rate_limits.sql.
 -- Safe to run more than once.
 
@@ -19,6 +19,7 @@ create table if not exists public.alert_inbox (
   active boolean not null default true,
   read_at timestamptz,
   resolved_at timestamptz,
+  dismissed_at timestamptz,
   first_seen_at timestamptz not null default now(),
   last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
@@ -29,6 +30,7 @@ alter table public.alert_inbox add column if not exists details jsonb not null d
 alter table public.alert_inbox add column if not exists active boolean not null default true;
 alter table public.alert_inbox add column if not exists read_at timestamptz;
 alter table public.alert_inbox add column if not exists resolved_at timestamptz;
+alter table public.alert_inbox add column if not exists dismissed_at timestamptz;
 alter table public.alert_inbox add column if not exists first_seen_at timestamptz not null default now();
 alter table public.alert_inbox add column if not exists last_seen_at timestamptz not null default now();
 alter table public.alert_inbox add column if not exists updated_at timestamptz not null default now();
@@ -55,6 +57,8 @@ create index if not exists idx_alert_inbox_user_unread
   on public.alert_inbox(user_id, read_at, last_seen_at desc);
 create index if not exists idx_alert_inbox_user_active
   on public.alert_inbox(user_id, active, severity, last_seen_at desc);
+create index if not exists idx_alert_inbox_user_visible
+  on public.alert_inbox(user_id, dismissed_at, read_at, last_seen_at desc);
 create index if not exists idx_alert_inbox_watchlist
   on public.alert_inbox(watchlist_id, active);
 
