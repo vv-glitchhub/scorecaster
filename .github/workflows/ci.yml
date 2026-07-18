@@ -75,6 +75,16 @@ jobs:
           set -o pipefail
           npm run test:alert-inbox 2>&1 | tee alert-inbox.log
 
+      - name: Notification Registry tests
+        run: |
+          set -o pipefail
+          npm run test:notification-registry 2>&1 | tee notification-registry.log
+
+      - name: Notification Delivery V1 tests
+        run: |
+          set -o pipefail
+          npm run test:notification-delivery 2>&1 | tee notification-delivery.log
+
       - name: Market Timeline V1 tests
         run: |
           set -o pipefail
@@ -137,6 +147,8 @@ jobs:
             agent-v11.log
             watchlist.log
             alert-inbox.log
+            notification-registry.log
+            notification-delivery.log
             market-timeline.log
             intelligence.log
             sports-intelligence.log
