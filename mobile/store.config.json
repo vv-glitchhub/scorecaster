@@ -1,0 +1,59 @@
+{
+  "configVersion": 0,
+  "apple": {
+    "copyright": "2026 Scorecaster",
+    "info": {
+      "fi": {
+        "title": "Scorecaster",
+        "subtitle": "Urheiluanalyysi ja seuranta",
+        "description": "Scorecaster auttaa arvioimaan urheilumarkkinoita selkeästi ja vastuullisesti. Sovellus vertailee saatavilla olevia kertoimia, muodostaa marginaalista puhdistetun markkinakonsensuksen ja näyttää edge-, EV-, confidence- sekä riskimittarit.\n\nAgent-näkymä tekee konservatiivisen stressitestin, näyttää vastaväitteet ja voi alentaa päätöksen PLAY-tasolta WATCH- tai SKIP-tasolle, jos data, hinta tai varmennettu urheilukonteksti ei riitä. Seurantalista näyttää varmennetut hinta- ja päätösmuutokset.\n\nKaikki panokset ja pelikassa ovat virtuaalisia paperiseurannan lukuja. Scorecaster ei vastaanota talletuksia, käsittele maksukortti- tai pankkitietoja, yhdistä vedonvälittäjätiliin eikä aseta oikean rahan vetoja. Yksikään analyysi ei takaa lopputulosta tai voittoa.",
+        "keywords": [
+          "urheiluanalyysi",
+          "kertoimet",
+          "paperiseuranta",
+          "riskinhallinta",
+          "tilastot"
+        ],
+        "promoText": "Urheiluanalyysi, riskinhallinta ja virtuaalinen paperiseuranta samassa sovelluksessa.",
+        "marketingUrl": "https://scorecaster.vercel.app",
+        "supportUrl": "https://scorecaster.vercel.app/help",
+        "privacyPolicyUrl": "https://scorecaster.vercel.app/privacy",
+        "releaseNotes": "Ensimmäinen sisäiseen testaukseen valmisteltu versio: FI/EN/ES, varmennetut kohteet, Agent-analyysi, seurantalista, paperiseuranta ja tilin tietosuojatoiminnot."
+      },
+      "en-US": {
+        "title": "Scorecaster",
+        "subtitle": "Sports analysis and tracking",
+        "description": "Scorecaster helps users evaluate sports markets with clear, responsible decision support. The app compares available prices, builds a no-vig market consensus, and displays edge, expected value, confidence, freshness, and risk metrics.\n\nThe Agent workspace applies conservative stress tests, presents counterarguments, and may downgrade a decision from PLAY to WATCH or SKIP when the data, price, or verified sports context is not strong enough. The watchlist highlights verified price and decision changes.\n\nAll stakes and bankroll values are virtual paper-tracking numbers. Scorecaster does not accept deposits, process bank or payment-card data, connect to bookmaker accounts, or place real-money bets. No analysis guarantees an outcome or profit.",
+        "keywords": [
+          "sports analysis",
+          "odds",
+          "paper tracking",
+          "risk control",
+          "statistics"
+        ],
+        "promoText": "Sports analysis, risk control, and virtual paper tracking in one app.",
+        "marketingUrl": "https://scorecaster.vercel.app",
+        "supportUrl": "https://scorecaster.vercel.app/help",
+        "privacyPolicyUrl": "https://scorecaster.vercel.app/privacy",
+        "releaseNotes": "First internal-testing package with Finnish, English, and Spanish interfaces, verified picks, Agent analysis, watchlist alerts, paper tracking, and account privacy controls."
+      },
+      "es-ES": {
+        "title": "Scorecaster",
+        "subtitle": "Análisis y seguimiento",
+        "description": "Scorecaster ayuda a evaluar mercados deportivos mediante un apoyo a decisiones claro y responsable. La aplicación compara cuotas disponibles, crea un consenso de mercado sin margen y muestra ventaja, valor esperado, confianza, actualidad de los datos y riesgo.\n\nEl espacio Agent aplica pruebas de estrés conservadoras, presenta contraargumentos y puede rebajar una decisión de PLAY a WATCH o SKIP cuando los datos, la cuota o el contexto deportivo verificado no son suficientes. La lista de seguimiento muestra cambios verificados de cuota y decisión.\n\nTodos los importes y la banca son valores virtuales de seguimiento simulado. Scorecaster no acepta depósitos, no procesa datos bancarios o de tarjetas, no se conecta a cuentas de casas de apuestas y no realiza apuestas con dinero real. Ningún análisis garantiza un resultado o beneficio.",
+        "keywords": [
+          "análisis deportivo",
+          "cuotas",
+          "seguimiento simulado",
+          "riesgo",
+          "estadísticas"
+        ],
+        "promoText": "Análisis deportivo, control de riesgo y seguimiento virtual en una sola aplicación.",
+        "marketingUrl": "https://scorecaster.vercel.app",
+        "supportUrl": "https://scorecaster.vercel.app/help",
+        "privacyPolicyUrl": "https://scorecaster.vercel.app/privacy",
+        "releaseNotes": "Primera versión preparada para pruebas internas con interfaces en finés, inglés y español, análisis Agent, lista de seguimiento y controles de privacidad."
+      }
+    }
+  }
+}
