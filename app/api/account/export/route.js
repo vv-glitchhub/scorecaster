@@ -27,7 +27,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult] = await Promise.all([
+  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult, notificationPreferencesResult, notificationDevicesResult] = await Promise.all([
     auth.supabase
       .from("profiles")
       .select("id,email,display_name,created_at,updated_at")
@@ -55,12 +55,24 @@ export async function GET(request) {
       .select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("last_seen_at", { ascending: false })
-      .limit(500)
+      .limit(500),
+    auth.supabase
+      .from("notification_preferences")
+      .select("in_app_enabled,push_enabled,high_enabled,medium_enabled,info_enabled,kickoff_enabled,decision_enabled,price_enabled,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .maybeSingle(),
+    auth.supabase
+      .from("notification_devices")
+      .select("id,platform,app_version,build_version,enabled,last_seen_at,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .order("last_seen_at", { ascending: false })
+      .limit(20)
   ]);
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
-  if (watchlistResult.error && !isMissingTable(watchlistResult.error)) errors.push(watchlistResult.error);
-  if (alertInboxResult.error && !isMissingTable(alertInboxResult.error)) errors.push(alertInboxResult.error);
+  for (const optionalResult of [watchlistResult, alertInboxResult, notificationPreferencesResult, notificationDevicesResult]) {
+    if (optionalResult.error && !isMissingTable(optionalResult.error)) errors.push(optionalResult.error);
+  }
   const firstError = errors[0] || null;
 
   if (firstError) {
@@ -76,7 +88,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, verified watchlist, alert inbox and account data; no payment data",
+      dataClassification: "paper-tracking, verified watchlist, alert inbox, notification settings and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
@@ -86,7 +98,10 @@ export async function GET(request) {
       bankroll: bankrollResult.data || null,
       paperBets: betsResult.data || [],
       watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
-      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || []
+      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || [],
+      notificationPreferences: notificationPreferencesResult.error ? null : notificationPreferencesResult.data || null,
+      notificationDevices: notificationDevicesResult.error ? [] : notificationDevicesResult.data || [],
+      notificationDeliveryTokensExported: false
     },
     200,
     requestId
