@@ -8,31 +8,34 @@ This document is a repository checklist, not a substitute for completing the Goo
 
 - Purpose: account authentication, confirmation and account recovery
 - Linked to identity: yes
-- Shared with third parties: Supabase Auth processes it as the authentication provider
+- Shared with third parties: processed by the configured authentication provider
 - Required: yes for the current account model
 - User deletion: included in in-app account deletion
 
 ### User ID
 
-- Purpose: isolate the user's cloud rows and authorize protected APIs
+- Purpose: isolate cloud rows and authorize protected APIs
 - Linked to identity: yes
-- Shared with third parties: processed by Supabase as the backend provider
+- Shared with third parties: processed by the configured backend provider
 - User deletion: deleted with the account
 
 ### App activity and user content
 
-Includes virtual bankroll settings, paper selections, watchlist items, result history, language preference and app settings.
+Includes virtual bankroll settings, paper selections, bounded model-audit snapshots, Watchlist rows, Alert Inbox rows and preferences, result history, language preference and app settings.
 
-- Purpose: core app functionality, cross-device sync, risk calculations and analytics shown to the user
+- Purpose: core app functionality, cross-device sync, risk calculations, verified alerts and user-facing analytics
 - Linked to identity: yes for cloud rows
-- Shared with third parties: stored and processed by the configured Supabase project; bounded Agent explanation input may be sent to the configured language-model provider only after the user requests an explanation
-- User deletion: export and deletion controls are available in the app
+- User deletion: main export, dedicated Alert Inbox export and account deletion controls are available
+
+Alert Inbox V2 stores server-generated alert type, severity, bounded comparison details, read state, resolved state, optional dismissal timestamp and user filtering preferences. The client cannot upload arbitrary alert content.
+
+Alert Inbox V2 does not collect a device push token, request operating-system notification permission or claim background delivery.
 
 ### Diagnostics and security events
 
-- Purpose: abuse prevention, rate limiting, safe error handling and service reliability
-- Linked to identity: may be linked to the internal user ID when required for protected API quotas
-- Retention: keep only the minimum needed for security and reliability
+- Purpose: abuse prevention, rate limiting, safe error handling and reliability
+- Linked to identity: may use the internal user ID for protected API quotas
+- Retention: only the minimum needed for security and reliability
 
 ## Data not collected by the Scorecaster product flow
 
@@ -47,13 +50,14 @@ Includes virtual bankroll settings, paper selections, watchlist items, result hi
 - Contacts
 - Photos, camera or microphone recordings
 - Advertising identifiers
+- Device push tokens in Alert Inbox V2
 
 ## Encryption and transport
 
 - Client-server traffic uses HTTPS
-- Mobile sessions are stored using Expo SecureStore
+- Mobile sessions use Expo SecureStore
 - Server-only provider keys are not included in the mobile bundle
-- Supabase Row Level Security isolates user-owned rows
+- Supabase Row Level Security isolates paper, Watchlist, Alert Inbox and inbox-setting rows
 
 ## Tracking and advertising
 
@@ -64,13 +68,14 @@ Includes virtual bankroll settings, paper selections, watchlist items, result hi
 
 ## Account deletion
 
-The in-app Profile flow provides account deletion when the server-side deletion integration is configured. Deletion covers the authentication account and user-owned Scorecaster rows, including paper tracking and watchlist data.
+The in-app Profile flow provides account deletion when server-side deletion is configured. Deletion covers authentication and user-owned Scorecaster rows, including paper tracking, Watchlist data, Alert Inbox history and preferences.
 
 ## Verification before submission
 
-- Complete the two-user isolation test from issue #9
-- Verify export includes only the authenticated user's data
+- Complete two-user isolation testing for paper, Watchlist, Alert Inbox and settings tables
+- Verify the main export and Alert Inbox V2 export include only the authenticated user's data
 - Verify account deletion removes all user-owned rows
 - Confirm production logging contains no tokens, passwords or sensitive payloads
 - Confirm the signed Android App Bundle contains only public mobile configuration
+- Confirm the app does not request notification permission while V2 remains in-app only
 - Reconcile this document with the final Google Play Console answers
