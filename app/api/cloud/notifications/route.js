@@ -8,6 +8,7 @@ import {
   publicError,
   readJsonBody
 } from "../../../../lib/api-security";
+import { notificationDeliveryConfiguration } from "../../../../lib/notification-delivery-config";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,15 @@ const DEVICE_SELECT = "id,platform,app_version,build_version,enabled,last_seen_a
 
 function isMissingTable(error) {
   return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
+}
+
+function deliveryState() {
+  const configuration = notificationDeliveryConfiguration();
+  return {
+    deliveryActive: configuration.deliveryActive,
+    deliveryConfigured: configuration.adminConfigured && configuration.cronSecretConfigured,
+    deliverySchedulingManagedExternally: configuration.schedulingManagedExternally
+  };
 }
 
 async function loadState(auth) {
@@ -59,7 +69,7 @@ export async function GET(request) {
   if (limited) return limited;
   const state = await loadState(auth);
   if (state.error) return jsonResponse({ ok: false, error: publicError(state.error, "Notification settings could not be loaded") }, 500, requestId);
-  return jsonResponse({ ok: true, paperOnly: true, deliveryActive: false, ...state }, 200, requestId);
+  return jsonResponse({ ok: true, paperOnly: true, ...deliveryState(), ...state }, 200, requestId);
 }
 
 export async function PUT(request) {
@@ -73,7 +83,7 @@ export async function PUT(request) {
   if (!supplied.length || supplied.some(([, value]) => typeof value !== "boolean")) return jsonResponse({ ok: false, error: "At least one valid boolean notification preference is required" }, 400, requestId);
   const { error } = await auth.supabase.from("notification_preferences").upsert({ user_id: auth.user.id, ...Object.fromEntries(supplied) }, { onConflict: "user_id" });
   if (error) return jsonResponse({ ok: false, error: publicError(error, "Notification preferences could not be saved") }, isMissingTable(error) ? 503 : 500, requestId);
-  return jsonResponse({ ok: true, deliveryActive: false, ...await loadState(auth) }, 200, requestId);
+  return jsonResponse({ ok: true, ...deliveryState(), ...await loadState(auth) }, 200, requestId);
 }
 
 export async function POST(request) {
@@ -95,7 +105,7 @@ export async function POST(request) {
     await auth.supabase.from("notification_devices").delete().eq("user_id", auth.user.id).eq("id", deviceId);
     return jsonResponse({ ok: false, error: publicError(preferenceError, "Push preference could not be enabled") }, 500, requestId);
   }
-  return jsonResponse({ ok: true, deviceId, deliveryActive: false, ...await loadState(auth) }, 200, requestId);
+  return jsonResponse({ ok: true, deviceId, ...deliveryState(), ...await loadState(auth) }, 200, requestId);
 }
 
 export async function DELETE(request) {
@@ -112,5 +122,5 @@ export async function DELETE(request) {
   if (!(data || []).length) return jsonResponse({ ok: false, error: "Notification device not found" }, 404, requestId);
   const { count, error: countError } = await auth.supabase.from("notification_devices").select("id", { count: "exact", head: true }).eq("user_id", auth.user.id).eq("enabled", true);
   if (!countError && Number(count || 0) === 0) await auth.supabase.from("notification_preferences").upsert({ user_id: auth.user.id, push_enabled: false }, { onConflict: "user_id" });
-  return jsonResponse({ ok: true, deliveryActive: false, ...await loadState(auth) }, 200, requestId);
+  return jsonResponse({ ok: true, ...deliveryState(), ...await loadState(auth) }, 200, requestId);
 }
