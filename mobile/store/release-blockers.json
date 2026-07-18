@@ -1,0 +1,75 @@
+{
+  "schemaVersion": 1,
+  "status": "repository-prepared-external-verification-required",
+  "codeOwnedChecks": [
+    "mobile release audit passes",
+    "Expo dependency compatibility passes",
+    "strict TypeScript passes",
+    "custom email confirmation deep link is implemented",
+    "FI EN ES Apple metadata is present",
+    "FI EN ES Google Play listing draft is present",
+    "server-only key names are rejected from the mobile bundle source"
+  ],
+  "externalBlockers": [
+    {
+      "id": "apple-developer-membership",
+      "required": true,
+      "completed": false,
+      "evidence": "Apple Developer membership and App Store Connect access confirmed"
+    },
+    {
+      "id": "google-play-console",
+      "required": true,
+      "completed": false,
+      "evidence": "Google Play Console application and internal-testing access confirmed"
+    },
+    {
+      "id": "expo-eas-project",
+      "required": true,
+      "completed": false,
+      "evidence": "Correct EAS project ID linked without committing credentials"
+    },
+    {
+      "id": "production-cloud-isolation",
+      "required": true,
+      "completed": false,
+      "evidence": "Issue #9 two-user isolation, risk, export and deletion tests completed"
+    },
+    {
+      "id": "native-auth-redirect",
+      "required": true,
+      "completed": false,
+      "evidence": "Supabase allows scorecaster://** and signed-device confirmation succeeds"
+    },
+    {
+      "id": "review-account",
+      "required": true,
+      "completed": false,
+      "evidence": "Synthetic pre-confirmed reviewer account entered only in store dashboards"
+    },
+    {
+      "id": "legal-controller-and-support",
+      "required": true,
+      "completed": false,
+      "evidence": "Final legal controller identity and support contact approved"
+    },
+    {
+      "id": "store-assets",
+      "required": true,
+      "completed": false,
+      "evidence": "Approved icon, splash and FI EN ES screenshots captured from signed builds"
+    },
+    {
+      "id": "real-device-accessibility",
+      "required": true,
+      "completed": false,
+      "evidence": "iPhone and Android FI EN ES VoiceOver/TalkBack test matrix completed"
+    },
+    {
+      "id": "external-security-review",
+      "required": true,
+      "completed": false,
+      "evidence": "Critical and high findings resolved before public submission"
+    }
+  ]
+}
