@@ -4,7 +4,7 @@ import {
   getRequestId,
   jsonResponse,
   publicError
-} from "../../../../../lib/api-security";
+} from "../../../../lib/api-security";
 
 export const dynamic = "force-dynamic";
 
