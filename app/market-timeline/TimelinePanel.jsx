@@ -1,5 +1,7 @@
 "use client";
 
+const DEFAULT_LIMITATION = "Price movement is descriptive market history, not outcome evidence.";
+
 function decimal(value) {
   const number = Number(value);
   return Number.isFinite(number) ? number.toFixed(2) : "–";
@@ -40,6 +42,6 @@ export default function TimelinePanel({ timeline, locale, labels }) {
       </div>
       <div className="mt-5 space-y-2">{points.slice().reverse().slice(0, 12).map((point) => <div key={`row-${point.id || point.capturedAt}`} className="grid gap-2 rounded-xl bg-slate-950/60 p-3 text-sm sm:grid-cols-[150px_80px_100px_1fr]"><div className="text-slate-400">{new Date(point.capturedAt).toLocaleString(locale)}</div><div className="font-black">{decimal(point.odds)}</div><div>{point.decision}</div><div className="text-slate-400">{point.bookmaker || point.source}</div></div>)}</div>
     </div>
-    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400">{timeline.limitation || labels.limitation}</div>
+    <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-sm leading-6 text-slate-400">{timeline.limitation || labels.limitation || DEFAULT_LIMITATION}</div>
   </div>;
 }
