@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 
 const CONFIRMATION = "DELETE MY SCORECASTER ACCOUNT";
 const USER_TABLES = [
+  "market_timeline_snapshots",
   "alert_inbox",
   "watchlist_items",
   "risk_events",
@@ -52,7 +53,7 @@ export async function GET(request) {
       deletionAvailable: Boolean(getSupabaseAdminClient()),
       confirmationPhrase: CONFIRMATION,
       requiresEmailConfirmation: true,
-      deletes: ["account", "profile", "paper bets", "paper bankroll settings", "verified watchlist", "alert inbox", "tracking history"],
+      deletes: ["account", "profile", "paper bets", "paper bankroll settings", "verified watchlist", "market timeline", "alert inbox", "tracking history"],
       neverStored: ["payment card data", "bank credentials", "real-money balance"]
     },
     200,
