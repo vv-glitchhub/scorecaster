@@ -6,12 +6,13 @@ export default function PrivacyPage() {
   return (
     <PolicyPage
       title="Privacy policy"
-      intro="Scorecaster is designed to collect the minimum account, verified-watchlist, alert-history, optional notification-device and paper-tracking data required to operate the service. It does not process deposits, withdrawals, payment cards, bank accounts or bookmaker credentials."
+      intro="Scorecaster is designed to collect the minimum account, verified-watchlist, alert-history, model-audit, optional notification-device and paper-tracking data required to operate the service. It does not process deposits, withdrawals, payment cards, bank accounts or bookmaker credentials."
       sections={[
         {
           title: "Data we process",
           body: [
-            "An account may contain an email address, an internal user identifier, optional display name, paper-bankroll settings, paper bets, result tracking, verified watchlist selections, alert thresholds, deduplicated alert history, notification preferences and security-relevant timestamps.",
+            "An account may contain an email address, an internal user identifier, optional display name, paper-bankroll settings, paper bets, result tracking, verified watchlist selections, alert thresholds, deduplicated alert history, bounded model-audit snapshots, notification preferences and security-relevant timestamps.",
+            "When a current Scorecaster pick is saved through the audited paper flow, the server may store a compact snapshot of public team-form and schedule features, source status, market benchmark and shadow-model output. It does not contain contacts, precise location, payment data or bookmaker credentials.",
             "Watchlist rows contain a provider event identifier, sport and market labels, selection, teams, scheduled start, the price and Scorecaster decision when added, and a bounded technical snapshot used for comparison.",
             "Alert Inbox rows contain the verified alert type, severity, title, message, related match and selection, bounded comparison details, first and last seen timestamps, read state and resolved state.",
             "When a user explicitly enables push notifications in the native application, Scorecaster stores the Expo push token, mobile platform, app and build versions, enabled state and last-seen timestamp. It does not require a hardware identifier, contacts or precise location for notification registration.",
@@ -21,9 +22,10 @@ export default function PrivacyPage() {
         {
           title: "Why data is processed",
           body: [
-            "Account data is used for authentication, cross-device synchronization, paper history, risk calculations, verified watchlist comparisons, alert acknowledgement, notification preferences, user-requested export and account deletion.",
+            "Account data is used for authentication, cross-device synchronization, paper history, risk calculations, verified watchlist comparisons, alert acknowledgement, model auditing, notification preferences, user-requested export and account deletion.",
+            "Settled paper rows with a server-verified feature snapshot may be used for chronological comparison of the market-consensus champion and a sport-specific shadow challenger. The shadow model has no automatic promotion path and does not change the production probability, PLAY decision, edge, EV or stake.",
             "A registered push token is a delivery address for future user-selected notifications. It is not an authentication credential and is not used to authorize account access.",
-            "Settled paper rows with a valid stored probability and timestamp may be used by Agent V11 for chronological calibration and drift evaluation. The challenger remains in shadow mode and does not silently change the production probability.",
+            "Settled paper rows with a valid stored probability and timestamp may also be used by Agent V11 for chronological calibration and drift evaluation. Challengers remain in shadow mode and do not silently change the production probability.",
             "We do not require precise location, contacts, camera, microphone, identity documents or payment information for the Scorecaster MVP."
           ]
         },
@@ -58,6 +60,7 @@ export default function PrivacyPage() {
           title: "Protection and access",
           body: [
             "Transport uses HTTPS. Supabase authentication and forced database Row Level Security restrict account, paper, watchlist, Alert Inbox, notification-preference and device-registration rows to the authenticated user. Protected APIs also enforce user validation, bounded inputs and per-user quotas.",
+            "Only a feature snapshot recomputed from the current server analysis is marked as server-audited. Client-supplied snapshot fields are not trusted for model evaluation.",
             "No system is perfectly immune to attack. Scorecaster minimizes potential harm by limiting collected data and separating public client configuration from server-only settings."
           ]
         },
@@ -65,7 +68,7 @@ export default function PrivacyPage() {
           title: "Your controls",
           body: [
             "Authenticated users can pause or remove watchlist rows, mark inbox alerts read, change notification categories, remove the current native device registration, request an export and permanently delete their account.",
-            "Account export includes notification preferences and non-secret device metadata but excludes delivery tokens. Account deletion removes verified watchlist rows, Alert Inbox rows, notification preferences and all device registrations. Public release requires a configured support contact and a finalized controller identity."
+            "Account export includes paper-audit snapshots, verified watchlist rows, Alert Inbox rows, notification preferences and non-secret device metadata but excludes delivery tokens. Account deletion removes the rows containing those data. Public release requires a configured support contact and a finalized controller identity."
           ]
         }
       ]}
