@@ -80,6 +80,11 @@ jobs:
           set -o pipefail
           npm run test:sports-intelligence 2>&1 | tee sports-intelligence.log
 
+      - name: Form and Rest shadow-model tests
+        run: |
+          set -o pipefail
+          npm run test:form-rest 2>&1 | tee form-rest-shadow.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -113,6 +118,7 @@ jobs:
             watchlist.log
             intelligence.log
             sports-intelligence.log
+            form-rest-shadow.log
             easy-use.log
             i18n.log
             fixture-integrity.log
