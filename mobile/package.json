@@ -1,6 +1,6 @@
 {
   "name": "scorecaster-mobile",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "node_modules/expo/AppEntry.js",
   "scripts": {
@@ -9,7 +9,9 @@
     "ios": "expo run:ios",
     "typecheck": "tsc --noEmit",
     "doctor": "expo-doctor",
-    "check:expo": "node scripts/check-expo-compat.mjs"
+    "check:expo": "node scripts/check-expo-compat.mjs",
+    "release:audit": "node scripts/release-audit.mjs",
+    "release:check": "npm run release:audit && npm run check:expo && npm run typecheck"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
