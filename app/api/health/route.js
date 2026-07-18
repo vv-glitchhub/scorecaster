@@ -83,6 +83,18 @@ export async function GET() {
     watchlistRlsIsolation: true,
     watchlistRegressionTests: true,
     nativeWatchlistScreen: true,
+    notificationCenterV1: true,
+    notificationCenterStructuredServerEvents: true,
+    notificationCenterClientCreatedMessages: false,
+    notificationCenterUserIsolatedRls: true,
+    notificationCenterReadDismissControls: true,
+    notificationCenterPreferences: true,
+    notificationCenterManualSync: true,
+    notificationCenterBackgroundPush: false,
+    notificationCenterDeviceTokensStored: false,
+    notificationCenterIncludedInExportAndDeletion: true,
+    notificationCenterRegressionTests: true,
+    nativeNotificationInbox: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
     simulatorInputValidation: true,
@@ -137,6 +149,7 @@ export async function GET() {
     paperRiskMigration: "supabase/scorecaster_paper_risk_limits.sql",
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     watchlistMigration: "supabase/scorecaster_watchlist_alerts.sql",
+    notificationCenterMigration: "supabase/scorecaster_notification_center.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
     openAiAgentModel: String(process.env.OPENAI_AGENT_MODEL || "gpt-5-mini").slice(0, 100),
@@ -177,6 +190,11 @@ export async function GET() {
     services.watchlistAuthenticatedApi &&
     services.watchlistRegressionTests &&
     services.nativeWatchlistScreen &&
+    services.notificationCenterV1 &&
+    services.notificationCenterStructuredServerEvents &&
+    services.notificationCenterUserIsolatedRls &&
+    services.notificationCenterRegressionTests &&
+    services.nativeNotificationInbox &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
     services.marketConsensusRegressionTests &&
@@ -194,6 +212,7 @@ export async function GET() {
       agentMode: "V11-model-lab-with-team-attributed-sports-intelligence-audit",
       intelligenceMode: "verified-team-attribution-downgrade-only",
       watchlistMode: "V2-server-verified-user-isolated-manual-refresh-alerts",
+      notificationMode: "V1-user-isolated-in-app-manual-sync-no-push",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
@@ -202,7 +221,7 @@ export async function GET() {
       nextStep: !services.supabaseConfigured
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
-          ? "Apply all Supabase migrations, including Watchlist V2, test two-user isolation and configure server-only account deletion"
+          ? "Apply all Supabase migrations, including Watchlist V2 and Notification Center V1, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
             : !services.agentV10DecisionSigningConfigured
