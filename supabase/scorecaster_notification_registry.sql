@@ -93,9 +93,10 @@ create trigger notification_devices_set_updated_at
 before update on public.notification_devices
 for each row execute function public.set_notification_updated_at();
 
+drop function if exists public.claim_notification_device(text, text, text, text, text);
+
 create or replace function public.claim_notification_device(
   p_expo_push_token text,
-  p_token_hash text,
   p_platform text,
   p_app_version text default null,
   p_build_version text default null
@@ -108,6 +109,7 @@ as $$
 declare
   v_user_id uuid := auth.uid();
   v_device_id uuid;
+  v_token_hash text;
 begin
   if v_user_id is null then
     raise exception 'Authentication required';
@@ -121,12 +123,10 @@ begin
     raise exception 'Invalid push token';
   end if;
 
-  if p_token_hash !~ '^[a-f0-9]{64}$' then
-    raise exception 'Invalid token hash';
-  end if;
+  v_token_hash := encode(digest(p_expo_push_token, 'sha256'), 'hex');
 
   delete from public.notification_devices
-  where token_hash = p_token_hash and user_id <> v_user_id;
+  where token_hash = v_token_hash and user_id <> v_user_id;
 
   insert into public.notification_devices (
     user_id,
@@ -140,7 +140,7 @@ begin
   ) values (
     v_user_id,
     p_expo_push_token,
-    p_token_hash,
+    v_token_hash,
     p_platform,
     nullif(left(coalesce(p_app_version, ''), 40), ''),
     nullif(left(coalesce(p_build_version, ''), 40), ''),
@@ -185,5 +185,5 @@ revoke all on public.notification_devices from anon;
 grant select, insert, update, delete on public.notification_preferences to authenticated;
 grant select, update, delete on public.notification_devices to authenticated;
 
-revoke all on function public.claim_notification_device(text, text, text, text, text) from public;
-grant execute on function public.claim_notification_device(text, text, text, text, text) to authenticated;
+revoke all on function public.claim_notification_device(text, text, text, text) from public;
+grant execute on function public.claim_notification_device(text, text, text, text) to authenticated;
