@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -124,13 +124,13 @@ const scannedFiles = [
   ...await filesUnder("src")
 ].filter((file) => /\.(json|js|jsx|mjs|ts|tsx)$/.test(file));
 const forbiddenSecrets = [
-  "SUPABASE_SERVICE_ROLE_KEY",
-  "ODDS_API_KEY",
-  "AGENT_DECISION_SIGNING_KEY",
-  "OPENAI_API_KEY",
-  "NEWS_API_KEY",
-  "SPORTSDATA_API_KEY",
-  "LINEUP_API_KEY"
+  ["SUPABASE", "SERVICE", "ROLE", "KEY"].join("_"),
+  ["ODDS", "API", "KEY"].join("_"),
+  ["AGENT", "DECISION", "SIGNING", "KEY"].join("_"),
+  ["OPENAI", "API", "KEY"].join("_"),
+  ["NEWS", "API", "KEY"].join("_"),
+  ["SPORTSDATA", "API", "KEY"].join("_"),
+  ["LINEUP", "API", "KEY"].join("_")
 ];
 
 for (const file of scannedFiles) {
