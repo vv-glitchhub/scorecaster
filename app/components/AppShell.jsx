@@ -27,6 +27,12 @@ export default function AppShell({ children }) {
     description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." })
   }), [tr]);
 
+  const alertInboxItem = useMemo(() => ({
+    href: "/alerts",
+    label: tr({ fi: "Alert Inbox", en: "Alert Inbox", es: "Buzón de alertas" }),
+    description: tr({ fi: "Lukemattomat, ratkaistut ja palautettavasti piilotetut hälytykset.", en: "Unread, resolved and reversibly dismissed alerts.", es: "Alertas no leídas, resueltas y ocultas de forma reversible." })
+  }), [tr]);
+
   const eventsItem = useMemo(() => ({
     href: "/events",
     label: tr({ fi: "Varmennetut ottelut", en: "Verified events", es: "Eventos verificados" }),
@@ -51,6 +57,7 @@ export default function AppShell({ children }) {
       items: [
         eventsItem,
         watchlistItem,
+        alertInboxItem,
         timelineItem,
         { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
         { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
@@ -77,7 +84,7 @@ export default function AppShell({ children }) {
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, eventsItem, watchlistItem, timelineItem, formRestLabItem]);
+  ], [t, eventsItem, watchlistItem, alertInboxItem, timelineItem, formRestLabItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 
