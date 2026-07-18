@@ -1,6 +1,6 @@
 # Scorecaster
 
-AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, verified watchlists, risk control and virtual paper tracking.
+AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, team-attributed sports intelligence, verified watchlists, risk control and virtual paper tracking.
 
 ## Product boundary
 
@@ -79,6 +79,25 @@ Agent V11 evaluates challenger probability calibrators without silently replacin
 
 See `docs/AGENT_V11_MODEL_LAB.md`.
 
+## Sports Intelligence V1
+
+Sports Intelligence V1 adds independent match context without allowing external context to rewrite the market-consensus probability.
+
+- evidence must be fresh and attributed to the correct fixture team
+- unmatched, stale and generic provider rows are discarded
+- injury and lineup evidence is selection-relative
+- source trust is assigned by server-owned rules
+- conflicting availability reports fail closed
+- intelligence may downgrade PLAY to CAUTION / WATCH
+- intelligence cannot upgrade CAUTION or SKIP to PLAY
+- consensus probability, edge and EV remain unchanged
+- provider calls are skipped when no provider is configured
+- match intelligence is cached for five minutes
+- Top Picks enriches at most 12 prefiltered selections per request
+- provider failures produce unavailable evidence rather than invented replacement data
+
+See `docs/SPORTS_INTELLIGENCE_V1.md`.
+
 ## Watchlist & Alerts V2
 
 The authenticated watchlist tracks server-verified live selections without creating a paper stake.
@@ -110,10 +129,11 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 - Agent V9 adversarial portfolio engine
 - Agent V10 optional grounded explanation
 - Agent V11 chronological champion–challenger Model Lab
+- Sports Intelligence V1 team-attributed evidence audit
 - verified evidence, missing evidence and counterargument
 - heuristic probability stress range and downside EV
 - price guard and conservative paper stake
-- portfolio, league and drift controls
+- portfolio, league, drift and evidence-conflict controls
 
 ### Watchlist
 
@@ -133,7 +153,7 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 
 ## Security guardrails
 
-- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent and Watchlist tests plus a production build.
+- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent, Sports Intelligence and Watchlist tests plus a production build.
 - CodeQL analyzes JavaScript and TypeScript.
 - Supabase Row Level Security isolates account, paper and watchlist rows.
 - Protected APIs validate authentication, origin, body size, ranges and record counts.
@@ -141,6 +161,7 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 - PostgreSQL enforces paper stake, total exposure, league exposure, edge and confidence limits.
 - Watchlist writes are independently resolved against server Top Picks rather than trusted from the client.
 - Server-only integration keys are not included in browser or mobile bundles.
+- The News provider key is sent in a request header rather than a URL.
 - Automatic H2H paper-result checking is user-triggered, bounded and rate-limited.
 - `/api/health` reports safe model and integration readiness without exposing secrets.
 
@@ -153,6 +174,7 @@ The `mobile/` directory contains the Expo iOS and Android application with:
 - HTTPS bearer-authenticated API calls
 - NHL, NBA, EPL, La Liga, Liiga and SHL filters
 - near-term Top Picks and Agent V11
+- team-attributed Sports Intelligence status on Agent decisions
 - separate verified Watchlist screen and native watch actions
 - virtual bankroll and personal paper-risk limits
 - paper-bet saving and result tracking
@@ -223,6 +245,7 @@ The protected endpoints accept validated browser-cookie and mobile-bearer sessio
 - `GET /api/odds?sport=<known-key>&markets=h2h`
 - `GET /api/top-picks`
 - `GET /api/top-picks?sports=<comma-separated-known-keys>`
+- `POST /api/intelligence` for bounded same-origin or server-side match evidence loading
 
 Unknown query parameters, unsupported sports and unsupported markets are rejected before an upstream request is made.
 
@@ -250,9 +273,14 @@ ODDS_API_KEY=
 AGENT_DECISION_SIGNING_KEY=
 OPENAI_API_KEY=
 OPENAI_AGENT_MODEL=
+NEWS_API_KEY=
+SPORTSDATA_API_KEY=
+SPORTSDATA_BASE_URL=
+LINEUP_API_URL=
+LINEUP_API_KEY=
 ```
 
-`SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `AGENT_DECISION_SIGNING_KEY` and `OPENAI_API_KEY` are server-only. Never expose them to browser or mobile code.
+`SUPABASE_SERVICE_ROLE_KEY`, `ODDS_API_KEY`, `AGENT_DECISION_SIGNING_KEY`, `OPENAI_API_KEY`, `NEWS_API_KEY`, `SPORTSDATA_API_KEY` and `LINEUP_API_KEY` are server-only. Never expose them to browser or mobile code.
 
 ## Important documentation
 
@@ -260,8 +288,9 @@ OPENAI_AGENT_MODEL=
 - `docs/AGENT_V9_TRANSPARENCY.md`
 - `docs/AGENT_V10_GROUNDED_EXPLANATIONS.md`
 - `docs/AGENT_V11_MODEL_LAB.md`
+- `docs/SPORTS_INTELLIGENCE_V1.md`
 - `docs/WATCHLIST_ALERTS_V2.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
 
-Scorecaster must not promise profit. The Agent must be allowed to say WATCH or SKIP. Optional language output and shadow learning never override the authoritative deterministic decision without a separately reviewed model-promotion process.
+Scorecaster must not promise profit. The Agent must be allowed to say WATCH or SKIP. Optional language output, independent evidence and shadow learning never override the authoritative market probability without a separately reviewed model-promotion process.
