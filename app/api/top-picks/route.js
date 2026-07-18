@@ -20,6 +20,7 @@ const DEFAULT_LEAGUES = [
 const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
 const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
+const MAX_INTELLIGENCE_ENRICHMENTS = 12;
 const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
   "X-Content-Type-Options": "nosniff"
@@ -73,34 +74,47 @@ function dataGate(pick) {
   };
 }
 
+function preserveSafetyGate(marketDecision, pick) {
+  const upstream = pick.productDecision;
+  if (upstream === "SKIP") return "PASS";
+  if (upstream === "CAUTION" && marketDecision === "BET") return "WATCH";
+  if (pick.sportsIntelligence?.conflicts?.length && marketDecision === "BET") return "WATCH";
+  if (pick.sportsIntelligence?.readiness?.level !== "verified" && marketDecision === "BET") return "WATCH";
+  return marketDecision;
+}
+
 function applyQualityFallback(pick) {
   const sourceTrust = Number(pick.sourceTrust ?? pick.confidence ?? 0.35);
   const quality = calculatePickQuality({
     ...pick,
     sourceTrust,
-    sentimentScore: Number(pick.sentimentScore || 0)
+    sentimentScore: 0
   });
 
   const edge = Number(pick.edge || 0);
   const ev = Number(pick.ev || 0);
   const gate = dataGate(pick);
-  let decision;
+  let marketDecision;
 
   if (!gate.watchable || edge < 0.005 || ev <= 0) {
-    decision = "PASS";
+    marketDecision = "PASS";
   } else if (!gate.playable) {
-    decision = "WAIT";
+    marketDecision = "WAIT";
   } else if (edge >= 0.02 && ev >= 0.03 && ["A", "B", "C"].includes(quality.qualityGrade)) {
-    decision = "BET";
+    marketDecision = "BET";
   } else {
-    decision = "WATCH";
+    marketDecision = "WATCH";
   }
 
+  const decision = preserveSafetyGate(marketDecision, pick);
+  const readiness = pick.sportsIntelligence?.readiness?.level || "market-only";
   const qualityNotes = [
     ...(pick.qualityNotes || quality.qualityNotes || []),
     `${gate.bookmakerCount} bookmakers in consensus.`,
     `Market-data confidence ${(gate.confidence * 100).toFixed(0)}%.`,
     `Freshness: ${gate.freshness}.`,
+    `Independent intelligence readiness: ${readiness}.`,
+    pick.evidenceGateReason || "Independent intelligence did not change the market probability.",
     "Fixture came from the configured live odds provider and is inside the near-term analysis window.",
     "Edge is best-price value versus a no-vig market consensus, not a guaranteed outcome prediction."
   ];
@@ -108,6 +122,7 @@ function applyQualityFallback(pick) {
   const result = {
     ...pick,
     decision,
+    marketDecisionBeforeSafetyGate: marketDecision,
     sourceTrust,
     qualityScore: pick.qualityScore || quality.qualityScore,
     qualityGrade: pick.qualityGrade || quality.qualityGrade,
@@ -123,7 +138,8 @@ function applyQualityFallback(pick) {
     productDecision: productDecision(decision),
     paperOnly: true,
     modelMode: pick.modelMode || "market-consensus",
-    edgeType: pick.edgeType || "best-price-vs-no-vig-consensus"
+    edgeType: pick.edgeType || "best-price-vs-no-vig-consensus",
+    probabilityAdjustedByIntelligence: false
   };
 }
 
@@ -134,9 +150,15 @@ function rankPick(pick) {
     WAIT: 0.1,
     PASS: -1
   };
+  const readinessWeight = {
+    verified: 0.2,
+    partial: 0.05,
+    "market-only": 0
+  };
 
   return (
     Number(decisionWeight[pick.decision] || 0) +
+    Number(readinessWeight[pick.sportsIntelligence?.readiness?.level] || 0) +
     Number(pick.edge || 0) * 4 +
     Number(pick.ev || 0) * 2 +
     Number(pick.confidence || 0) * 0.4 +
@@ -153,9 +175,9 @@ async function enrichSafely(pick) {
     return applyQualityFallback({
       ...pick,
       agentVersion: "consensus-fallback",
-      decision: "WATCH",
-      finalScore: Number(pick.finalScore || pick.edge || 0),
-      intelligenceError: process.env.NODE_ENV === "production" ? undefined : error.message
+      productDecision: "CAUTION",
+      intelligenceError: process.env.NODE_ENV === "production" ? undefined : error.message,
+      evidenceGateReason: "Independent intelligence could not be loaded."
     });
   }
 }
@@ -257,35 +279,43 @@ export async function GET(request) {
 
   const preFiltered = allPicks
     .sort((a, b) => (Number(b.edge || 0) * Number(b.confidence || 0)) - (Number(a.edge || 0) * Number(a.confidence || 0)))
-    .slice(0, 30);
+    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS);
 
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
   const sorted = enriched
     .sort((a, b) => rankPick(b) - rankPick(a))
-    .slice(0, 20);
+    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS);
   const featured = filterUpcomingPicks(sorted, FEATURED_WINDOW_HOURS, now)
     .filter((pick) => pick.productDecision !== "SKIP")
     .slice(0, 3);
 
   const providerGames = leagueResults.reduce((sum, result) => sum + result.providerGames, 0);
   const acceptedGames = leagueResults.reduce((sum, result) => sum + result.acceptedGames, 0);
+  const intelligenceLevels = sorted.reduce((counts, pick) => {
+    const level = pick.sportsIntelligence?.readiness?.level || "market-only";
+    counts[level] = (counts[level] || 0) + 1;
+    return counts;
+  }, { verified: 0, partial: 0, "market-only": 0 });
 
   return Response.json(
     {
       ok: true,
       source: "no-vig-market-consensus",
       fixtureSource: "live-odds-provider-only",
-      agentVersion: "V8-consensus",
+      intelligenceMode: "team-attributed-audit-only",
+      agentVersion: "V11-model-lab+sports-intelligence-v1",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
       generatedAt: new Date(now).toISOString(),
       paperOnly: true,
       analysisWindowHours: ANALYSIS_WINDOW_HOURS,
       featuredWindowHours: FEATURED_WINDOW_HOURS,
+      maxIntelligenceEnrichments: MAX_INTELLIGENCE_ENRICHMENTS,
       providerGames,
       acceptedGames,
       excludedGames: Math.max(0, providerGames - acceptedGames),
-      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Analysis is uncertain and does not guarantee profit; SKIP is a valid result.",
+      intelligenceLevels,
+      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Independent intelligence can downgrade a pick but never changes the market probability or upgrades a pick to PLAY.",
       leagues,
       count: sorted.length,
       featured,
