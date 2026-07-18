@@ -35,6 +35,11 @@ jobs:
       - name: Install mobile dependencies
         run: npm install --no-audit --no-fund --silent
 
+      - name: Audit store and release configuration
+        run: |
+          set -o pipefail
+          npm run release:audit 2>&1 | tee release-audit.log
+
       - name: Check Expo dependency compatibility
         run: npm run check:expo
 
@@ -43,11 +48,13 @@ jobs:
           set -o pipefail
           npm run typecheck 2>&1 | tee typecheck.log
 
-      - name: Upload typecheck log
+      - name: Upload mobile diagnostic logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scorecaster-mobile-typecheck-${{ github.run_id }}
-          path: mobile/typecheck.log
+          name: scorecaster-mobile-diagnostics-${{ github.run_id }}
+          path: |
+            mobile/release-audit.log
+            mobile/typecheck.log
           if-no-files-found: ignore
           retention-days: 7
