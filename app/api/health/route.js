@@ -1,3 +1,5 @@
+import { notificationDeliveryConfiguration } from "../../../lib/notification-delivery-config";
+
 export const dynamic = "force-dynamic";
 
 export async function GET() {
@@ -8,6 +10,7 @@ export async function GET() {
   const newsProviderConfigured = Boolean(process.env.NEWS_API_KEY);
   const injuryProviderConfigured = Boolean(process.env.SPORTSDATA_API_KEY);
   const lineupProviderConfigured = Boolean(process.env.LINEUP_API_URL && process.env.LINEUP_API_KEY);
+  const notificationDelivery = notificationDeliveryConfiguration();
 
   const services = {
     localQuickUse: true,
@@ -105,14 +108,29 @@ export async function GET() {
     marketTimelineRegressionTests: true,
     nativeMarketTimelineInEventDetail: true,
     alertInboxV1: true,
+    alertInboxV2: true,
     alertInboxDeduplication: true,
     alertInboxReadState: true,
     alertInboxResolvedHistory: true,
+    alertInboxReversibleDismissal: true,
     alertInboxAuthenticatedApi: true,
     alertInboxRlsIsolation: true,
     alertInboxAccountExportAndDeletion: true,
     alertInboxRegressionTests: true,
-    alertInboxBackgroundPushDelivery: false,
+    notificationRegistryV1: true,
+    notificationDeliveryV1: notificationDelivery.codeAvailable,
+    notificationDeliveryEnabledFlag: notificationDelivery.enabledFlag,
+    notificationDeliveryAdminConfigured: notificationDelivery.adminConfigured,
+    notificationDeliveryCronSecretConfigured: notificationDelivery.cronSecretConfigured,
+    notificationDeliveryExpoAccessTokenConfigured: notificationDelivery.expoAccessTokenConfigured,
+    notificationDeliverySchedulingManagedExternally: notificationDelivery.schedulingManagedExternally,
+    notificationDeliveryBatchLimit: 100,
+    notificationReceiptBatchLimit: 1000,
+    notificationDeliveryMaximumAttempts: 5,
+    notificationReceiptDelayMinutes: 15,
+    notificationDeliveryTicketAndReceiptTracking: true,
+    notificationDeliveryInvalidTokenCleanup: true,
+    alertInboxBackgroundPushDelivery: notificationDelivery.deliveryActive,
     nativeAlertInboxControls: true,
     seededPoissonSimulator: true,
     reproducibleSimulation: true,
@@ -169,6 +187,8 @@ export async function GET() {
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     watchlistMigration: "supabase/scorecaster_watchlist_alerts.sql",
     alertInboxMigration: "supabase/scorecaster_alert_inbox.sql",
+    notificationRegistryMigration: "supabase/scorecaster_notification_registry.sql",
+    notificationDeliveryMigration: "supabase/scorecaster_notification_delivery.sql",
     marketTimelineMigration: "supabase/scorecaster_market_timeline.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
@@ -223,12 +243,15 @@ export async function GET() {
     services.marketTimelineRegressionTests &&
     services.nativeMarketTimelineInEventDetail &&
     services.alertInboxV1 &&
+    services.alertInboxV2 &&
     services.alertInboxDeduplication &&
     services.alertInboxReadState &&
     services.alertInboxResolvedHistory &&
     services.alertInboxAuthenticatedApi &&
     services.alertInboxRlsIsolation &&
     services.alertInboxRegressionTests &&
+    services.notificationRegistryV1 &&
+    services.notificationDeliveryV1 &&
     services.nativeAlertInboxControls &&
     services.seededPoissonSimulator &&
     services.noVigMarketConsensus &&
@@ -236,6 +259,22 @@ export async function GET() {
     services.paperSettlementRegressionTests &&
     services.fixtureIntegrityRegressionTests &&
     services.excellenceAppsRegressionTests;
+
+  const nextStep = !services.supabaseConfigured
+    ? "Configure Supabase public environment variables"
+    : !services.accountDeletionConfigured
+      ? "Apply all Supabase migrations through Notification Delivery V1, test two-user isolation and configure server-only account deletion"
+      : !services.automaticH2hScoreSettlement
+        ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
+        : !services.agentV10DecisionSigningConfigured
+          ? "Configure a dedicated server-only Agent decision signing key"
+          : !services.sportsIntelligenceProvidersConfigured
+            ? "Configure optional news, injury and lineup providers for verified independent evidence"
+            : !services.openAiConfigured
+              ? "Optional: configure the server-only OpenAI key for grounded explanations"
+              : !notificationDelivery.deliveryActive
+                ? "Apply Notification Delivery V1, configure the fail-closed worker and enable exactly one protected scheduler after real-device testing"
+                : "Verify Expo tickets and receipts on a physical device, including invalid-token cleanup";
 
   return Response.json(
     {
@@ -248,25 +287,15 @@ export async function GET() {
       intelligenceMode: "verified-team-attribution-downgrade-only",
       watchlistMode: "V2-server-verified-user-isolated-with-alert-inbox-and-manual-market-timeline",
       marketTimelineMode: "user-triggered-server-verified-descriptive-history-no-sharp-inference",
-      alertDeliveryMode: "in-app-inbox-only-no-background-push",
+      alertDeliveryMode: notificationDelivery.deliveryActive
+        ? "opt-in-expo-push-with-ticket-and-receipt-audit"
+        : "in-app-inbox-plus-disabled-fail-closed-push-worker",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
       deployment: process.env.VERCEL_ENV || process.env.NODE_ENV || "unknown",
       commit: process.env.VERCEL_GIT_COMMIT_SHA || null,
       services,
-      nextStep: !services.supabaseConfigured
-        ? "Configure Supabase public environment variables"
-        : !services.accountDeletionConfigured
-          ? "Apply all Supabase migrations through Market Timeline V1, test two-user isolation and configure server-only account deletion"
-          : !services.automaticH2hScoreSettlement
-            ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
-            : !services.agentV10DecisionSigningConfigured
-              ? "Configure a dedicated server-only Agent decision signing key"
-              : !services.sportsIntelligenceProvidersConfigured
-                ? "Configure optional news, injury and lineup providers for verified independent evidence"
-                : !services.openAiConfigured
-                  ? "Optional: configure the server-only OpenAI key for grounded explanations"
-                  : "Apply and verify the Market Timeline migration with two users, then complete real-device release testing",
+      nextStep,
       timestamp: new Date().toISOString()
     },
     {
