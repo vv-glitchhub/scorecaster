@@ -19,6 +19,16 @@ export const dynamic = "force-dynamic";
 const SUPPORTED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const SELECT = "id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at";
 const MAX_ITEMS = 50;
+const DEFAULT_NOTIFICATION_PREFERENCES = {
+  in_app_enabled: true,
+  push_enabled: false,
+  high_enabled: true,
+  medium_enabled: true,
+  info_enabled: false,
+  kickoff_enabled: true,
+  decision_enabled: true,
+  price_enabled: true
+};
 
 function pickEventId(pick = {}) {
   return cleanText(pick.gameId || pick.eventId || pick.id, 180);
@@ -35,6 +45,42 @@ function normalizedDecision(pick = {}) {
 function sameSelection(pick, eventId, selection) {
   return pickEventId(pick) === eventId &&
     cleanText(pick.selection || pick.label, 160).toLowerCase() === selection.toLowerCase();
+}
+
+function isMissingTable(error) {
+  return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
+}
+
+function alertAllowed(alert, preferences) {
+  if (!preferences.in_app_enabled) return false;
+  if (alert.severity === "high" && !preferences.high_enabled) return false;
+  if (alert.severity === "medium" && !preferences.medium_enabled) return false;
+  if (alert.severity === "info" && !preferences.info_enabled) return false;
+  if (alert.type === "kickoff_soon" && !preferences.kickoff_enabled) return false;
+  if (alert.type === "decision_changed" && !preferences.decision_enabled) return false;
+  if (["price_moved", "below_play_price"].includes(alert.type) && !preferences.price_enabled) return false;
+  return true;
+}
+
+async function loadNotificationPreferences(auth) {
+  const { data, error } = await auth.supabase
+    .from("notification_preferences")
+    .select("in_app_enabled,push_enabled,high_enabled,medium_enabled,info_enabled,kickoff_enabled,decision_enabled,price_enabled")
+    .eq("user_id", auth.user.id)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      preferences: DEFAULT_NOTIFICATION_PREFERENCES,
+      available: false,
+      warning: isMissingTable(error) ? "Notification registry migration is not active" : "Notification preferences could not be loaded"
+    };
+  }
+  return {
+    preferences: { ...DEFAULT_NOTIFICATION_PREFERENCES, ...(data || {}) },
+    available: true,
+    warning: null
+  };
 }
 
 async function requireAuth(request, requestId) {
@@ -65,12 +111,15 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const { data, error } = await auth.supabase
-    .from("watchlist_items")
-    .select(SELECT)
-    .eq("user_id", auth.user.id)
-    .order("commence_time", { ascending: true })
-    .limit(MAX_ITEMS);
+  const [{ data, error }, notificationState] = await Promise.all([
+    auth.supabase
+      .from("watchlist_items")
+      .select(SELECT)
+      .eq("user_id", auth.user.id)
+      .order("commence_time", { ascending: true })
+      .limit(MAX_ITEMS),
+    loadNotificationPreferences(auth)
+  ]);
 
   if (error) {
     return jsonResponse({ ok: false, error: publicError(error, "Watchlist could not be loaded") }, 500, requestId);
@@ -80,8 +129,9 @@ export async function GET(request) {
   const sports = rows.map((item) => item.sport).filter((sport) => SUPPORTED_SPORTS.has(sport));
   const currentPicks = await loadCurrentPicks(request, sports);
   const state = buildWatchlistState({ items: rows, currentPicks });
+  const allowedAlerts = state.alerts.filter((alert) => alertAllowed(alert, notificationState.preferences));
   const generatedAt = new Date().toISOString();
-  const inboxResult = await syncAlertInbox(auth.supabase, auth.user.id, state.alerts, { now: generatedAt });
+  const inboxResult = await syncAlertInbox(auth.supabase, auth.user.id, allowedAlerts, { now: generatedAt });
   const inbox = {
     available: inboxResult.available === true,
     items: inboxResult.items || [],
@@ -91,9 +141,14 @@ export async function GET(request) {
 
   return jsonResponse({
     ok: true,
-    source: "watchlist-alerts-v2+alert-inbox-v1",
+    source: "watchlist-alerts-v2+alert-inbox-v1+notification-preferences-v1",
     paperOnly: true,
     generatedAt,
+    notificationPreferences: {
+      available: notificationState.available,
+      warning: notificationState.warning,
+      values: notificationState.preferences
+    },
     inbox,
     ...state
   }, 200, requestId);
