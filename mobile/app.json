@@ -39,6 +39,12 @@
           "configureAndroidBackup": true,
           "faceIDPermission": "Allow Scorecaster to protect your signed-in session."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "defaultChannel": "scorecaster-alerts"
+        }
       ]
     ],
     "extra": {
