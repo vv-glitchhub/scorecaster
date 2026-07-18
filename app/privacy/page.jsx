@@ -6,30 +6,32 @@ export default function PrivacyPage() {
   return (
     <PolicyPage
       title="Privacy policy"
-      intro="Scorecaster is designed to collect the minimum account, verified-watchlist, model-audit and paper-tracking data required to operate the service. It does not process deposits, withdrawals, payment cards, bank accounts or bookmaker credentials."
+      intro="Scorecaster is designed to collect the minimum account, verified-watchlist, alert-history, model-audit and paper-tracking data required to operate the service. It does not process deposits, withdrawals, payment cards, bank accounts or bookmaker credentials."
       sections={[
         {
           title: "Data we process",
           body: [
-            "An account may contain an email address, an internal user identifier, optional display name, paper-bankroll settings, paper bets, result tracking, verified watchlist selections, alert thresholds, bounded model-audit snapshots and security-relevant timestamps.",
+            "An account may contain an email address, an internal user identifier, optional display name, paper-bankroll settings, paper bets, result tracking, verified watchlist selections, alert thresholds, deduplicated alert history, bounded model-audit snapshots and security-relevant timestamps.",
             "When a current Scorecaster pick is saved through the audited paper flow, the server may store a compact snapshot of public team-form and schedule features, source status, market benchmark and shadow-model output. It does not contain contacts, precise location, payment data or bookmaker credentials.",
+            "Alert Inbox rows contain the verified alert type, severity, title, message, related match and selection, bounded comparison details, first and last seen timestamps, read state and resolved state.",
             "A paper bankroll is a simulation value. It is not a real-money account balance and is not connected to a bank, payment provider or betting operator."
           ]
         },
         {
           title: "Why data is processed",
           body: [
-            "Account data is used for authentication, cross-device synchronization, paper history, risk calculations, verified watchlist comparisons, model auditing, user-requested export and account deletion.",
+            "Account data is used for authentication, cross-device synchronization, paper history, risk calculations, verified watchlist comparisons, alert acknowledgement, model auditing, user-requested export and account deletion.",
             "Settled paper rows with a server-verified feature snapshot may be used for chronological comparison of the market-consensus champion and a sport-specific shadow challenger. The shadow model has no automatic promotion path and does not change the production probability, PLAY decision, edge, EV or stake.",
             "We do not require precise location, contacts, camera, microphone, identity documents or payment information for the Scorecaster MVP."
           ]
         },
         {
-          title: "Verified watchlist",
+          title: "Verified watchlist and Alert Inbox",
           body: [
             "A signed-in user may add a current Scorecaster selection to the watchlist. The server verifies the event and selection against current live-provider analysis before storing it.",
             "User-triggered refresh compares the stored state with current verified data and may report a kickoff window, price movement, decision change or a price below the calculated PLAY floor. Missing current data remains unavailable; Scorecaster does not invent a replacement market.",
-            "Watchlist V2 does not create a paper stake, place a wager or send background push notifications."
+            "Server-generated changes are deduplicated into the user's Alert Inbox. A condition may be marked read, remain active, become resolved or reopen as unread if it appears again. Clients cannot submit arbitrary inbox content.",
+            "Watchlist V2 and Alert Inbox V1 do not create a paper stake, place a wager or claim background push-notification delivery."
           ]
         },
         {
@@ -43,7 +45,7 @@ export default function PrivacyPage() {
         {
           title: "Protection and access",
           body: [
-            "Transport uses HTTPS. Supabase authentication and forced database Row Level Security restrict account, paper and watchlist rows to the authenticated user. Protected APIs also enforce user validation, bounded inputs and per-user quotas.",
+            "Transport uses HTTPS. Supabase authentication and forced database Row Level Security restrict account, paper, watchlist and Alert Inbox rows to the authenticated user. Protected APIs also enforce user validation, bounded inputs and per-user quotas.",
             "Only a feature snapshot recomputed from the current server analysis is marked as server-audited. Client-supplied snapshot fields are not trusted for model evaluation.",
             "No system is perfectly immune to attack. Scorecaster minimizes potential harm by limiting collected data and separating public client configuration from server-only settings."
           ]
@@ -51,8 +53,8 @@ export default function PrivacyPage() {
         {
           title: "Your controls",
           body: [
-            "Authenticated users can pause or remove watchlist rows, request an export through /api/account/export and delete their account through the in-app account deletion flow when server deletion is configured.",
-            "Account export includes raw paper-audit snapshots and watchlist rows. Account deletion removes the paper rows containing those snapshots. Public release requires a configured support contact and a finalized controller identity."
+            "Authenticated users can pause or remove watchlist rows, mark inbox alerts read, request an export through /api/account/export and delete their account through the in-app account deletion flow when server deletion is configured.",
+            "Account export includes paper-audit snapshots, verified watchlist rows and Alert Inbox rows. Account deletion removes the rows containing those data. Public release requires a configured support contact and a finalized controller identity."
           ]
         }
       ]}
