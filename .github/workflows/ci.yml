@@ -95,6 +95,11 @@ jobs:
           set -o pipefail
           npm run test:form-rest 2>&1 | tee form-rest-shadow.log
 
+      - name: Event Detail V1 tests
+        run: |
+          set -o pipefail
+          npm run test:event-detail 2>&1 | tee event-detail.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -131,6 +136,7 @@ jobs:
             sports-intelligence.log
             provider-firewall.log
             form-rest-shadow.log
+            event-detail.log
             easy-use.log
             i18n.log
             fixture-integrity.log
