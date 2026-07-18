@@ -37,7 +37,7 @@ export async function GET(request) {
     auth.supabase.from("market_timeline_snapshots").select("id,watchlist_id,event_id,sport,league,market,selection,odds,decision,consensus_probability,edge,ev,confidence,bookmaker,source,captured_at,created_at").eq("user_id", auth.user.id).order("captured_at", { ascending: false }).limit(5000),
     auth.supabase.from("notification_preferences").select("in_app_enabled,push_enabled,high_enabled,medium_enabled,info_enabled,kickoff_enabled,decision_enabled,price_enabled,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("notification_devices").select("id,platform,app_version,build_version,enabled,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(50),
-    auth.supabase.from("notification_deliveries").select("id,alert_id,device_id,status,attempt_count,next_attempt_at,expo_ticket_id,ticket_status,receipt_status,error_code,error_message,queued_at,sent_at,receipt_checked_at,delivered_at,failed_at,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000)
+    auth.supabase.from("notification_deliveries").select("id,alert_id,device_id,status,attempt_count,next_attempt_at,expo_ticket_id,ticket_status,receipt_status,error_code,error_message,queued_at,sent_at,receipt_checked_at,provider_accepted_at,failed_at,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000)
   ]);
 
   let [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
@@ -59,6 +59,7 @@ export async function GET(request) {
     product: "Scorecaster",
     dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, market timeline, alert inbox, notification metadata and account data; no payment data",
     notificationDeliveryTokensExported: false,
+    notificationReceiptMeaning: "provider acceptance only; not proof that the user saw the notification",
     account: {
       id: auth.user.id,
       email: auth.user.email || null,
