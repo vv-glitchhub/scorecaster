@@ -11,7 +11,8 @@
     "doctor": "expo-doctor",
     "check:expo": "node scripts/check-expo-compat.mjs",
     "release:audit": "node scripts/release-audit.mjs",
-    "release:check": "npm run release:audit && npm run check:expo && npm run typecheck"
+    "audit:alert-inbox": "node scripts/alert-inbox-v2-audit.mjs",
+    "release:check": "npm run release:audit && npm run audit:alert-inbox && npm run check:expo && npm run typecheck"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
