@@ -33,6 +33,12 @@ export default function AppShell({ children }) {
     description: tr({ fi: "Avaa markkina, evidenssi, vire ja paperitoiminnot yhdessä näkymässä.", en: "Open market, evidence, form and paper actions in one view.", es: "Abre mercado, evidencia, forma y acciones simuladas en una sola vista." })
   }), [tr]);
 
+  const timelineItem = useMemo(() => ({
+    href: "/market-timeline",
+    label: tr({ fi: "Hintahistoria", en: "Market Timeline", es: "Historial de cuotas" }),
+    description: tr({ fi: "Seurattujen kohteiden palvelimella varmennetut hintapisteet.", en: "Server-verified price points for watched selections.", es: "Puntos de cuota verificados para selecciones seguidas." })
+  }), [tr]);
+
   const formRestLabItem = useMemo(() => ({
     href: "/form-rest-lab",
     label: tr({ fi: "Vire- ja lepomallin laboratorio", en: "Form & Rest Model Lab", es: "Laboratorio de forma y descanso" }),
@@ -45,6 +51,7 @@ export default function AppShell({ children }) {
       items: [
         eventsItem,
         watchlistItem,
+        timelineItem,
         { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
         { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
         { href: "/paper-trading", label: t("more.portfolio"), description: t("more.portfolioDescription") },
@@ -70,7 +77,7 @@ export default function AppShell({ children }) {
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, eventsItem, watchlistItem, formRestLabItem]);
+  ], [t, eventsItem, watchlistItem, timelineItem, formRestLabItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 

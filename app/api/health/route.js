@@ -73,6 +73,17 @@ export async function GET() {
     injuryProviderConfigured,
     lineupProviderConfigured,
     sportsIntelligenceProvidersConfigured: newsProviderConfigured || injuryProviderConfigured || lineupProviderConfigured,
+    formRestShadowV1: true,
+    formRestChronologyGuard: true,
+    formRestServerAuditedSnapshots: true,
+    formRestChangesProductionProbability: false,
+    formRestAutomaticPromotion: false,
+    formRestRegressionTests: true,
+    eventDetailV1: true,
+    eventDetailServerResolved: true,
+    eventDetailClientFactsTrusted: false,
+    eventDetailRealMoneyActions: false,
+    eventDetailRegressionTests: true,
     watchlistAlertsV2: true,
     watchlistServerVerifiedSelections: true,
     watchlistDecisionChangeAlerts: true,
@@ -83,6 +94,16 @@ export async function GET() {
     watchlistRlsIsolation: true,
     watchlistRegressionTests: true,
     nativeWatchlistScreen: true,
+    marketTimelineV1: true,
+    marketTimelineServerVerifiedCaptures: true,
+    marketTimelineRequiresOwnedWatchlist: true,
+    marketTimelineDuplicateSuppression: true,
+    marketTimelineRlsIsolation: true,
+    marketTimelineSharpMoneyInference: false,
+    marketTimelineOutcomeInference: false,
+    marketTimelineBackgroundCapture: false,
+    marketTimelineRegressionTests: true,
+    nativeMarketTimelineInEventDetail: true,
     alertInboxV1: true,
     alertInboxDeduplication: true,
     alertInboxReadState: true,
@@ -148,6 +169,7 @@ export async function GET() {
     rateLimitMigration: "supabase/scorecaster_api_rate_limits.sql",
     watchlistMigration: "supabase/scorecaster_watchlist_alerts.sql",
     alertInboxMigration: "supabase/scorecaster_alert_inbox.sql",
+    marketTimelineMigration: "supabase/scorecaster_market_timeline.sql",
     oddsApiConfigured: Boolean(process.env.ODDS_API_KEY),
     openAiConfigured: Boolean(process.env.OPENAI_API_KEY),
     openAiAgentModel: String(process.env.OPENAI_AGENT_MODEL || "gpt-5-mini").slice(0, 100),
@@ -183,11 +205,23 @@ export async function GET() {
     services.sportsIntelligenceDowngradeOnly &&
     services.sportsIntelligenceConflictGate &&
     services.sportsIntelligenceRegressionTests &&
+    services.formRestShadowV1 &&
+    services.formRestChronologyGuard &&
+    services.formRestRegressionTests &&
+    services.eventDetailV1 &&
+    services.eventDetailServerResolved &&
+    services.eventDetailRegressionTests &&
     services.watchlistAlertsV2 &&
     services.watchlistServerVerifiedSelections &&
     services.watchlistAuthenticatedApi &&
     services.watchlistRegressionTests &&
     services.nativeWatchlistScreen &&
+    services.marketTimelineV1 &&
+    services.marketTimelineServerVerifiedCaptures &&
+    services.marketTimelineRequiresOwnedWatchlist &&
+    services.marketTimelineRlsIsolation &&
+    services.marketTimelineRegressionTests &&
+    services.nativeMarketTimelineInEventDetail &&
     services.alertInboxV1 &&
     services.alertInboxDeduplication &&
     services.alertInboxReadState &&
@@ -208,11 +242,12 @@ export async function GET() {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
-      modelMode: "market-consensus-with-shadow-calibration-lab",
+      modelMode: "market-consensus-with-shadow-calibration-labs",
       edgeType: "best-price-vs-no-vig-consensus",
       agentMode: "V11-model-lab-with-team-attributed-sports-intelligence-audit",
       intelligenceMode: "verified-team-attribution-downgrade-only",
-      watchlistMode: "V2-server-verified-user-isolated-with-alert-inbox-v1-manual-refresh",
+      watchlistMode: "V2-server-verified-user-isolated-with-alert-inbox-and-manual-market-timeline",
+      marketTimelineMode: "user-triggered-server-verified-descriptive-history-no-sharp-inference",
       alertDeliveryMode: "in-app-inbox-only-no-background-push",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
@@ -222,7 +257,7 @@ export async function GET() {
       nextStep: !services.supabaseConfigured
         ? "Configure Supabase public environment variables"
         : !services.accountDeletionConfigured
-          ? "Apply all Supabase migrations through Alert Inbox V1, test two-user isolation and configure server-only account deletion"
+          ? "Apply all Supabase migrations through Market Timeline V1, test two-user isolation and configure server-only account deletion"
           : !services.automaticH2hScoreSettlement
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
             : !services.agentV10DecisionSigningConfigured
@@ -231,7 +266,7 @@ export async function GET() {
                 ? "Configure optional news, injury and lineup providers for verified independent evidence"
                 : !services.openAiConfigured
                   ? "Optional: configure the server-only OpenAI key for grounded explanations"
-                  : "Verify Alert Inbox deduplication and two-user isolation, then complete real-device release testing",
+                  : "Apply and verify the Market Timeline migration with two users, then complete real-device release testing",
       timestamp: new Date().toISOString()
     },
     {

@@ -27,7 +27,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult] = await Promise.all([
+  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult, timelineResult] = await Promise.all([
     auth.supabase
       .from("profiles")
       .select("id,email,display_name,created_at,updated_at")
@@ -55,12 +55,19 @@ export async function GET(request) {
       .select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("last_seen_at", { ascending: false })
-      .limit(500)
+      .limit(500),
+    auth.supabase
+      .from("market_timeline_snapshots")
+      .select("id,watchlist_id,event_id,sport,league,market,selection,odds,decision,consensus_probability,edge,ev,confidence,bookmaker,source,captured_at,created_at")
+      .eq("user_id", auth.user.id)
+      .order("captured_at", { ascending: false })
+      .limit(5000)
   ]);
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
   if (watchlistResult.error && !isMissingTable(watchlistResult.error)) errors.push(watchlistResult.error);
   if (alertInboxResult.error && !isMissingTable(alertInboxResult.error)) errors.push(alertInboxResult.error);
+  if (timelineResult.error && !isMissingTable(timelineResult.error)) errors.push(timelineResult.error);
   const firstError = errors[0] || null;
 
   if (firstError) {
@@ -76,7 +83,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, alert inbox and account data; no payment data",
+      dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, market timeline, alert inbox and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
@@ -86,7 +93,8 @@ export async function GET(request) {
       bankroll: bankrollResult.data || null,
       paperBets: betsResult.data || [],
       watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
-      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || []
+      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || [],
+      marketTimeline: timelineResult.error ? [] : timelineResult.data || []
     },
     200,
     requestId
