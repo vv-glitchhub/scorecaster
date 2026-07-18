@@ -32,13 +32,23 @@ type WatchPayload = {
   summary?: { watched?: number; active?: number; alerts?: number; high?: number };
 };
 
+type NotificationDetails = {
+  minutesToKickoff?: number | null;
+  addedDecision?: string | null;
+  currentDecision?: string | null;
+  addedOdds?: number | null;
+  currentOdds?: number | null;
+  oddsMove?: number | null;
+  minimumPlayOdds?: number | null;
+};
+
 type NotificationItem = {
   id: string;
   notification_type: string;
   severity: "high" | "medium" | "info";
   match?: string | null;
   selection: string;
-  payload?: Record<string, unknown>;
+  payload?: NotificationDetails;
   last_seen_at: string;
   read_at?: string | null;
 };
@@ -166,8 +176,8 @@ export default function WatchlistScreen() {
 }
 
 function notificationCopy(item: NotificationItem, tr: ReturnType<typeof useLanguage>["tr"]) {
-  const details = item.payload || {};
-  const odds = (value: unknown) => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "–";
+  const details: NotificationDetails = item.payload || {};
+  const odds = (value: number | null | undefined) => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "–";
   const movement = Number.isFinite(Number(details.oddsMove)) ? `${(Number(details.oddsMove) * 100).toFixed(1)} %` : "–";
   if (item.notification_type === "kickoff_soon") return { title: tr({ fi: "Ottelu alkaa pian", en: "Kickoff is approaching", es: "El partido comienza pronto" }), message: tr({ fi: `Ottelu alkaa noin ${details.minutesToKickoff ?? "–"} minuutin kuluttua.`, en: `The fixture starts in about ${details.minutesToKickoff ?? "–"} minutes.`, es: `El partido comienza en unos ${details.minutesToKickoff ?? "–"} minutos.` }) };
   if (item.notification_type === "decision_changed") return { title: tr({ fi: "Päätös muuttui", en: "Decision changed", es: "Cambió la decisión" }), message: `${details.addedDecision || "–"} → ${details.currentDecision || "–"}` };
