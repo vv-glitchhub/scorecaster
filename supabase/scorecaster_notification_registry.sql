@@ -108,8 +108,14 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_user_id uuid := coalesce(old.user_id, new.user_id);
+  v_user_id uuid;
 begin
+  if tg_op = 'DELETE' then
+    v_user_id := old.user_id;
+  else
+    v_user_id := new.user_id;
+  end if;
+
   if v_user_id is not null and not exists (
     select 1
     from public.notification_devices
@@ -119,7 +125,11 @@ begin
     set push_enabled = false
     where user_id = v_user_id;
   end if;
-  return coalesce(new, old);
+
+  if tg_op = 'DELETE' then
+    return old;
+  end if;
+  return new;
 end;
 $$;
 
