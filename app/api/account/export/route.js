@@ -35,7 +35,7 @@ export async function GET(request) {
       .maybeSingle(),
     auth.supabase
       .from("bets")
-      .select("id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,created_at,updated_at")
+      .select("id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,raw_pick,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false })
       .limit(5000),
@@ -76,7 +76,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, verified watchlist, alert inbox and account data; no payment data",
+      dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, alert inbox and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
