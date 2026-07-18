@@ -1,5 +1,10 @@
-import { redirect } from "next/navigation";
+import AlertInboxClient from "./AlertInboxClient";
 
-export default function LegacyAlertsPage() {
-  redirect("/watchlist");
+export const metadata = {
+  title: "Alert Inbox",
+  description: "User-specific verified Watchlist alert history, preferences and inbox controls."
+};
+
+export default function AlertInboxPage() {
+  return <AlertInboxClient />;
 }
