@@ -7,15 +7,15 @@ import {
   mutationOriginAllowed,
   publicError,
   readJsonBody
-} from "../../../../../lib/api-security";
+} from "../../../../lib/api-security";
 import {
   buildMarketTimeline,
   currentSnapshotFromPick,
   initialSnapshotFromWatchlist,
   materiallyDifferentSnapshot
-} from "../../../../../lib/market-timeline.mjs";
-import { SPORTS } from "../../../../../lib/sports.js";
-import { GET as getTopPicks } from "../../../top-picks/route.js";
+} from "../../../../lib/market-timeline.mjs";
+import { SPORTS } from "../../../../lib/sports.js";
+import { GET as getTopPicks } from "../../top-picks/route.js";
 
 export const dynamic = "force-dynamic";
 
