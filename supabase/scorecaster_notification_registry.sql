@@ -83,15 +83,70 @@ begin
 end;
 $$;
 
+create or replace function public.enforce_notification_push_state()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.push_enabled and not exists (
+    select 1
+    from public.notification_devices
+    where user_id = new.user_id and enabled = true
+  ) then
+    new.push_enabled := false;
+  end if;
+  return new;
+end;
+$$;
+
+create or replace function public.sync_notification_push_state_after_device_change()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid := coalesce(old.user_id, new.user_id);
+begin
+  if v_user_id is not null and not exists (
+    select 1
+    from public.notification_devices
+    where user_id = v_user_id and enabled = true
+  ) then
+    update public.notification_preferences
+    set push_enabled = false
+    where user_id = v_user_id;
+  end if;
+  return coalesce(new, old);
+end;
+$$;
+
 drop trigger if exists notification_preferences_set_updated_at on public.notification_preferences;
 create trigger notification_preferences_set_updated_at
 before update on public.notification_preferences
 for each row execute function public.set_notification_updated_at();
 
+drop trigger if exists notification_preferences_enforce_push_state on public.notification_preferences;
+create trigger notification_preferences_enforce_push_state
+before insert or update of push_enabled on public.notification_preferences
+for each row execute function public.enforce_notification_push_state();
+
 drop trigger if exists notification_devices_set_updated_at on public.notification_devices;
 create trigger notification_devices_set_updated_at
 before update on public.notification_devices
 for each row execute function public.set_notification_updated_at();
+
+drop trigger if exists notification_devices_sync_push_after_delete on public.notification_devices;
+create trigger notification_devices_sync_push_after_delete
+after delete on public.notification_devices
+for each row execute function public.sync_notification_push_state_after_device_change();
+
+drop trigger if exists notification_devices_sync_push_after_enabled_update on public.notification_devices;
+create trigger notification_devices_sync_push_after_enabled_update
+after update of enabled on public.notification_devices
+for each row execute function public.sync_notification_push_state_after_device_change();
 
 drop function if exists public.claim_notification_device(text, text, text, text, text);
 
@@ -182,8 +237,9 @@ with check (auth.uid() = user_id);
 
 revoke all on public.notification_preferences from anon;
 revoke all on public.notification_devices from anon;
+revoke insert, update on public.notification_devices from authenticated;
 grant select, insert, update, delete on public.notification_preferences to authenticated;
-grant select, update, delete on public.notification_devices to authenticated;
+grant select, delete on public.notification_devices to authenticated;
 
 revoke all on function public.claim_notification_device(text, text, text, text) from public;
 grant execute on function public.claim_notification_device(text, text, text, text) to authenticated;
