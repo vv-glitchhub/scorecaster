@@ -12,6 +12,10 @@ function isMissingTable(error) {
   return error?.code === "42P01" || /does not exist/i.test(error?.message || "");
 }
 
+function isMissingColumn(error) {
+  return error?.code === "42703" || /column .* does not exist/i.test(error?.message || "");
+}
+
 export async function GET(request) {
   const requestId = getRequestId(request);
   const auth = await getAuthenticatedContext(request);
@@ -27,7 +31,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult] = await Promise.all([
+  const [profileResult, betsResult, bankrollResult, watchlistResult, initialAlertInboxResult, alertInboxSettingsResult] = await Promise.all([
     auth.supabase
       .from("profiles")
       .select("id,email,display_name,created_at,updated_at")
@@ -52,15 +56,31 @@ export async function GET(request) {
       .limit(500),
     auth.supabase
       .from("alert_inbox")
+      .select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,dismissed_at,first_seen_at,last_seen_at,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .order("last_seen_at", { ascending: false })
+      .limit(500),
+    auth.supabase
+      .from("alert_inbox_settings")
+      .select("enabled,minimum_severity,kickoff_enabled,price_enabled,decision_enabled,availability_enabled,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .maybeSingle()
+  ]);
+
+  let alertInboxResult = initialAlertInboxResult;
+  if (alertInboxResult.error && isMissingColumn(alertInboxResult.error)) {
+    alertInboxResult = await auth.supabase
+      .from("alert_inbox")
       .select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("last_seen_at", { ascending: false })
-      .limit(500)
-  ]);
+      .limit(500);
+  }
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
   if (watchlistResult.error && !isMissingTable(watchlistResult.error)) errors.push(watchlistResult.error);
   if (alertInboxResult.error && !isMissingTable(alertInboxResult.error)) errors.push(alertInboxResult.error);
+  if (alertInboxSettingsResult.error && !isMissingTable(alertInboxSettingsResult.error)) errors.push(alertInboxSettingsResult.error);
   const firstError = errors[0] || null;
 
   if (firstError) {
@@ -76,7 +96,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, verified watchlist, alert inbox and account data; no payment data",
+      dataClassification: "paper-tracking, verified watchlist, Alert Inbox history and preferences, and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
@@ -86,7 +106,11 @@ export async function GET(request) {
       bankroll: bankrollResult.data || null,
       paperBets: betsResult.data || [],
       watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
-      alertInbox: alertInboxResult.error ? [] : alertInboxResult.data || []
+      alertInboxSettings: alertInboxSettingsResult.error ? null : alertInboxSettingsResult.data || null,
+      alertInbox: alertInboxResult.error ? [] : (alertInboxResult.data || []).map((item) => ({
+        dismissed_at: null,
+        ...item
+      }))
     },
     200,
     requestId
