@@ -9,6 +9,7 @@ import {
   publicError,
   readJsonBody
 } from "../../../../lib/api-security";
+import { syncAlertInbox } from "../../../../lib/alert-inbox-service.js";
 import { buildWatchlistState } from "../../../../lib/watchlist-alert-engine.mjs";
 import { SPORTS } from "../../../../lib/sports.js";
 import { GET as getTopPicks } from "../../top-picks/route.js";
@@ -79,12 +80,21 @@ export async function GET(request) {
   const sports = rows.map((item) => item.sport).filter((sport) => SUPPORTED_SPORTS.has(sport));
   const currentPicks = await loadCurrentPicks(request, sports);
   const state = buildWatchlistState({ items: rows, currentPicks });
+  const generatedAt = new Date().toISOString();
+  const inboxResult = await syncAlertInbox(auth.supabase, auth.user.id, state.alerts, { now: generatedAt });
+  const inbox = {
+    available: inboxResult.available === true,
+    items: inboxResult.items || [],
+    summary: inboxResult.summary || { total: 0, unread: 0, active: 0, high: 0, medium: 0, resolved: 0 },
+    warning: inboxResult.warning || (inboxResult.error ? "Alert Inbox could not be synchronized" : null)
+  };
 
   return jsonResponse({
     ok: true,
-    source: "watchlist-alerts-v2",
+    source: "watchlist-alerts-v2+alert-inbox-v1",
     paperOnly: true,
-    generatedAt: new Date().toISOString(),
+    generatedAt,
+    inbox,
     ...state
   }, 200, requestId);
 }
