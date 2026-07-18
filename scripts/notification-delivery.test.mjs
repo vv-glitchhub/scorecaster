@@ -14,6 +14,9 @@ test("delivery migration isolates metadata, deduplicates devices and atomically 
   assert.match(sql, /attempt_count < 5/i);
   assert.match(sql, /worker_lease_exhausted/i);
   assert.match(sql, /status = 'sending'[\s\S]*lease_expires_at < now\(\)[\s\S]*attempt_count >= 5/i);
+  assert.match(sql, /provider_accepted_at timestamptz/i);
+  assert.match(sql, /status in \('queued', 'sending', 'retry', 'ticketed', 'provider_accepted', 'failed'\)/i);
+  assert.doesNotMatch(sql, /delivered_at|status in \([^)]*'delivered'/i);
   assert.match(sql, /force row level security/i);
   assert.match(sql, /auth\.uid\(\) = user_id/i);
   assert.match(sql, /grant select on public\.notification_deliveries to authenticated/i);
@@ -21,14 +24,16 @@ test("delivery migration isolates metadata, deduplicates devices and atomically 
   assert.doesNotMatch(sql, /expo_push_token|token_hash/i);
 });
 
-test("delivery worker batches Expo sends and checks receipts after the safety delay", async () => {
+test("delivery worker batches Expo sends, rejects stale alerts and audits provider acceptance", async () => {
   const worker = await source("lib/notification-delivery.js");
   assert.match(worker, /https:\/\/exp\.host\/--\/api\/v2\/push\/send/);
   assert.match(worker, /https:\/\/exp\.host\/--\/api\/v2\/push\/getReceipts/);
   assert.match(worker, /MAX_SEND_BATCH = 100/);
   assert.match(worker, /MAX_RECEIPT_BATCH = 1000/);
+  assert.match(worker, /MAX_ALERT_AGE_MS = 24 \* 60 \* 60 \* 1000/);
   assert.match(worker, /RECEIPT_DELAY_MS = 15 \* 60 \* 1000/);
   assert.match(worker, /RECEIPT_EXPIRY_MS = 23 \* 60 \* 60 \* 1000/);
+  assert.match(worker, /\.gte\("last_seen_at", newestAllowed\)/);
   assert.match(worker, /rpc\("claim_notification_deliveries"/);
   assert.match(worker, /onConflict: "alert_id,device_id", ignoreDuplicates: true/);
   assert.match(worker, /DeviceNotRegistered/);
@@ -37,6 +42,10 @@ test("delivery worker batches Expo sends and checks receipts after the safety de
   assert.match(worker, /update\(\{ enabled: false \}\)/);
   assert.match(worker, /\.is\("read_at", null\)/);
   assert.match(worker, /\.is\("dismissed_at", null\)/);
+  assert.match(worker, /status: "provider_accepted"/);
+  assert.match(worker, /provider_accepted_at: now\.toISOString\(\)/);
+  assert.match(worker, /providerAccepted/);
+  assert.doesNotMatch(worker, /status: "delivered"|delivered_at/);
 });
 
 test("internal delivery route fails closed and never accepts an unprotected invocation", async () => {
@@ -72,6 +81,8 @@ test("export and deletion include delivery metadata but exclude raw tokens", asy
   const exportRoute = await source("app/api/account/export/route.js");
   const accountRoute = await source("app/api/account/route.js");
   assert.match(exportRoute, /notificationDeliveryTokensExported: false/);
+  assert.match(exportRoute, /notificationReceiptMeaning: "provider acceptance only; not proof that the user saw the notification"/);
+  assert.match(exportRoute, /provider_accepted_at/);
   assert.match(exportRoute, /notificationDeliveries:/);
   assert.match(exportRoute, /notificationDevices:/);
   assert.doesNotMatch(exportRoute, /\.select\("[^"]*expo_push_token/);
