@@ -5,6 +5,9 @@ export async function GET() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
+  const newsProviderConfigured = Boolean(process.env.NEWS_API_KEY);
+  const injuryProviderConfigured = Boolean(process.env.SPORTSDATA_API_KEY);
+  const lineupProviderConfigured = Boolean(process.env.LINEUP_API_URL && process.env.LINEUP_API_KEY);
 
   const services = {
     localQuickUse: true,
@@ -57,6 +60,19 @@ export async function GET() {
     mobileAgentV11Portfolio: true,
     mobileAgentV11ModelLab: true,
     mobileAgentV11Explanations: true,
+    sportsIntelligenceV1: true,
+    sportsIntelligenceTeamAttribution: true,
+    sportsIntelligenceDowngradeOnly: true,
+    sportsIntelligenceCanUpgradeToPlay: false,
+    sportsIntelligenceChangesMarketProbability: false,
+    sportsIntelligenceConflictGate: true,
+    sportsIntelligenceCacheMinutes: 5,
+    sportsIntelligenceMaxEnrichmentsPerTopPicksRequest: 12,
+    sportsIntelligenceRegressionTests: true,
+    newsProviderConfigured,
+    injuryProviderConfigured,
+    lineupProviderConfigured,
+    sportsIntelligenceProvidersConfigured: newsProviderConfigured || injuryProviderConfigured || lineupProviderConfigured,
     watchlistAlertsV2: true,
     watchlistServerVerifiedSelections: true,
     watchlistDecisionChangeAlerts: true,
@@ -151,6 +167,11 @@ export async function GET() {
     services.agentV11DriftDetection &&
     services.agentV11RegressionTests &&
     services.mobileAgentV11Tab &&
+    services.sportsIntelligenceV1 &&
+    services.sportsIntelligenceTeamAttribution &&
+    services.sportsIntelligenceDowngradeOnly &&
+    services.sportsIntelligenceConflictGate &&
+    services.sportsIntelligenceRegressionTests &&
     services.watchlistAlertsV2 &&
     services.watchlistServerVerifiedSelections &&
     services.watchlistAuthenticatedApi &&
@@ -170,7 +191,8 @@ export async function GET() {
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
       modelMode: "market-consensus-with-shadow-calibration-lab",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V11-chronological-champion-challenger-shadow-over-signed-grounded-V10-and-V9-portfolio",
+      agentMode: "V11-model-lab-with-team-attributed-sports-intelligence-audit",
+      intelligenceMode: "verified-team-attribution-downgrade-only",
       watchlistMode: "V2-server-verified-user-isolated-manual-refresh-alerts",
       simulatorMode: "seeded-poisson-rating-simulation",
       productBoundary: "sports analysis, risk control and paper tracking only",
@@ -185,9 +207,11 @@ export async function GET() {
             ? "Configure the server-only Odds API key for live consensus and automatic paper score settlement"
             : !services.agentV10DecisionSigningConfigured
               ? "Configure a dedicated server-only Agent decision signing key"
-              : !services.openAiConfigured
-                ? "Optional: configure the server-only OpenAI key for grounded explanations"
-                : "Collect enough settled observations for Agent V11, verify Watchlist V2 isolation and complete real-device release testing",
+              : !services.sportsIntelligenceProvidersConfigured
+                ? "Configure optional news, injury and lineup providers for verified independent evidence"
+                : !services.openAiConfigured
+                  ? "Optional: configure the server-only OpenAI key for grounded explanations"
+                  : "Collect enough settled observations for Agent V11, verify provider attribution and complete real-device release testing",
       timestamp: new Date().toISOString()
     },
     {
