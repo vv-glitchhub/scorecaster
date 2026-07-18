@@ -103,6 +103,18 @@ test("market-only evidence can never create or preserve PLAY", () => {
   assert.equal(gated.consensusProbability, 0.55);
 });
 
+test("clean verified evidence preserves an existing PLAY without changing probability", () => {
+  const report = buildSportsIntelligenceReport({ match, intelligence: intelligence(), now: NOW });
+  const gated = applySportsIntelligenceGate(playPick(match.homeTeam), report);
+
+  assert.equal(report.readiness.level, "verified");
+  assert.equal(gated.productDecision, "PLAY");
+  assert.equal(gated.decision, "BET");
+  assert.equal(gated.consensusProbability, 0.55);
+  assert.equal(gated.probabilityAdjustedByIntelligence, false);
+  assert.equal(gated.intelligenceUsedForUpgrade, false);
+});
+
 test("an away-team absence is negative only for the away selection", () => {
   const report = buildSportsIntelligenceReport({
     match,
@@ -199,9 +211,7 @@ test("conflicting availability reports fail closed", () => {
 test("generic lineup payloads cannot impersonate team-attributed evidence", () => {
   const report = buildSportsIntelligenceReport({
     match,
-    intelligence: intelligence({
-      lineups: []
-    }),
+    intelligence: intelligence({ lineups: [] }),
     now: NOW
   });
 
@@ -211,11 +221,18 @@ test("generic lineup payloads cannot impersonate team-attributed evidence", () =
   assert.ok(report.readiness.missing.includes("verified away lineup"));
 });
 
-test("Top Picks preserves intelligence downgrades and limits provider fan-out", async () => {
+test("Top Picks calculates the market decision first and only then applies downgrade rules", async () => {
   const route = await readFile(new URL("../app/api/top-picks/route.js", import.meta.url), "utf8");
+  const marketIndex = route.indexOf("marketDecision = \"BET\"");
+  const safetyIndex = route.indexOf("const decision = preserveSafetyGate(marketDecision, pick)");
+
   assert.match(route, /MAX_INTELLIGENCE_ENRICHMENTS\s*=\s*12/);
-  assert.match(route, /preserveSafetyGate/);
-  assert.match(route, /upstream === "CAUTION" && marketDecision === "BET"/);
+  assert.ok(marketIndex >= 0);
+  assert.ok(safetyIndex > marketIndex);
+  assert.match(route, /if \(marketDecision !== "BET"\) return marketDecision/);
+  assert.match(route, /readiness\?\.level !== "verified"/);
+  assert.match(route, /intelligenceRelativeImpact \|\| 0\) <= -0\.015/);
+  assert.doesNotMatch(route, /upstream === "CAUTION"/);
   assert.match(route, /probabilityAdjustedByIntelligence:\s*false/);
   assert.match(route, /team-attributed-audit-only/);
 });
