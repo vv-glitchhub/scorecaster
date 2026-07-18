@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AccountControls from "./AccountControls";
+import NotificationSettings from "./NotificationSettings";
 import { createClient } from "../../lib/supabase/server";
 import { getSupabaseConfig } from "../../lib/supabase/config";
 import { getSupabaseAdminClient } from "../../lib/supabase";
@@ -78,8 +79,8 @@ export default async function ProfilePage() {
             <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-4 text-center font-black text-slate-950">
               Avaa Cloud Sync
             </Link>
-            <Link href="/quick-use" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center font-black text-white">
-              Lisää paperiveto
+            <Link href="/watchlist" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center font-black text-white">
+              Seurantalista ja Alert Inbox
             </Link>
             <Link href="/privacy" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-4 text-center font-black text-white">
               Tietosuoja ja turvallisuus
@@ -92,6 +93,8 @@ export default async function ProfilePage() {
           </div>
         </div>
       </section>
+
+      <NotificationSettings />
 
       <AccountControls
         email={user.email || ""}
