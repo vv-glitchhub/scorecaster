@@ -1,5 +1,54 @@
 export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings";
 
+export type SportsIntelligenceReadiness = {
+  level?: "verified" | "partial" | "market-only" | string;
+  score?: number;
+  verifiedCount?: number;
+  totalChecks?: number;
+  missing?: string[];
+  fullyVerified?: boolean;
+  allowsIndependentPlayEvidence?: boolean;
+  checks?: Record<string, boolean>;
+};
+
+export type SportsIntelligenceReport = {
+  version?: string;
+  generatedAt?: string;
+  readiness?: SportsIntelligenceReadiness;
+  providerLive?: { news?: boolean; injuries?: boolean; lineup?: boolean };
+  sourceCount?: number;
+  sources?: string[];
+  conflicts?: string[];
+  impacts?: { home?: number; away?: number };
+  news?: Array<{
+    title?: string;
+    source?: string;
+    publishedAt?: string;
+    ageHours?: number;
+    mentions?: string[];
+  }>;
+  injuries?: Array<{
+    name?: string;
+    team?: string;
+    side?: "home" | "away";
+    status?: string;
+    injury?: string | null;
+    impact?: number;
+    ageHours?: number;
+  }>;
+  lineups?: Array<{
+    team?: string;
+    side?: "home" | "away";
+    startersConfirmed?: boolean;
+    goalieConfirmed?: boolean;
+    keyPlayersAvailable?: boolean | null;
+    impact?: number;
+    ageHours?: number;
+  }>;
+  probabilityAdjusted?: false;
+  marketProbabilityChanged?: false;
+};
+
 export type Pick = {
   id?: string;
   eventId?: string;
@@ -37,6 +86,12 @@ export type Pick = {
   modelMode?: string;
   edgeType?: string;
   explanation?: string;
+  evidenceGateReason?: string;
+  intelligenceSelectionSide?: "home" | "away" | null;
+  intelligenceRelativeImpact?: number;
+  intelligenceUsedForUpgrade?: false;
+  probabilityAdjustedByIntelligence?: false;
+  sportsIntelligence?: SportsIntelligenceReport;
   dataQuality?: {
     bookmakerCount?: number;
     sampleCount?: number;
