@@ -75,12 +75,14 @@ function dataGate(pick) {
 }
 
 function preserveSafetyGate(marketDecision, pick) {
-  const upstream = pick.productDecision;
-  if (upstream === "SKIP") return "PASS";
-  if (upstream === "CAUTION" && marketDecision === "BET") return "WATCH";
-  if (pick.sportsIntelligence?.conflicts?.length && marketDecision === "BET") return "WATCH";
-  if (pick.sportsIntelligence?.readiness?.level !== "verified" && marketDecision === "BET") return "WATCH";
-  return marketDecision;
+  if (marketDecision !== "BET") return marketDecision;
+
+  const report = pick.sportsIntelligence;
+  if (report?.readiness?.level !== "verified") return "WATCH";
+  if (Array.isArray(report?.conflicts) && report.conflicts.length > 0) return "WATCH";
+  if (Number(pick.intelligenceRelativeImpact || 0) <= -0.015) return "WATCH";
+
+  return "BET";
 }
 
 function applyQualityFallback(pick) {
@@ -175,7 +177,6 @@ async function enrichSafely(pick) {
     return applyQualityFallback({
       ...pick,
       agentVersion: "consensus-fallback",
-      productDecision: "CAUTION",
       intelligenceError: process.env.NODE_ENV === "production" ? undefined : error.message,
       evidenceGateReason: "Independent intelligence could not be loaded."
     });
