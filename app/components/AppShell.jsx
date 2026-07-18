@@ -27,10 +27,17 @@ export default function AppShell({ children }) {
     description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." })
   }), [tr]);
 
+  const notificationItem = useMemo(() => ({
+    href: "/notifications",
+    label: tr({ fi: "Ilmoituskeskus", en: "Notification Center", es: "Centro de notificaciones" }),
+    description: tr({ fi: "Käyttäjäkohtainen ilmoituslaatikko varmennetuille muutoksille.", en: "A user-specific inbox for verified changes.", es: "Una bandeja personal para cambios verificados." })
+  }), [tr]);
+
   const secondaryGroups = useMemo(() => [
     {
       title: t("group.start"),
       items: [
+        notificationItem,
         watchlistItem,
         { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
         { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
@@ -56,7 +63,7 @@ export default function AppShell({ children }) {
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, watchlistItem]);
+  ], [notificationItem, t, watchlistItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 
@@ -85,6 +92,7 @@ export default function AppShell({ children }) {
             <div className="hidden items-center gap-2 md:flex">
               <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-200">{t("mode.paper")}</div>
               <LanguageSwitcher compact />
+              <Link href="/notifications" className="rounded-xl border border-sky-400/20 bg-sky-400/10 px-3 py-2 text-sm font-bold text-sky-200">{tr({ fi: "Ilmoitukset", en: "Notifications", es: "Notificaciones" })}</Link>
               <Link href="/help" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08]">{t("nav.help")}</Link>
             </div>
 
@@ -113,7 +121,7 @@ export default function AppShell({ children }) {
 
       <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label={t("nav.quickAria")}>{mobileItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 items-center justify-center rounded-xl px-1 text-center text-[11px] font-black ${isActive(item) ? "bg-emerald-400/15 text-emerald-300" : "text-slate-500"}`}>{item.short}</Link>)}</nav>
 
-      <footer className="border-t border-white/10 py-7"><div className="mx-auto max-w-7xl px-4"><div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"><div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div><div className="flex flex-wrap gap-4"><Link href="/help" className="hover:text-white">{t("nav.help")}</Link><Link href="/profile" className="hover:text-white">{t("footer.account")}</Link><Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link><Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link><Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link><Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link></div></div></div></footer>
+      <footer className="border-t border-white/10 py-7"><div className="mx-auto max-w-7xl px-4"><div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"><div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div><div className="flex flex-wrap gap-4"><Link href="/notifications" className="hover:text-white">{tr({ fi: "Ilmoitukset", en: "Notifications", es: "Notificaciones" })}</Link><Link href="/help" className="hover:text-white">{t("nav.help")}</Link><Link href="/profile" className="hover:text-white">{t("footer.account")}</Link><Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link><Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link><Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link><Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link></div></div></div></footer>
     </div>
   );
 }
