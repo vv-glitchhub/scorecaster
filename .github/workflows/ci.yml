@@ -75,6 +75,11 @@ jobs:
           set -o pipefail
           npm run test:intelligence 2>&1 | tee intelligence.log
 
+      - name: Team-attributed Sports Intelligence V1 tests
+        run: |
+          set -o pipefail
+          npm run test:sports-intelligence 2>&1 | tee sports-intelligence.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -107,6 +112,7 @@ jobs:
             agent-v11.log
             watchlist.log
             intelligence.log
+            sports-intelligence.log
             easy-use.log
             i18n.log
             fixture-integrity.log
