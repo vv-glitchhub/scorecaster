@@ -90,6 +90,16 @@ security definer
 set search_path = public, pg_temp
 as $$
 begin
+  update public.notification_deliveries
+  set status = 'failed',
+      lease_expires_at = null,
+      failed_at = now(),
+      error_code = 'worker_lease_exhausted',
+      error_message = 'Maximum delivery attempts were exhausted after a worker lease expired'
+  where status = 'sending'
+    and lease_expires_at < now()
+    and attempt_count >= 5;
+
   return query
   with claimed as (
     select id
