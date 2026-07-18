@@ -99,9 +99,14 @@ export default function SettingsScreen({ session }: { session: Session }) {
       const next = await registerNotificationDevice();
       setRegistry(next);
       setThisDeviceId(next.deviceId || null);
+      const detail = next.deliveryActive
+        ? tr({ fi: "Lupa ja token ovat valmiina. Suojattu taustalähetys on aktiivinen.", en: "Permission and token registration are ready. Protected background delivery is active.", es: "El permiso y el token están listos. El envío protegido está activo." })
+        : next.deliveryConfigured
+          ? tr({ fi: "Lupa ja token ovat valmiina. Toimituspalvelin on määritetty, mutta enable-lippu tai ajastin ei ole aktiivinen.", en: "Permission and token registration are ready. The delivery server is configured, but the enable flag or scheduler is not active.", es: "El permiso y el token están listos. El servidor está configurado, pero la activación o el programador no están activos." })
+          : tr({ fi: "Lupa ja token ovat valmiina. Taustalähetyksen palvelinasetukset eivät ole vielä valmiit.", en: "Permission and token registration are ready. Background delivery server configuration is not ready yet.", es: "El permiso y el token están listos. La configuración del servidor aún no está lista." });
       Alert.alert(
         tr({ fi: "Laite rekisteröitiin", en: "Device registered", es: "Dispositivo registrado" }),
-        tr({ fi: "Lupa ja token ovat valmiina. Taustalla toimivaa lähetysworkeria ei ole vielä aktivoitu.", en: "Permission and token registration are ready. The background delivery worker is not active yet.", es: "El permiso y el token están listos. El proceso de envío en segundo plano aún no está activo." })
+        detail
       );
     } catch (error) {
       Alert.alert(
@@ -156,7 +161,7 @@ export default function SettingsScreen({ session }: { session: Session }) {
 
     Alert.alert(
       tr({ fi: "Poistetaanko tili pysyvästi?", en: "Delete the account permanently?", es: "¿Eliminar la cuenta permanentemente?" }),
-      tr({ fi: "Profiili, paperikohteet, seurantalista, hälytyshistoria, ilmoituslaitteet ja virtuaalikassa poistetaan. Tätä ei voi perua.", en: "The profile, paper picks, watchlist, alert history, notification devices and virtual bankroll will be deleted. This cannot be undone.", es: "Se eliminarán el perfil, los pronósticos, la lista, las alertas, los dispositivos y la banca virtual. No se puede deshacer." }),
+      tr({ fi: "Profiili, paperikohteet, seurantalista, hälytyshistoria, ilmoituslaitteet, toimitusauditointi ja virtuaalikassa poistetaan. Tätä ei voi perua.", en: "The profile, paper picks, watchlist, alert history, notification devices, delivery audit and virtual bankroll will be deleted. This cannot be undone.", es: "Se eliminarán el perfil, los pronósticos, la lista, las alertas, los dispositivos, la auditoría de envío y la banca virtual. No se puede deshacer." }),
       [
         { text: tr({ fi: "Peruuta", en: "Cancel", es: "Cancelar" }), style: "cancel" },
         {
@@ -191,6 +196,12 @@ export default function SettingsScreen({ session }: { session: Session }) {
     { key: "price_enabled", label: tr({ fi: "Hintamuutos", en: "Price change", es: "Cambio de cuota" }) }
   ];
 
+  const deliveryLabel = registry?.deliveryActive
+    ? tr({ fi: "aktiivinen", en: "active", es: "activo" })
+    : registry?.deliveryConfigured
+      ? tr({ fi: "valmis, ei aktivoitu", en: "ready, not enabled", es: "listo, no activado" })
+      : tr({ fi: "ei määritetty", en: "not configured", es: "no configurado" });
+
   return (
     <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>{tr({ fi: "Profiili ja tietosuoja", en: "Profile and privacy", es: "Perfil y privacidad" })}</Text>
@@ -211,7 +222,7 @@ export default function SettingsScreen({ session }: { session: Session }) {
         <Text style={styles.cardTitle}>{tr({ fi: "Ilmoitukset", en: "Notifications", es: "Notificaciones" })}</Text>
         <Text style={styles.muted}>{tr({ fi: "Ilmoitukset ovat vapaaehtoisia. Token rekisteröidään vasta painikkeesta ja käyttöjärjestelmän luvalla.", en: "Notifications are optional. A token is registered only after pressing the button and granting system permission.", es: "Las notificaciones son opcionales. El token solo se registra tras pulsar el botón y conceder permiso." })}</Text>
         {registry?.warning ? <Text style={styles.muted}>{registry.warning}</Text> : null}
-        <Text style={styles.muted}>{tr({ fi: "Rekisteröityjä laitteita", en: "Registered devices", es: "Dispositivos registrados" })}: {registry?.devices?.length || 0} · {tr({ fi: "taustalähetys", en: "background delivery", es: "envío en segundo plano" })}: {registry?.deliveryActive ? tr({ fi: "aktiivinen", en: "active", es: "activo" }) : tr({ fi: "ei vielä aktiivinen", en: "not active yet", es: "aún no activo" })}</Text>
+        <Text style={styles.muted}>{tr({ fi: "Rekisteröityjä laitteita", en: "Registered devices", es: "Dispositivos registrados" })}: {registry?.devices?.length || 0} · {tr({ fi: "taustalähetys", en: "background delivery", es: "envío en segundo plano" })}: {deliveryLabel}</Text>
         <View style={styles.actionRow}>
           {preferenceItems.map((item) => {
             const active = Boolean(registry?.preferences?.[item.key]);
@@ -230,7 +241,7 @@ export default function SettingsScreen({ session }: { session: Session }) {
 
       <Card>
         <Text style={styles.cardTitle}>{tr({ fi: "Omat tiedot", en: "Your data", es: "Tus datos" })}</Text>
-        <Text style={styles.muted}>{tr({ fi: "Lataa profiili, virtuaalikassa, paperihistoria, seurantalista, hälytyshistoria ja ilmoituslaitteiden metatiedot JSON-tiedostona. Toimitustokenia ei sisällytetä vientiin.", en: "Download your profile, virtual bankroll, paper history, watchlist, alert history and notification-device metadata as JSON. Delivery tokens are not included.", es: "Descarga perfil, banca, historial, lista, alertas y metadatos de dispositivos. Los tokens no se incluyen." })}</Text>
+        <Text style={styles.muted}>{tr({ fi: "Lataa profiili, virtuaalikassa, paperihistoria, seurantalista, hälytyshistoria sekä ilmoituslaitteiden ja toimitusten metatiedot JSON-tiedostona. Toimitustokenia ei sisällytetä vientiin.", en: "Download your profile, virtual bankroll, paper history, watchlist, alert history, and notification device and delivery metadata as JSON. Delivery tokens are not included.", es: "Descarga perfil, banca, historial, lista, alertas y metadatos de dispositivos y entregas. Los tokens no se incluyen." })}</Text>
         <ActionButton label={busy ? tr({ fi: "Valmistellaan…", en: "Preparing…", es: "Preparando…" }) : tr({ fi: "Vie omat tiedot", en: "Export your data", es: "Exportar tus datos" })} onPress={exportData} disabled={busy} />
       </Card>
 

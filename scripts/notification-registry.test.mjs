@@ -69,16 +69,17 @@ test("Watchlist applies preferences before synchronizing Alert Inbox", async () 
   assert.match(route, /in_app_enabled/);
 });
 
-test("account deletion removes notification data first", async () => {
+test("account deletion removes delivery and notification data first", async () => {
   const route = await source("app/api/account/route.js");
+  const deliveryIndex = route.indexOf('"notification_deliveries"');
   const deviceIndex = route.indexOf('"notification_devices"');
   const preferenceIndex = route.indexOf('"notification_preferences"');
   const inboxIndex = route.indexOf('"alert_inbox"');
-  assert.ok(deviceIndex >= 0 && preferenceIndex > deviceIndex && inboxIndex > preferenceIndex);
+  assert.ok(deliveryIndex >= 0 && deviceIndex > deliveryIndex && preferenceIndex > deviceIndex && inboxIndex > preferenceIndex);
   assert.match(route, /"notification device registrations"/);
 });
 
-test("native registration is explicit, permission-gated and requires EAS project ID", async () => {
+test("native registration is explicit, permission-gated and reports real delivery readiness", async () => {
   const native = await source("mobile/src/lib/notifications.ts");
   const settings = await source("mobile/src/screens/SettingsScreen.tsx");
   const pkg = JSON.parse(await source("mobile/package.json"));
@@ -92,8 +93,11 @@ test("native registration is explicit, permission-gated and requires EAS project
   assert.match(native, /getExpoPushTokenAsync\(\{ projectId: easProjectId \}\)/);
   assert.match(native, /The EAS project ID is not configured/);
   assert.match(native, /SecureStore\.setItemAsync\(DEVICE_ID_KEY/);
+  assert.match(native, /deliveryConfigured\?: boolean/);
   assert.match(settings, /enableThisDevice/);
-  assert.match(settings, /background delivery worker is not active yet/);
+  assert.match(settings, /next\.deliveryActive/);
+  assert.match(settings, /next\.deliveryConfigured/);
+  assert.match(settings, /provider|toimitus|delivery/i);
 });
 
 test("web can edit categories but cannot register a push token", async () => {

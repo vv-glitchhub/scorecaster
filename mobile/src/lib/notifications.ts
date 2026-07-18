@@ -32,6 +32,8 @@ export type NotificationRegistry = {
   ok: boolean;
   available: boolean;
   deliveryActive: boolean;
+  deliveryConfigured?: boolean;
+  deliverySchedulingManagedExternally?: boolean;
   warning?: string | null;
   deviceId?: string;
   preferences: NotificationPreferences;
