@@ -69,6 +69,11 @@ check(Array.isArray(expo.ios?.privacyManifests?.NSPrivacyTrackingDomains) && exp
 check(expo.extra?.realMoneyBetting === false, "Mobile product boundary must keep real-money betting disabled");
 check(expo.extra?.authRedirectUrl === "scorecaster://auth/confirm", "App config auth redirect does not match the native handler");
 
+const plugins = Array.isArray(expo.plugins) ? expo.plugins : [];
+check(plugins.some((entry) => Array.isArray(entry) && entry[0] === "expo-notifications" && entry[1]?.defaultChannel === "scorecaster-alerts"), "expo-notifications plugin and default Scorecaster channel are required");
+check(packageJson.dependencies?.["expo-notifications"] === "~56.0.20", "expo-notifications must match the reviewed SDK 56 version");
+check(packageJson.dependencies?.["expo-constants"] === "~56.0.20", "expo-constants must match the reviewed SDK 56 version");
+
 check(eas.cli?.appVersionSource === "remote", "EAS must use remote developer-facing versions");
 check(eas.cli?.requireCommit === true, "EAS builds must require committed source");
 check(eas.build?.preview?.distribution === "internal", "Preview builds must use internal distribution");
@@ -110,11 +115,16 @@ check(httpsUrl(googleStore.privacyPolicyUrl), "Google Play privacy URL must use 
 const authScreen = await readFile(path.join(root, "src/screens/AuthScreen.tsx"), "utf8");
 const appSource = await readFile(path.join(root, "src/App.tsx"), "utf8");
 const authHandler = await readFile(path.join(root, "src/lib/auth-deep-link.ts"), "utf8");
+const notificationSource = await readFile(path.join(root, "src/lib/notifications.ts"), "utf8");
 check(/emailRedirectTo:\s*authRedirectUrl/.test(authScreen), "Email signup must set the native redirect URL");
 check(/Linking\.getInitialURL\(\)/.test(appSource), "App must process a cold-start auth link");
 check(/Linking\.addEventListener\("url"/.test(appSource), "App must process auth links while running");
 check(/exchangeCodeForSession\(code\)/.test(authHandler), "PKCE auth code exchange is missing");
 check(/setSession\(/.test(authHandler), "Legacy token callback fallback is missing");
+check(/requestPermissionsAsync/.test(notificationSource), "Native notification permission request is missing");
+check(/getExpoPushTokenAsync\(\{ projectId: easProjectId \}\)/.test(notificationSource), "Expo push token must use the EAS project ID");
+check(/The EAS project ID is not configured/.test(notificationSource), "Missing EAS project ID must fail closed");
+check(!/registerNotificationDevice\(\).*useEffect/s.test(notificationSource), "Push registration must not run automatically");
 
 const scannedFiles = [
   "app.json",
@@ -141,7 +151,7 @@ for (const file of scannedFiles) {
   check(!/https?:\/\/example\.com/i.test(content), `${file} contains an example.com placeholder`);
 }
 
-warn(Boolean(expo.extra?.eas?.projectId), "EAS project ID is not linked yet; run eas init with the correct Expo account");
+warn(Boolean(expo.extra?.eas?.projectId), "EAS project ID is not linked yet; run eas init with the correct Expo account before push registration or store builds");
 warn(Boolean(expo.icon), "Final 1024x1024 store icon has not been committed");
 warn(Boolean(expo.splash), "Final native splash asset has not been committed");
 

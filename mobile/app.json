@@ -11,18 +11,14 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.vvglitchhub.scorecaster",
-      "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      },
+      "infoPlist": { "ITSAppUsesNonExemptEncryption": false },
       "privacyManifests": {
         "NSPrivacyTracking": false,
         "NSPrivacyTrackingDomains": [],
         "NSPrivacyAccessedAPITypes": [
           {
             "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
-            "NSPrivacyAccessedAPITypeReasons": [
-              "CA92.1"
-            ]
+            "NSPrivacyAccessedAPITypeReasons": ["CA92.1"]
           }
         ]
       }
@@ -39,6 +35,10 @@
           "configureAndroidBackup": true,
           "faceIDPermission": "Allow Scorecaster to protect your signed-in session."
         }
+      ],
+      [
+        "expo-notifications",
+        { "defaultChannel": "scorecaster-alerts" }
       ]
     ],
     "extra": {
