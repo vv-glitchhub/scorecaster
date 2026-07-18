@@ -22,15 +22,11 @@ const DEFAULT_PREFERENCES = {
   decision_enabled: true,
   price_enabled: true
 };
-const PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES);
+const CLIENT_PREFERENCE_KEYS = Object.keys(DEFAULT_PREFERENCES).filter((key) => key !== "push_enabled");
 const DEVICE_SELECT = "id,platform,app_version,build_version,enabled,last_seen_at,created_at,updated_at";
 
 function isMissingTable(error) {
   return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
-}
-
-function isBoolean(value) {
-  return typeof value === "boolean";
 }
 
 async function loadState(auth) {
@@ -117,16 +113,15 @@ export async function PUT(request) {
   const body = await readJsonBody(request, 4096);
   if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
 
-  const supplied = Object.entries(body.data || {}).filter(([key]) => PREFERENCE_KEYS.includes(key));
-  if (!supplied.length || supplied.some(([, value]) => !isBoolean(value))) {
+  const supplied = Object.entries(body.data || {}).filter(([key]) => CLIENT_PREFERENCE_KEYS.includes(key));
+  if (!supplied.length || supplied.some(([, value]) => typeof value !== "boolean")) {
     return jsonResponse({ ok: false, error: "At least one valid boolean notification preference is required" }, 400, requestId);
   }
 
   const changes = Object.fromEntries(supplied);
-  const row = { user_id: auth.user.id, ...DEFAULT_PREFERENCES, ...changes };
   const { error } = await auth.supabase
     .from("notification_preferences")
-    .upsert(row, { onConflict: "user_id" });
+    .upsert({ user_id: auth.user.id, ...changes }, { onConflict: "user_id" });
 
   if (error) {
     const status = isMissingTable(error) ? 503 : 500;
@@ -169,8 +164,13 @@ export async function POST(request) {
 
   const { error: preferenceError } = await auth.supabase
     .from("notification_preferences")
-    .upsert({ user_id: auth.user.id, ...DEFAULT_PREFERENCES, push_enabled: true }, { onConflict: "user_id" });
+    .upsert({ user_id: auth.user.id, push_enabled: true }, { onConflict: "user_id" });
   if (preferenceError) {
+    await auth.supabase
+      .from("notification_devices")
+      .delete()
+      .eq("user_id", auth.user.id)
+      .eq("id", deviceId);
     return jsonResponse({ ok: false, error: publicError(preferenceError, "Push preference could not be enabled") }, 500, requestId);
   }
 
@@ -210,7 +210,7 @@ export async function DELETE(request) {
   if (!countError && Number(count || 0) === 0) {
     await auth.supabase
       .from("notification_preferences")
-      .upsert({ user_id: auth.user.id, ...DEFAULT_PREFERENCES, push_enabled: false }, { onConflict: "user_id" });
+      .upsert({ user_id: auth.user.id, push_enabled: false }, { onConflict: "user_id" });
   }
 
   const state = await loadState(auth);
