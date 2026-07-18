@@ -1,6 +1,6 @@
 # Scorecaster Auth + Cloud Sync Setup
 
-This guide enables user accounts, protected paper history, personal paper-risk limits, verified watchlists, deduplicated alert history and optional paper-result checking.
+This guide enables user accounts, protected paper history, personal paper-risk limits, verified watchlists, deduplicated alert history, optional notification-device registration and paper-result checking.
 
 ## 1. Supabase project
 
@@ -16,6 +16,7 @@ Open the Supabase SQL editor and run the files in this order:
 4. `supabase/scorecaster_api_rate_limits.sql`
 5. `supabase/scorecaster_watchlist_alerts.sql`
 6. `supabase/scorecaster_alert_inbox.sql`
+7. `supabase/scorecaster_notification_registry.sql`
 
 The migrations add:
 
@@ -23,6 +24,8 @@ The migrations add:
 - paper-bankroll settings
 - user-specific verified watchlist rows
 - user-specific deduplicated alert history with read and resolved state
+- user-specific notification preferences
+- an RLS-protected native device registry with one-owner token claims
 - stable duplicate-safe client references
 - indexes and bounded data constraints
 - forced Row Level Security and user-specific policies
@@ -31,8 +34,9 @@ The migrations add:
 - database-backed per-user API quotas
 - unique per-user watchlist selections and bounded alert thresholds
 - unique per-user Alert Inbox fingerprints
+- server-computed notification token hashes
 
-The paper-risk, watchlist and Alert Inbox migrations are idempotent. Run the paper-risk migration again after a release that changes its trigger definition.
+The paper-risk, watchlist, Alert Inbox and notification-registry migrations are idempotent. Run the paper-risk migration again after a release that changes its trigger definition.
 
 ## 3. Supabase Auth settings
 
@@ -58,9 +62,13 @@ http://localhost:3000/auth/confirm
 
 The native app uses Supabase mobile sessions and must be tested with the `scorecaster://` application scheme before store release.
 
-## 4. Deployment configuration
+## 4. Deployment and native configuration
 
 Configure the public Supabase connection and the required server-only integration settings in the deployment platform. Keep server-only values out of browser code, native application configuration and version control. Redeploy after changing deployment settings.
+
+Native notification registration additionally requires the Expo application to be linked to the correct EAS project and rebuilt with the `expo-notifications` config plugin. Do not place a fabricated project ID in source control. Until the EAS project is linked, the app must show registration as unavailable rather than generating a token.
+
+Notification Preferences & Device Registry V1 stores consent and device registration only. A background delivery worker is a separate release gate and is not active in V1.
 
 ## 5. Test the full path
 
@@ -83,18 +91,24 @@ Configure the public Supabase connection and the required server-only integratio
 17. Mark one alert read and confirm its read timestamp persists on the next refresh.
 18. Remove the alert condition and confirm the inbox row becomes resolved rather than disappearing.
 19. Recreate the condition and confirm the row becomes active and unread.
-20. Create account B.
-21. Confirm B cannot read, update or delete A's paper rows, bankroll settings, watchlist rows or inbox rows.
-22. Repeat protected paper, Agent, watchlist and Alert Inbox flows with both web-cookie and mobile-bearer sessions.
-23. Exceed protected endpoint quotas and confirm HTTP 429 plus `Retry-After`.
-24. Export account A's data and confirm only A's records and inbox rows are included.
-25. Delete account A and confirm it can no longer authenticate and its inbox rows are removed.
+20. Change one notification preference and confirm all other values remain unchanged.
+21. Disable one severity or event category and confirm matching active inbox rows resolve without deleting history.
+22. On a physical native device, press the push opt-in button and confirm the operating-system permission prompt is shown before token registration.
+23. Confirm denied permission or a missing EAS project ID creates no device row.
+24. Register a device for account A and confirm API responses never contain the raw token or token hash.
+25. Create account B and confirm B cannot read, update or delete A's paper rows, bankroll settings, watchlist rows, inbox rows, notification preferences or device rows.
+26. Register the same physical device for account B and confirm its token association moves away from account A.
+27. Remove the final device and confirm `push_enabled` becomes false.
+28. Repeat protected paper, Agent, watchlist, Alert Inbox and notification flows with both web-cookie and mobile-bearer sessions.
+29. Exceed protected endpoint quotas and confirm HTTP 429 plus `Retry-After`.
+30. Export account A's data and confirm only A's records and non-secret device metadata are included.
+31. Delete account A and confirm it can no longer authenticate and its notification, inbox and watchlist rows are removed.
 
 ## Routes
 
 - `/login` — sign in and account creation
 - `/auth/confirm` — email confirmation callback
-- `/profile` — account and privacy controls
+- `/profile` — account, notification and privacy controls
 - `/cloud-sync` — local-to-cloud paper migration
 - `/watchlist` — verified watchlist and Alert Inbox
 - `/api/cloud/bets` — authenticated paper-history API
@@ -102,6 +116,7 @@ Configure the public Supabase connection and the required server-only integratio
 - `/api/cloud/bankroll` — authenticated virtual-bankroll settings
 - `/api/cloud/watchlist` — authenticated verified watchlist and inbox synchronization API
 - `/api/cloud/alerts` — authenticated Alert Inbox read and acknowledgement API
+- `/api/cloud/notifications` — authenticated notification-preference and native-device registry API
 - `/api/intelligence` — authenticated and rate-limited manual sports-context API
 - `/api/agent/portfolio` — authenticated Agent portfolio and Model Lab state
 - `/api/agent/explain` — authenticated governed explanation
@@ -122,9 +137,12 @@ Authorization, risk control and abuse protection are enforced through:
 - unique user/event/market/selection watchlist rows
 - server-generated Alert Inbox content and unique user fingerprints
 - explicit user filters on alert acknowledgement
+- explicit native opt-in before requesting a push token
+- database-side token hashing and one-user token ownership
+- notification API responses that exclude tokens and token hashes
 - atomic per-user request quotas
 - exact-origin validation for cookie mutations
 - bounded request content, numbers, strings and record counts
 - server-only integration settings
 
-The browser paper copy is not deleted automatically after sync during testing. Watchlist V2 and Alert Inbox V1 are separate from the paper slip and store only server-verified comparison and alert data. Alert Inbox V1 does not claim background push delivery.
+The browser paper copy is not deleted automatically after sync during testing. Watchlist V2, Alert Inbox V1 and Notification Registry V1 are separate from the paper slip. Notification Registry V1 does not claim that a background push-delivery worker is active.
