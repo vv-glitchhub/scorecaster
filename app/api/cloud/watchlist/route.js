@@ -160,8 +160,10 @@ export async function POST(request) {
       source: "scorecaster-live-provider-watchlist",
       consensusProbability: boundedNumber(pick.consensusProbability ?? pick.modelProbability, { min: 0, max: 1 }),
       edge: boundedNumber(pick.edge, { min: -1, max: 1 }),
+      ev: boundedNumber(pick.ev, { min: -10, max: 100 }),
       confidence: boundedNumber(pick.confidence, { min: 0, max: 1 }),
-      trustScore: boundedNumber(pick.trustScore, { min: 0, max: 100 })
+      trustScore: boundedNumber(pick.trustScore, { min: 0, max: 100 }),
+      bookmaker: cleanText(pick.bookmaker, 100)
     }
   };
 
