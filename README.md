@@ -1,6 +1,6 @@
 # Scorecaster
 
-AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, team-attributed sports intelligence, verified watchlists, risk control and virtual paper tracking.
+AI-assisted sports market intelligence, no-vig odds consensus, adversarial decision support, governed model evaluation, team-attributed sports intelligence, verified watchlists, alert history, risk control and virtual paper tracking.
 
 ## Product boundary
 
@@ -95,8 +95,9 @@ Sports Intelligence V1 adds independent match context without allowing external 
 - match intelligence is cached for five minutes
 - Top Picks enriches at most 12 prefiltered selections per request
 - provider failures produce unavailable evidence rather than invented replacement data
+- Provider Firewall keeps provider calls inside the server and protects manual access with authentication, origin validation and quotas
 
-See `docs/SPORTS_INTELLIGENCE_V1.md`.
+See `docs/SPORTS_INTELLIGENCE_V1.md` and `docs/PROVIDER_FIREWALL_V1.md`.
 
 ## Watchlist & Alerts V2
 
@@ -113,6 +114,21 @@ The authenticated watchlist tracks server-verified live selections without creat
 - current V2 refresh is user-triggered; background push delivery is not claimed yet
 
 See `docs/WATCHLIST_ALERTS_V2.md`.
+
+## Alert Inbox V1
+
+Alert Inbox V1 persists verified Watchlist changes as deduplicated user history.
+
+- unique fingerprints prevent repeated refreshes from creating duplicate rows
+- active alerts preserve read state
+- disappeared conditions remain in history as resolved
+- reappearing conditions become active and unread
+- one or all unread alerts can be marked read
+- web and native clients use the same authenticated inbox
+- export and account deletion include inbox rows
+- no background push delivery is claimed in V1
+
+See `docs/ALERT_INBOX_V1.md`.
 
 ## Web workspaces
 
@@ -142,6 +158,7 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 - configurable move and kickoff thresholds
 - pause and remove controls
 - trilingual verified alerts
+- deduplicated unread, active and resolved inbox history
 
 ### Simulator
 
@@ -153,13 +170,14 @@ See `docs/WATCHLIST_ALERTS_V2.md`.
 
 ## Security guardrails
 
-- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent, Sports Intelligence and Watchlist tests plus a production build.
+- GitHub Actions runs secret scanning, API security, model, settlement, workspace, Agent, Sports Intelligence, Watchlist and Alert Inbox tests plus a production build.
 - CodeQL analyzes JavaScript and TypeScript.
-- Supabase Row Level Security isolates account, paper and watchlist rows.
+- Supabase Row Level Security isolates account, paper, watchlist and alert-inbox rows.
 - Protected APIs validate authentication, origin, body size, ranges and record counts.
 - Authenticated APIs use atomic per-user database quotas.
 - PostgreSQL enforces paper stake, total exposure, league exposure, edge and confidence limits.
 - Watchlist writes are independently resolved against server Top Picks rather than trusted from the client.
+- Alert Inbox accepts only server-generated Watchlist alerts; clients cannot submit arbitrary alert content.
 - Server-only integration keys are not included in browser or mobile bundles.
 - The News provider key is sent in a request header rather than a URL.
 - Automatic H2H paper-result checking is user-triggered, bounded and rate-limited.
@@ -176,6 +194,7 @@ The `mobile/` directory contains the Expo iOS and Android application with:
 - near-term Top Picks and Agent V11
 - team-attributed Sports Intelligence status on Agent decisions
 - separate verified Watchlist screen and native watch actions
+- unread, active and resolved Alert Inbox controls
 - virtual bankroll and personal paper-risk limits
 - paper-bet saving and result tracking
 - automatic supported H2H result checking
@@ -233,19 +252,20 @@ Main routes:
 - `POST /api/cloud/bets/settle`
 - `GET/PUT /api/cloud/bankroll`
 - `GET/POST/PATCH/DELETE /api/cloud/watchlist`
+- `GET/PATCH /api/cloud/alerts`
+- `POST /api/intelligence`
 - `POST /api/agent/portfolio`
 - `POST /api/agent/explain`
 - `GET /api/account/export`
 - `GET/DELETE /api/account`
 
-The protected endpoints accept validated browser-cookie and mobile-bearer sessions. Watchlist records and current comparisons remain user-specific.
+The protected endpoints accept validated browser-cookie and mobile-bearer sessions. Watchlist, Alert Inbox and current comparisons remain user-specific. `/api/intelligence` is not a public provider proxy.
 
 ## Public analysis APIs
 
 - `GET /api/odds?sport=<known-key>&markets=h2h`
 - `GET /api/top-picks`
 - `GET /api/top-picks?sports=<comma-separated-known-keys>`
-- `POST /api/intelligence` for bounded same-origin or server-side match evidence loading
 
 Unknown query parameters, unsupported sports and unsupported markets are rejected before an upstream request is made.
 
@@ -259,9 +279,10 @@ supabase/scorecaster_auth_cloud.sql
 supabase/scorecaster_paper_risk_limits.sql
 supabase/scorecaster_api_rate_limits.sql
 supabase/scorecaster_watchlist_alerts.sql
+supabase/scorecaster_alert_inbox.sql
 ```
 
-Public launch is blocked until the documented two-user isolation, paper-risk, quota, watchlist, export and deletion tests pass.
+Public launch is blocked until the documented two-user isolation, paper-risk, quota, watchlist, Alert Inbox, export and deletion tests pass.
 
 ## Environment
 
@@ -289,7 +310,9 @@ LINEUP_API_KEY=
 - `docs/AGENT_V10_GROUNDED_EXPLANATIONS.md`
 - `docs/AGENT_V11_MODEL_LAB.md`
 - `docs/SPORTS_INTELLIGENCE_V1.md`
+- `docs/PROVIDER_FIREWALL_V1.md`
 - `docs/WATCHLIST_ALERTS_V2.md`
+- `docs/ALERT_INBOX_V1.md`
 - `docs/AUTH_CLOUD_SETUP.md`
 - `docs/MOBILE_SECURITY_RELEASE.md`
 
