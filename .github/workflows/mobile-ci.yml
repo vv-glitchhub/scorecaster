@@ -40,6 +40,11 @@ jobs:
           set -o pipefail
           npm run release:audit 2>&1 | tee release-audit.log
 
+      - name: Audit Alert Inbox V2 mobile boundary
+        run: |
+          set -o pipefail
+          npm run audit:alert-inbox 2>&1 | tee alert-inbox-audit.log
+
       - name: Check Expo dependency compatibility
         run: npm run check:expo
 
@@ -55,6 +60,7 @@ jobs:
           name: scorecaster-mobile-diagnostics-${{ github.run_id }}
           path: |
             mobile/release-audit.log
+            mobile/alert-inbox-audit.log
             mobile/typecheck.log
           if-no-files-found: ignore
           retention-days: 7
