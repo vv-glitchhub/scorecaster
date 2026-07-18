@@ -70,6 +70,11 @@ jobs:
           set -o pipefail
           npm run test:watchlist 2>&1 | tee watchlist.log
 
+      - name: Alert Inbox tests
+        run: |
+          set -o pipefail
+          npm run test:alert-inbox 2>&1 | tee alert-inbox.log
+
       - name: Trusted intelligence evidence tests
         run: |
           set -o pipefail
@@ -79,6 +84,11 @@ jobs:
         run: |
           set -o pipefail
           npm run test:sports-intelligence 2>&1 | tee sports-intelligence.log
+
+      - name: Provider firewall tests
+        run: |
+          set -o pipefail
+          npm run test:provider-firewall 2>&1 | tee provider-firewall.log
 
       - name: Form and Rest shadow-model tests
         run: |
@@ -116,8 +126,10 @@ jobs:
             agent-ticket.log
             agent-v11.log
             watchlist.log
+            alert-inbox.log
             intelligence.log
             sports-intelligence.log
+            provider-firewall.log
             form-rest-shadow.log
             easy-use.log
             i18n.log
