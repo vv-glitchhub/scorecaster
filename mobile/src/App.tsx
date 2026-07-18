@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, Pressable, SafeAreaView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Pressable, SafeAreaView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { Session } from "@supabase/supabase-js";
 import AgentScreen from "./screens/AgentScreen";
@@ -11,6 +11,7 @@ import PicksScreen from "./screens/PicksScreen";
 import SettingsScreen from "./screens/SettingsScreen";
 import WatchlistScreen from "./screens/WatchlistScreen";
 import { LanguageProvider, useLanguage } from "./i18n";
+import { handleAuthCallbackUrl } from "./lib/auth-deep-link";
 import { mobileAuthConfigured, supabase } from "./lib/supabase";
 import type { Tab } from "./types";
 import { styles } from "./ui";
@@ -75,6 +76,22 @@ function ScorecasterApp() {
   useEffect(() => {
     let mounted = true;
 
+    async function processAuthUrl(url: string | null) {
+      if (!url) return;
+      const result = await handleAuthCallbackUrl(url);
+      if (mounted && result.handled && result.error) {
+        Alert.alert(
+          tr({ fi: "Vahvistuslinkki ei toiminut", en: "Confirmation link failed", es: "El enlace de confirmación falló" }),
+          tr({ fi: "Avaa uusin vahvistuslinkki tai kirjaudu sähköpostilla ja salasanalla.", en: "Open the newest confirmation link or sign in with your email and password.", es: "Abre el enlace de confirmación más reciente o inicia sesión con correo y contraseña." })
+        );
+      }
+    }
+
+    void Linking.getInitialURL().then(processAuthUrl);
+    const linkListener = Linking.addEventListener("url", ({ url }) => {
+      void processAuthUrl(url);
+    });
+
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
       setSession(data.session);
@@ -88,9 +105,10 @@ function ScorecasterApp() {
 
     return () => {
       mounted = false;
+      linkListener.remove();
       listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [tr]);
 
   if (!mobileAuthConfigured) {
     return (

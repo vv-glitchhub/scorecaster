@@ -1,17 +1,30 @@
 {
   "expo": {
     "name": "Scorecaster",
+    "description": "Sports analysis, risk control and virtual paper tracking without real-money betting.",
     "slug": "scorecaster",
-    "version": "0.1.0",
+    "version": "0.2.0",
     "orientation": "portrait",
     "userInterfaceStyle": "dark",
     "scheme": "scorecaster",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "com.vvglitchhub.scorecaster",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
+      },
+      "privacyManifests": {
+        "NSPrivacyTracking": false,
+        "NSPrivacyTrackingDomains": [],
+        "NSPrivacyAccessedAPITypes": [
+          {
+            "NSPrivacyAccessedAPIType": "NSPrivacyAccessedAPICategoryUserDefaults",
+            "NSPrivacyAccessedAPITypeReasons": [
+              "CA92.1"
+            ]
+          }
+        ]
       }
     },
     "android": {
@@ -30,7 +43,8 @@
     ],
     "extra": {
       "productMode": "sports-analysis-and-paper-tracking",
-      "realMoneyBetting": false
+      "realMoneyBetting": false,
+      "authRedirectUrl": "scorecaster://auth/confirm"
     }
   }
 }

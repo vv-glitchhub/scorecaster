@@ -3,6 +3,7 @@ import { Alert, Linking, SafeAreaView, ScrollView, Text, View } from "react-nati
 import { StatusBar } from "expo-status-bar";
 import { useLanguage } from "../i18n";
 import { apiBaseUrl } from "../lib/api";
+import { authRedirectUrl } from "../lib/auth-deep-link";
 import { supabase } from "../lib/supabase";
 import { ActionButton, Card, Field, styles } from "../ui";
 
@@ -23,7 +24,12 @@ export default function AuthScreen() {
 
     setBusy(true);
     const credentials = { email: email.trim(), password };
-    const result = mode === "signin" ? await supabase.auth.signInWithPassword(credentials) : await supabase.auth.signUp(credentials);
+    const result = mode === "signin"
+      ? await supabase.auth.signInWithPassword(credentials)
+      : await supabase.auth.signUp({
+          ...credentials,
+          options: { emailRedirectTo: authRedirectUrl }
+        });
     setBusy(false);
 
     if (result.error) {
@@ -34,7 +40,7 @@ export default function AuthScreen() {
     if (mode === "signup" && !result.data.session) {
       Alert.alert(
         tr({ fi: "Vahvista sähköposti", en: "Confirm your email", es: "Confirma tu correo" }),
-        tr({ fi: "Avaa vahvistuslinkki sähköpostistasi ja palaa sitten kirjautumaan sovellukseen.", en: "Open the confirmation link in your email, then return to sign in.", es: "Abre el enlace de confirmación del correo y vuelve para iniciar sesión." })
+        tr({ fi: "Avaa vahvistuslinkki sähköpostistasi. Linkki palaa automaattisesti Scorecasteriin.", en: "Open the confirmation link in your email. The link returns automatically to Scorecaster.", es: "Abre el enlace de confirmación del correo. El enlace vuelve automáticamente a Scorecaster." })
       );
     }
   }
