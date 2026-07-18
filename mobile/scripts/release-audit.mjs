@@ -68,6 +68,8 @@ check(expo.ios?.privacyManifests?.NSPrivacyTracking === false, "iOS privacy mani
 check(Array.isArray(expo.ios?.privacyManifests?.NSPrivacyTrackingDomains) && expo.ios.privacyManifests.NSPrivacyTrackingDomains.length === 0, "iOS tracking-domain list must be empty");
 check(expo.extra?.realMoneyBetting === false, "Mobile product boundary must keep real-money betting disabled");
 check(expo.extra?.authRedirectUrl === "scorecaster://auth/confirm", "App config auth redirect does not match the native handler");
+check(!packageJson.dependencies?.["expo-notifications"], "Notification Center V1 must not add expo-notifications before the push phase is reviewed");
+check(!(expo.android?.permissions || []).includes("android.permission.POST_NOTIFICATIONS"), "Notification Center V1 must not request Android notification permission");
 
 check(eas.cli?.appVersionSource === "remote", "EAS must use remote developer-facing versions");
 check(eas.cli?.requireCommit === true, "EAS builds must require committed source");
