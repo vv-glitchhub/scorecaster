@@ -21,7 +21,7 @@ create table if not exists public.notification_deliveries (
   queued_at timestamptz not null default now(),
   sent_at timestamptz,
   receipt_checked_at timestamptz,
-  delivered_at timestamptz,
+  provider_accepted_at timestamptz,
   failed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
@@ -38,13 +38,13 @@ alter table public.notification_deliveries add column if not exists error_messag
 alter table public.notification_deliveries add column if not exists queued_at timestamptz not null default now();
 alter table public.notification_deliveries add column if not exists sent_at timestamptz;
 alter table public.notification_deliveries add column if not exists receipt_checked_at timestamptz;
-alter table public.notification_deliveries add column if not exists delivered_at timestamptz;
+alter table public.notification_deliveries add column if not exists provider_accepted_at timestamptz;
 alter table public.notification_deliveries add column if not exists failed_at timestamptz;
 alter table public.notification_deliveries add column if not exists updated_at timestamptz not null default now();
 
 alter table public.notification_deliveries drop constraint if exists notification_delivery_status_allowed;
 alter table public.notification_deliveries add constraint notification_delivery_status_allowed
-  check (status in ('queued', 'sending', 'retry', 'ticketed', 'delivered', 'failed')) not valid;
+  check (status in ('queued', 'sending', 'retry', 'ticketed', 'provider_accepted', 'failed')) not valid;
 
 alter table public.notification_deliveries drop constraint if exists notification_delivery_attempt_bounds;
 alter table public.notification_deliveries add constraint notification_delivery_attempt_bounds
