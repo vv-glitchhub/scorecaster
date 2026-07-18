@@ -27,7 +27,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [profileResult, betsResult, bankrollResult, watchlistResult] = await Promise.all([
+  const [profileResult, betsResult, bankrollResult, watchlistResult, notificationsResult, notificationSettingsResult] = await Promise.all([
     auth.supabase
       .from("profiles")
       .select("id,email,display_name,created_at,updated_at")
@@ -49,12 +49,25 @@ export async function GET(request) {
       .select("id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false })
-      .limit(500)
+      .limit(500),
+    auth.supabase
+      .from("notification_items")
+      .select("id,source_key,source_type,notification_type,severity,watchlist_id,event_id,match,selection,commence_time,payload,first_seen_at,last_seen_at,read_at,dismissed_at,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .order("last_seen_at", { ascending: false })
+      .limit(1000),
+    auth.supabase
+      .from("notification_settings")
+      .select("in_app_enabled,minimum_severity,kickoff_enabled,price_enabled,decision_enabled,availability_enabled,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .maybeSingle()
   ]);
 
-  const errors = [profileResult.error, betsResult.error, bankrollResult.error]
-    .filter(Boolean);
-  if (watchlistResult.error && !isMissingTable(watchlistResult.error)) errors.push(watchlistResult.error);
+  const optionalResults = [watchlistResult, notificationsResult, notificationSettingsResult];
+  const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
+  optionalResults.forEach((result) => {
+    if (result.error && !isMissingTable(result.error)) errors.push(result.error);
+  });
   const firstError = errors[0] || null;
 
   if (firstError) {
@@ -70,7 +83,7 @@ export async function GET(request) {
       ok: true,
       exportedAt: new Date().toISOString(),
       product: "Scorecaster",
-      dataClassification: "paper-tracking, verified watchlist and account data; no payment data",
+      dataClassification: "paper-tracking, verified watchlist, in-app Notification Center and account data; no payment data",
       account: {
         id: auth.user.id,
         email: auth.user.email || null,
@@ -79,7 +92,9 @@ export async function GET(request) {
       profile: profileResult.data || null,
       bankroll: bankrollResult.data || null,
       paperBets: betsResult.data || [],
-      watchlist: watchlistResult.error ? [] : watchlistResult.data || []
+      watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
+      notificationSettings: notificationSettingsResult.error ? null : notificationSettingsResult.data || null,
+      notifications: notificationsResult.error ? [] : notificationsResult.data || []
     },
     200,
     requestId
