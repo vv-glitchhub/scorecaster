@@ -7,6 +7,7 @@
     "security:check": "node scripts/security-check.mjs",
     "release:audit": "node scripts/release-readiness.mjs",
     "release:smoke": "node scripts/production-smoke.mjs",
+    "production:activate": "node scripts/production-activation.mjs",
     "release:check": "npm run release:audit && npm --prefix mobile run release:check",
     "test:security": "node --test scripts/api-security.test.mjs",
     "test:model": "node --test scripts/market-consensus.test.mjs",
@@ -14,6 +15,7 @@
     "test:settlement-monitor": "node --test scripts/settlement-monitor.test.mjs",
     "test:operations": "node --test scripts/operations-dashboard.test.mjs",
     "test:release-readiness": "node --test scripts/release-readiness.test.mjs",
+    "test:production-activation": "node --test scripts/production-activation.test.mjs",
     "test:autonomous-agent": "node --test scripts/autonomous-agent.test.mjs",
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
@@ -34,7 +36,7 @@
     "test:easy-use": "node --test scripts/easy-use-ui.test.mjs",
     "test:i18n": "node --test scripts/i18n.test.mjs",
     "test:fixtures": "node --test scripts/fixture-integrity.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:settlement-monitor && npm run test:operations && npm run test:release-readiness && npm run test:autonomous-agent && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:intelligence && npm run test:sports-intelligence && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:settlement-monitor && npm run test:operations && npm run test:release-readiness && npm run test:production-activation && npm run test:autonomous-agent && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:intelligence && npm run test:sports-intelligence && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
