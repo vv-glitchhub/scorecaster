@@ -19,8 +19,10 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
-  assert.ok(manifest.publicPages.length >= 7);
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 14);
+  assert.ok(manifest.publicPages.length >= 8);
+  assert.ok(manifest.publicPages.includes("/polymarket-intelligence"));
+  assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 15);
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
@@ -83,6 +85,7 @@ test("release readiness UI is trilingual and separates automated and manual evid
   assert.match(client, /es:/);
   assert.match(client, /href="\/operations"/);
   assert.match(shell, /href: "\/release-readiness"/);
+  assert.match(shell, /href: "\/polymarket-intelligence"/);
   assert.match(production, /href="\/release-readiness"/);
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY|expo_push_token/);
 });
