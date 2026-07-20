@@ -34,9 +34,10 @@ export default function ProductionStatusClient() {
           Scorecaster deployment and service status.
         </h1>
         <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">
-          Tämä sivu tarkistaa live-health-päätteen sekä paikallisen käytön, kirjautumisen ja Cloud Sync -kerroksen valmiuden.
+          Tämä sivu tarkistaa julkisen health-päätteen. Kirjautuneen käyttäjän oikeat worker-ajot, jonot ja migraatiot näkyvät Operations Dashboardissa.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/operations" className="rounded-2xl bg-sky-300 px-5 py-3 font-black text-slate-950">Operations Dashboard</Link>
           <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Cloud Sync</Link>
           <Link href="/profile" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-100">Profile</Link>
           <Link href="/quick-use" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Quick Use</Link>
@@ -80,7 +81,7 @@ export default function ProductionStatusClient() {
 
       <section className="rounded-[2rem] border border-white/10 bg-white/[0.04] p-6">
         <h2 className="text-2xl font-black">Live endpoint</h2>
-        <p className="mt-3 text-slate-400">Open the raw JSON response for monitoring and deployment checks.</p>
+        <p className="mt-3 text-slate-400">Open the raw JSON response for deployment checks. User-specific operational data remains behind authentication.</p>
         <a href="/api/health" className="mt-5 inline-flex rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">
           Open /api/health
         </a>
