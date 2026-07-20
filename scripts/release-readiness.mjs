@@ -147,7 +147,11 @@ for (const requiredFile of [
   "mobile/scripts/release-audit.mjs",
   "scripts/production-smoke.mjs",
   ".github/workflows/production-smoke.yml",
-  "docs/RELEASE_READINESS_V1.md"
+  "docs/RELEASE_READINESS_V1.md",
+  "scripts/production-activation.mjs",
+  "scripts/verify-production-schema.sql",
+  ".github/workflows/production-activation.yml",
+  "docs/PRODUCTION_ACTIVATION_V1.md"
 ]) {
   check(await exists(requiredFile), `${requiredFile} is required for release verification`);
 }

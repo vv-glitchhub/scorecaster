@@ -1,0 +1,216 @@
+\set ON_ERROR_STOP on
+
+-- Scorecaster Production Schema Verification V1
+-- Read-only checks. Any failed assertion aborts the activation workflow.
+
+do $$
+declare
+  missing_tables text[];
+begin
+  select array_agg(table_name order by table_name)
+  into missing_tables
+  from unnest(array[
+    'profiles',
+    'bets',
+    'bankroll_settings',
+    'watchlist_items',
+    'watchlist_monitor_state',
+    'paper_settlement_monitor_state',
+    'autonomous_agent_settings',
+    'autonomous_agent_state',
+    'autonomous_agent_runs',
+    'market_timeline_snapshots',
+    'alert_inbox',
+    'notification_preferences',
+    'notification_devices',
+    'notification_deliveries'
+  ]) as expected(table_name)
+  where to_regclass(format('public.%I', table_name)) is null;
+
+  if missing_tables is not null then
+    raise exception 'Missing Scorecaster production tables: %', array_to_string(missing_tables, ', ');
+  end if;
+end;
+$$;
+
+do $$
+declare
+  insecure_tables text[];
+begin
+  select array_agg(c.relname order by c.relname)
+  into insecure_tables
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relname = any(array[
+      'profiles',
+      'bets',
+      'bankroll_settings',
+      'watchlist_items',
+      'watchlist_monitor_state',
+      'paper_settlement_monitor_state',
+      'autonomous_agent_settings',
+      'autonomous_agent_state',
+      'autonomous_agent_runs',
+      'market_timeline_snapshots',
+      'alert_inbox',
+      'notification_preferences',
+      'notification_devices',
+      'notification_deliveries'
+    ])
+    and (not c.relrowsecurity or not c.relforcerowsecurity);
+
+  if insecure_tables is not null then
+    raise exception 'RLS or FORCE RLS is missing from: %', array_to_string(insecure_tables, ', ');
+  end if;
+end;
+$$;
+
+do $$
+declare
+  tables_without_policies text[];
+begin
+  select array_agg(table_name order by table_name)
+  into tables_without_policies
+  from unnest(array[
+    'profiles',
+    'bets',
+    'bankroll_settings',
+    'watchlist_items',
+    'watchlist_monitor_state',
+    'paper_settlement_monitor_state',
+    'autonomous_agent_settings',
+    'autonomous_agent_state',
+    'autonomous_agent_runs',
+    'market_timeline_snapshots',
+    'alert_inbox',
+    'notification_preferences',
+    'notification_devices',
+    'notification_deliveries'
+  ]) as expected(table_name)
+  where not exists (
+    select 1
+    from pg_policies p
+    where p.schemaname = 'public' and p.tablename = expected.table_name
+  );
+
+  if tables_without_policies is not null then
+    raise exception 'RLS policies are missing from: %', array_to_string(tables_without_policies, ', ');
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if to_regprocedure('public.claim_watchlist_monitor_users(integer)') is null then
+    raise exception 'Watchlist Monitor claim function is missing';
+  end if;
+  if to_regprocedure('public.complete_watchlist_monitor_user(uuid,text,integer,integer,integer,text)') is null then
+    raise exception 'Watchlist Monitor completion function is missing';
+  end if;
+  if to_regprocedure('public.claim_paper_settlement_monitor_users(integer)') is null then
+    raise exception 'Settlement Monitor claim function is missing';
+  end if;
+  if to_regprocedure('public.complete_paper_settlement_monitor_user(uuid,text,integer,integer,integer,integer,text)') is null then
+    raise exception 'Settlement Monitor completion function is missing';
+  end if;
+  if to_regprocedure('public.claim_autonomous_agent_users(integer)') is null then
+    raise exception 'Autonomous Agent claim function is missing';
+  end if;
+  if to_regprocedure('public.complete_autonomous_agent_user(uuid,text,uuid,integer,integer,integer,integer,numeric,text)') is null then
+    raise exception 'Autonomous Agent completion function is missing';
+  end if;
+  if to_regprocedure('public.request_autonomous_agent_run()') is null then
+    raise exception 'Autonomous Agent user request function is missing';
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if not has_function_privilege('service_role', 'public.claim_watchlist_monitor_users(integer)', 'EXECUTE') then
+    raise exception 'service_role cannot claim Watchlist Monitor users';
+  end if;
+  if not has_function_privilege('service_role', 'public.claim_paper_settlement_monitor_users(integer)', 'EXECUTE') then
+    raise exception 'service_role cannot claim Settlement Monitor users';
+  end if;
+  if not has_function_privilege('service_role', 'public.claim_autonomous_agent_users(integer)', 'EXECUTE') then
+    raise exception 'service_role cannot claim Autonomous Agent users';
+  end if;
+  if not has_function_privilege('authenticated', 'public.request_autonomous_agent_run()', 'EXECUTE') then
+    raise exception 'authenticated users cannot request their own Autonomous Agent run';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_settings', 'DELETE') then
+    raise exception 'authenticated users must not delete Autonomous Agent settings directly';
+  end if;
+end;
+$$;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'bets'
+      and t.tgname = 'bets_enforce_paper_stake_limit'
+      and not t.tgisinternal
+  ) then
+    raise exception 'Database paper-risk enforcement trigger is missing';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relname = 'autonomous_agent_settings'
+      and t.tgname = 'autonomous_agent_settings_schedule'
+      and not t.tgisinternal
+  ) then
+    raise exception 'Autonomous Agent scheduling trigger is missing';
+  end if;
+end;
+$$;
+
+do $$
+declare
+  anonymous_exposure text[];
+begin
+  select array_agg(table_name order by table_name)
+  into anonymous_exposure
+  from unnest(array[
+    'bets',
+    'bankroll_settings',
+    'watchlist_items',
+    'watchlist_monitor_state',
+    'paper_settlement_monitor_state',
+    'autonomous_agent_settings',
+    'autonomous_agent_state',
+    'autonomous_agent_runs',
+    'market_timeline_snapshots',
+    'alert_inbox',
+    'notification_preferences',
+    'notification_devices',
+    'notification_deliveries'
+  ]) as expected(table_name)
+  where has_table_privilege('anon', format('public.%I', table_name), 'SELECT');
+
+  if anonymous_exposure is not null then
+    raise exception 'Anonymous role can read protected tables: %', array_to_string(anonymous_exposure, ', ');
+  end if;
+end;
+$$;
+
+select json_build_object(
+  'ok', true,
+  'version', 'production-schema-verification-v1',
+  'paperOnly', true,
+  'rlsVerified', true,
+  'workerFunctionsVerified', true,
+  'databaseRiskTriggerVerified', true,
+  'verifiedAt', now()
+) as scorecaster_production_schema;

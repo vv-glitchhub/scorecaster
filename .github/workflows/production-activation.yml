@@ -1,0 +1,77 @@
+name: Scorecaster Production Activation
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: Read-only schema verification, migration rollout, or protected worker probe
+        required: true
+        type: choice
+        default: schema
+        options:
+          - schema
+          - migrate
+          - probe
+      confirmation:
+        description: Enter the exact confirmation phrase documented for the selected action
+        required: true
+        type: string
+      base_url:
+        description: HTTPS Scorecaster production origin used by worker probes
+        required: false
+        default: https://scorecaster.vercel.app
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-production-activation
+  cancel-in-progress: false
+
+jobs:
+  activate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      SCORECASTER_ACTIVATION_ACTION: ${{ inputs.action }}
+      SCORECASTER_ACTIVATION_CONFIRMATION: ${{ inputs.confirmation }}
+      SCORECASTER_ACTIVATION_BASE_URL: ${{ inputs.base_url }}
+      SCORECASTER_PRODUCTION_DB_URL: ${{ secrets.SCORECASTER_PRODUCTION_DB_URL }}
+      SCORECASTER_CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
+      SCORECASTER_ACTIVATION_REPORT_PATH: artifacts/production-activation.json
+
+    steps:
+      - name: Checkout reviewed release
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install PostgreSQL client
+        if: ${{ inputs.action != 'probe' }}
+        run: |
+          set -euo pipefail
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq
+            sudo apt-get install -y --no-install-recommends postgresql-client
+          fi
+          psql --version
+
+      - name: Validate repository release manifest
+        run: node scripts/release-readiness.mjs
+
+      - name: Run fail-closed production action
+        run: node scripts/production-activation.mjs
+
+      - name: Upload activation evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-production-activation-${{ github.run_id }}
+          path: artifacts/production-activation.json
+          if-no-files-found: error
+          retention-days: 90
