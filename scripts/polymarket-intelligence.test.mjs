@@ -100,8 +100,22 @@ test("current Top Picks intelligence path applies Polymarket after sports eviden
   assert.match(loader, /fetchPolymarketForMatch/);
   assert.match(loader, /applySportsIntelligenceGate/);
   assert.match(loader, /applyPolymarketSafety/);
-  assert.ok(loader.indexOf("applyPolymarketSafety") > loader.indexOf("applySportsIntelligenceGate"));
+  const sportsCall = loader.indexOf("const withSportsEvidence = applySportsIntelligenceGate");
+  const polymarketCall = loader.indexOf("return applyPolymarketSafety(withSportsEvidence, polymarket)");
+  assert.ok(sportsCall >= 0 && polymarketCall > sportsCall);
   assert.match(loader, /Promise\.all/);
+});
+
+test("legacy Polymarket helpers cannot create positive upgrades", async () => {
+  const engine = await source("lib/polymarket-engine.js");
+  const sentiment = await source("lib/market-sentiment-engine.js");
+  const intelligence = await source("lib/market-intelligence-engine.js");
+  assert.match(engine, /downgradeOnly: true/);
+  assert.doesNotMatch(engine, /score = 0\.0[1-9]/);
+  assert.match(sentiment, /polymarketDowngradeOnly: true/);
+  assert.match(intelligence, /polymarketDowngradeOnly: true/);
+  assert.doesNotMatch(sentiment, /Polymarket broadly agrees.*sentimentScore \+=/s);
+  assert.doesNotMatch(intelligence, /polymarketDifference\) > 0\.05[\s\S]{0,120}score \+=/);
 });
 
 test("protected API is authenticated, rate limited and read only", async () => {
@@ -121,6 +135,7 @@ test("Polymarket UI is trilingual and states the product boundary", async () => 
   const client = await source("app/polymarket-intelligence/PolymarketIntelligenceClient.jsx");
   const research = await source("app/ai-research/page.jsx");
   const shell = await source("app/components/AppShell.jsx");
+  const workflow = await source(".github/workflows/polymarket-intelligence.yml");
 
   assert.match(page, /PolymarketIntelligenceClient/);
   assert.match(client, /fi:/);
@@ -132,6 +147,7 @@ test("Polymarket UI is trilingual and states the product boundary", async () => 
   assert.match(research, /status: "Active"/);
   assert.match(research, /href: "\/polymarket-intelligence"/);
   assert.match(shell, /href: "\/polymarket-intelligence"/);
+  assert.match(workflow, /npm run test:polymarket/);
 });
 
 test("Polymarket is not wired into paper result settlement", async () => {
