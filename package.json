@@ -9,6 +9,7 @@
     "test:model": "node --test scripts/market-consensus.test.mjs",
     "test:settlement": "node --test scripts/paper-settlement.test.mjs",
     "test:settlement-monitor": "node --test scripts/settlement-monitor.test.mjs",
+    "test:operations": "node --test scripts/operations-dashboard.test.mjs",
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
     "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
@@ -28,7 +29,7 @@
     "test:easy-use": "node --test scripts/easy-use-ui.test.mjs",
     "test:i18n": "node --test scripts/i18n.test.mjs",
     "test:fixtures": "node --test scripts/fixture-integrity.test.mjs",
-    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:settlement-monitor && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:intelligence && npm run test:sports-intelligence && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
+    "test": "npm run test:security && npm run test:model && npm run test:settlement && npm run test:settlement-monitor && npm run test:operations && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:intelligence && npm run test:sports-intelligence && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:easy-use && npm run test:i18n && npm run test:fixtures"
   },
   "dependencies": {
     "@supabase/ssr": "latest",
