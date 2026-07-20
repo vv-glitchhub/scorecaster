@@ -1,0 +1,41 @@
+name: Scorecaster Polymarket Regression
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Run Polymarket Intelligence tests
+        run: |
+          set -o pipefail
+          npm run test:polymarket 2>&1 | tee polymarket-intelligence.log
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: polymarket-intelligence-${{ github.run_id }}
+          path: polymarket-intelligence.log
+          if-no-files-found: ignore
+          retention-days: 14
