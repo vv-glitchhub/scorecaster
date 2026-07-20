@@ -17,6 +17,7 @@ const USER_TABLES = [
   "notification_deliveries",
   "market_timeline_snapshots",
   "watchlist_monitor_state",
+  "paper_settlement_monitor_state",
   "notification_devices",
   "notification_preferences",
   "alert_inbox",
@@ -47,7 +48,7 @@ export async function GET(request) {
     deletionAvailable: Boolean(getSupabaseAdminClient()),
     confirmationPhrase: CONFIRMATION,
     requiresEmailConfirmation: true,
-    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
+    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
     neverStored: ["payment card data", "bank credentials", "real-money balance"]
   }, 200, requestId);
 }
