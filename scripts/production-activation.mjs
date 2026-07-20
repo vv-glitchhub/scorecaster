@@ -40,6 +40,13 @@ function clean(value, maximum = 500) {
     .slice(0, maximum);
 }
 
+function redact(value, maximum = 500) {
+  let safe = String(value || "");
+  if (databaseUrl) safe = safe.split(databaseUrl).join("[redacted-database-url]");
+  if (cronSecret) safe = safe.split(cronSecret).join("[redacted-worker-secret]");
+  return clean(safe, maximum);
+}
+
 function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
@@ -87,9 +94,10 @@ function runPsql(args, label) {
     throw new Error("PostgreSQL client psql is not installed");
   }
   if (result.status !== 0) {
-    throw new Error(`${label} failed; inspect the protected workflow log for the database error`);
+    const detail = redact(result.stderr, 1000);
+    throw new Error(`${label} failed${detail ? `: ${detail}` : ""}`);
   }
-  return clean(result.stdout, 4000);
+  return redact(result.stdout, 4000);
 }
 
 async function verifySchema() {
@@ -113,11 +121,11 @@ async function migrate() {
 }
 
 async function parseResponse(response) {
-  const text = await response.text();
+  const responseText = await response.text();
   try {
-    return JSON.parse(text);
+    return JSON.parse(responseText);
   } catch {
-    return { ok: false, error: clean(text, 300) || "Non-JSON response" };
+    return { ok: false, error: redact(responseText, 300) || "Non-JSON response" };
   }
 }
 
@@ -138,6 +146,7 @@ async function probeWorkers() {
     commit: clean(healthPayload?.commit, 80),
     timestamp: clean(healthPayload?.timestamp, 80)
   };
+  assert(healthPayload?.app === "Scorecaster", "Production health endpoint did not identify Scorecaster");
 
   const workers = [
     "/api/internal/watchlist-monitor",
@@ -156,22 +165,23 @@ async function probeWorkers() {
       signal: AbortSignal.timeout(60_000)
     });
     const payload = await parseResponse(response);
+    const probeOk = response.ok && payload?.ok !== false && payload?.skipped !== true;
     report.probes.push({
       path: workerPath,
       status: response.status,
-      ok: response.ok && payload?.ok !== false,
-      version: clean(payload?.version, 100),
-      error: response.ok ? null : clean(payload?.error, 300)
+      ok: probeOk,
+      version: clean(payload?.version || payload?.result?.version, 100),
+      error: probeOk ? null : clean(payload?.error || "Worker did not complete an active cycle", 300)
     });
-    assert(response.ok, `${workerPath} did not accept the protected production probe`);
+    assert(probeOk, `${workerPath} did not complete an active protected production cycle`);
   }
 }
 
 async function saveReport() {
   report.completedAt = new Date().toISOString();
   const serialized = JSON.stringify(report, null, 2);
-  assert(!serialized.includes(databaseUrl), "Activation report unexpectedly contains the database connection string");
-  assert(!serialized.includes(cronSecret) || cronSecret.length === 0, "Activation report unexpectedly contains the worker secret");
+  assert(!databaseUrl || !serialized.includes(databaseUrl), "Activation report unexpectedly contains the database connection string");
+  assert(!cronSecret || !serialized.includes(cronSecret), "Activation report unexpectedly contains the worker secret");
   await mkdir(path.dirname(reportPath), { recursive: true });
   await writeFile(reportPath, `${serialized}\n`, "utf8");
 }
@@ -192,7 +202,7 @@ try {
   console.log(`Scorecaster production activation ${action} completed successfully.`);
 } catch (error) {
   report.status = "failure";
-  report.error = clean(error?.message || error, 500);
+  report.error = redact(error?.message || error, 500);
   console.error(`Scorecaster production activation ${action} failed: ${report.error}`);
   process.exitCode = 1;
 } finally {
