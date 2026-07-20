@@ -15,6 +15,8 @@ test("autonomous agent schema is opt-in, leased, RLS isolated and service-role c
   assert.match(sql, /lease_expires_at = now\(\) \+ interval '10 minutes'/);
   assert.match(sql, /force row level security/);
   assert.match(sql, /auth\.uid\(\) = user_id/);
+  assert.match(sql, /revoke delete on public\.autonomous_agent_settings from authenticated/);
+  assert.match(sql, /grant select, insert, update on public\.autonomous_agent_settings to authenticated/);
   assert.match(sql, /grant execute on function public\.claim_autonomous_agent_users\(integer\) to service_role/);
   assert.match(sql, /grant execute on function public\.request_autonomous_agent_run\(\) to authenticated/);
 });
@@ -35,6 +37,17 @@ test("worker uses verified Top Picks, V11 governance and bounded paper-only deci
   assert.match(worker, /scorecaster-autonomous-v1/);
   assert.match(worker, /realMoneyBetting: false/);
   assert.doesNotMatch(worker, /bookmaker.*password|payment.*card|bank.*credential/i);
+});
+
+test("source and per-user failures are isolated, audited and retried", async () => {
+  const worker = await source("lib/autonomous-paper-agent.js");
+  assert.match(worker, /const sourceFailures = new Map\(\)/);
+  assert.match(worker, /recordSourceFailure/);
+  assert.match(worker, /failureStage: "source_loading"/);
+  assert.match(worker, /failureStage: "user_processing"/);
+  assert.match(worker, /await finishRun\(admin, runId, failure/);
+  assert.match(worker, /await completeUser\(admin, entry\.userId, failure\)/);
+  assert.match(worker, /failedSourceGroups: sourceFailures\.size/);
 });
 
 test("autonomous paper rows are deterministic and database-risk guarded", async () => {
@@ -62,7 +75,8 @@ test("cloud and internal routes fail closed and never expose worker credentials"
   assert.match(internal, /maxDuration = 60/);
   assert.match(internal, /autonomousAgentAuthorizationValid/);
   assert.match(internal, /Unauthorized/);
-  assert.match(config, /secret\.length >= 16/);
+  assert.match(config, /cronSecret\.length >= 16/);
+  assert.match(config, /secret\.length < 16/);
   assert.doesNotMatch(cloud, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 });
 
