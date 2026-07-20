@@ -33,6 +33,7 @@ export async function GET(request) {
     auth.supabase.from("bets").select("id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,raw_pick,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(5000),
     auth.supabase.from("bankroll_settings").select("bankroll,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence,paper_trading_mode,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("watchlist_items").select("id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(500),
+    auth.supabase.from("watchlist_monitor_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_items_count,last_alerts_count,last_snapshots_count,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("alert_inbox").select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,dismissed_at,first_seen_at,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(500),
     auth.supabase.from("market_timeline_snapshots").select("id,watchlist_id,event_id,sport,league,market,selection,odds,decision,consensus_probability,edge,ev,confidence,bookmaker,source,captured_at,created_at").eq("user_id", auth.user.id).order("captured_at", { ascending: false }).limit(5000),
     auth.supabase.from("notification_preferences").select("in_app_enabled,push_enabled,high_enabled,medium_enabled,info_enabled,kickoff_enabled,decision_enabled,price_enabled,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
@@ -40,13 +41,13 @@ export async function GET(request) {
     auth.supabase.from("notification_deliveries").select("id,alert_id,device_id,status,attempt_count,next_attempt_at,expo_ticket_id,ticket_status,receipt_status,error_code,error_message,queued_at,sent_at,receipt_checked_at,provider_accepted_at,failed_at,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000)
   ]);
 
-  let [profileResult, betsResult, bankrollResult, watchlistResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
+  let [profileResult, betsResult, bankrollResult, watchlistResult, monitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
   if (alertInboxResult.error && isMissingColumn(alertInboxResult.error)) {
     alertInboxResult = await auth.supabase.from("alert_inbox").select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(500);
   }
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
-  for (const result of [watchlistResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
+  for (const result of [watchlistResult, monitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
     if (result.error && !isMissingTable(result.error)) errors.push(result.error);
   }
   if (errors.length) {
@@ -57,7 +58,7 @@ export async function GET(request) {
     ok: true,
     exportedAt: new Date().toISOString(),
     product: "Scorecaster",
-    dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, market timeline, alert inbox, notification metadata and account data; no payment data",
+    dataClassification: "paper-tracking, model-audit snapshots, verified watchlist, background monitor metadata, market timeline, alert inbox, notification metadata and account data; no payment data",
     notificationDeliveryTokensExported: false,
     notificationReceiptMeaning: "provider acceptance only; not proof that the user saw the notification",
     account: {
@@ -69,6 +70,7 @@ export async function GET(request) {
     bankroll: bankrollResult.data || null,
     paperBets: betsResult.data || [],
     watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
+    watchlistMonitor: monitorResult.error ? null : monitorResult.data || null,
     alertInbox: alertInboxResult.error ? [] : (alertInboxResult.data || []).map((item) => ({ dismissed_at: null, ...item })),
     marketTimeline: timelineResult.error ? [] : timelineResult.data || [],
     notificationPreferences: preferencesResult.error ? null : preferencesResult.data || null,
