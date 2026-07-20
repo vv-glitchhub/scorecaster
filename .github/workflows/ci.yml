@@ -47,6 +47,11 @@ jobs:
           set -o pipefail
           npm run test:settlement-monitor 2>&1 | tee settlement-monitor.log
 
+      - name: Operations Dashboard V1 tests
+        run: |
+          set -o pipefail
+          npm run test:operations 2>&1 | tee operations-dashboard.log
+
       - name: Betting Agent and Simulator regression tests
         run: npm run test:apps
 
@@ -152,6 +157,7 @@ jobs:
           name: scorecaster-diagnostics-${{ github.run_id }}
           path: |
             settlement-monitor.log
+            operations-dashboard.log
             agent-v9.log
             agent-v10.log
             agent-ticket.log
