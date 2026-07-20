@@ -51,6 +51,12 @@ export default function AppShell({ children }) {
     description: tr({ fi: "Varjomallin kronologinen vertailu markkinakonsensukseen.", en: "Chronological shadow-model comparison against market consensus.", es: "Comparación cronológica del modelo sombra con el consenso de mercado." })
   }), [tr]);
 
+  const polymarketItem = useMemo(() => ({
+    href: "/polymarket-intelligence",
+    label: tr({ fi: "Polymarket-signaali", en: "Polymarket Intelligence", es: "Inteligencia de Polymarket" }),
+    description: tr({ fi: "Julkinen markkinadata vain päätöstä heikentävänä lisäriskisignaalina.", en: "Public market data used only as a downgrade-only risk signal.", es: "Datos públicos usados solo como señal de riesgo que puede rebajar decisiones." })
+  }), [tr]);
+
   const autonomousAgentItem = useMemo(() => ({
     href: "/autonomous-agent",
     label: tr({ fi: "Autonominen paperiagentti", en: "Autonomous Paper Agent", es: "Agente simulado autónomo" }),
@@ -99,13 +105,14 @@ export default function AppShell({ children }) {
         releaseReadinessItem,
         operationsItem,
         formRestLabItem,
+        polymarketItem,
         { href: "/intelligence", label: t("more.intelligence"), description: t("more.intelligenceDescription") },
         { href: "/clv", label: t("more.clv"), description: t("more.clvDescription") },
         { href: "/reports", label: t("more.reports"), description: t("more.reportsDescription") },
         { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
       ]
     }
-  ], [t, eventsItem, watchlistItem, alertInboxItem, timelineItem, formRestLabItem, autonomousAgentItem, operationsItem, releaseReadinessItem]);
+  ], [t, eventsItem, watchlistItem, alertInboxItem, timelineItem, formRestLabItem, polymarketItem, autonomousAgentItem, operationsItem, releaseReadinessItem]);
 
   const mobileItems = primaryItems.slice(0, 5);
 
@@ -136,7 +143,7 @@ export default function AppShell({ children }) {
 
       <main className="mx-auto max-w-7xl px-4 py-6 pb-28 lg:pb-8"><ContextHelp />{children}</main>
       <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label={t("nav.quickAria")}>{mobileItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 items-center justify-center rounded-xl px-1 text-center text-[11px] font-black ${isActive(item) ? "bg-emerald-400/15 text-emerald-300" : "text-slate-500"}`}>{item.short}</Link>)}</nav>
-      <footer className="border-t border-white/10 py-7"><div className="mx-auto max-w-7xl px-4"><div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"><div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div><div className="flex flex-wrap gap-4"><Link href="/help" className="hover:text-white">{t("nav.help")}</Link><Link href="/profile" className="hover:text-white">{t("footer.account")}</Link><Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link><Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link><Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link><Link href="/autonomous-agent" className="hover:text-white">Autonomous Agent</Link><Link href="/release-readiness" className="hover:text-white">Release Readiness</Link><Link href="/operations" className="hover:text-white">Operations</Link><Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link></div></div></div></footer>
+      <footer className="border-t border-white/10 py-7"><div className="mx-auto max-w-7xl px-4"><div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"><div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div><div className="flex flex-wrap gap-4"><Link href="/help" className="hover:text-white">{t("nav.help")}</Link><Link href="/profile" className="hover:text-white">{t("footer.account")}</Link><Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link><Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link><Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link><Link href="/polymarket-intelligence" className="hover:text-white">Polymarket</Link><Link href="/autonomous-agent" className="hover:text-white">Autonomous Agent</Link><Link href="/release-readiness" className="hover:text-white">Release Readiness</Link><Link href="/operations" className="hover:text-white">Operations</Link><Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link></div></div></div></footer>
     </div>
   );
 }

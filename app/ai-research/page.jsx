@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Panel from "../components/Panel";
 
 const researchItems = [
@@ -23,8 +24,9 @@ const researchItems = [
   },
   {
     title: "Polymarket",
-    status: "Planned",
-    description: "Markkinoiden kollektiivinen todennäköisyys."
+    status: "Active",
+    href: "/polymarket-intelligence",
+    description: "Julkinen urheilumarkkinadata toimii vain päätöstä heikentävänä riskisignaalina."
   },
   {
     title: "Data Readiness",
@@ -53,30 +55,39 @@ export default function AIResearchPage() {
 
       <Panel title="Research Modules" subtitle="Agentin tiedonkeruun tila">
         <div className="grid gap-4 md:grid-cols-2">
-          {researchItems.map((item) => (
-            <div
-              key={item.title}
-              className="rounded-2xl border border-white/10 bg-white/[0.04] p-5"
-            >
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-xl font-black">{item.title}</div>
+          {researchItems.map((item) => {
+            const content = (
+              <>
+                <div className="flex items-center justify-between gap-3">
+                  <div className="text-xl font-black">{item.title}</div>
 
-                <div
-                  className={`rounded-full px-3 py-1 text-xs font-bold ${
-                    item.status === "Active"
-                      ? "bg-emerald-400/10 text-emerald-300"
-                      : "bg-yellow-400/10 text-yellow-300"
-                  }`}
-                >
-                  {item.status}
+                  <div
+                    className={`rounded-full px-3 py-1 text-xs font-bold ${
+                      item.status === "Active"
+                        ? "bg-emerald-400/10 text-emerald-300"
+                        : "bg-yellow-400/10 text-yellow-300"
+                    }`}
+                  >
+                    {item.status}
+                  </div>
                 </div>
-              </div>
 
-              <p className="mt-3 text-sm text-slate-300">
-                {item.description}
-              </p>
-            </div>
-          ))}
+                <p className="mt-3 text-sm text-slate-300">
+                  {item.description}
+                </p>
+              </>
+            );
+
+            return item.href ? (
+              <Link key={item.title} href={item.href} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.08]">
+                {content}
+              </Link>
+            ) : (
+              <div key={item.title} className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+                {content}
+              </div>
+            );
+          })}
         </div>
       </Panel>
     </div>
