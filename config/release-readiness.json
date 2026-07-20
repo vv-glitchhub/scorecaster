@@ -10,7 +10,8 @@
     "/terms",
     "/responsible-use",
     "/production-status",
-    "/autonomous-agent"
+    "/autonomous-agent",
+    "/polymarket-intelligence"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -22,7 +23,8 @@
     { "path": "/api/cloud/notifications", "method": "GET", "allowedStatuses": [401, 403] },
     { "path": "/api/cloud/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 403] },
     { "path": "/api/cloud/settlement-monitor", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/autonomous-agent", "method": "GET", "allowedStatuses": [401, 403] }
+    { "path": "/api/cloud/autonomous-agent", "method": "GET", "allowedStatuses": [401, 403] },
+    { "path": "/api/cloud/polymarket-intelligence", "method": "GET", "allowedStatuses": [401, 403] }
   ],
   "internalWorkers": [
     { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
