@@ -9,7 +9,8 @@
     "/privacy",
     "/terms",
     "/responsible-use",
-    "/production-status"
+    "/production-status",
+    "/autonomous-agent"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -20,11 +21,13 @@
     { "path": "/api/cloud/alerts", "method": "GET", "allowedStatuses": [401, 403] },
     { "path": "/api/cloud/notifications", "method": "GET", "allowedStatuses": [401, 403] },
     { "path": "/api/cloud/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/settlement-monitor", "method": "GET", "allowedStatuses": [401, 403] }
+    { "path": "/api/cloud/settlement-monitor", "method": "GET", "allowedStatuses": [401, 403] },
+    { "path": "/api/cloud/autonomous-agent", "method": "GET", "allowedStatuses": [401, 403] }
   ],
   "internalWorkers": [
     { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] }
   ],
   "requiredSecurityHeaders": {
@@ -45,7 +48,8 @@
     "supabase/scorecaster_notification_registry.sql",
     "supabase/scorecaster_notification_delivery.sql",
     "supabase/scorecaster_watchlist_monitor.sql",
-    "supabase/scorecaster_settlement_monitor.sql"
+    "supabase/scorecaster_settlement_monitor.sql",
+    "supabase/scorecaster_autonomous_agent.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -55,6 +59,11 @@
     {
       "id": "two-user-isolation",
       "title": "Two-user RLS isolation on web and mobile",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-paper-safety",
+      "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
       "blocking": true
     },
     {

@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    timeout-minutes: 20
     env:
       CI: true
       NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
@@ -61,6 +61,11 @@ jobs:
         run: |
           set -o pipefail
           npm run test:release-readiness 2>&1 | tee release-readiness.log
+
+      - name: Autonomous Paper Agent V1 tests
+        run: |
+          set -o pipefail
+          npm run test:autonomous-agent 2>&1 | tee autonomous-agent.log
 
       - name: Betting Agent and Simulator regression tests
         run: npm run test:apps
@@ -168,6 +173,7 @@ jobs:
           path: |
             release-readiness-audit.log
             release-readiness.log
+            autonomous-agent.log
             settlement-monitor.log
             operations-dashboard.log
             agent-v9.log

@@ -51,10 +51,12 @@ export default function OperationsClient() {
   const requiredChecklist = useMemo(() => [
     "watchlistMigration",
     "settlementMigration",
+    "autonomousAgentMigration",
     "notificationRegistryMigration",
     "notificationDeliveryMigration",
     "watchlistWorkerConfigured",
     "settlementWorkerConfigured",
+    "autonomousAgentConfigured",
     "notificationDeliveryConfigured"
   ], []);
   const readyCount = requiredChecklist.filter((key) => data.checklist?.[key]).length;
@@ -98,6 +100,7 @@ export default function OperationsClient() {
           <button onClick={() => void load()} disabled={loading} className="rounded-2xl bg-sky-300 px-5 py-3 font-black text-slate-950 disabled:opacity-50">
             {loading ? tr({ fi: "Päivitetään…", en: "Refreshing…", es: "Actualizando…" }) : tr({ fi: "Päivitä tila", en: "Refresh status", es: "Actualizar estado" })}
           </button>
+          <Link href="/autonomous-agent" className="rounded-2xl border border-purple-300/30 bg-purple-300/10 px-5 py-3 font-black text-purple-100">Autonomous Agent</Link>
           <Link href="/production-status" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Production Status</Link>
           <Link href="/alerts" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">Alert Inbox</Link>
         </div>
@@ -106,16 +109,17 @@ export default function OperationsClient() {
       {error && <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-5 text-red-100">{error}<Link href="/login" className="ml-2 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link></div>}
       {(data.warnings || []).map((warning) => <div key={warning} className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 text-yellow-100">{warning}</div>)}
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
         <Metric label={tr({ fi: "Launch-valmius", en: "Launch readiness", es: "Preparación" })} value={`${readyCount}/${requiredChecklist.length}`} tone={launchReady ? "text-emerald-300" : "text-yellow-200"} />
         <Metric label={tr({ fi: "Seurattavia", en: "Watched", es: "Seguidos" })} value={data.accountActivity?.activeWatchlistItems || 0} />
         <Metric label={tr({ fi: "Avoimia paperikohteita", en: "Open paper picks", es: "Pronósticos abiertos" })} value={data.accountActivity?.openPaperBets || 0} />
+        <Metric label={tr({ fi: "Autonomisia ajoja 24 h", en: "Autonomous runs 24h", es: "Ejecuciones autónomas 24 h" })} value={data.accountActivity?.autonomousAgentRuns24h || 0} />
         <Metric label={tr({ fi: "Lukemattomia hälytyksiä", en: "Unread alerts", es: "Alertas no leídas" })} value={data.accountActivity?.unreadActiveAlerts || 0} />
         <Metric label={tr({ fi: "Push-laitteita", en: "Push devices", es: "Dispositivos push" })} value={data.accountActivity?.activeNotificationDevices || 0} />
         <Metric label={tr({ fi: "Hintapisteitä 24 h", en: "Timeline points 24h", es: "Puntos 24 h" })} value={data.accountActivity?.marketTimelineSnapshots24h || 0} />
       </section>
 
-      <section className="grid gap-5 lg:grid-cols-3">
+      <section className="grid gap-5 lg:grid-cols-2 xl:grid-cols-4">
         <WorkerCard
           title="Watchlist Monitor"
           worker={data.workers?.watchlist}
@@ -126,6 +130,18 @@ export default function OperationsClient() {
             [tr({ fi: "Kohteet", en: "Items", es: "Elementos" }), data.workers?.watchlist?.state?.last_items_count],
             [tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }), data.workers?.watchlist?.state?.last_alerts_count],
             [tr({ fi: "Tilannekuvat", en: "Snapshots", es: "Capturas" }), data.workers?.watchlist?.state?.last_snapshots_count]
+          ]}
+        />
+        <WorkerCard
+          title="Autonomous Paper Agent"
+          worker={data.workers?.autonomousAgent}
+          statusLabel={statusLabel}
+          date={date}
+          details={[
+            [tr({ fi: "Viimeksi käsitelty", en: "Last processed", es: "Último proceso" }), data.workers?.autonomousAgent?.state?.last_completed_at],
+            [tr({ fi: "Ehdokkaat", en: "Candidates", es: "Candidatos" }), data.workers?.autonomousAgent?.state?.last_candidate_count],
+            [tr({ fi: "Tallennettu", en: "Saved", es: "Guardados" }), data.workers?.autonomousAgent?.state?.last_saved_count],
+            [tr({ fi: "Virtuaalipanos", en: "Virtual stake", es: "Cantidad virtual" }), data.workers?.autonomousAgent?.state?.last_total_stake]
           ]}
         />
         <WorkerCard
@@ -167,6 +183,7 @@ export default function OperationsClient() {
           <h2 className="text-2xl font-black">{tr({ fi: "Turvaraja", en: "Safety boundary", es: "Límite de seguridad" })}</h2>
           <div className="mt-4 space-y-3 text-sm leading-6 text-slate-300">
             <p>{tr({ fi: "Konsoli käyttää kirjautuneen käyttäjän RLS-suojattuja rivejä.", en: "The console uses the signed-in user's RLS-protected rows.", es: "El panel utiliza filas protegidas por RLS del usuario autenticado." })}</p>
+            <p>{tr({ fi: "Autonominen agentti tallentaa vain virtuaalisia paperikohteita.", en: "The autonomous agent saves virtual paper picks only.", es: "El agente autónomo guarda únicamente selecciones simuladas." })}</p>
             <p>{tr({ fi: "Push-tokenit, salaisuudet ja service-role-avaimet eivät kuulu vastaukseen.", en: "Push tokens, secrets and service-role keys are excluded from the response.", es: "Los tokens push, secretos y claves service-role no forman parte de la respuesta." })}</p>
             <p>{tr({ fi: "Provider accepted ei tarkoita, että käyttäjä varmasti näki ilmoituksen.", en: "Provider accepted does not prove that the user saw the notification.", es: "Aceptada por el proveedor no demuestra que el usuario viera la notificación." })}</p>
           </div>
@@ -198,12 +215,16 @@ function checklistLabel(key, tr) {
   const labels = {
     watchlistMigration: tr({ fi: "Watchlist Monitor -migraatio", en: "Watchlist Monitor migration", es: "Migración Watchlist Monitor" }),
     settlementMigration: tr({ fi: "Settlement Monitor -migraatio", en: "Settlement Monitor migration", es: "Migración Settlement Monitor" }),
+    autonomousAgentMigration: tr({ fi: "Autonomous Agent -migraatio", en: "Autonomous Agent migration", es: "Migración Autonomous Agent" }),
     notificationRegistryMigration: tr({ fi: "Notification Registry -migraatio", en: "Notification Registry migration", es: "Migración Notification Registry" }),
     notificationDeliveryMigration: tr({ fi: "Notification Delivery -migraatio", en: "Notification Delivery migration", es: "Migración Notification Delivery" }),
     watchlistWorkerConfigured: tr({ fi: "Watchlist-worker määritetty", en: "Watchlist worker configured", es: "Worker Watchlist configurado" }),
     watchlistWorkerEnabled: tr({ fi: "Watchlist-worker aktiivinen", en: "Watchlist worker enabled", es: "Worker Watchlist activo" }),
     settlementWorkerConfigured: tr({ fi: "Settlement-worker määritetty", en: "Settlement worker configured", es: "Worker Settlement configurado" }),
     settlementWorkerEnabled: tr({ fi: "Settlement-worker aktiivinen", en: "Settlement worker enabled", es: "Worker Settlement activo" }),
+    autonomousAgentConfigured: tr({ fi: "Autonomous Agent määritetty", en: "Autonomous Agent configured", es: "Autonomous Agent configurado" }),
+    autonomousAgentGloballyEnabled: tr({ fi: "Autonomous Agent aktiivinen palvelimella", en: "Autonomous Agent globally enabled", es: "Autonomous Agent activo globalmente" }),
+    autonomousAgentUserEnabled: tr({ fi: "Käyttäjä aktivoinut agentin", en: "User enabled the agent", es: "Usuario activó el agente" }),
     notificationDeliveryConfigured: tr({ fi: "Push-toimitus määritetty", en: "Push delivery configured", es: "Entrega push configurada" }),
     notificationDeliveryEnabled: tr({ fi: "Push-toimitus aktiivinen", en: "Push delivery enabled", es: "Entrega push activa" }),
     physicalPushDeviceRegistered: tr({ fi: "Oikea push-laite rekisteröity", en: "Physical push device registered", es: "Dispositivo push real registrado" })
