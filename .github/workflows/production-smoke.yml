@@ -1,0 +1,51 @@
+name: Scorecaster Production Smoke
+
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: HTTPS Scorecaster origin to verify
+        required: false
+        default: https://scorecaster.vercel.app
+        type: string
+  schedule:
+    - cron: "17 4 * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SCORECASTER_SMOKE_BASE_URL: ${{ inputs.base_url || vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      SCORECASTER_SMOKE_ACCESS_TOKEN: ${{ secrets.SCORECASTER_SMOKE_ACCESS_TOKEN }}
+      SCORECASTER_SMOKE_REPORT_PATH: artifacts/production-smoke.json
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate release manifest
+        run: node scripts/release-readiness.mjs
+
+      - name: Run production smoke probes
+        run: node scripts/production-smoke.mjs
+
+      - name: Upload smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-production-smoke-${{ github.run_id }}
+          path: artifacts/production-smoke.json
+          if-no-files-found: error
+          retention-days: 30
