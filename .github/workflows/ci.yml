@@ -12,7 +12,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     env:
       CI: true
       NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
@@ -33,6 +33,11 @@ jobs:
       - name: Secret and repository security check
         run: npm run security:check
 
+      - name: Release Readiness repository audit
+        run: |
+          set -o pipefail
+          npm run release:audit 2>&1 | tee release-readiness-audit.log
+
       - name: API security regression tests
         run: npm run test:security
 
@@ -51,6 +56,11 @@ jobs:
         run: |
           set -o pipefail
           npm run test:operations 2>&1 | tee operations-dashboard.log
+
+      - name: Release Readiness V1 tests
+        run: |
+          set -o pipefail
+          npm run test:release-readiness 2>&1 | tee release-readiness.log
 
       - name: Betting Agent and Simulator regression tests
         run: npm run test:apps
@@ -156,6 +166,8 @@ jobs:
         with:
           name: scorecaster-diagnostics-${{ github.run_id }}
           path: |
+            release-readiness-audit.log
+            release-readiness.log
             settlement-monitor.log
             operations-dashboard.log
             agent-v9.log
