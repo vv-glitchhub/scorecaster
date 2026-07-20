@@ -4,8 +4,8 @@ import {
   getRequestId,
   jsonResponse,
   publicError
-} from "../../../../../lib/api-security";
-import { settlementMonitorConfiguration } from "../../../../../lib/settlement-monitor-config.js";
+} from "../../../../lib/api-security";
+import { settlementMonitorConfiguration } from "../../../../lib/settlement-monitor-config.js";
 
 export const dynamic = "force-dynamic";
 
