@@ -135,8 +135,10 @@ test("Polymarket UI is trilingual and states the product boundary", async () => 
 });
 
 test("Polymarket is not wired into paper result settlement", async () => {
-  const settlement = await source("lib/paper-settlement.js");
+  const settlement = await source("lib/paper-settlement-engine.mjs");
   const monitor = await source("lib/settlement-monitor.js");
+  const manualRoute = await source("app/api/cloud/bets/settle/route.js");
   assert.doesNotMatch(settlement, /polymarket/i);
   assert.doesNotMatch(monitor, /polymarket/i);
+  assert.doesNotMatch(manualRoute, /polymarket/i);
 });
