@@ -23,12 +23,33 @@ const EMPTY_STATE = {
   inbox: { available: false, items: [], summary: {}, warning: null }
 };
 
+const EMPTY_MONITOR = {
+  available: false,
+  monitorActive: false,
+  configured: false,
+  intervalMinutes: 15,
+  warning: null,
+  state: null
+};
+
 export default function WatchlistClient() {
   const { tr, locale } = useLanguage();
   const [state, setState] = useState(EMPTY_STATE);
+  const [monitor, setMonitor] = useState(EMPTY_MONITOR);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
+
+  async function loadMonitor() {
+    try {
+      const response = await fetch("/api/cloud/watchlist-monitor", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Watchlist Monitor unavailable");
+      setMonitor({ ...EMPTY_MONITOR, ...payload });
+    } catch {
+      setMonitor(EMPTY_MONITOR);
+    }
+  }
 
   async function load() {
     setLoading(true);
@@ -38,8 +59,10 @@ export default function WatchlistClient() {
       const payload = await response.json();
       if (!response.ok) throw new Error(payload?.error || "Watchlist unavailable");
       setState({ ...EMPTY_STATE, ...payload, inbox: { ...EMPTY_STATE.inbox, ...(payload.inbox || {}) } });
+      await loadMonitor();
     } catch (loadError) {
       setState(EMPTY_STATE);
+      setMonitor(EMPTY_MONITOR);
       setError(loadError instanceof Error ? loadError.message : tr({ fi: "Seurantalistaa ei voitu ladata.", en: "Watchlist could not be loaded.", es: "No se pudo cargar la lista de seguimiento." }));
     } finally {
       setLoading(false);
@@ -116,17 +139,23 @@ export default function WatchlistClient() {
   const summary = state.summary || {};
   const inboxSummary = state.inbox?.summary || {};
   const inboxItems = state.inbox?.available ? state.inbox.items || [] : state.alerts || [];
+  const monitorState = monitor.state || {};
   const date = (value) => {
     const parsed = new Date(value || "");
     return Number.isNaN(parsed.getTime()) ? "–" : parsed.toLocaleString(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
   };
+  const monitorLabel = monitor.monitorActive
+    ? tr({ fi: "Aktiivinen", en: "Active", es: "Activo" })
+    : monitor.configured
+      ? tr({ fi: "Määritetty, ei aktivoitu", en: "Configured, not enabled", es: "Configurado, no activado" })
+      : tr({ fi: "Ei määritetty", en: "Not configured", es: "No configurado" });
 
   return (
     <div className="space-y-7">
       <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(52,211,153,0.2),transparent_34%),linear-gradient(135deg,#020617,#0f172a_55%,#020617)] p-6 shadow-2xl md:p-9">
-        <div className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-200">Watchlist V2 · Alert Inbox V1</div>
+        <div className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-200">Watchlist V2 · Alert Inbox V2 · Monitor V1</div>
         <h1 className="mt-4 text-4xl font-black tracking-tight md:text-6xl">{tr({ fi: "Seuraa oikeita otteluita ja säilytä muutokset", en: "Track verified fixtures and keep the changes", es: "Sigue partidos verificados y conserva los cambios" })}</h1>
-        <p className="mt-4 max-w-3xl text-slate-300">{tr({ fi: "Palvelin vertaa nykytilaa lisäyshetkeen. Todennetut muutokset deduplikoidaan käyttäjän omaan inboxiin. Sovellus ei keksi puuttuvaa dataa eikä aseta vetoja.", en: "The server compares the current state with the added state. Verified changes are deduplicated into the user's own inbox. The app does not invent missing data or place bets.", es: "El servidor compara el estado actual con el momento de alta. Los cambios verificados se guardan sin duplicados en el buzón del usuario. La app no inventa datos ni realiza apuestas." })}</p>
+        <p className="mt-4 max-w-3xl text-slate-300">{tr({ fi: "Palvelin vertaa nykytilaa lisäyshetkeen. Kun taustaseuranta on tuotannossa aktivoitu, tarkistus voidaan tehdä myös suojatulla 15 minuutin ajolla. Sovellus ei keksi puuttuvaa dataa eikä aseta vetoja.", en: "The server compares the current state with the added state. When production background monitoring is enabled, a protected 15-minute worker can also perform the check. The app does not invent missing data or place bets.", es: "El servidor compara el estado actual con el momento de alta. Cuando el seguimiento en segundo plano está activado, un proceso protegido de 15 minutos también puede hacer la comprobación. La app no inventa datos ni realiza apuestas." })}</p>
         <div className="mt-6 flex flex-wrap gap-3">
           <button onClick={() => void load()} disabled={loading} className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950 disabled:opacity-50">{loading ? tr({ fi: "Päivitetään…", en: "Refreshing…", es: "Actualizando…" }) : tr({ fi: "Päivitä seuranta", en: "Refresh watchlist", es: "Actualizar lista" })}</button>
           <Link href="/betting" className="rounded-2xl border border-white/10 bg-white/5 px-5 py-3 font-black text-white">{tr({ fi: "Etsi seurattava kohde", en: "Find a selection to watch", es: "Buscar una selección" })}</Link>
@@ -135,6 +164,26 @@ export default function WatchlistClient() {
 
       {error && <div className="rounded-2xl border border-red-400/25 bg-red-400/10 p-4 text-red-100">{error}{error.toLowerCase().includes("auth") || error.toLowerCase().includes("session") ? <Link href="/login" className="ml-2 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link> : null}</div>}
       {state.inbox?.warning && <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 text-yellow-100">{state.inbox.warning}</div>}
+      {monitor.warning && <div className="rounded-2xl border border-yellow-400/25 bg-yellow-400/10 p-4 text-yellow-100">{monitor.warning}</div>}
+
+      <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-5">
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <div className="text-sm font-black text-emerald-300">Watchlist Monitor V1</div>
+            <h2 className="mt-1 text-2xl font-black">{monitorLabel}</h2>
+            <p className="mt-2 text-sm text-slate-400">{tr({ fi: "Tausta-ajo käyttää samaa todennettua analyysiä kuin käsin tehtävä päivitys. Käyttäjä ei voi käynnistää suojattua workeria selaimesta.", en: "The background worker uses the same verified analysis as manual refresh. A user cannot invoke the protected worker from the browser.", es: "El proceso en segundo plano usa el mismo análisis verificado que la actualización manual. El usuario no puede invocar el proceso protegido desde el navegador." })}</p>
+          </div>
+          <div className={`rounded-full border px-3 py-2 text-xs font-black ${monitor.monitorActive ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-slate-400/20 bg-slate-400/10 text-slate-300"}`}>{monitor.monitorActive ? "ON" : "OFF"}</div>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <Info label={tr({ fi: "Viimeisin ajo", en: "Last run", es: "Última ejecución" })} value={date(monitorState.last_completed_at)} />
+          <Info label={tr({ fi: "Tila", en: "Status", es: "Estado" })} value={monitorState.last_status || "–"} />
+          <Info label={tr({ fi: "Kohteita", en: "Items", es: "Elementos" })} value={String(monitorState.last_items_count ?? "–")} />
+          <Info label={tr({ fi: "Hälytyksiä", en: "Alerts", es: "Alertas" })} value={String(monitorState.last_alerts_count ?? "–")} />
+          <Info label={tr({ fi: "Tilannekuvia", en: "Snapshots", es: "Instantáneas" })} value={String(monitorState.last_snapshots_count ?? "–")} />
+        </div>
+        {monitorState.last_error && <div className="mt-4 rounded-xl border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-100">{monitorState.last_error}</div>}
+      </section>
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <Metric label={tr({ fi: "Seurattuja", en: "Watched", es: "Seguidos" })} value={summary.watched || 0} />
