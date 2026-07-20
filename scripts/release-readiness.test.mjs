@@ -11,15 +11,16 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 11);
+  assert.equal(manifest.supabaseMigrations.length, 12);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
-  assert.ok(manifest.publicPages.length >= 6);
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 12);
+  assert.ok(manifest.publicPages.length >= 7);
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 14);
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
@@ -30,6 +31,7 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "pageCandidates",
     "apiCandidates",
     "supabaseMigrations",
+    "scorecaster_autonomous_agent.sql",
     "requiredSecurityHeaders",
     "mobile/store.config.json",
     "mobile/store/google-play-listing.json",
