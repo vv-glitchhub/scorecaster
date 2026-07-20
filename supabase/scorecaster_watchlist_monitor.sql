@@ -70,14 +70,11 @@ begin
     return old;
   end if;
 
-  insert into public.watchlist_monitor_state (user_id, next_check_at, last_status)
+  insert into public.watchlist_monitor_state as state (user_id, next_check_at, last_status)
   values (v_user_id, now(), 'idle')
   on conflict (user_id) do update
-    set next_check_at = least(public.watchlist_monitor_state.next_check_at, now()),
-        last_status = case
-          when public.watchlist_monitor_state.last_status = 'running' then 'running'
-          else 'idle'
-        end,
+    set next_check_at = least(state.next_check_at, now()),
+        last_status = case when state.last_status = 'running' then 'running' else 'idle' end,
         last_error = null;
 
   if tg_op = 'DELETE' then return old; end if;
