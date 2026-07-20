@@ -13,12 +13,12 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  background:
-    if: ${{ vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' || vars.SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true' }}
+  monitor:
+    if: ${{ vars.SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 2
     steps:
-      - name: Validate worker configuration
+      - name: Validate monitor configuration
         env:
           APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
@@ -33,7 +33,6 @@ jobs:
           test "${#CRON_SECRET}" -ge 16
 
       - name: Run Watchlist Monitor cycle
-        if: ${{ vars.SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true' }}
         env:
           APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
@@ -45,8 +44,27 @@ jobs:
             --header "Accept: application/json" \
             "${APP_URL%/}/api/internal/watchlist-monitor"
 
+  deliver:
+    needs: monitor
+    if: ${{ always() && vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate delivery configuration
+        env:
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          case "$APP_URL" in
+            https://*) ;;
+            *) echo "Application URL must use HTTPS" >&2; exit 1 ;;
+          esac
+          test "${#CRON_SECRET}" -ge 16
+
       - name: Run bounded notification delivery cycle
-        if: ${{ vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' }}
         env:
           APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
