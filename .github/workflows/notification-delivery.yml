@@ -44,6 +44,37 @@ jobs:
             --header "Accept: application/json" \
             "${APP_URL%/}/api/internal/watchlist-monitor"
 
+  settle:
+    if: ${{ vars.SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Validate settlement configuration
+        env:
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$APP_URL"
+          test -n "$CRON_SECRET"
+          case "$APP_URL" in
+            https://*) ;;
+            *) echo "Application URL must use HTTPS" >&2; exit 1 ;;
+          esac
+          test "${#CRON_SECRET}" -ge 16
+
+      - name: Run Settlement Monitor cycle
+        env:
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail-with-body \
+            --max-time 55 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "Accept: application/json" \
+            "${APP_URL%/}/api/internal/settlement-monitor"
+
   deliver:
     needs: monitor
     if: ${{ always() && vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' }}
