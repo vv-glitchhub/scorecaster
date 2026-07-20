@@ -7,6 +7,7 @@ import {
   publicError
 } from "../../../../../lib/api-security";
 import { findScoreEventForBet, settlePaperBetFromScore } from "../../../../../lib/paper-settlement-engine.mjs";
+import { loadScoreEvents } from "../../../../../lib/paper-score-provider.js";
 import { SPORTS } from "../../../../../lib/sports";
 
 export const dynamic = "force-dynamic";
@@ -23,55 +24,13 @@ function rejectUnsafeMutation(request, requestId) {
   return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
 }
 
-async function loadScores(sport) {
-  const apiKey = process.env.ODDS_API_KEY;
-  if (!apiKey) return { sport, events: [], error: "Scores provider is not configured" };
-
-  const params = new URLSearchParams({
-    apiKey,
-    daysFrom: "3",
-    dateFormat: "iso"
-  });
-
-  try {
-    const response = await fetch(
-      `https://api.the-odds-api.com/v4/sports/${encodeURIComponent(sport)}/scores/?${params.toString()}`,
-      {
-        next: { revalidate: 300 },
-        signal: AbortSignal.timeout(12000)
-      }
-    );
-
-    if (!response.ok) {
-      return {
-        sport,
-        events: [],
-        error: response.status === 422
-          ? "Scores are not available for this sport"
-          : "Scores provider request failed"
-      };
-    }
-
-    const data = await response.json();
-    return {
-      sport,
-      events: Array.isArray(data) ? data : [],
-      error: null
-    };
-  } catch {
-    return { sport, events: [], error: "Scores provider timed out" };
-  }
-}
-
 export async function POST(request) {
   const requestId = getRequestId(request);
   const unsafe = rejectUnsafeMutation(request, requestId);
   if (unsafe) return unsafe;
 
   const auth = await getAuthenticatedContext(request);
-  if (!auth.ok) {
-    return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
-  }
+  if (!auth.ok) return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
 
   const limited = await enforceRateLimit(auth, requestId, {
     bucket: "cloud_bets_auto_settle",
@@ -81,11 +40,7 @@ export async function POST(request) {
   if (limited) return limited;
 
   if (!process.env.ODDS_API_KEY) {
-    return jsonResponse(
-      { ok: false, error: "Automatic score settlement is not configured" },
-      503,
-      requestId
-    );
+    return jsonResponse({ ok: false, error: "Automatic score settlement is not configured" }, 503, requestId);
   }
 
   const { data: openBets, error: loadError } = await auth.supabase
@@ -97,44 +52,38 @@ export async function POST(request) {
     .limit(MAX_OPEN_BETS);
 
   if (loadError) {
-    return jsonResponse(
-      { ok: false, error: publicError(loadError, "Open paper bets could not be loaded") },
-      500,
-      requestId
-    );
+    return jsonResponse({ ok: false, error: publicError(loadError, "Open paper bets could not be loaded") }, 500, requestId);
   }
 
   const bets = openBets || [];
   const requestedSports = [...new Set(
     bets
+      .filter((bet) => String(bet.market || "h2h").toLowerCase() === "h2h")
       .map((bet) => String(bet.sport || ""))
       .filter((sport) => SUPPORTED_SPORTS.has(sport))
   )];
   const checkedSports = requestedSports.slice(0, MAX_SPORTS_PER_CHECK);
 
   if (!checkedSports.length) {
-    return jsonResponse(
-      {
-        ok: true,
-        checked: bets.length,
-        settled: 0,
-        pending: bets.length,
-        checkedSports: [],
-        message: "No open paper bets had a supported sport key"
-      },
-      200,
-      requestId
-    );
+    return jsonResponse({
+      ok: true,
+      checked: bets.length,
+      settled: 0,
+      pending: bets.length,
+      checkedSports: [],
+      message: "No open H2H paper bets had a supported sport key"
+    }, 200, requestId);
   }
 
-  const scoreResponses = await Promise.all(checkedSports.map(loadScores));
+  const scoreResponses = await Promise.all(checkedSports.map((sport) => loadScoreEvents(sport)));
   const eventsBySport = new Map(scoreResponses.map((item) => [item.sport, item.events]));
   const providerWarnings = scoreResponses
-    .filter((item) => item.error)
-    .map((item) => ({ sport: item.sport, error: item.error }));
+    .filter((item) => item.warning)
+    .map((item) => ({ sport: item.sport, error: item.warning }));
 
   const candidates = bets
     .map((bet) => {
+      if (String(bet.market || "h2h").toLowerCase() !== "h2h") return null;
       const events = eventsBySport.get(String(bet.sport || "")) || [];
       const event = findScoreEventForBet(bet, events);
       const settlement = event ? settlePaperBetFromScore(bet, event) : null;
@@ -143,13 +92,15 @@ export async function POST(request) {
     .filter(Boolean)
     .slice(0, MAX_SETTLEMENTS_PER_CHECK);
 
+  const settledAt = new Date().toISOString();
   const updates = await Promise.all(candidates.map(async ({ bet, settlement }) => {
     const rawPick = bet.raw_pick && typeof bet.raw_pick === "object" ? bet.raw_pick : {};
     const nextRawPick = {
       ...rawPick,
       eventId: settlement.eventId || rawPick.eventId || null,
       settlementSource: settlement.settlementSource,
-      settledAt: new Date().toISOString(),
+      settlementMonitorVersion: "manual-settlement-v1",
+      settledAt,
       completedAt: settlement.completedAt,
       finalScore: settlement.finalScore
     };
@@ -174,19 +125,15 @@ export async function POST(request) {
   const settledRows = updates.filter((item) => item.data && !item.error).map((item) => item.data);
   const updateFailures = updates.filter((item) => item.error).length;
 
-  return jsonResponse(
-    {
-      ok: updateFailures === 0,
-      checked: bets.length,
-      settled: settledRows.length,
-      pending: Math.max(0, bets.length - settledRows.length),
-      checkedSports,
-      skippedSports: requestedSports.slice(MAX_SPORTS_PER_CHECK),
-      providerWarnings,
-      updateFailures,
-      data: settledRows
-    },
-    updateFailures === 0 ? 200 : 207,
-    requestId
-  );
+  return jsonResponse({
+    ok: updateFailures === 0,
+    checked: bets.length,
+    settled: settledRows.length,
+    pending: Math.max(0, bets.length - settledRows.length),
+    checkedSports,
+    skippedSports: requestedSports.slice(MAX_SPORTS_PER_CHECK),
+    providerWarnings,
+    updateFailures,
+    data: settledRows
+  }, updateFailures === 0 ? 200 : 207, requestId);
 }
