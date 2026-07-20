@@ -18,7 +18,7 @@ const SUPPORTED = SPORTS.flatMap((group) => group.leagues.map((league) => ({
   key: league.key,
   title: league.title,
   sport: group.sport
-}));
+})));
 const SUPPORTED_KEYS = new Set(SUPPORTED.map((item) => item.key));
 const DEFAULT_SETTINGS = {
   enabled: false,
