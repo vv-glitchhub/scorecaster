@@ -28,7 +28,7 @@ test("operations response exposes safe booleans but no secrets or push tokens", 
 test("worker health classification distinguishes disabled, stale, failed and active queues", async () => {
   const helper = await source("lib/operations-status.js");
   for (const status of ["migration_required", "disabled", "running", "error", "waiting", "stale", "healthy", "attention", "working"]) {
-    assert.match(helper, new RegExp(`status: "${status}"`));
+    assert.match(helper, new RegExp(`status\\s*(?::|=)\\s*"${status}"`));
   }
   assert.match(helper, /intervalMinutes \|\| 15\) \* 4/);
   assert.match(helper, /provider_accepted/);
