@@ -1,4 +1,4 @@
-name: Scorecaster Notification Delivery
+name: Scorecaster Background Workers
 
 on:
   schedule:
@@ -9,32 +9,33 @@ permissions:
   contents: read
 
 concurrency:
-  group: scorecaster-notification-delivery
+  group: scorecaster-background-workers
   cancel-in-progress: false
 
 jobs:
-  deliver:
-    if: ${{ vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' }}
+  background:
+    if: ${{ vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' || vars.SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 2
+    timeout-minutes: 4
     steps:
-      - name: Validate delivery configuration
+      - name: Validate worker configuration
         env:
-          DELIVERY_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
         run: |
           set -euo pipefail
-          test -n "$DELIVERY_URL"
+          test -n "$APP_URL"
           test -n "$CRON_SECRET"
-          case "$DELIVERY_URL" in
+          case "$APP_URL" in
             https://*) ;;
-            *) echo "Delivery URL must use HTTPS" >&2; exit 1 ;;
+            *) echo "Application URL must use HTTPS" >&2; exit 1 ;;
           esac
           test "${#CRON_SECRET}" -ge 16
 
-      - name: Run bounded delivery cycle
+      - name: Run Watchlist Monitor cycle
+        if: ${{ vars.SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true' }}
         env:
-          DELIVERY_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
         run: |
           set -euo pipefail
@@ -42,4 +43,17 @@ jobs:
             --max-time 55 \
             --header "Authorization: Bearer ${CRON_SECRET}" \
             --header "Accept: application/json" \
-            "${DELIVERY_URL%/}/api/internal/notification-delivery"
+            "${APP_URL%/}/api/internal/watchlist-monitor"
+
+      - name: Run bounded notification delivery cycle
+        if: ${{ vars.SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true' }}
+        env:
+          APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
+          CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          curl --silent --show-error --fail-with-body \
+            --max-time 55 \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            --header "Accept: application/json" \
+            "${APP_URL%/}/api/internal/notification-delivery"
