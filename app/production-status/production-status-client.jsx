@@ -37,6 +37,7 @@ export default function ProductionStatusClient() {
           Tämä sivu tarkistaa julkisen health-päätteen. Kirjautuneen käyttäjän oikeat worker-ajot, jonot ja migraatiot näkyvät Operations Dashboardissa.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
+          <Link href="/release-readiness" className="rounded-2xl bg-emerald-300 px-5 py-3 font-black text-slate-950">Release Readiness</Link>
           <Link href="/operations" className="rounded-2xl bg-sky-300 px-5 py-3 font-black text-slate-950">Operations Dashboard</Link>
           <Link href="/cloud-sync" className="rounded-2xl bg-emerald-400 px-5 py-3 font-black text-slate-950">Cloud Sync</Link>
           <Link href="/profile" className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-5 py-3 font-black text-emerald-100">Profile</Link>
