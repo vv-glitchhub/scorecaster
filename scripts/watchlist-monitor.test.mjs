@@ -59,13 +59,30 @@ test("monitor route is secret protected and fail closed", async () => {
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET\s*:/);
 });
 
-test("background scheduler runs monitor before push delivery and remains opt in", async () => {
+test("authenticated status and account controls expose metadata without secrets", async () => {
+  const statusRoute = await source("app/api/cloud/watchlist-monitor/route.js");
+  const exportRoute = await source("app/api/account/export/route.js");
+  const accountRoute = await source("app/api/account/route.js");
+  const web = await source("app/watchlist/WatchlistClient.jsx");
+  assert.match(statusRoute, /getAuthenticatedContext\(request\)/);
+  assert.match(statusRoute, /watchlist_monitor_state/);
+  assert.match(statusRoute, /last_items_count,last_alerts_count,last_snapshots_count/);
+  assert.doesNotMatch(statusRoute, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|expo_push_token/);
+  assert.match(exportRoute, /watchlistMonitor:/);
+  assert.match(accountRoute, /"watchlist_monitor_state"/);
+  assert.match(web, /Watchlist Monitor V1/);
+  assert.match(web, /\/api\/cloud\/watchlist-monitor/);
+});
+
+test("background scheduler runs monitor before push delivery without blocking queued delivery", async () => {
   const workflow = await source(".github/workflows/notification-delivery.yml");
   const monitorIndex = workflow.indexOf("Run Watchlist Monitor cycle");
   const deliveryIndex = workflow.indexOf("Run bounded notification delivery cycle");
   assert.ok(monitorIndex >= 0 && deliveryIndex > monitorIndex);
   assert.match(workflow, /SCORECASTER_WATCHLIST_MONITOR_ENABLED/);
   assert.match(workflow, /SCORECASTER_NOTIFICATION_DELIVERY_ENABLED/);
+  assert.match(workflow, /needs: monitor/);
+  assert.match(workflow, /always\(\).*SCORECASTER_NOTIFICATION_DELIVERY_ENABLED/);
   assert.match(workflow, /\/api\/internal\/watchlist-monitor/);
   assert.match(workflow, /\/api\/internal\/notification-delivery/);
   assert.match(workflow, /Authorization: Bearer \$\{CRON_SECRET\}/);
