@@ -284,8 +284,19 @@ alter table public.autonomous_agent_runs enable row level security;
 alter table public.autonomous_agent_runs force row level security;
 
 drop policy if exists "Users manage own autonomous agent settings" on public.autonomous_agent_settings;
-create policy "Users manage own autonomous agent settings"
-on public.autonomous_agent_settings for all
+drop policy if exists "Users read own autonomous agent settings" on public.autonomous_agent_settings;
+drop policy if exists "Users insert own autonomous agent settings" on public.autonomous_agent_settings;
+drop policy if exists "Users update own autonomous agent settings" on public.autonomous_agent_settings;
+create policy "Users read own autonomous agent settings"
+on public.autonomous_agent_settings for select
+to authenticated
+using (auth.uid() = user_id);
+create policy "Users insert own autonomous agent settings"
+on public.autonomous_agent_settings for insert
+to authenticated
+with check (auth.uid() = user_id);
+create policy "Users update own autonomous agent settings"
+on public.autonomous_agent_settings for update
 to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
@@ -305,7 +316,8 @@ using (auth.uid() = user_id);
 revoke all on public.autonomous_agent_settings from anon;
 revoke all on public.autonomous_agent_state from anon;
 revoke all on public.autonomous_agent_runs from anon;
-grant select, insert, update, delete on public.autonomous_agent_settings to authenticated;
+revoke delete on public.autonomous_agent_settings from authenticated;
+grant select, insert, update on public.autonomous_agent_settings to authenticated;
 grant select on public.autonomous_agent_state to authenticated;
 grant select on public.autonomous_agent_runs to authenticated;
 revoke insert, update, delete on public.autonomous_agent_state from authenticated;
