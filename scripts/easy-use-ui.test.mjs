@@ -4,15 +4,21 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("web shell exposes a small canonical task navigation", async () => {
+test("web shell exposes four primary tasks plus a dedicated More action", async () => {
   const shell = await read("app/components/AppShell.jsx");
-  const primaryBlock = shell.slice(shell.indexOf("const primaryItems"), shell.indexOf("const secondaryGroups"));
+  const primaryBlock = shell.slice(shell.indexOf("const primaryItems"), shell.indexOf("const groups"));
 
-  for (const path of ["/", "/betting", "/agent", "/tracking", "/analytics", "/simulator"]) {
+  for (const path of ["/", "/betting", "/agent", "/tracking"]) {
     assert.match(primaryBlock, new RegExp(`href: \\"${path.replace("/", "\\/")}\\"`));
   }
 
-  assert.doesNotMatch(primaryBlock, /open-bets|agent-v7|agent-memory|ai-research|tournament|core-status/);
+  for (const path of ["/analytics", "/simulator", "/operations", "/release-readiness"]) {
+    assert.doesNotMatch(primaryBlock, new RegExp(`href: \\"${path.replace("/", "\\/")}\\"`));
+  }
+
+  assert.match(shell, /grid-cols-5/);
+  assert.match(shell, /NavIcon name="more"/);
+  assert.match(shell, /Advanced \/ operator/);
   assert.match(shell, /ContextHelp/);
   assert.match(shell, /LanguageSwitcher/);
   assert.match(shell, /t\("mode\.paper"\)/);
@@ -20,19 +26,32 @@ test("web shell exposes a small canonical task navigation", async () => {
   assert.match(shell, /aria-label=\{t\("nav\.quickAria"\)\}/);
 });
 
-test("home page teaches the three-step paper-only workflow and uses current Top Picks", async () => {
+test("home is a decision center with concise actions and trust context", async () => {
   const home = await read("app/DashboardClient.jsx");
-  const i18n = await read("lib/i18n.js");
+  const productUi = await read("app/components/ProductUI.jsx");
 
-  assert.match(home, /home\.startTitle/);
-  assert.match(home, /home\.step1Title/);
-  assert.match(home, /home\.step2Title/);
-  assert.match(home, /home\.step3Title/);
   assert.match(home, /fetch\("\/api\/top-picks"/);
+  assert.match(home, /PageHero/);
+  assert.match(home, /TrustBar/);
+  assert.match(home, /DecisionBadge/);
+  assert.match(home, /Näytä päivän kohteet/);
+  assert.match(home, /Autonominen tila/);
+  assert.match(home, /Polymarket/);
+  assert.match(home, /paperiseuranta/);
+  assert.doesNotMatch(home, /home\.step1Title|home\.step2Title|home\.step3Title/);
   assert.doesNotMatch(home, /api\/agent-v9|Agent V9 ranked|BET Signals|Open Betting Workspace/);
-  assert.match(i18n, /Aloita kolmessa vaiheessa/);
-  assert.match(i18n, /Start in three steps/);
-  assert.match(i18n, /Empieza en tres pasos/);
+  assert.match(productUi, /export function PageHero/);
+  assert.match(productUi, /export function TrustBar/);
+  assert.match(productUi, /export function DecisionBadge/);
+});
+
+test("shared UX V2 styles preserve keyboard and reduced-motion accessibility", async () => {
+  const styles = await read("app/globals.css");
+  assert.match(styles, /:focus-visible/);
+  assert.match(styles, /prefers-reduced-motion/);
+  assert.match(styles, /scroll-behavior: smooth/);
+  assert.match(styles, /sc-button-primary/);
+  assert.match(styles, /sc-input/);
 });
 
 test("obsolete Agent V7 route redirects to the current Agent page", async () => {
@@ -60,14 +79,18 @@ test("canonical simulator page renders the validated reproducible client", async
   assert.doesNotMatch(page, /getMonteCarlo|worldCupFixtures|Monte Carlo Risk Lab/);
 });
 
-test("betting keeps advanced paper settings out of the primary flow", async () => {
+test("betting keeps advanced controls collapsed and uses the shared decision UI", async () => {
   const betting = await read("app/betting/BettingClient.jsx");
-  assert.match(betting, /Advanced paper settings/);
-  assert.match(betting, /Ajustes simulados avanzados/);
-  assert.match(betting, /Edistyneet paperiasetukset/);
+  assert.match(betting, /Advanced: paper bankroll and refresh/);
+  assert.match(betting, /Avanzado: banca simulada y actualización/);
+  assert.match(betting, /Advanced: paperikassa ja automaattipäivitys/);
   assert.match(betting, /<details/);
   assert.match(betting, /Choose sport/);
   assert.match(betting, /Elegir liga/);
+  assert.match(betting, /PageHero/);
+  assert.match(betting, /TrustBar/);
+  assert.match(betting, /DecisionBadge/);
+  assert.match(betting, /MetricTile/);
   assert.doesNotMatch(betting, /Betting Decision Workspace|Paper Bet Slip|bookkeria/);
 });
 
