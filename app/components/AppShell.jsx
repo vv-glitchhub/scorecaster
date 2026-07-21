@@ -5,16 +5,10 @@ import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ContextHelp from "./ContextHelp";
 import { LanguageSwitcher, useLanguage } from "./LanguageProvider";
+import { AppIcon, BrandMark, ThemeToggle } from "./BrandUI";
 
-function NavIcon({ name }) {
-  const icons = {
-    home: "⌂",
-    picks: "◫",
-    agent: "✦",
-    portfolio: "◎",
-    more: "•••"
-  };
-  return <span className="text-base leading-none" aria-hidden="true">{icons[name] || "•"}</span>;
+function NavIcon({ name, size = 19 }) {
+  return <AppIcon name={name} size={size} />;
 }
 
 export default function AppShell({ children }) {
@@ -84,50 +78,54 @@ export default function AppShell({ children }) {
   }
 
   return (
-    <div className="min-h-screen text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/82 backdrop-blur-2xl">
-        <div className="mx-auto max-w-[1440px] px-4 lg:px-6">
-          <div className="flex min-h-[72px] items-center justify-between gap-4">
-            <Link href="/" className="group flex min-w-0 items-center gap-3">
-              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300 text-lg font-black text-emerald-950 shadow-[0_12px_35px_rgba(16,185,129,0.2)] transition group-hover:-translate-y-0.5">S</div>
+    <div className="min-h-screen text-[var(--sc-text)]">
+      <header className="sc-shell-header sticky top-0 z-50 border-b backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1480px] px-4 lg:px-7">
+          <div className="flex min-h-[76px] items-center justify-between gap-4">
+            <Link href="/" className="group flex min-w-0 items-center gap-3.5" aria-label="Scorecaster">
+              <BrandMark />
               <div className="min-w-0">
-                <div className="truncate text-lg font-black tracking-[-0.03em] text-white">Scorecaster</div>
-                <div className="truncate text-[11px] font-bold uppercase tracking-[0.13em] text-slate-500">Decision intelligence</div>
+                <div className="truncate text-[1.15rem] font-black tracking-[-0.045em] text-[var(--sc-text)]">Scorecaster</div>
+                <div className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-muted)]">Sports decision OS</div>
               </div>
             </Link>
 
-            <nav className="hidden items-center gap-1 lg:flex" aria-label={t("nav.mainAria")}>
+            <nav className="hidden items-center gap-1.5 lg:flex" aria-label={t("nav.mainAria")}>
               {primaryItems.map((item) => (
-                <Link key={item.href} href={item.href} className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${isActive(item) ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/[0.055] hover:text-white"}`}>
+                <Link key={item.href} href={item.href} className={`flex min-h-11 items-center gap-2 rounded-[0.9rem] px-4 text-sm font-black transition ${isActive(item) ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)] shadow-[var(--sc-brand-shadow)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)] hover:text-[var(--sc-text)]"}`}>
+                  <NavIcon name={item.icon} size={17} />
                   {item.label}
                 </Link>
               ))}
               <div className="relative">
-                <button type="button" onClick={() => setMoreOpen((value) => !value)} className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${moreOpen ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/[0.055] hover:text-white"}`} aria-expanded={moreOpen}>
-                  {t("nav.more")} <span aria-hidden="true">▾</span>
+                <button type="button" onClick={() => setMoreOpen((value) => !value)} className={`flex min-h-11 items-center gap-2 rounded-[0.9rem] px-4 text-sm font-black transition ${moreOpen ? "bg-[var(--sc-surface-hover)] text-[var(--sc-text)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)] hover:text-[var(--sc-text)]"}`} aria-expanded={moreOpen}>
+                  <NavIcon name="more" size={18} />{t("nav.more")}
                 </button>
                 {moreOpen && (
-                  <div className="absolute right-0 top-14 z-50 w-[860px] max-w-[92vw] rounded-3xl border border-white/10 bg-slate-950/97 p-5 shadow-[0_32px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+                  <div className="sc-menu-surface absolute right-0 top-14 z-50 w-[900px] max-w-[92vw] rounded-[1.7rem] p-5 backdrop-blur-2xl">
                     <div className="grid gap-5 md:grid-cols-3">
                       {groups.map((group) => (
                         <section key={group.title}>
-                          <h2 className="mb-2 px-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2>
+                          <h2 className="mb-2 px-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-faint)]">{group.title}</h2>
                           <div className="space-y-1.5">
                             {group.items.map((item) => (
-                              <Link key={item.href} href={item.href} className="block rounded-2xl border border-transparent px-3 py-2.5 transition hover:border-white/10 hover:bg-white/[0.05]">
-                                <div className="text-sm font-black text-white">{item.label}</div>
-                                <div className="mt-0.5 text-xs leading-5 text-slate-500">{item.description}</div>
+                              <Link key={item.href} href={item.href} className="group block rounded-[1.05rem] border border-transparent px-3 py-2.5 transition hover:border-[var(--sc-border)] hover:bg-[var(--sc-surface-soft)]">
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="text-sm font-black text-[var(--sc-text)]">{item.label}</div>
+                                  <AppIcon name="chevron" size={15} className="text-[var(--sc-faint)] transition group-hover:translate-x-0.5 group-hover:text-[var(--sc-brand)]" />
+                                </div>
+                                <div className="mt-0.5 text-xs leading-5 text-[var(--sc-muted)]">{item.description}</div>
                               </Link>
                             ))}
                           </div>
                         </section>
                       ))}
                     </div>
-                    <div className="mt-5 border-t border-white/10 pt-4">
-                      <button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300">
+                    <div className="mt-5 border-t border-[var(--sc-border)] pt-4">
+                      <button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)] hover:bg-[var(--sc-surface-soft)] hover:text-[var(--sc-muted)]">
                         <span>{tr({ fi: "Advanced / ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</span><span>{advancedOpen ? "−" : "+"}</span>
                       </button>
-                      {advancedOpen && <div className="mt-2 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-400 hover:text-white">{item.label}</Link>)}</div>}
+                      {advancedOpen && <div className="mt-2 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)] hover:border-[var(--sc-brand-border)] hover:text-[var(--sc-text)]">{item.label}</Link>)}</div>}
                     </div>
                   </div>
                 )}
@@ -135,47 +133,48 @@ export default function AppShell({ children }) {
             </nav>
 
             <div className="flex items-center gap-2">
-              <div className="hidden rounded-full border border-amber-300/20 bg-amber-300/8 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.11em] text-amber-200 sm:block">{t("mode.paper")}</div>
+              <div className="hidden items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.13em] text-[var(--sc-text-secondary)] sm:flex"><AppIcon name="shield" size={14} />{t("mode.paper")}</div>
+              <ThemeToggle labelDark={tr({ fi: "Tumma tila", en: "Dark mode", es: "Modo oscuro" })} labelLight={tr({ fi: "Vaalea tila", en: "Light mode", es: "Modo claro" })} />
               <LanguageSwitcher compact />
-              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-black text-white lg:hidden" aria-expanded={menuOpen} aria-controls="mobile-menu">
-                {menuOpen ? t("nav.close") : t("nav.menu")}
+              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="sc-icon-button lg:hidden" aria-expanded={menuOpen} aria-controls="mobile-menu" aria-label={menuOpen ? t("nav.close") : t("nav.menu")}>
+                <NavIcon name={menuOpen ? "more" : "more"} />
               </button>
             </div>
           </div>
 
           {menuOpen && (
-            <div id="mobile-menu" className="max-h-[calc(100vh-88px)] overflow-y-auto border-t border-white/10 pb-7 pt-4 lg:hidden">
-              <div className="mb-4 rounded-2xl border border-amber-300/20 bg-amber-300/8 p-3 text-center text-xs font-black text-amber-100">{t("mode.paperDescription")}</div>
+            <div id="mobile-menu" className="max-h-[calc(100vh-92px)] overflow-y-auto border-t border-[var(--sc-border)] pb-7 pt-4 lg:hidden">
+              <div className="mb-4 flex items-center justify-center gap-2 rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-3 text-center text-xs font-black text-[var(--sc-text-secondary)]"><AppIcon name="shield" size={15} />{t("mode.paperDescription")}</div>
               <div className="grid grid-cols-2 gap-2">
-                {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`rounded-2xl border px-3 py-3 text-center text-sm font-black ${isActive(item) ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-100" : "border-white/10 bg-white/[0.035] text-slate-300"}`}>{item.label}</Link>)}
+                {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 items-center justify-center gap-2 rounded-2xl border px-3 py-3 text-center text-sm font-black ${isActive(item) ? "border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[var(--sc-text-secondary)]"}`}><NavIcon name={item.icon} />{item.label}</Link>)}
               </div>
               <div className="mt-6 space-y-6">
-                {groups.map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><div className="font-black text-white">{item.label}</div><div className="mt-1 text-xs leading-5 text-slate-500">{item.description}</div></Link>)}</div></section>)}
-                <section><button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between text-xs font-black uppercase tracking-[0.18em] text-slate-500"><span>{tr({ fi: "Advanced / ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</span><span>{advancedOpen ? "−" : "+"}</span></button>{advancedOpen && <div className="mt-3 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-400">{item.label}</Link>)}</div>}</section>
+                {groups.map((group) => <section key={group.title}><h2 className="mb-2 text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-faint)]">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="font-black text-[var(--sc-text)]">{item.label}</div><div className="mt-1 text-xs leading-5 text-[var(--sc-muted)]">{item.description}</div></Link>)}</div></section>)}
+                <section><button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-faint)]"><span>{tr({ fi: "Advanced / ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</span><span>{advancedOpen ? "−" : "+"}</span></button>{advancedOpen && <div className="mt-3 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)]">{item.label}</Link>)}</div>}</section>
               </div>
             </div>
           )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1440px] px-4 py-6 pb-28 lg:px-6 lg:py-8 lg:pb-10">
+      <main className="mx-auto max-w-[1480px] px-4 py-6 pb-28 lg:px-7 lg:py-9 lg:pb-12">
         <ContextHelp />
-        {children}
+        <div className="sc-rise-in">{children}</div>
       </main>
 
-      <nav className="sc-safe-bottom fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/94 px-1 pt-1 backdrop-blur-2xl lg:hidden" aria-label={t("nav.quickAria")}>
-        {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[10px] font-black ${isActive(item) ? "bg-emerald-300/10 text-emerald-200" : "text-slate-500"}`}><NavIcon name={item.icon} />{item.short}</Link>)}
-        <button type="button" onClick={() => setMenuOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black text-slate-500"><NavIcon name="more" />{t("nav.more")}</button>
+      <nav className="sc-safe-bottom sc-shell-header fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t px-1 pt-1 backdrop-blur-2xl lg:hidden" aria-label={t("nav.quickAria")}>
+        {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`relative flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[10px] font-black ${isActive(item) ? "text-[var(--sc-text)]" : "text-[var(--sc-faint)]"}`}>{isActive(item) && <span className="absolute top-0 h-0.5 w-7 rounded-full bg-[var(--sc-brand)] shadow-[0_0_16px_var(--sc-brand)]" />}<NavIcon name={item.icon} />{item.short}</Link>)}
+        <button type="button" onClick={() => setMenuOpen(true)} className="flex min-h-[3.7rem] flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black text-[var(--sc-faint)]"><NavIcon name="more" />{t("nav.more")}</button>
       </nav>
 
-      <footer className="border-t border-white/10 bg-slate-950/35 py-8">
-        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-6">
-          <div><span className="font-black text-slate-300">Scorecaster</span> · {t("footer.summary")}</div>
+      <footer className="border-t border-[var(--sc-border)] bg-[var(--sc-surface-soft)] py-9">
+        <div className="mx-auto flex max-w-[1480px] flex-col gap-5 px-4 text-sm text-[var(--sc-muted)] sm:flex-row sm:items-center sm:justify-between lg:px-7">
+          <div className="flex items-center gap-3"><BrandMark compact /><div><div className="font-black text-[var(--sc-text)]">Scorecaster</div><div className="text-xs">{t("footer.summary")}</div></div></div>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
-            <Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link>
-            <Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link>
-            <Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link>
-            <Link href="/help" className="hover:text-white">{t("nav.help")}</Link>
+            <Link href="/privacy" className="hover:text-[var(--sc-text)]">{t("footer.privacy")}</Link>
+            <Link href="/terms" className="hover:text-[var(--sc-text)]">{t("footer.terms")}</Link>
+            <Link href="/responsible-use" className="hover:text-[var(--sc-text)]">{t("footer.responsible")}</Link>
+            <Link href="/help" className="hover:text-[var(--sc-text)]">{t("nav.help")}</Link>
           </div>
         </div>
       </footer>
