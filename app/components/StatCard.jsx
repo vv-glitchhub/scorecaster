@@ -1,24 +1,37 @@
 export default function StatCard({ title, value, subtitle, tone = "default", icon }) {
   const toneClass = tone === "green"
-    ? "text-emerald-200"
+    ? "text-emerald-300"
     : tone === "red"
-      ? "text-rose-200"
+      ? "text-rose-300"
       : tone === "blue"
-        ? "text-sky-200"
+        ? "text-sky-300"
         : tone === "yellow"
-          ? "text-amber-200"
+          ? "text-amber-300"
           : tone === "purple"
-            ? "text-purple-200"
-            : "text-white";
+            ? "text-purple-300"
+            : "text-[var(--sc-text)]";
+
+  const accentClass = tone === "green"
+    ? "bg-emerald-400"
+    : tone === "red"
+      ? "bg-rose-400"
+      : tone === "blue"
+        ? "bg-sky-400"
+        : tone === "yellow"
+          ? "bg-amber-400"
+          : tone === "purple"
+            ? "bg-purple-400"
+            : "bg-[var(--sc-brand)]";
 
   return (
-    <div className="rounded-3xl border border-white/10 bg-slate-950/48 p-5 shadow-[0_18px_45px_rgba(0,0,0,0.2)] backdrop-blur-xl">
+    <div className="sc-surface relative overflow-hidden rounded-[1.45rem] p-5">
+      <span className={`absolute inset-x-0 top-0 h-[3px] ${accentClass}`} aria-hidden="true" />
       <div className="flex items-start justify-between gap-3">
-        <div className="text-xs font-black uppercase tracking-[0.14em] text-slate-500">{title}</div>
-        {icon && <div className="text-slate-500">{icon}</div>}
+        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{title}</div>
+        {icon && <div className="text-[var(--sc-muted)]">{icon}</div>}
       </div>
-      <div className={`mt-3 text-3xl font-black tracking-[-0.03em] ${toneClass}`}>{value}</div>
-      {subtitle && <div className="mt-2 text-xs leading-5 text-slate-500">{subtitle}</div>}
+      <div className={`mt-3 text-3xl font-black tracking-[-0.045em] ${toneClass}`}>{value}</div>
+      {subtitle && <div className="mt-2 text-xs leading-5 text-[var(--sc-muted)]">{subtitle}</div>}
     </div>
   );
 }
