@@ -45,13 +45,40 @@ test("home is a decision center with concise actions and trust context", async (
   assert.match(productUi, /export function DecisionBadge/);
 });
 
-test("shared UX V2 styles preserve keyboard and reduced-motion accessibility", async () => {
+test("shared UX styles preserve keyboard and reduced-motion accessibility", async () => {
   const styles = await read("app/globals.css");
   assert.match(styles, /:focus-visible/);
   assert.match(styles, /prefers-reduced-motion/);
   assert.match(styles, /scroll-behavior: smooth/);
   assert.match(styles, /sc-button-primary/);
   assert.match(styles, /sc-input/);
+});
+
+test("Visual V3 provides a custom brand, icons, team identity and persisted light-dark appearance", async () => {
+  const brand = await read("app/components/BrandUI.jsx");
+  const shell = await read("app/components/AppShell.jsx");
+  const productUi = await read("app/components/ProductUI.jsx");
+  const analytics = await read("app/analytics/AnalyticsClient.jsx");
+  const styles = await read("app/globals.css");
+  const layout = await read("app/layout.jsx");
+
+  assert.match(brand, /export function BrandMark/);
+  assert.match(brand, /export function AppIcon/);
+  assert.match(brand, /export function ThemeToggle/);
+  assert.match(brand, /export function TeamCrest/);
+  assert.match(brand, /scorecaster-theme/);
+  assert.match(shell, /<BrandMark/);
+  assert.match(shell, /<ThemeToggle/);
+  assert.match(shell, /Sports decision OS/);
+  assert.match(productUi, /export function MatchIdentity/);
+  assert.match(analytics, /<MatchIdentity/);
+  assert.match(styles, /html\[data-theme="light"\]/);
+  assert.match(styles, /html\[data-theme="dark"\]/);
+  assert.match(styles, /--sc-brand: #b8ff5c/);
+  assert.match(styles, /sc-shell-header/);
+  assert.match(layout, /appearanceScript/);
+  assert.match(layout, /themeColor/);
+  assert.doesNotMatch(brand + productUi, /https?:\/\//);
 });
 
 test("obsolete Agent V7 route redirects to the current Agent page", async () => {
