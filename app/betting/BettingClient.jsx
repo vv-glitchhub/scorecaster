@@ -12,6 +12,14 @@ import { analyzeBetRisk } from "../../lib/risk-engine";
 import { analyzeBettingGames } from "../../lib/betting-excellence-engine.mjs";
 import { getOddsMovement, saveOddsSnapshots } from "../../lib/odds-movement";
 import { saveMovementSnapshot, getSelectionMovementHistory, detectMovementSignal } from "../../lib/movement-history";
+import {
+  DecisionBadge,
+  EmptyState,
+  MetricTile,
+  PageHero,
+  SectionHeader,
+  TrustBar
+} from "../components/ProductUI";
 
 function getGamesFromResponse(data) {
   if (Array.isArray(data)) return data;
@@ -34,12 +42,6 @@ function movementShape(game) {
       bookmaker: selection.bookmaker
     }))
   };
-}
-
-function decisionClass(decision) {
-  if (decision === "PLAY") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-  if (decision === "CAUTION") return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
-  return "border-red-400/30 bg-red-400/10 text-red-300";
 }
 
 export default function BettingClient() {
@@ -171,9 +173,9 @@ export default function BettingClient() {
     });
 
     setSavedMessage(tr({
-      fi: "Kohde lisättiin paikalliseen paperiseurantaan. Oikeaa vetoa ei asetettu.",
-      en: "The pick was added to local paper tracking. No real bet was placed.",
-      es: "El pronóstico se añadió al seguimiento simulado local. No se realizó ninguna apuesta real."
+      fi: "Kohde lisättiin paperisalkkuun. Oikeaa vetoa ei asetettu.",
+      en: "The pick was added to the paper portfolio. No real bet was placed.",
+      es: "El pronóstico se añadió a la cartera simulada. No se realizó ninguna apuesta real."
     }));
   }
 
@@ -182,147 +184,212 @@ export default function BettingClient() {
   const playCount = allSelections.filter((selection) => selection.decision === "PLAY").length;
   const cautionCount = allSelections.filter((selection) => selection.decision === "CAUTION").length;
   const skipCount = allSelections.filter((selection) => selection.decision === "SKIP").length;
-  const riskColor = selectedBet?.risk?.level === "High" ? "text-red-300" : selectedBet?.risk?.level === "Medium" ? "text-yellow-300" : "text-emerald-300";
+  const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
   const riskLabel = (level) => level === "High"
     ? tr({ fi: "Korkea", en: "High", es: "Alto" })
     : level === "Medium"
       ? tr({ fi: "Keskitaso", en: "Medium", es: "Medio" })
       : tr({ fi: "Matala", en: "Low", es: "Bajo" });
-  const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
+
+  const heroAside = (
+    <div>
+      <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{tr({ fi: "Markkinan yhteenveto", en: "Market summary", es: "Resumen del mercado" })}</div>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <MetricTile compact label="PLAY" value={playCount} tone="green" />
+        <MetricTile compact label="CAUTION" value={cautionCount} tone="yellow" />
+        <MetricTile compact label="SKIP" value={skipCount} tone="red" />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="space-y-6">
-      <section className="rounded-3xl border border-white/10 bg-gradient-to-br from-slate-900 to-slate-950 p-5 shadow-2xl sm:p-6">
-        <div className="mb-2 inline-flex rounded-full border border-sky-400/30 bg-sky-400/10 px-3 py-1 text-sm font-black text-sky-300">{t("nav.picks")} · no-vig</div>
-        <h1 className="text-3xl font-black tracking-tight sm:text-4xl">{tr({ fi: "Päivän kohteet", en: "Today's picks", es: "Pronósticos de hoy" })}</h1>
-        <p className="mt-3 max-w-4xl text-slate-300">{tr({
-          fi: "Valitse laji, liiga ja markkina. Avaa sitten yksi kerroin nähdäksesi hinnan, päätöksen ja riskit selkeästi.",
-          en: "Choose a sport, league and market. Then open one price to see the value, decision and risks clearly.",
-          es: "Elige deporte, liga y mercado. Después abre una cuota para ver claramente el valor, la decisión y los riesgos."
-        })}</p>
+    <div className="space-y-7">
+      <PageHero
+        tone="sky"
+        eyebrow={tr({ fi: "Live-markkinat", en: "Live markets", es: "Mercados en vivo" })}
+        title={tr({ fi: "Vertaa hinta, laatu ja riski yhdellä silmäyksellä", en: "Compare price, quality and risk at a glance", es: "Compara cuota, calidad y riesgo de un vistazo" })}
+        description={tr({
+          fi: "Valitse liiga ja markkina. Scorecaster poistaa vedonvälittäjän marginaalin, vertailee parhaat hinnat ja näyttää päätöksen ilman turhaa teknistä melua.",
+          en: "Choose a league and market. Scorecaster removes bookmaker margin, compares the best prices and shows the decision without unnecessary technical noise.",
+          es: "Elige liga y mercado. Scorecaster elimina el margen, compara las mejores cuotas y muestra la decisión sin ruido técnico innecesario."
+        })}
+        actions={
+          <button onClick={() => void loadOdds()} disabled={loading} className="sc-button-primary">
+            {loading ? t("common.loading") : tr({ fi: "Päivitä live-kohteet", en: "Refresh live picks", es: "Actualizar pronósticos" })}
+          </button>
+        }
+        aside={heroAside}
+      />
 
-        <div className="mt-5 grid gap-3 md:grid-cols-3">
-          <label className="text-sm font-bold text-slate-300">{tr({ fi: "Laji", en: "Sport", es: "Deporte" })}
-            <select aria-label={tr({ fi: "Valitse laji", en: "Choose sport", es: "Elegir deporte" })} value={selectedSport} onChange={(event) => handleSportChange(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100">
+      <Panel
+        title={tr({ fi: "Rajaa markkina", en: "Filter the market", es: "Filtrar mercado" })}
+        subtitle={tr({ fi: "Kolme valintaa riittää. Muut asetukset ovat Advanced-osiossa.", en: "Three choices are enough. Other settings are under Advanced.", es: "Tres opciones son suficientes. El resto está en Avanzado." })}
+      >
+        <div className="grid gap-4 md:grid-cols-3">
+          <label className="text-sm font-black text-slate-300">{tr({ fi: "Laji", en: "Sport", es: "Deporte" })}
+            <select aria-label={tr({ fi: "Valitse laji", en: "Choose sport", es: "Elegir deporte" })} value={selectedSport} onChange={(event) => handleSportChange(event.target.value)} className="sc-input mt-2">
               {SPORTS.map((sport) => <option key={sport.group} value={sport.group}>{sport.group}</option>)}
             </select>
           </label>
-          <label className="text-sm font-bold text-slate-300">{tr({ fi: "Liiga", en: "League", es: "Liga" })}
-            <select aria-label={tr({ fi: "Valitse liiga", en: "Choose league", es: "Elegir liga" })} value={selectedLeague} onChange={(event) => setSelectedLeague(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100">
+          <label className="text-sm font-black text-slate-300">{tr({ fi: "Liiga", en: "League", es: "Liga" })}
+            <select aria-label={tr({ fi: "Valitse liiga", en: "Choose league", es: "Elegir liga" })} value={selectedLeague} onChange={(event) => setSelectedLeague(event.target.value)} className="sc-input mt-2">
               {currentLeagues.map((league) => <option key={league.key} value={league.key}>{league.title}</option>)}
             </select>
           </label>
-          <label className="text-sm font-bold text-slate-300">{tr({ fi: "Markkina", en: "Market", es: "Mercado" })}
-            <select aria-label={tr({ fi: "Valitse markkina", en: "Choose market", es: "Elegir mercado" })} value={selectedMarket} onChange={(event) => setSelectedMarket(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100">
+          <label className="text-sm font-black text-slate-300">{tr({ fi: "Markkina", en: "Market", es: "Mercado" })}
+            <select aria-label={tr({ fi: "Valitse markkina", en: "Choose market", es: "Elegir mercado" })} value={selectedMarket} onChange={(event) => setSelectedMarket(event.target.value)} className="sc-input mt-2">
               {MARKETS.map((market) => <option key={market.key} value={market.key}>{market.title}</option>)}
             </select>
           </label>
         </div>
 
-        <div className="mt-4 flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-4 text-sm text-slate-300 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            PLAY <span className="font-black text-emerald-300">{playCount}</span> · CAUTION <span className="font-black text-yellow-300">{cautionCount}</span> · SKIP <span className="font-black text-red-300">{skipCount}</span>
-            {lastUpdated && <span className="ml-2 text-slate-500">{tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" })} {lastUpdated.toLocaleTimeString(locale)}</span>}
-            {reason && <div className="mt-2 text-yellow-300">{reason}</div>}
-          </div>
-          <button onClick={() => void loadOdds()} disabled={loading} className="rounded-xl bg-sky-400 px-4 py-3 font-black text-slate-950 disabled:opacity-50">{loading ? t("common.loading") : tr({ fi: "Päivitä kohteet", en: "Refresh picks", es: "Actualizar pronósticos" })}</button>
-        </div>
+        <TrustBar className="mt-5" items={[
+          { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: source },
+          { label: tr({ fi: "Ottelut", en: "Games", es: "Partidos" }), value: games.length, tone: "info" },
+          { label: tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" }), value: lastUpdated ? lastUpdated.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) : "–", tone: "info" },
+          { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: tr({ fi: "paper only", en: "paper only", es: "solo simulación" }), tone: "warning" }
+        ]} />
+        {reason && <div className="mt-4 rounded-2xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm text-amber-100">{reason}</div>}
 
-        <details className="mt-4 rounded-xl border border-white/10 bg-white/[0.03] p-4">
-          <summary className="cursor-pointer font-black text-slate-200">{tr({ fi: "Edistyneet paperiasetukset", en: "Advanced paper settings", es: "Ajustes simulados avanzados" })}</summary>
-          <p className="mt-2 text-sm text-slate-400">{tr({ fi: "Näitä ei tarvitse muuttaa ensimmäisellä käyttökerralla. Kaikki summat ovat virtuaalisia.", en: "You do not need to change these during your first session. All amounts are virtual.", es: "No necesitas cambiar estos valores en la primera sesión. Todos los importes son virtuales." })}</p>
-          <div className="mt-4 grid gap-3 md:grid-cols-3">
-            <label className="text-sm font-bold text-slate-300">{tr({ fi: "Panosmalli", en: "Stake model", es: "Modelo de importe" })}
-              <select value={kellyMode} onChange={(event) => { setKellyMode(event.target.value); saveLocalSettings({ kellyMode: event.target.value }); }} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100">
+        <details className="mt-5 rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+          <summary className="cursor-pointer text-sm font-black text-slate-300">{tr({ fi: "Advanced: paperikassa ja automaattipäivitys", en: "Advanced: paper bankroll and refresh", es: "Avanzado: banca simulada y actualización" })}</summary>
+          <div className="mt-4 grid gap-4 md:grid-cols-3">
+            <label className="text-sm font-bold text-slate-400">{tr({ fi: "Panosmalli", en: "Stake model", es: "Modelo de importe" })}
+              <select value={kellyMode} onChange={(event) => { setKellyMode(event.target.value); saveLocalSettings({ kellyMode: event.target.value }); }} className="sc-input mt-2">
                 <option value="conservative">{tr({ fi: "Erittäin varovainen", en: "Very conservative", es: "Muy conservador" })}</option>
                 <option value="quarter">Quarter Kelly</option>
                 <option value="half">Half Kelly</option>
                 <option value="full">Full Kelly</option>
               </select>
             </label>
-            <label className="text-sm font-bold text-slate-300">{t("term.bankroll")} (€)
-              <input type="number" min="0" value={bankroll} onChange={(event) => { const value = Number(event.target.value || 0); setBankroll(value); saveLocalSettings({ bankroll: value }); }} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100" />
+            <label className="text-sm font-bold text-slate-400">{t("term.bankroll")} (€)
+              <input type="number" min="0" value={bankroll} onChange={(event) => { const value = Number(event.target.value || 0); setBankroll(value); saveLocalSettings({ bankroll: value }); }} className="sc-input mt-2" />
             </label>
-            <label className="text-sm font-bold text-slate-300">{tr({ fi: "Enimmäispanos (%)", en: "Maximum stake (%)", es: "Importe máximo (%)" })}
-              <input type="number" min="0.1" max="10" step="0.1" value={maxStakePercent} onChange={(event) => { const value = Number(event.target.value || 2); setMaxStakePercent(value); saveLocalSettings({ maxStakePercent: value }); }} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100" />
+            <label className="text-sm font-bold text-slate-400">{tr({ fi: "Enimmäispanos (%)", en: "Maximum stake (%)", es: "Importe máximo (%)" })}
+              <input type="number" min="0.1" max="10" step="0.1" value={maxStakePercent} onChange={(event) => { const value = Number(event.target.value || 2); setMaxStakePercent(value); saveLocalSettings({ maxStakePercent: value }); }} className="sc-input mt-2" />
             </label>
           </div>
-          <button onClick={() => setAutoRefresh((value) => !value)} className={`mt-4 rounded-xl border px-4 py-2 font-bold ${autoRefresh ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-white/10 bg-white/5 text-slate-300"}`}>
-            {tr({ fi: "Automaattinen päivitys", en: "Automatic refresh", es: "Actualización automática" })} {autoRefresh ? tr({ fi: "päällä", en: "on", es: "activada" }) : tr({ fi: "pois", en: "off", es: "desactivada" })}
+          <button onClick={() => setAutoRefresh((value) => !value)} className={`mt-4 rounded-xl border px-4 py-2 text-sm font-black ${autoRefresh ? "border-emerald-300/30 bg-emerald-300/10 text-emerald-200" : "border-white/10 bg-white/[0.04] text-slate-400"}`}>
+            {tr({ fi: "Automaattipäivitys", en: "Automatic refresh", es: "Actualización automática" })}: {autoRefresh ? tr({ fi: "päällä", en: "on", es: "activada" }) : tr({ fi: "pois", en: "off", es: "desactivada" })}
           </button>
         </details>
-      </section>
+      </Panel>
 
-      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
-        <div className="space-y-4">
-          {!loading && games.length === 0 && <div className="rounded-2xl border border-yellow-400/20 bg-yellow-400/10 p-5 text-yellow-100">{tr({ fi: "Tästä liigasta tai markkinasta ei löytynyt riittävää aineistoa. Kokeile toista liigaa tai hyväksy SKIP.", en: "This league or market does not have enough data. Try another league or accept SKIP.", es: "Esta liga o mercado no tiene datos suficientes. Prueba otra liga o acepta SKIP." })}</div>}
-          {games.map((game) => {
-            const shapedMatch = movementShape(game);
-            return (
-              <article key={game.id} className="rounded-2xl border border-white/10 bg-slate-900/70 p-4 shadow-xl sm:p-5">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                  <div><h2 className="text-xl font-black">{game.homeTeam} vs {game.awayTeam}</h2><p className="mt-1 text-sm text-slate-400">{game.sportTitle} · {game.marketKey} · {game.bookmakerCount} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })}</p></div>
-                  {game.commenceTime && <time className="text-sm text-slate-500">{new Date(game.commenceTime).toLocaleString(locale)}</time>}
-                </div>
-                <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
-                  {game.selections.map((selection) => {
-                    const shapedOutcome = shapedMatch.outcomes.find((item) => item.name === selection.selection && item.point === (selection.point ?? null));
-                    const movement = shapedOutcome ? getOddsMovement({ match: shapedMatch, outcome: shapedOutcome }) : { previousOdds: null };
-                    const history = shapedOutcome ? getSelectionMovementHistory(shapedMatch, shapedOutcome) : [];
-                    const signal = detectMovementSignal(history);
-                    const selected = selectedBet?.game?.id === game.id && selectedBet?.selection?.selection === selection.selection && selectedBet?.selection?.point === selection.point;
-                    return (
-                      <button key={`${selection.selection}-${selection.point ?? ""}`} onClick={() => selectBet(game, selection)} aria-pressed={selected} className={`rounded-2xl border p-4 text-left transition ${selected ? "border-sky-400 bg-sky-400/10" : "border-white/10 bg-white/[0.04] hover:border-sky-400/40 hover:bg-sky-400/10"}`}>
-                        <div className="flex items-start justify-between gap-3"><div><div className="font-bold">{selection.selection}</div><div className="mt-1 text-2xl font-black">{selection.odds.toFixed(2)}</div></div><span className={`rounded-full border px-2 py-1 text-xs font-black ${decisionClass(selection.decision)}`}>{selection.decision}</span></div>
-                        <div className="mt-2 text-xs text-emerald-300">{selection.bookmaker || tr({ fi: "Paras hinta", en: "Best price", es: "Mejor cuota" })}</div>
-                        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
-                          <span>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {formatPercent(selection.consensusProbability)}</span>
-                          <span>{tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} {selection.fairOdds.toFixed(2)}</span>
-                          <span>{t("term.edge")} {formatPercent(selection.edge)}</span><span>{t("term.ev")} {formatPercent(selection.ev)}</span>
-                          <span>{t("term.confidence")} {formatPercent(selection.confidence)}</span><span>{selection.bookmakerCount} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })}</span>
-                        </div>
-                        <div className="mt-2 text-xs text-slate-500">{tr({ fi: "Data", en: "Data", es: "Datos" })} {selection.freshnessLabel} · {tr({ fi: "liike", en: "movement", es: "movimiento" })} {signal.signal} ({history.length}){movement.previousOdds ? ` · ${movement.previousOdds} → ${selection.odds}` : ""}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </article>
-            );
-          })}
+      <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
+        <div>
+          <SectionHeader
+            eyebrow={tr({ fi: "Valitse hinta", en: "Choose a price", es: "Elige una cuota" })}
+            title={tr({ fi: "Ottelut ja parhaat kertoimet", en: "Games and best prices", es: "Partidos y mejores cuotas" })}
+            description={tr({ fi: "Avaa yksi valinta nähdäksesi konsensuksen, EV:n, riskin ja paperipanoksen.", en: "Open one selection to see consensus, EV, risk and virtual stake.", es: "Abre una selección para ver consenso, EV, riesgo e importe simulado." })}
+          />
+
+          <div className="space-y-4">
+            {!loading && games.length === 0 && (
+              <EmptyState
+                title={tr({ fi: "Markkinasta ei löytynyt käyttökelpoisia kohteita", en: "No usable picks were found", es: "No se encontraron pronósticos utilizables" })}
+                description={tr({ fi: "Kokeile toista liigaa tai markkinaa. SKIP on hyväksytty tulos.", en: "Try another league or market. SKIP is a valid outcome.", es: "Prueba otra liga o mercado. SKIP es válido." })}
+              />
+            )}
+            {games.map((game) => {
+              const shapedMatch = movementShape(game);
+              return (
+                <article key={game.id} className="rounded-3xl border border-white/10 bg-slate-950/52 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:p-6">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">{game.sportTitle || game.sportKey}</div>
+                      <h2 className="mt-2 text-xl font-black tracking-tight text-white sm:text-2xl">{game.homeTeam} vs {game.awayTeam}</h2>
+                      <p className="mt-1 text-sm text-slate-500">{game.marketKey} · {game.bookmakerCount} {tr({ fi: "vedonvälittäjää", en: "bookmakers", es: "casas" })}</p>
+                    </div>
+                    {game.commenceTime && <time className="text-xs font-bold text-slate-500">{new Date(game.commenceTime).toLocaleString(locale)}</time>}
+                  </div>
+
+                  <div className="mt-5 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+                    {game.selections.map((selection) => {
+                      const shapedOutcome = shapedMatch.outcomes.find((item) => item.name === selection.selection && item.point === (selection.point ?? null));
+                      const movement = shapedOutcome ? getOddsMovement({ match: shapedMatch, outcome: shapedOutcome }) : { previousOdds: null };
+                      const history = shapedOutcome ? getSelectionMovementHistory(shapedMatch, shapedOutcome) : [];
+                      const signal = detectMovementSignal(history);
+                      const selected = selectedBet?.game?.id === game.id && selectedBet?.selection?.selection === selection.selection && selectedBet?.selection?.point === selection.point;
+
+                      return (
+                        <button key={`${selection.selection}-${selection.point ?? ""}`} onClick={() => selectBet(game, selection)} aria-pressed={selected} className={`sc-card-hover rounded-2xl border p-4 text-left ${selected ? "border-sky-300/50 bg-sky-300/10 shadow-[0_0_0_1px_rgba(125,211,252,0.08)]" : "border-white/10 bg-white/[0.03]"}`}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="truncate text-sm font-black text-white">{selection.selection}</div>
+                              <div className="mt-1 text-3xl font-black tracking-[-0.04em] text-white">{selection.odds.toFixed(2)}</div>
+                            </div>
+                            <DecisionBadge decision={selection.decision} />
+                          </div>
+                          <div className="mt-2 truncate text-xs font-bold text-emerald-300">{selection.bookmaker || tr({ fi: "Paras hinta", en: "Best price", es: "Mejor cuota" })}</div>
+                          <div className="mt-4 grid grid-cols-2 gap-2">
+                            <MetricTile compact label={t("term.edge")} value={formatPercent(selection.edge)} tone={Number(selection.edge || 0) > 0 ? "green" : "default"} />
+                            <MetricTile compact label={t("term.ev")} value={formatPercent(selection.ev)} tone={Number(selection.ev || 0) > 0 ? "green" : "default"} />
+                            <MetricTile compact label={tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} value={formatPercent(selection.consensusProbability)} />
+                            <MetricTile compact label={t("term.confidence")} value={formatPercent(selection.confidence)} />
+                          </div>
+                          <div className="mt-3 text-xs leading-5 text-slate-500">{selection.freshnessLabel} · {signal.signal}{movement.previousOdds ? ` · ${movement.previousOdds} → ${selection.odds}` : ""}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         </div>
 
-        <div className="space-y-6 xl:sticky xl:top-32 xl:self-start">
-          <Panel title={tr({ fi: "Paperivalinta", en: "Paper selection", es: "Selección simulada" })} subtitle={tr({ fi: "Yksi analysoitu kohde kerrallaan", en: "One analyzed pick at a time", es: "Un pronóstico analizado cada vez" })}>
-            {!selectedBet ? <div className="rounded-xl bg-white/[0.04] p-4 text-sm leading-6 text-slate-400">{tr({ fi: "Valitse vasemmalta yksi kerroin. Näet päätöksen, perustelun, paperipanoksen ja riskit.", en: "Choose one price on the left to see the decision, reasoning, paper stake and risks.", es: "Elige una cuota a la izquierda para ver la decisión, los motivos, el importe simulado y los riesgos." })}</div> : (
+        <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start">
+          <Panel title={tr({ fi: "Valittu paperikohde", en: "Selected paper pick", es: "Pronóstico simulado elegido" })} subtitle={tr({ fi: "Yksi päätös kerrallaan", en: "One decision at a time", es: "Una decisión cada vez" })}>
+            {!selectedBet ? (
+              <EmptyState
+                title={tr({ fi: "Valitse kerroin vasemmalta", en: "Choose a price on the left", es: "Elige una cuota a la izquierda" })}
+                description={tr({ fi: "Näet tässä päätöksen, riskin ja paperipanoksen.", en: "The decision, risk and virtual stake will appear here.", es: "Aquí aparecerán decisión, riesgo e importe simulado." })}
+              />
+            ) : (
               <div className="space-y-4">
-                <div className="rounded-xl bg-white/[0.04] p-4"><div className="font-bold">{selectedBet.game.homeTeam} vs {selectedBet.game.awayTeam}</div><div className="mt-1 text-sm text-slate-300">{selectedBet.selection.selection} @ {selectedBet.selection.odds.toFixed(2)}</div><div className="mt-2 text-sm text-emerald-300">{selectedBet.selection.bookmaker}</div><div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-sm font-black ${decisionClass(selectedBet.selection.decision)}`}>{selectedBet.selection.decision}</div></div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })}</div><div className="mt-1 text-xl font-black">{formatPercent(selectedBet.selection.consensusProbability)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })}</div><div className="mt-1 text-xl font-black">{selectedBet.selection.fairOdds.toFixed(2)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{t("term.edge")} / {t("term.ev")}</div><div className="mt-1 text-lg font-black text-emerald-300">{formatPercent(selectedBet.selection.edge)} / {formatPercent(selectedBet.selection.ev)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{t("term.paperStake")}</div><div className="mt-1 text-xl font-black text-sky-300">{money(selectedBet.selection.suggestedStake)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{t("term.confidence")}</div><div className="mt-1 text-xl font-black">{formatPercent(selectedBet.selection.confidence)}</div></div>
-                  <div className="rounded-xl bg-white/[0.04] p-3"><div className="text-xs text-slate-400">{tr({ fi: "Riskitaso", en: "Risk level", es: "Nivel de riesgo" })}</div><div className={`mt-1 text-xl font-black ${riskColor}`}>{riskLabel(selectedBet.risk.level)}</div></div>
+                <div className="rounded-2xl border border-white/10 bg-white/[0.035] p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-black text-white">{selectedBet.game.homeTeam} vs {selectedBet.game.awayTeam}</div>
+                      <div className="mt-1 text-sm text-slate-300">{selectedBet.selection.selection} <span className="font-black text-emerald-200">@ {selectedBet.selection.odds.toFixed(2)}</span></div>
+                      <div className="mt-1 text-xs text-slate-500">{selectedBet.selection.bookmaker}</div>
+                    </div>
+                    <DecisionBadge decision={selectedBet.selection.decision} />
+                  </div>
                 </div>
-                <div className="rounded-xl border border-sky-400/20 bg-sky-400/10 p-4 text-sm leading-6 text-slate-200">{selectedBet.selection.decisionReason}</div>
-                <div className="text-xs leading-5 text-slate-400">{tr({ fi: "Hintaliike ei ole varma tieto ottelun lopputuloksesta.", en: "Price movement is not certain information about the match result.", es: "El movimiento de la cuota no es información segura sobre el resultado." })}</div>
-                {selectedBet.risk.warnings.length > 0 && <ul className="space-y-1 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-slate-300">{selectedBet.risk.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul>}
-                <button onClick={handleAddToTracking} disabled={selectedBet.selection.decision === "SKIP" || selectedBet.selection.suggestedStake <= 0} className="w-full rounded-xl bg-emerald-400 px-4 py-3 font-black text-slate-950 disabled:cursor-not-allowed disabled:opacity-40">{tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })}</button>
-                {selectedBet.selection.decision === "SKIP" && <p className="text-sm text-red-300">{tr({ fi: "SKIP-kohdetta ei tallenneta. Valitse toinen kohde tai odota parempaa dataa.", en: "A SKIP pick is not saved. Choose another pick or wait for better data.", es: "Un pronóstico SKIP no se guarda. Elige otro o espera mejores datos." })}</p>}
-                {savedMessage && <div className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 p-3 text-sm text-emerald-300">{savedMessage}</div>}
+
+                <div className="grid grid-cols-2 gap-3">
+                  <MetricTile label={tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} value={formatPercent(selectedBet.selection.consensusProbability)} />
+                  <MetricTile label={tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} value={selectedBet.selection.fairOdds.toFixed(2)} />
+                  <MetricTile label={`${t("term.edge")} / ${t("term.ev")}`} value={`${formatPercent(selectedBet.selection.edge)} / ${formatPercent(selectedBet.selection.ev)}`} tone="green" />
+                  <MetricTile label={t("term.paperStake")} value={money(selectedBet.selection.suggestedStake)} tone="blue" />
+                  <MetricTile label={t("term.confidence")} value={formatPercent(selectedBet.selection.confidence)} />
+                  <MetricTile label={tr({ fi: "Riskitaso", en: "Risk level", es: "Nivel de riesgo" })} value={riskLabel(selectedBet.risk.level)} tone={selectedBet.risk.level === "High" ? "red" : selectedBet.risk.level === "Medium" ? "yellow" : "green"} />
+                </div>
+
+                <div className="rounded-2xl border border-sky-300/20 bg-sky-300/8 p-4 text-sm leading-6 text-slate-200">{selectedBet.selection.decisionReason}</div>
+                <TrustBar items={[
+                  { label: tr({ fi: "Hintaliike", en: "Movement", es: "Movimiento" }), value: selectedBet.movementSignal.signal, tone: "info" },
+                  { label: tr({ fi: "Lähteet", en: "Sources", es: "Fuentes" }), value: selectedBet.selection.bookmakerCount || 0 },
+                  { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: "paper only", tone: "warning" }
+                ]} />
+
+                {selectedBet.risk.warnings.length > 0 && <ul className="space-y-1 rounded-2xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm leading-6 text-slate-300">{selectedBet.risk.warnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul>}
+                <button onClick={handleAddToTracking} disabled={selectedBet.selection.decision === "SKIP" || selectedBet.selection.suggestedStake <= 0} className="sc-button-primary w-full disabled:opacity-40">{tr({ fi: "Lisää paperisalkkuun", en: "Add to paper portfolio", es: "Añadir a cartera simulada" })}</button>
+                {selectedBet.selection.decision === "SKIP" && <p className="text-sm leading-6 text-rose-300">{tr({ fi: "SKIP-kohdetta ei tallenneta. Odota parempaa hintaa tai dataa.", en: "A SKIP pick is not saved. Wait for a better price or data.", es: "Un SKIP no se guarda. Espera una cuota o datos mejores." })}</p>}
+                {savedMessage && <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 p-3 text-sm text-emerald-200">{savedMessage}</div>}
               </div>
             )}
           </Panel>
 
-          <Panel title={tr({ fi: "Tuotteen raja", en: "Product boundary", es: "Límite del producto" })} subtitle={tr({ fi: "Mitä tällä sivulla ei tapahdu", en: "What does not happen on this page", es: "Lo que no ocurre en esta página" })}>
-            <div className="space-y-2 text-sm leading-6 text-slate-300">
-              <p>• {tr({ fi: "Ei oikean rahan vetoa eikä siirtymistä vedonvälittäjälle.", en: "No real-money bet and no bookmaker redirect.", es: "Sin apuestas con dinero real ni redirección a casas de apuestas." })}</p>
-              <p>• {tr({ fi: "Ei varmaa ennustetta tai tuottolupausta.", en: "No certain prediction or profit promise.", es: "Sin predicción segura ni promesa de beneficios." })}</p>
-              <p>• {tr({ fi: "Ei pankki-, kortti- tai vedonvälittäjätietoja.", en: "No bank, card or bookmaker account data.", es: "Sin datos bancarios, de tarjeta ni cuentas de apuestas." })}</p>
-              <p>• {tr({ fi: "Kaikki panokset ovat virtuaalista paperiseurantaa.", en: "All stakes are virtual paper tracking.", es: "Todos los importes pertenecen al seguimiento simulado." })}</p>
+          <Panel title={tr({ fi: "Tuoteraja", en: "Product boundary", es: "Límite del producto" })}>
+            <div className="space-y-3 text-sm leading-6 text-slate-400">
+              <p>✓ {tr({ fi: "Vertaa julkisia live-kertoimia.", en: "Compares public live odds.", es: "Compara cuotas públicas en vivo." })}</p>
+              <p>✓ {tr({ fi: "Tallentaa vain virtuaaliseen paperisalkkuun.", en: "Saves only to a virtual paper portfolio.", es: "Guarda solo en una cartera simulada." })}</p>
+              <p>✕ {tr({ fi: "Ei siirrä rahaa eikä aseta oikeaa vetoa.", en: "Does not move money or place a real bet.", es: "No mueve dinero ni realiza apuestas reales." })}</p>
             </div>
           </Panel>
-        </div>
+        </aside>
       </section>
     </div>
   );
