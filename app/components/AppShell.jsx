@@ -6,119 +6,77 @@ import { useEffect, useMemo, useState } from "react";
 import ContextHelp from "./ContextHelp";
 import { LanguageSwitcher, useLanguage } from "./LanguageProvider";
 
+function NavIcon({ name }) {
+  const icons = {
+    home: "⌂",
+    picks: "◫",
+    agent: "✦",
+    portfolio: "◎",
+    more: "•••"
+  };
+  return <span className="text-base leading-none" aria-hidden="true">{icons[name] || "•"}</span>;
+}
+
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const { t, tr } = useLanguage();
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(false);
 
   const primaryItems = useMemo(() => [
-    { href: "/", label: t("nav.home"), short: t("nav.home") },
-    { href: "/betting", label: t("nav.picks"), short: t("nav.picks") },
-    { href: "/agent", label: t("nav.ai"), short: "AI" },
-    { href: "/tracking", label: t("nav.tracking"), short: t("nav.tracking") },
-    { href: "/analytics", label: t("nav.analytics"), short: t("nav.analytics") },
-    { href: "/simulator", label: t("nav.simulator"), short: t("nav.simulator") }
-  ], [t]);
+    { href: "/", label: t("nav.home"), short: t("nav.home"), icon: "home" },
+    { href: "/betting", label: tr({ fi: "Kohteet", en: "Picks", es: "Pronósticos" }), short: tr({ fi: "Kohteet", en: "Picks", es: "Picks" }), icon: "picks" },
+    { href: "/agent", label: tr({ fi: "AI-agentti", en: "AI Agent", es: "Agente IA" }), short: "AI", icon: "agent" },
+    { href: "/tracking", label: tr({ fi: "Paperisalkku", en: "Paper portfolio", es: "Cartera simulada" }), short: tr({ fi: "Salkku", en: "Portfolio", es: "Cartera" }), icon: "portfolio" }
+  ], [t, tr]);
 
-  const watchlistItem = useMemo(() => ({
-    href: "/watchlist",
-    label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Lista de seguimiento" }),
-    description: tr({ fi: "Todennetut hinta- ja päätösmuutokset.", en: "Verified price and decision changes.", es: "Cambios verificados de cuota y decisión." })
-  }), [tr]);
-
-  const alertInboxItem = useMemo(() => ({
-    href: "/alerts",
-    label: tr({ fi: "Alert Inbox", en: "Alert Inbox", es: "Buzón de alertas" }),
-    description: tr({ fi: "Lukemattomat, ratkaistut ja palautettavasti piilotetut hälytykset.", en: "Unread, resolved and reversibly dismissed alerts.", es: "Alertas no leídas, resueltas y ocultas de forma reversible." })
-  }), [tr]);
-
-  const eventsItem = useMemo(() => ({
-    href: "/events",
-    label: tr({ fi: "Varmennetut ottelut", en: "Verified events", es: "Eventos verificados" }),
-    description: tr({ fi: "Avaa markkina, evidenssi, vire ja paperitoiminnot yhdessä näkymässä.", en: "Open market, evidence, form and paper actions in one view.", es: "Abre mercado, evidencia, forma y acciones simuladas en una sola vista." })
-  }), [tr]);
-
-  const timelineItem = useMemo(() => ({
-    href: "/market-timeline",
-    label: tr({ fi: "Hintahistoria", en: "Market Timeline", es: "Historial de cuotas" }),
-    description: tr({ fi: "Seurattujen kohteiden palvelimella varmennetut hintapisteet.", en: "Server-verified price points for watched selections.", es: "Puntos de cuota verificados para selecciones seguidas." })
-  }), [tr]);
-
-  const formRestLabItem = useMemo(() => ({
-    href: "/form-rest-lab",
-    label: tr({ fi: "Vire- ja lepomallin laboratorio", en: "Form & Rest Model Lab", es: "Laboratorio de forma y descanso" }),
-    description: tr({ fi: "Varjomallin kronologinen vertailu markkinakonsensukseen.", en: "Chronological shadow-model comparison against market consensus.", es: "Comparación cronológica del modelo sombra con el consenso de mercado." })
-  }), [tr]);
-
-  const polymarketItem = useMemo(() => ({
-    href: "/polymarket-intelligence",
-    label: tr({ fi: "Polymarket-signaali", en: "Polymarket Intelligence", es: "Inteligencia de Polymarket" }),
-    description: tr({ fi: "Julkinen markkinadata vain päätöstä heikentävänä lisäriskisignaalina.", en: "Public market data used only as a downgrade-only risk signal.", es: "Datos públicos usados solo como señal de riesgo que puede rebajar decisiones." })
-  }), [tr]);
-
-  const autonomousAgentItem = useMemo(() => ({
-    href: "/autonomous-agent",
-    label: tr({ fi: "Autonominen paperiagentti", en: "Autonomous Paper Agent", es: "Agente simulado autónomo" }),
-    description: tr({ fi: "Rajatut päivittäiset PLAY-päätökset virtuaaliseen paperiseurantaan.", en: "Bounded daily PLAY decisions for virtual paper tracking.", es: "Decisiones PLAY diarias limitadas para seguimiento simulado." })
-  }), [tr]);
-
-  const operationsItem = useMemo(() => ({
-    href: "/operations",
-    label: tr({ fi: "Käyttötilanne", en: "Operations", es: "Operaciones" }),
-    description: tr({ fi: "Worker-ajot, jonot, migraatiot ja launch-valmius.", en: "Worker runs, queues, migrations and launch readiness.", es: "Ejecuciones, colas, migraciones y preparación de lanzamiento." })
-  }), [tr]);
-
-  const releaseReadinessItem = useMemo(() => ({
-    href: "/release-readiness",
-    label: tr({ fi: "Julkaisuvalmius", en: "Release Readiness", es: "Preparación de lanzamiento" }),
-    description: tr({ fi: "Live-tarkistukset, SQL-järjestys, mobiilipaketti ja manuaaliset blokkerit.", en: "Live checks, SQL order, mobile package and manual blockers.", es: "Pruebas en vivo, orden SQL, paquete móvil y bloqueos manuales." })
-  }), [tr]);
-
-  const secondaryGroups = useMemo(() => [
+  const groups = useMemo(() => [
     {
-      title: t("group.start"),
+      title: tr({ fi: "Päivittäinen käyttö", en: "Daily workflow", es: "Flujo diario" }),
       items: [
-        eventsItem,
-        watchlistItem,
-        alertInboxItem,
-        timelineItem,
-        { href: "/quick-use", label: t("more.quick"), description: t("more.quickDescription") },
-        { href: "/risk", label: t("more.risk"), description: t("more.riskDescription") },
-        { href: "/paper-trading", label: t("more.portfolio"), description: t("more.portfolioDescription") },
-        { href: "/cloud-sync", label: t("more.cloud"), description: t("more.cloudDescription") }
+        { href: "/events", label: tr({ fi: "Varmennetut ottelut", en: "Verified events", es: "Eventos verificados" }), description: tr({ fi: "Markkina, evidenssi ja paperitoiminnot yhdessä.", en: "Market, evidence and paper actions together.", es: "Mercado, evidencia y acciones simuladas." }) },
+        { href: "/autonomous-agent", label: tr({ fi: "Autonominen agentti", en: "Autonomous Agent", es: "Agente autónomo" }), description: tr({ fi: "Rajatut päivittäiset paperipäätökset.", en: "Bounded daily paper decisions.", es: "Decisiones simuladas diarias limitadas." }) },
+        { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Lista de seguimiento" }), description: tr({ fi: "Seuraa hintaa ja päätöksen muutoksia.", en: "Track price and decision changes.", es: "Sigue cambios de cuota y decisión." }) },
+        { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }), description: tr({ fi: "Lukemattomat ja ratkaistut ilmoitukset.", en: "Unread and resolved notifications.", es: "Avisos no leídos y resueltos." }) }
       ]
     },
     {
-      title: t("group.account"),
+      title: tr({ fi: "Analyysi", en: "Analysis", es: "Análisis" }),
+      items: [
+        { href: "/analytics", label: tr({ fi: "Tulokset ja kalibrointi", en: "Results & calibration", es: "Resultados y calibración" }), description: tr({ fi: "ROI, CLV, Brier ja paperihistoria.", en: "ROI, CLV, Brier and paper history.", es: "ROI, CLV, Brier e historial simulado." }) },
+        { href: "/intelligence", label: tr({ fi: "Evidenssikeskus", en: "Evidence center", es: "Centro de evidencia" }), description: tr({ fi: "Uutiset, poissaolot ja kokoonpanot.", en: "News, injuries and lineups.", es: "Noticias, lesiones y alineaciones." }) },
+        { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }), description: tr({ fi: "Toissijainen downgrade-only-riskisignaali.", en: "Secondary downgrade-only risk signal.", es: "Señal secundaria que solo puede rebajar." }) },
+        { href: "/market-timeline", label: tr({ fi: "Hintahistoria", en: "Market timeline", es: "Historial de cuotas" }), description: tr({ fi: "Varmennetut hintapisteet ja liikkeet.", en: "Verified prices and movements.", es: "Precios y movimientos verificados." }) },
+        { href: "/simulator", label: t("nav.simulator"), description: tr({ fi: "Toistettava ottelusimulaatio ilman rahaa.", en: "Reproducible match simulation without money.", es: "Simulación reproducible sin dinero." }) },
+        { href: "/form-rest-lab", label: tr({ fi: "Vire & lepo -labra", en: "Form & rest lab", es: "Laboratorio de forma" }), description: tr({ fi: "Varjomallin kronologinen vertailu.", en: "Chronological shadow-model comparison.", es: "Comparación cronológica del modelo sombra." }) }
+      ]
+    },
+    {
+      title: tr({ fi: "Tili ja apu", en: "Account & help", es: "Cuenta y ayuda" }),
       items: [
         { href: "/profile", label: t("more.profile"), description: t("more.profileDescription") },
         { href: "/help", label: t("more.help"), description: t("more.helpDescription") },
-        { href: "/responsible-use", label: t("more.responsible"), description: t("more.responsibleDescription") },
-        { href: "/security", label: t("more.security"), description: t("more.securityDescription") }
-      ]
-    },
-    {
-      title: t("group.advanced"),
-      items: [
-        autonomousAgentItem,
-        releaseReadinessItem,
-        operationsItem,
-        formRestLabItem,
-        polymarketItem,
-        { href: "/intelligence", label: t("more.intelligence"), description: t("more.intelligenceDescription") },
-        { href: "/clv", label: t("more.clv"), description: t("more.clvDescription") },
-        { href: "/reports", label: t("more.reports"), description: t("more.reportsDescription") },
-        { href: "/production-status", label: t("more.status"), description: t("more.statusDescription") }
+        { href: "/risk", label: tr({ fi: "Riskirajat", en: "Risk limits", es: "Límites de riesgo" }), description: tr({ fi: "Virtuaalinen pelikassa ja panosrajat.", en: "Virtual bankroll and stake limits.", es: "Banca virtual y límites de importe." }) },
+        { href: "/responsible-use", label: t("footer.responsible"), description: tr({ fi: "Tuoterajat ja vastuullinen käyttö.", en: "Product boundaries and responsible use.", es: "Límites del producto y uso responsable." }) }
       ]
     }
-  ], [t, eventsItem, watchlistItem, alertInboxItem, timelineItem, formRestLabItem, polymarketItem, autonomousAgentItem, operationsItem, releaseReadinessItem]);
+  ], [t, tr]);
 
-  const mobileItems = primaryItems.slice(0, 5);
+  const advancedItems = useMemo(() => [
+    { href: "/operations", label: tr({ fi: "Operations", en: "Operations", es: "Operaciones" }) },
+    { href: "/release-readiness", label: tr({ fi: "Julkaisuvalmius", en: "Release readiness", es: "Preparación de lanzamiento" }) },
+    { href: "/production-status", label: tr({ fi: "Tuotantotila", en: "Production status", es: "Estado de producción" }) },
+    { href: "/reports", label: tr({ fi: "Raportit", en: "Reports", es: "Informes" }) },
+    { href: "/clv", label: "CLV" },
+    { href: "/cloud-sync", label: tr({ fi: "Pilvisynkronointi", en: "Cloud sync", es: "Sincronización" }) },
+    { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
+  ], [tr]);
 
   useEffect(() => {
     setMenuOpen(false);
     setMoreOpen(false);
+    setAdvancedOpen(false);
   }, [pathname]);
 
   function isActive(item) {
@@ -126,24 +84,101 @@ export default function AppShell({ children }) {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100">
-      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/95 backdrop-blur-xl">
-        <div className="mx-auto max-w-7xl px-4">
-          <div className="flex items-center justify-between gap-3 py-3 md:py-4">
-            <Link href="/" className="flex min-w-0 items-center gap-3"><div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 font-black text-slate-950 shadow-lg md:h-12 md:w-12">S</div><div className="min-w-0"><div className="truncate text-lg font-black tracking-tight md:text-xl">Scorecaster</div><div className="truncate text-xs text-slate-400">{t("brand.tagline")}</div></div></Link>
-            <div className="hidden items-center gap-2 md:flex"><div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 px-3 py-2 text-xs font-black text-yellow-200">{t("mode.paper")}</div><LanguageSwitcher compact /><Link href="/help" className="rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm font-bold text-slate-300 hover:bg-white/[0.08]">{t("nav.help")}</Link></div>
-            <div className="flex items-center gap-2 lg:hidden"><LanguageSwitcher compact /><button type="button" onClick={() => setMenuOpen((value) => !value)} className="rounded-xl border border-white/10 bg-white/[0.05] px-4 py-3 text-sm font-black text-white" aria-expanded={menuOpen} aria-controls="mobile-navigation">{menuOpen ? t("nav.close") : t("nav.menu")}</button></div>
+    <div className="min-h-screen text-slate-100">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-slate-950/82 backdrop-blur-2xl">
+        <div className="mx-auto max-w-[1440px] px-4 lg:px-6">
+          <div className="flex min-h-[72px] items-center justify-between gap-4">
+            <Link href="/" className="group flex min-w-0 items-center gap-3">
+              <div className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-emerald-200/30 bg-emerald-300 text-lg font-black text-emerald-950 shadow-[0_12px_35px_rgba(16,185,129,0.2)] transition group-hover:-translate-y-0.5">S</div>
+              <div className="min-w-0">
+                <div className="truncate text-lg font-black tracking-[-0.03em] text-white">Scorecaster</div>
+                <div className="truncate text-[11px] font-bold uppercase tracking-[0.13em] text-slate-500">Decision intelligence</div>
+              </div>
+            </Link>
+
+            <nav className="hidden items-center gap-1 lg:flex" aria-label={t("nav.mainAria")}>
+              {primaryItems.map((item) => (
+                <Link key={item.href} href={item.href} className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${isActive(item) ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/[0.055] hover:text-white"}`}>
+                  {item.label}
+                </Link>
+              ))}
+              <div className="relative">
+                <button type="button" onClick={() => setMoreOpen((value) => !value)} className={`rounded-xl px-4 py-2.5 text-sm font-black transition ${moreOpen ? "bg-white text-slate-950" : "text-slate-400 hover:bg-white/[0.055] hover:text-white"}`} aria-expanded={moreOpen}>
+                  {t("nav.more")} <span aria-hidden="true">▾</span>
+                </button>
+                {moreOpen && (
+                  <div className="absolute right-0 top-14 z-50 w-[860px] max-w-[92vw] rounded-3xl border border-white/10 bg-slate-950/97 p-5 shadow-[0_32px_90px_rgba(0,0,0,0.55)] backdrop-blur-2xl">
+                    <div className="grid gap-5 md:grid-cols-3">
+                      {groups.map((group) => (
+                        <section key={group.title}>
+                          <h2 className="mb-2 px-2 text-[11px] font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2>
+                          <div className="space-y-1.5">
+                            {group.items.map((item) => (
+                              <Link key={item.href} href={item.href} className="block rounded-2xl border border-transparent px-3 py-2.5 transition hover:border-white/10 hover:bg-white/[0.05]">
+                                <div className="text-sm font-black text-white">{item.label}</div>
+                                <div className="mt-0.5 text-xs leading-5 text-slate-500">{item.description}</div>
+                              </Link>
+                            ))}
+                          </div>
+                        </section>
+                      ))}
+                    </div>
+                    <div className="mt-5 border-t border-white/10 pt-4">
+                      <button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-xs font-black uppercase tracking-[0.16em] text-slate-500 hover:bg-white/[0.04] hover:text-slate-300">
+                        <span>{tr({ fi: "Advanced / ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</span><span>{advancedOpen ? "−" : "+"}</span>
+                      </button>
+                      {advancedOpen && <div className="mt-2 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-400 hover:text-white">{item.label}</Link>)}</div>}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </nav>
+
+            <div className="flex items-center gap-2">
+              <div className="hidden rounded-full border border-amber-300/20 bg-amber-300/8 px-3 py-1.5 text-[11px] font-black uppercase tracking-[0.11em] text-amber-200 sm:block">{t("mode.paper")}</div>
+              <LanguageSwitcher compact />
+              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="rounded-xl border border-white/10 bg-white/[0.045] px-3 py-2.5 text-sm font-black text-white lg:hidden" aria-expanded={menuOpen} aria-controls="mobile-menu">
+                {menuOpen ? t("nav.close") : t("nav.menu")}
+              </button>
+            </div>
           </div>
 
-          <div className="hidden items-center gap-2 pb-4 lg:flex"><nav className="flex flex-1 gap-2" aria-label={t("nav.mainAria")}>{primaryItems.map((item) => <Link key={item.href} href={item.href} className={`whitespace-nowrap rounded-xl px-4 py-2.5 text-sm font-bold transition-all ${isActive(item) ? "bg-emerald-400 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300 hover:bg-white/[0.08]"}`}>{item.label}</Link>)}</nav><div className="relative"><button type="button" onClick={() => setMoreOpen((value) => !value)} className="rounded-xl border border-white/10 bg-white/[0.04] px-4 py-2.5 text-sm font-bold text-slate-300 hover:bg-white/[0.08]" aria-expanded={moreOpen}>{t("nav.more")} ▾</button>{moreOpen && <div className="absolute right-0 top-12 z-50 w-[720px] max-w-[90vw] rounded-2xl border border-white/10 bg-slate-900 p-4 shadow-2xl"><div className="grid gap-4 md:grid-cols-3">{secondaryGroups.map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="space-y-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="block rounded-xl border border-white/10 bg-white/[0.03] p-3 hover:bg-white/[0.08]"><div className="text-sm font-black text-white">{item.label}</div><div className="mt-1 text-xs leading-5 text-slate-400">{item.description}</div></Link>)}</div></section>)}</div></div>}</div></div>
-
-          {menuOpen && <div id="mobile-navigation" className="max-h-[72vh] overflow-y-auto pb-4 lg:hidden"><div className="mb-3 rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-3 text-center text-xs font-black text-yellow-200">{t("mode.paperDescription")}</div><nav className="grid grid-cols-2 gap-2" aria-label={t("nav.mobileAria")}>{primaryItems.map((item) => <Link key={item.href} href={item.href} className={`rounded-xl px-3 py-3 text-center text-sm font-bold ${isActive(item) ? "bg-emerald-400 text-slate-950" : "border border-white/10 bg-white/[0.04] text-slate-300"}`}>{item.label}</Link>)}</nav><div className="mt-5 space-y-5">{secondaryGroups.map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.04] p-3"><div className="text-sm font-black text-white">{item.label}</div><div className="mt-1 text-xs text-slate-400">{item.description}</div></Link>)}</div></section>)}</div></div>}
+          {menuOpen && (
+            <div id="mobile-menu" className="max-h-[calc(100vh-88px)] overflow-y-auto border-t border-white/10 pb-7 pt-4 lg:hidden">
+              <div className="mb-4 rounded-2xl border border-amber-300/20 bg-amber-300/8 p-3 text-center text-xs font-black text-amber-100">{t("mode.paperDescription")}</div>
+              <div className="grid grid-cols-2 gap-2">
+                {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`rounded-2xl border px-3 py-3 text-center text-sm font-black ${isActive(item) ? "border-emerald-300/30 bg-emerald-300/12 text-emerald-100" : "border-white/10 bg-white/[0.035] text-slate-300"}`}>{item.label}</Link>)}
+              </div>
+              <div className="mt-6 space-y-6">
+                {groups.map((group) => <section key={group.title}><h2 className="mb-2 text-xs font-black uppercase tracking-[0.18em] text-slate-500">{group.title}</h2><div className="grid gap-2 sm:grid-cols-2">{group.items.map((item) => <Link key={item.href} href={item.href} className="rounded-2xl border border-white/10 bg-white/[0.035] p-4"><div className="font-black text-white">{item.label}</div><div className="mt-1 text-xs leading-5 text-slate-500">{item.description}</div></Link>)}</div></section>)}
+                <section><button type="button" onClick={() => setAdvancedOpen((value) => !value)} className="flex w-full items-center justify-between text-xs font-black uppercase tracking-[0.18em] text-slate-500"><span>{tr({ fi: "Advanced / ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</span><span>{advancedOpen ? "−" : "+"}</span></button>{advancedOpen && <div className="mt-3 flex flex-wrap gap-2">{advancedItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-white/10 bg-white/[0.035] px-3 py-2 text-xs font-bold text-slate-400">{item.label}</Link>)}</div>}</section>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 pb-28 lg:pb-8"><ContextHelp />{children}</main>
-      <nav className="fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/95 px-1 pb-[max(0.35rem,env(safe-area-inset-bottom))] pt-1 backdrop-blur-xl lg:hidden" aria-label={t("nav.quickAria")}>{mobileItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 items-center justify-center rounded-xl px-1 text-center text-[11px] font-black ${isActive(item) ? "bg-emerald-400/15 text-emerald-300" : "text-slate-500"}`}>{item.short}</Link>)}</nav>
-      <footer className="border-t border-white/10 py-7"><div className="mx-auto max-w-7xl px-4"><div className="flex flex-col gap-4 text-sm text-slate-500 md:flex-row md:items-center md:justify-between"><div>© {new Date().getFullYear()} Scorecaster · {t("footer.summary")}</div><div className="flex flex-wrap gap-4"><Link href="/help" className="hover:text-white">{t("nav.help")}</Link><Link href="/profile" className="hover:text-white">{t("footer.account")}</Link><Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link><Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link><Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link><Link href="/polymarket-intelligence" className="hover:text-white">Polymarket</Link><Link href="/autonomous-agent" className="hover:text-white">Autonomous Agent</Link><Link href="/release-readiness" className="hover:text-white">Release Readiness</Link><Link href="/operations" className="hover:text-white">Operations</Link><Link href="/production-status" className="hover:text-white">{t("footer.status")}</Link></div></div></div></footer>
+      <main className="mx-auto max-w-[1440px] px-4 py-6 pb-28 lg:px-6 lg:py-8 lg:pb-10">
+        <ContextHelp />
+        {children}
+      </main>
+
+      <nav className="sc-safe-bottom fixed inset-x-0 bottom-0 z-50 grid grid-cols-5 border-t border-white/10 bg-slate-950/94 px-1 pt-1 backdrop-blur-2xl lg:hidden" aria-label={t("nav.quickAria")}>
+        {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[10px] font-black ${isActive(item) ? "bg-emerald-300/10 text-emerald-200" : "text-slate-500"}`}><NavIcon name={item.icon} />{item.short}</Link>)}
+        <button type="button" onClick={() => setMenuOpen(true)} className="flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[10px] font-black text-slate-500"><NavIcon name="more" />{t("nav.more")}</button>
+      </nav>
+
+      <footer className="border-t border-white/10 bg-slate-950/35 py-8">
+        <div className="mx-auto flex max-w-[1440px] flex-col gap-4 px-4 text-sm text-slate-500 sm:flex-row sm:items-center sm:justify-between lg:px-6">
+          <div><span className="font-black text-slate-300">Scorecaster</span> · {t("footer.summary")}</div>
+          <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold">
+            <Link href="/privacy" className="hover:text-white">{t("footer.privacy")}</Link>
+            <Link href="/terms" className="hover:text-white">{t("footer.terms")}</Link>
+            <Link href="/responsible-use" className="hover:text-white">{t("footer.responsible")}</Link>
+            <Link href="/help" className="hover:text-white">{t("nav.help")}</Link>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
