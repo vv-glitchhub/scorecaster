@@ -94,14 +94,55 @@ test("betting keeps advanced controls collapsed and uses the shared decision UI"
   assert.doesNotMatch(betting, /Betting Decision Workspace|Paper Bet Slip|bookkeria/);
 });
 
-test("tracking uses translated labels and confirmation for destructive actions", async () => {
+test("Agent V11 prioritizes decisions and keeps audit and limits secondary", async () => {
+  const agent = await read("app/agent/AgentClient.jsx");
+  assert.match(agent, /PageHero/);
+  assert.match(agent, /TrustBar/);
+  assert.match(agent, /DecisionBadge/);
+  assert.match(agent, /MetricTile/);
+  assert.match(agent, /Päätös ensin, auditointi tarvittaessa/);
+  assert.match(agent, /Näytä auditointi/);
+  assert.match(agent, /Muokkaa paperirajoja/);
+  assert.match(agent, /Agent V11 Model Lab/);
+  assert.match(agent, /probabilityAdjustedByLearning: false/);
+  assert.doesNotMatch(agent, /function decisionClass/);
+});
+
+test("autonomous console exposes status first and keeps safety language intact", async () => {
+  const autonomous = await read("app/autonomous-agent/AutonomousAgentClient.jsx");
+  assert.match(autonomous, /PageHero/);
+  assert.match(autonomous, /TrustBar/);
+  assert.match(autonomous, /MetricTile/);
+  assert.match(autonomous, /Rajattu automaatio, selkeä tila/);
+  assert.match(autonomous, /Vain PLAY-päätös voidaan tallentaa/);
+  assert.match(autonomous, /Ei talletuksia/);
+  assert.match(autonomous, /fetch\("\/api\/cloud\/autonomous-agent"/);
+});
+
+test("tracking uses translated labels, shared portfolio UI and destructive confirmations", async () => {
   const tracking = await read("app/tracking/page.jsx");
+  assert.match(tracking, /PageHero/);
+  assert.match(tracking, /TrustBar/);
+  assert.match(tracking, /MetricTile/);
+  assert.match(tracking, /Paperisalkku/);
   assert.match(tracking, /Remove this paper pick from history/);
   assert.match(tracking, /Eliminar este pronóstico simulado del historial/);
   assert.match(tracking, /Poistetaanko tämä paperikohde historiasta/);
   assert.match(tracking, /Mark as win/);
   assert.match(tracking, /Marcar victoria/);
   assert.doesNotMatch(tracking, /Clear All Local Bets|Tracked Bets/);
+});
+
+test("analytics is a V11 performance cockpit with primary metrics before weights", async () => {
+  const analytics = await read("app/analytics/AnalyticsClient.jsx");
+  assert.match(analytics, /PageHero/);
+  assert.match(analytics, /TrustBar/);
+  assert.match(analytics, /DecisionBadge/);
+  assert.match(analytics, /MetricTile/);
+  assert.match(analytics, /Neljä tärkeintä mittaria/);
+  assert.match(analytics, /Agent V11/);
+  assert.match(analytics, /Näytä Agent V11:n tekniset painot/);
+  assert.doesNotMatch(analytics, /Agent V10/);
 });
 
 test("native home keeps advanced risk fields collapsed by default", async () => {
