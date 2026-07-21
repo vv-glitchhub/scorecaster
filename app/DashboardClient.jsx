@@ -2,24 +2,27 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import StatCard from "./components/StatCard";
 import Panel from "./components/Panel";
+import StatCard from "./components/StatCard";
 import { useLanguage } from "./components/LanguageProvider";
 import { getTrackedBets } from "../lib/tracking-storage";
 import { calculateTrackingStats } from "../lib/tracking-engine";
 import { formatPercent } from "../lib/analysis-engine";
+import {
+  ActionCard,
+  DecisionBadge,
+  EmptyState,
+  MetricTile,
+  PageHero,
+  SectionHeader,
+  TrustBar
+} from "./components/ProductUI";
 
 function decisionLabel(pick) {
   if (pick.productDecision) return pick.productDecision;
   if (pick.decision === "BET") return "PLAY";
   if (pick.decision === "PASS") return "SKIP";
-  return pick.decision || "WATCH";
-}
-
-function decisionClass(decision) {
-  if (decision === "PLAY") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-300";
-  if (decision === "SKIP") return "border-red-400/30 bg-red-400/10 text-red-300";
-  return "border-yellow-400/30 bg-yellow-400/10 text-yellow-300";
+  return pick.decision || "CAUTION";
 }
 
 function kickoffLabel(value, locale, fallback) {
@@ -41,73 +44,7 @@ export default function DashboardClient() {
   const [source, setSource] = useState("loading");
   const [featuredHours, setFeaturedHours] = useState(72);
   const [trackingStats, setTrackingStats] = useState(null);
-
-  const steps = useMemo(() => [
-    {
-      number: "1",
-      title: t("home.step1Title"),
-      description: t("home.step1Description"),
-      href: "/risk",
-      action: t("help.openRisk")
-    },
-    {
-      number: "2",
-      title: t("home.step2Title"),
-      description: t("home.step2Description"),
-      href: "/agent",
-      action: t("home.openAi")
-    },
-    {
-      number: "3",
-      title: t("home.step3Title"),
-      description: t("home.step3Description"),
-      href: "/tracking",
-      action: t("home.openTracking")
-    }
-  ], [t]);
-
-  const tools = useMemo(() => [
-    {
-      title: t("nav.picks"),
-      href: "/betting",
-      description: tr({
-        fi: "Valitse laji ja liiga. Vertaa kertoimia ja näe edge, EV sekä datan laatu.",
-        en: "Choose a sport and league. Compare prices and see edge, EV and data quality.",
-        es: "Elige deporte y liga. Compara cuotas y consulta ventaja, EV y calidad de datos."
-      }),
-      label: tr({ fi: "Vertaa markkinaa", en: "Compare the market", es: "Comparar el mercado" })
-    },
-    {
-      title: t("nav.ai"),
-      href: "/agent",
-      description: tr({
-        fi: "Palvelimen laskema portfolio, stressitesti, vastaväite ja valvottu selitys.",
-        en: "Server-calculated portfolio, stress test, counterargument and governed explanation.",
-        es: "Cartera calculada por el servidor, prueba de estrés, contraargumento y explicación controlada."
-      }),
-      label: tr({ fi: "Avaa Agent V10", en: "Open Agent V10", es: "Abrir Agent V10" })
-    },
-    {
-      title: t("nav.simulator"),
-      href: "/simulator",
-      description: tr({
-        fi: "Testaa omia ratingeja toistettavalla simulaatiolla ilman rahaa.",
-        en: "Test your own ratings with a reproducible simulation and no money.",
-        es: "Prueba tus ratings con una simulación reproducible y sin dinero."
-      }),
-      label: tr({ fi: "Simuloi ottelu", en: "Simulate a match", es: "Simular un partido" })
-    },
-    {
-      title: t("nav.analytics"),
-      href: "/analytics",
-      description: tr({
-        fi: "Seuraa paperitulosta, CLV:tä, Brier scorea ja todennäköisyyksien rehellisyyttä.",
-        en: "Track paper results, CLV, Brier score and probability calibration.",
-        es: "Sigue resultados simulados, CLV, puntuación Brier y calibración de probabilidades."
-      }),
-      label: tr({ fi: "Katso suorituskyky", en: "View performance", es: "Ver rendimiento" })
-    }
-  ], [t, tr]);
+  const [generatedAt, setGeneratedAt] = useState(null);
 
   useEffect(() => {
     async function load() {
@@ -118,9 +55,11 @@ export default function DashboardClient() {
         setTopPicks(Array.isArray(data.featured) ? data.featured : []);
         setFeaturedHours(Number(data.featuredWindowHours || 72));
         setSource(data.fixtureSource || data.source || "live-odds-provider-only");
+        setGeneratedAt(data.generatedAt || new Date().toISOString());
       } catch {
         setTopPicks([]);
         setSource(tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" }));
+        setGeneratedAt(null);
       } finally {
         setLoading(false);
       }
@@ -133,107 +72,157 @@ export default function DashboardClient() {
 
   const summary = useMemo(() => {
     const play = topPicks.filter((pick) => decisionLabel(pick) === "PLAY").length;
+    const caution = topPicks.filter((pick) => ["CAUTION", "WATCH", "WAIT"].includes(decisionLabel(pick))).length;
     const bestEdge = topPicks.reduce((best, pick) => Math.max(best, Number(pick.edge || 0)), 0);
-    return { play, bestEdge };
+    const averageConfidence = topPicks.length
+      ? topPicks.reduce((sum, pick) => sum + Number(pick.confidence || 0), 0) / topPicks.length
+      : 0;
+    return { play, caution, bestEdge, averageConfidence };
   }, [topPicks]);
 
   const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
+  const updated = generatedAt
+    ? new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })
+    : tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" });
+
+  const heroAside = (
+    <div>
+      <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{tr({ fi: "Tämän hetken yhteenveto", en: "Current summary", es: "Resumen actual" })}</div>
+      <div className="mt-3 flex items-end gap-3">
+        <div className="text-5xl font-black tracking-[-0.05em] text-white">{loading ? "…" : topPicks.length}</div>
+        <div className="pb-1 text-sm leading-5 text-slate-400">{tr({ fi: "lähiajan kohdetta analysoitu", en: "near-term picks analyzed", es: "pronósticos próximos analizados" })}</div>
+      </div>
+      <div className="mt-4 grid grid-cols-2 gap-2">
+        <MetricTile compact label="PLAY" value={loading ? "…" : summary.play} tone="green" />
+        <MetricTile compact label="CAUTION" value={loading ? "…" : summary.caution} tone="yellow" />
+      </div>
+    </div>
+  );
 
   return (
-    <div className="space-y-8">
-      <section className="relative overflow-hidden rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_35%),linear-gradient(135deg,#020617,#0f172a_55%,#020617)] p-6 shadow-2xl md:p-10">
-        <div className="relative max-w-4xl">
-          <div className="mb-5 inline-flex rounded-full border border-yellow-400/25 bg-yellow-400/10 px-4 py-2 text-sm font-black text-yellow-200">{t("mode.paper")}</div>
-          <h1 className="text-4xl font-black tracking-tight md:text-6xl">{t("home.title")}</h1>
-          <p className="mt-5 max-w-3xl text-lg leading-8 text-slate-300">{t("home.description")}</p>
-          <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <Link href="/agent" className="rounded-2xl bg-emerald-400 px-6 py-4 text-center font-black text-slate-950 shadow-lg shadow-emerald-400/20 hover:bg-emerald-300">{t("home.openAi")}</Link>
-            <Link href="/betting" className="rounded-2xl border border-white/10 bg-white/5 px-6 py-4 text-center font-black text-white hover:bg-white/10">{t("home.openPicks")}</Link>
-            <Link href="/help" className="rounded-2xl border border-sky-400/25 bg-sky-400/10 px-6 py-4 text-center font-black text-sky-200 hover:bg-sky-400/20">{t("nav.help")}</Link>
-          </div>
-        </div>
-      </section>
+    <div className="space-y-7">
+      <PageHero
+        eyebrow={tr({ fi: "Päivän päätöskeskus", en: "Daily decision center", es: "Centro diario de decisiones" })}
+        title={tr({ fi: "Näe tärkein ensin. Avaa yksityiskohdat vasta tarvittaessa.", en: "See what matters first. Open the details only when needed.", es: "Ve primero lo importante. Abre los detalles solo cuando haga falta." })}
+        description={tr({
+          fi: "Scorecaster yhdistää live-kertoimet, no-vig-konsensuksen, evidenssin ja riskirajat yhdeksi selkeäksi PLAY-, CAUTION- tai SKIP-päätökseksi. Kaikki seuranta on virtuaalista.",
+          en: "Scorecaster combines live odds, no-vig consensus, evidence and risk limits into one clear PLAY, CAUTION or SKIP decision. All tracking is virtual.",
+          es: "Scorecaster combina cuotas en vivo, consenso sin margen, evidencia y límites de riesgo en una decisión clara PLAY, CAUTION o SKIP. Todo el seguimiento es virtual."
+        })}
+        actions={
+          <>
+            <Link href="/betting" className="sc-button-primary">{tr({ fi: "Näytä päivän kohteet", en: "View today’s picks", es: "Ver pronósticos de hoy" })}</Link>
+            <Link href="/agent" className="sc-button-secondary">{tr({ fi: "Avaa AI-agentti", en: "Open AI Agent", es: "Abrir agente IA" })}</Link>
+            <Link href="/autonomous-agent" className="sc-button-ghost">{tr({ fi: "Autonominen tila", en: "Autonomous mode", es: "Modo autónomo" })}</Link>
+          </>
+        }
+        aside={heroAside}
+      />
 
-      <section aria-labelledby="start-title">
-        <div className="mb-4">
-          <h2 id="start-title" className="text-2xl font-black">{t("home.startTitle")}</h2>
-          <p className="mt-1 text-slate-400">{tr({ fi: "Tämä on suositeltu polku ensimmäisellä käyttökerralla.", en: "This is the recommended path for your first session.", es: "Este es el recorrido recomendado para la primera sesión." })}</p>
-        </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {steps.map((step) => (
-            <Link key={step.number} href={step.href} className="group rounded-3xl border border-white/10 bg-white/[0.04] p-5 transition hover:-translate-y-1 hover:border-emerald-400/30 hover:bg-white/[0.07]">
-              <div className="flex items-start gap-4">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-400 font-black text-slate-950">{step.number}</div>
-                <div>
-                  <h3 className="text-xl font-black group-hover:text-emerald-300">{step.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-slate-400">{step.description}</p>
-                  <div className="mt-4 text-sm font-black text-emerald-300">{step.action} →</div>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
+      <TrustBar items={[
+        { label: tr({ fi: "Ottelulähde", en: "Fixture source", es: "Fuente" }), value: source },
+        { label: tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" }), value: updated, tone: "info" },
+        { label: tr({ fi: "Analyysi-ikkuna", en: "Analysis window", es: "Ventana" }), value: `${featuredHours} h`, tone: "info" },
+        { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: tr({ fi: "vain paperiseuranta", en: "paper only", es: "solo simulación" }), tone: "warning" }
+      ]} />
 
-      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard title={t("home.topTitle")} value={loading ? "…" : String(topPicks.length)} subtitle={`${tr({ fi: "Ottelulähde", en: "Fixture source", es: "Fuente de partidos" })}: ${source}`} tone="blue" />
-        <StatCard title="PLAY" value={loading ? "…" : String(summary.play)} subtitle={tr({ fi: "Vain lähiajan portit läpäisseet kohteet", en: "Only near-term picks that pass all gates", es: "Solo pronósticos próximos que superan todos los filtros" })} tone="green" />
-        <StatCard title={tr({ fi: "Korkein edge", en: "Highest edge", es: "Mayor ventaja" })} value={loading ? "…" : formatPercent(summary.bestEdge)} subtitle={tr({ fi: "Paras hinta vs konsensus", en: "Best price versus consensus", es: "Mejor cuota frente al consenso" })} />
-        <StatCard title={t("home.paperResult")} value={trackingStats ? money(trackingStats.totalProfit) : money(0)} subtitle={trackingStats ? `${trackingStats.totalBets} ${tr({ fi: "tallennettua", en: "saved", es: "guardados" })}` : tr({ fi: "Ei historiaa", en: "No history", es: "Sin historial" })} tone={trackingStats?.totalProfit >= 0 ? "green" : "red"} />
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard title={tr({ fi: "Analysoidut kohteet", en: "Analyzed picks", es: "Pronósticos analizados" })} value={loading ? "…" : String(topPicks.length)} subtitle={tr({ fi: `Seuraavat ${featuredHours} tuntia`, en: `Next ${featuredHours} hours`, es: `Próximas ${featuredHours} horas` })} tone="blue" />
+        <StatCard title="PLAY" value={loading ? "…" : String(summary.play)} subtitle={tr({ fi: "Kaikki turvaportit läpäisseet", en: "Passed every safety gate", es: "Superaron todos los filtros" })} tone="green" />
+        <StatCard title={tr({ fi: "Korkein edge", en: "Highest edge", es: "Mayor ventaja" })} value={loading ? "…" : formatPercent(summary.bestEdge)} subtitle={tr({ fi: `Keskimääräinen luottamus ${formatPercent(summary.averageConfidence)}`, en: `Average confidence ${formatPercent(summary.averageConfidence)}`, es: `Confianza media ${formatPercent(summary.averageConfidence)}` })} />
+        <StatCard title={tr({ fi: "Paperitulos", en: "Paper result", es: "Resultado simulado" })} value={trackingStats ? money(trackingStats.totalProfit) : money(0)} subtitle={trackingStats ? `${trackingStats.totalBets} ${tr({ fi: "tallennettua valintaa", en: "saved picks", es: "selecciones guardadas" })}` : tr({ fi: "Ei vielä historiaa", en: "No history yet", es: "Sin historial" })} tone={Number(trackingStats?.totalProfit || 0) >= 0 ? "green" : "red"} />
       </section>
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
-        <Panel title={tr({ fi: "Päätoiminnot", en: "Main tools", es: "Herramientas principales" })} subtitle={tr({ fi: "Kaikki mitä tavallinen käyttäjä tarvitsee", en: "Everything most users need", es: "Todo lo que necesita la mayoría de usuarios" })}>
-          <div className="grid gap-4 md:grid-cols-2">
-            {tools.map((tool) => (
-              <Link key={tool.href} href={tool.href} className="group rounded-2xl border border-white/10 bg-white/[0.04] p-5 transition hover:bg-white/[0.08]">
-                <h3 className="text-xl font-black group-hover:text-emerald-300">{tool.title}</h3>
-                <p className="mt-2 text-sm leading-6 text-slate-400">{tool.description}</p>
-                <div className="mt-4 text-sm font-black text-emerald-300">{tool.label} →</div>
-              </Link>
-            ))}
-          </div>
-        </Panel>
+        <div>
+          <SectionHeader
+            eyebrow={tr({ fi: "Lähiaika", en: "Near term", es: "Próximamente" })}
+            title={tr({ fi: "Päivän tärkeimmät päätökset", en: "Today’s key decisions", es: "Decisiones clave de hoy" })}
+            description={tr({ fi: "Kortissa näkyy vain toiminnan kannalta tärkein. Täysi auditointi löytyy AI-agentista.", en: "Each card shows only what matters for action. Full auditing is available in the AI Agent.", es: "Cada tarjeta muestra solo lo esencial. La auditoría completa está en el agente IA." })}
+            action={<Link href="/betting" className="sc-button-secondary">{tr({ fi: "Kaikki kohteet", en: "All picks", es: "Todos" })}</Link>}
+          />
 
-        <div className="space-y-6">
-          <Panel title={tr({ fi: "Lähiajan Top 3", en: "Near-term Top 3", es: "Top 3 próximos" })} subtitle={t("home.topDescription")}>
-            <div className="space-y-3">
-              {loading && <div className="rounded-xl bg-white/[0.04] p-4 text-sm text-slate-400">{tr({ fi: "Tarkistetaan oikeita lähiajan otteluita…", en: "Checking real near-term fixtures…", es: "Comprobando partidos reales próximos…" })}</div>}
-              {!loading && topPicks.length === 0 && <div className="rounded-xl border border-yellow-400/20 bg-yellow-400/10 p-4 text-sm text-yellow-100">{t("home.noPicks")} <span className="mt-2 block text-xs text-yellow-200/70">{tr({ fi: `Lista näyttää vain seuraavan ${featuredHours} tunnin ottelut.`, en: `This list only shows fixtures in the next ${featuredHours} hours.`, es: `Esta lista solo muestra partidos de las próximas ${featuredHours} horas.` })}</span></div>}
-              {topPicks.map((pick, index) => {
-                const decision = decisionLabel(pick);
-                return (
-                  <div key={`${pick.id || pick.match}-${pick.selection}-${index}`} className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <div className="text-xs font-bold text-emerald-300">{kickoffLabel(pick.commenceTime, locale, tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" }))}</div>
-                        <div className="mt-1 text-xs text-slate-500">{pick.leagueTitle || pick.league || tr({ fi: "Urheilu", en: "Sport", es: "Deporte" })} · {tr({ fi: "live-API", en: "live API", es: "API en vivo" })}</div>
-                        <div className="mt-1 font-black">{pick.match || `${pick.homeTeam || ""} – ${pick.awayTeam || ""}`}</div>
-                        <div className="mt-1 text-sm text-slate-400">{pick.selection || pick.label || tr({ fi: "Valinta", en: "Selection", es: "Selección" })} @ {Number(pick.odds || 0).toFixed(2)}</div>
-                      </div>
-                      <div className={`rounded-full border px-3 py-1 text-xs font-black ${decisionClass(decision)}`}>{decision}</div>
+          <div className="space-y-4">
+            {loading && <div className="rounded-3xl border border-white/10 bg-white/[0.03] p-6 text-sm text-slate-400">{tr({ fi: "Tarkistetaan live-markkinaa ja turvaportteja…", en: "Checking the live market and safety gates…", es: "Comprobando el mercado y los filtros…" })}</div>}
+            {!loading && topPicks.length === 0 && (
+              <EmptyState
+                title={tr({ fi: "Ei riittävän vahvoja lähiajan kohteita", en: "No sufficiently strong near-term picks", es: "No hay pronósticos próximos suficientemente sólidos" })}
+                description={tr({ fi: "SKIP on hyväksytty tulos. Kokeile myöhemmin uudelleen tai avaa kaikki liigat.", en: "SKIP is a valid outcome. Try again later or open all leagues.", es: "SKIP es un resultado válido. Inténtalo más tarde o abre todas las ligas." })}
+                actionHref="/betting"
+                actionLabel={tr({ fi: "Avaa markkinat", en: "Open markets", es: "Abrir mercados" })}
+              />
+            )}
+            {topPicks.map((pick, index) => {
+              const decision = decisionLabel(pick);
+              const readiness = pick.sportsIntelligence?.readiness?.level || pick.intelligenceReadiness?.level || "market-only";
+              const polymarket = pick.polymarketSignal?.available
+                ? tr({ fi: "tarkistettu", en: "checked", es: "comprobado" })
+                : tr({ fi: "ei osumaa", en: "no match", es: "sin coincidencia" });
+              return (
+                <article key={`${pick.id || pick.match}-${pick.selection}-${index}`} className="sc-card-hover rounded-3xl border border-white/10 bg-slate-950/52 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="text-xs font-black uppercase tracking-[0.13em] text-emerald-300">{kickoffLabel(pick.commenceTime, locale, tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" }))}</div>
+                      <div className="mt-1 text-xs text-slate-500">{pick.leagueTitle || pick.league || tr({ fi: "Urheilu", en: "Sport", es: "Deporte" })}</div>
+                      <h3 className="mt-2 text-xl font-black tracking-tight text-white sm:text-2xl">{pick.match || `${pick.homeTeam || ""} – ${pick.awayTeam || ""}`}</h3>
+                      <div className="mt-2 text-base font-bold text-slate-300">{pick.selection || pick.label} <span className="text-emerald-200">@ {Number(pick.odds || 0).toFixed(2)}</span></div>
                     </div>
-                    <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-                      <div className="rounded-xl bg-slate-950/60 p-2"><div className="text-slate-500">{t("term.edge")}</div><div className="font-black">{formatPercent(pick.edge)}</div></div>
-                      <div className="rounded-xl bg-slate-950/60 p-2"><div className="text-slate-500">{t("term.ev")}</div><div className="font-black">{formatPercent(pick.ev)}</div></div>
-                      <div className="rounded-xl bg-slate-950/60 p-2"><div className="text-slate-500">{t("term.confidence")}</div><div className="font-black">{formatPercent(pick.confidence)}</div></div>
-                    </div>
+                    <DecisionBadge decision={decision} />
                   </div>
-                );
-              })}
-              <Link href="/agent" className="block rounded-xl bg-emerald-400 px-4 py-3 text-center text-sm font-black text-slate-950 hover:bg-emerald-300">{tr({ fi: "Avaa perustelut ja vastaväitteet", en: "Open reasoning and counterarguments", es: "Abrir motivos y contraargumentos" })}</Link>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <MetricTile compact label={t("term.edge")} value={formatPercent(pick.edge)} tone={Number(pick.edge || 0) > 0 ? "green" : "default"} />
+                    <MetricTile compact label={t("term.ev")} value={formatPercent(pick.ev)} tone={Number(pick.ev || 0) > 0 ? "green" : "default"} />
+                    <MetricTile compact label={t("term.confidence")} value={formatPercent(pick.confidence)} />
+                    <MetricTile compact label={tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} value={pick.fairOdds ? Number(pick.fairOdds).toFixed(2) : "–"} />
+                  </div>
+
+                  <TrustBar className="mt-4" items={[
+                    { label: tr({ fi: "Data", en: "Data", es: "Datos" }), value: pick.freshnessLabel || pick.dataQuality?.freshness || "live" },
+                    { label: tr({ fi: "Vedonvälittäjät", en: "Bookmakers", es: "Casas" }), value: pick.bookmakerCount || 0, tone: "info" },
+                    { label: tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" }), value: readiness, tone: readiness === "verified" ? "good" : "warning" },
+                    { label: "Polymarket", value: polymarket, tone: "info" }
+                  ]} />
+
+                  <div className="mt-4 flex flex-col gap-3 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm leading-6 text-slate-400">{pick.evidenceGateReason || pick.decisionReason || tr({ fi: "Markkinakonsensus ja riskirajat muodostivat päätöksen.", en: "Market consensus and risk limits formed the decision.", es: "El consenso y los límites de riesgo formaron la decisión." })}</p>
+                    <Link href="/agent" className="shrink-0 text-sm font-black text-emerald-200 hover:text-emerald-100">{tr({ fi: "Näytä auditointi", en: "View audit", es: "Ver auditoría" })} →</Link>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        </div>
+
+        <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start">
+          <Panel title={tr({ fi: "Seuraava paras toiminto", en: "Best next action", es: "Mejor siguiente acción" })} subtitle={tr({ fi: "Yksi selkeä polku tilanteen mukaan", en: "One clear path for the current situation", es: "Una ruta clara según la situación" })}>
+            <div className="rounded-2xl border border-emerald-300/20 bg-emerald-300/8 p-5">
+              <div className="text-xs font-black uppercase tracking-[0.16em] text-emerald-300">{summary.play > 0 ? "PLAY READY" : "REVIEW MODE"}</div>
+              <h3 className="mt-2 text-xl font-black text-white">{summary.play > 0
+                ? tr({ fi: "Avaa AI-agentti ennen tallennusta", en: "Open the AI Agent before saving", es: "Abre el agente IA antes de guardar" })
+                : tr({ fi: "Markkina ei vaadi toimintaa juuri nyt", en: "The market does not require action now", es: "El mercado no requiere acción ahora" })}</h3>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{summary.play > 0
+                ? tr({ fi: "Tarkista stressitesti, vastaväite ja paperipanoksen yläraja.", en: "Check the stress test, counterargument and virtual stake cap.", es: "Comprueba el estrés, el contraargumento y el límite simulado." })
+                : tr({ fi: "SKIP ja odottaminen ovat osa järjestelmän riskikuria.", en: "SKIP and waiting are part of the system’s risk discipline.", es: "SKIP y esperar forman parte de la disciplina de riesgo." })}</p>
+              <Link href={summary.play > 0 ? "/agent" : "/watchlist"} className="sc-button-primary mt-5 w-full">{summary.play > 0 ? tr({ fi: "Avaa agentti", en: "Open Agent", es: "Abrir agente" }) : tr({ fi: "Avaa seurantalista", en: "Open watchlist", es: "Abrir seguimiento" })}</Link>
             </div>
           </Panel>
 
-          <Panel title={tr({ fi: "Muista", en: "Remember", es: "Recuerda" })} subtitle={tr({ fi: "Scorecasterin rajat", en: "Scorecaster boundaries", es: "Límites de Scorecaster" })}>
-            <div className="space-y-3 text-sm leading-6 text-slate-300">
-              <div className="rounded-xl bg-emerald-400/10 p-4">✓ {tr({ fi: "AI voi sanoa PLAY, WATCH tai SKIP.", en: "AI can say PLAY, WATCH or SKIP.", es: "La IA puede indicar PLAY, WATCH o SKIP." })}</div>
-              <div className="rounded-xl bg-sky-400/10 p-4">✓ {tr({ fi: "Kaikki panokset ja saldot ovat virtuaalisia.", en: "All stakes and balances are virtual.", es: "Todos los importes y saldos son virtuales." })}</div>
-              <div className="rounded-xl bg-yellow-400/10 p-4">! {tr({ fi: "Mikään todennäköisyys tai simulaatio ei takaa tulosta.", en: "No probability or simulation guarantees a result.", es: "Ninguna probabilidad o simulación garantiza un resultado." })}</div>
-              <div className="rounded-xl bg-red-400/10 p-4">✕ {tr({ fi: "Scorecaster ei ota vastaan rahaa eikä aseta vetoa puolestasi.", en: "Scorecaster does not accept money or place bets for you.", es: "Scorecaster no acepta dinero ni realiza apuestas por ti." })}</div>
-            </div>
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+            <ActionCard href="/autonomous-agent" eyebrow="Automation" title={tr({ fi: "Autonominen paperiagentti", en: "Autonomous Paper Agent", es: "Agente simulado autónomo" })} description={tr({ fi: "Valitse rajat ja anna workerin tallentaa enintään kolme PLAY-kohdetta päivässä.", en: "Set limits and let the worker save up to three PLAY picks per day.", es: "Define límites y permite guardar hasta tres PLAY al día." })} badge="V1" tone="purple" />
+            <ActionCard href="/analytics" eyebrow="Performance" title={tr({ fi: "Tarkista oikea suorituskyky", en: "Review real performance", es: "Revisar rendimiento real" })} description={tr({ fi: "Katso ROI, CLV, Brier ja kalibrointi ennen malliin luottamista.", en: "Review ROI, CLV, Brier and calibration before trusting the model.", es: "Revisa ROI, CLV, Brier y calibración antes de confiar." })} tone="sky" />
+          </div>
+
+          <Panel title={tr({ fi: "Miten Scorecaster toimii", en: "How Scorecaster works", es: "Cómo funciona Scorecaster" })}>
+            <ol className="space-y-4 text-sm text-slate-300">
+              {[
+                tr({ fi: "Live-markkina muodostaa no-vig-konsensuksen.", en: "The live market forms a no-vig consensus.", es: "El mercado forma un consenso sin margen." }),
+                tr({ fi: "Evidenssi ja Polymarket voivat vain heikentää päätöstä.", en: "Evidence and Polymarket may only downgrade a decision.", es: "La evidencia y Polymarket solo pueden rebajar." }),
+                tr({ fi: "Riskimoottori rajaa virtuaalisen panoksen ja altistuksen.", en: "The risk engine caps virtual stake and exposure.", es: "El motor de riesgo limita importe y exposición." })
+              ].map((step, index) => <li key={step} className="flex gap-3"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] text-xs font-black text-emerald-200">{index + 1}</span><span className="pt-1 leading-6">{step}</span></li>)}
+            </ol>
           </Panel>
-        </div>
+        </aside>
       </section>
     </div>
   );
