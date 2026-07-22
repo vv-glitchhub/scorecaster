@@ -3,6 +3,10 @@
     {
       "path": "/api/cron/update-ratings",
       "schedule": "0 5 * * *"
+    },
+    {
+      "path": "/api/internal/decision-diagnostics",
+      "schedule": "12 * * * *"
     }
   ]
 }
