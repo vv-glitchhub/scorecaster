@@ -27,7 +27,7 @@ function parsePaperStake(value: string) { const number = Number(value.replace(",
 function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
 function initials(name?: string) {
   const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0]?.slice(0, 2) || "?").toUpperCase();
+  return (parts.length > 1 ? parts.map((part) => part.charAt(0)).slice(-2).join("") : (parts[0] || "?").slice(0, 2)).toUpperCase();
 }
 function initialStake(pick: Pick, maximum: number) {
   const decision = pick.productDecision || pick.decision || "CAUTION";
