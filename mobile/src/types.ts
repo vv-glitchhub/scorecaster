@@ -1,4 +1,4 @@
-export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings";
+export type Tab = "home" | "picks" | "watchlist" | "agent" | "paper" | "analytics" | "settings" | "more";
 
 export type SportsIntelligenceReadiness = {
   level?: "verified" | "partial" | "market-only" | string;
