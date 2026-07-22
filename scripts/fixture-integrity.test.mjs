@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   filterUpcomingPicks,
   isUsableLiveFixture,
@@ -70,4 +71,35 @@ test("kickoff parser preserves missing or malformed values as unavailable", () =
   assert.equal(kickoffTimestamp("2026-07-18T10:00:00Z"), Date.parse("2026-07-18T10:00:00Z"));
   assert.equal(kickoffTimestamp(""), null);
   assert.equal(kickoffTimestamp("not-a-date"), null);
+});
+
+test("Top Picks uses active summer leagues instead of off-season core defaults", async () => {
+  const route = await readFile(new URL("../app/api/top-picks/route.js", import.meta.url), "utf8");
+
+  for (const league of [
+    "baseball_mlb",
+    "basketball_wnba",
+    "soccer_usa_mls",
+    "soccer_finland_veikkausliiga",
+    "soccer_sweden_allsvenskan",
+    "soccer_norway_eliteserien"
+  ]) {
+    assert.match(route, new RegExp(league));
+  }
+  assert.match(route, /seasonForDate/);
+  assert.match(route, /season-aware-default/);
+  assert.match(route, /month >= 4 && month <= 7/);
+});
+
+test("Top Picks explains every SKIP without weakening the safety gate", async () => {
+  const route = await readFile(new URL("../app/api/top-picks/route.js", import.meta.url), "utf8");
+
+  assert.match(route, /Odds data is older than 12 hours/);
+  assert.match(route, /Market-data confidence is below 35%/);
+  assert.match(route, /Edge is below 0\.5%/);
+  assert.match(route, /Expected value is not positive/);
+  assert.match(route, /decisionReason/);
+  assert.match(route, /skipReason/);
+  assert.match(route, /gate\.watchable/);
+  assert.match(route, /edge >= 0\.02 && ev >= 0\.03/);
 });
