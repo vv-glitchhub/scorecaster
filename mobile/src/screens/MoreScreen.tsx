@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
 import { Card, styles } from "../ui";
+import DiagnosticsScreen from "./DiagnosticsScreen";
 
 type MoreScreenProps = {
   onNavigate: (tab: Tab) => void;
@@ -9,6 +11,20 @@ type MoreScreenProps = {
 
 export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   const { tr } = useLanguage();
+  const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
+
+  if (diagnosticsOpen) {
+    return (
+      <View style={{ flex: 1 }}>
+        <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
+          <Pressable accessibilityRole="button" onPress={() => setDiagnosticsOpen(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.cardPressed]}>
+            <Text style={styles.secondaryButtonText}>← {tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}</Text>
+          </Pressable>
+        </View>
+        <DiagnosticsScreen />
+      </View>
+    );
+  }
 
   const items: Array<{
     tab: Tab;
@@ -44,22 +60,22 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
       <View style={styles.mobileHero}>
         <Text style={styles.kicker}>{tr({ fi: "SCORECASTER MOBILE", en: "SCORECASTER MOBILE", es: "SCORECASTER MOBILE" })}</Text>
         <Text style={styles.title}>{tr({ fi: "Lisää työkalut ilman ahdasta alapalkkia", en: "More tools without a crowded tab bar", es: "Más herramientas sin una barra saturada" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Seuranta, analytiikka ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Tracking, analytics and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Seguimiento, analítica y perfil están aquí." })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Seuranta, analytiikka, diagnostiikka ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Tracking, analytics, diagnostics and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Seguimiento, analítica, diagnóstico y perfil están aquí." })}</Text>
       </View>
 
+      <Pressable accessibilityLabel={tr({ fi: "Avaa päätösdiagnostiikka", en: "Open decision diagnostics", es: "Abrir diagnóstico de decisiones" })} accessibilityRole="button" onPress={() => setDiagnosticsOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
+        <Card>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "JÄRJESTELMÄN TERVEYS", en: "SYSTEM HEALTH", es: "SALUD DEL SISTEMA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
+          <Text style={styles.cardTitle}>{tr({ fi: "Päätösdiagnostiikka", en: "Decision diagnostics", es: "Diagnóstico de decisiones" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Historia, all-SKIP- ja stale-hälytykset, Provider Health, tulokset, CLV ja kynnysarvosimulaatio.", en: "History, all-SKIP and stale alerts, Provider Health, outcomes, CLV and threshold simulation.", es: "Historial, alertas, proveedor, resultados, CLV y simulación." })}</Text>
+          <Text style={styles.openLabel}>{tr({ fi: "Avaa natiivinäkymä", en: "Open native view", es: "Abrir vista nativa" })} →</Text>
+        </Card>
+      </Pressable>
+
       {items.map((item) => (
-        <Pressable
-          accessibilityLabel={item.title}
-          accessibilityRole="button"
-          key={item.tab}
-          onPress={() => onNavigate(item.tab)}
-          style={({ pressed }) => [pressed && styles.cardPressed]}
-        >
+        <Pressable accessibilityLabel={item.title} accessibilityRole="button" key={item.tab} onPress={() => onNavigate(item.tab)} style={({ pressed }) => [pressed && styles.cardPressed]}>
           <Card>
-            <View style={styles.rowBetween}>
-              <Text style={styles.kicker}>{item.eyebrow}</Text>
-              {item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{item.badge}</Text></View> : null}
-            </View>
+            <View style={styles.rowBetween}><Text style={styles.kicker}>{item.eyebrow}</Text>{item.badge ? <View style={styles.badge}><Text style={styles.badgeText}>{item.badge}</Text></View> : null}</View>
             <Text style={styles.cardTitle}>{item.title}</Text>
             <Text style={styles.muted}>{item.description}</Text>
             <Text style={styles.openLabel}>{tr({ fi: "Avaa", en: "Open", es: "Abrir" })} →</Text>
@@ -67,10 +83,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
         </Pressable>
       ))}
 
-      <Card>
-        <Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text>
-        <Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets.", es: "La app no gestiona depósitos, cuentas de apuestas ni apuestas con dinero real." })}</Text>
-      </Card>
+      <Card><Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text><Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets.", es: "La app no gestiona depósitos, cuentas de apuestas ni apuestas con dinero real." })}</Text></Card>
     </ScrollView>
   );
 }
