@@ -30,8 +30,9 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 12);
+  assert.equal(manifest.supabaseMigrations.length, 13);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
@@ -46,6 +47,8 @@ test("schema verifier checks RLS, anonymous denial, worker grants and database r
   assert.match(sql, /relforcerowsecurity/);
   assert.match(sql, /pg_policies/);
   assert.match(sql, /has_table_privilege\('anon'/);
+  assert.match(sql, /decision_diagnostic_snapshots/);
+  assert.match(sql, /decision_diagnostic_alerts/);
   assert.match(sql, /claim_watchlist_monitor_users/);
   assert.match(sql, /claim_paper_settlement_monitor_users/);
   assert.match(sql, /claim_autonomous_agent_users/);
@@ -61,7 +64,8 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/watchlist-monitor",
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
-    "/api/internal/notification-delivery"
+    "/api/internal/notification-delivery",
+    "/api/internal/decision-diagnostics"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
   assert.match(runner, /unexpectedly contains the database connection string/);
@@ -72,9 +76,11 @@ test("protected worker probes are bounded and activation reports exclude credent
 test("production activation remains separate from recurring workers", async () => {
   const activation = await source(".github/workflows/production-activation.yml");
   const workers = await source(".github/workflows/notification-delivery.yml");
+  const diagnostics = await source(".github/workflows/decision-diagnostics.yml");
   assert.doesNotMatch(activation, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED\s*==\s*'true'/);
   assert.match(workers, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true'/);
+  assert.match(diagnostics, /cron: "12 \* \* \* \*"/);
 });
