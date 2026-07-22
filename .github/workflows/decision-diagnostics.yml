@@ -1,0 +1,32 @@
+name: Scorecaster Decision Diagnostics Capture
+
+on:
+  schedule:
+    - cron: "12 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate diagnostics worker secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Capture diagnostic snapshot and incidents
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/decision-diagnostics"
