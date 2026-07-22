@@ -135,3 +135,22 @@ test("native app opens Event Detail as a transient screen and returns to Picks",
   assert.match(detail, /\/api\/cloud\/watchlist/);
   assert.match(detail, /No payment, bookmaker link or real-money bet/);
 });
+
+test("Event Detail V3 prioritizes the decision ticket and keeps supporting models secondary", async () => {
+  const web = await readFile(new URL("../app/event/[eventId]/EventDetailClient.jsx", import.meta.url), "utf8");
+  const picks = await readFile(new URL("../mobile/src/screens/PicksScreen.tsx", import.meta.url), "utf8");
+  const native = await readFile(new URL("../mobile/src/screens/EventDetailScreen.tsx", import.meta.url), "utf8");
+
+  for (const token of ["PageHero", "TrustBar", "MatchIdentity", "DecisionBadge", "MetricTile", "Decision ticket"]) assert.match(web, new RegExp(token));
+  assert.match(web, /Event Detail V3/);
+  assert.match(web, /Näytä Sports Intelligence -auditointi/);
+  assert.match(web, /Näytä vire- ja lepo-varjomalli/);
+  assert.match(web, /<details/);
+  assert.match(picks, /Paperitoiminnot/);
+  assert.match(picks, /expandedId/);
+  assert.match(native, /EVENT DETAIL V3/);
+  assert.match(native, /showPaper/);
+  assert.match(native, /showIntelligence/);
+  assert.match(native, /showFormRest/);
+  assert.match(native, /showTimeline/);
+});

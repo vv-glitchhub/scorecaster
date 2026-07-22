@@ -25,6 +25,10 @@ function eventId(pick: Pick) { return String(pick.gameId || pick.eventId || pick
 function watchKey(pick: Pick) { return `${eventId(pick)}::${String(pick.selection || pick.label || "").toLowerCase()}`; }
 function parsePaperStake(value: string) { const number = Number(value.replace(",", ".")); return Number.isFinite(number) ? number : null; }
 function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
+function initials(name?: string) {
+  const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
+  return (parts.length > 1 ? parts.map((part) => part.charAt(0)).slice(-2).join("") : (parts[0] || "?").slice(0, 2)).toUpperCase();
+}
 function initialStake(pick: Pick, maximum: number) {
   const decision = pick.productDecision || pick.decision || "CAUTION";
   if (decision === "SKIP") return 0;
@@ -43,6 +47,14 @@ function personalLimitStatus(pick: Pick, bankroll: Bankroll | null) {
   const confidenceOk = Number(pick.confidence || 0) >= minConfidence;
   return { minEdge, minConfidence, edgeOk, confidenceOk, allowed: edgeOk && confidenceOk };
 }
+function decisionStyle(decision: string, allowed: boolean) {
+  if (!allowed || decision === "SKIP") return styles.dangerBadge;
+  if (decision === "CAUTION") return styles.warningBadge;
+  return null;
+}
+function TinyMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
+  return <View style={{ flex: 1, minWidth: 82, borderWidth: 1, borderColor: "#273241", backgroundColor: "#151c28", borderRadius: 14, padding: 11 }}><Text style={styles.muted}>{label}</Text><Text style={[styles.value, accent && { color: "#bef264" }]}>{value}</Text></View>;
+}
 
 export default function PicksScreen({ onOpenEvent }: Props) {
   const { tr, locale } = useLanguage();
@@ -54,6 +66,7 @@ export default function PicksScreen({ onOpenEvent }: Props) {
   const [watchedKeys, setWatchedKeys] = useState<Set<string>>(new Set());
   const [bankroll, setBankroll] = useState<Bankroll | null>(null);
   const [stakes, setStakes] = useState<Record<string, string>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -152,35 +165,71 @@ export default function PicksScreen({ onOpenEvent }: Props) {
     try {
       await apiRequest("/api/cloud/bets", { method: "POST", body: { bets: [{ id, eventId: pick.gameId || pick.eventId, match, homeTeam: pick.homeTeam, awayTeam: pick.awayTeam, selection, odds, stake, edge: pick.edge, ev: pick.ev, confidence: pick.confidence, league: pick.league || pick.leagueTitle, sport: pick.sportKey, bookmaker: pick.bookmaker, decision: pick.productDecision || pick.decision, qualityGrade: pick.qualityGrade, qualityScore: pick.trustScore, modelProbability: pick.modelProbability || pick.consensusProbability, impliedProbability: pick.marketProbability, source: "scorecaster-mobile-consensus" }] } });
       Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: `${selection} · ${money(stake)}. Oikeaa vetoa ei asetettu.`, en: `${selection} · ${money(stake)}. No real bet was placed.`, es: `${selection} · ${money(stake)}. No se realizó ninguna apuesta real.` }));
+      setExpandedId(null);
     } catch (error) {
       Alert.alert(tr({ fi: "Tallennus epäonnistui", en: "Save failed", es: "No se pudo guardar" }), error instanceof Error ? error.message : tr({ fi: "Tuntematon virhe", en: "Unknown error", es: "Error desconocido" }));
     } finally { setSavingId(null); }
   }
 
   const decisionItems: { key: DecisionFilter; label: string }[] = [{ key: "all", label: tr({ fi: "Kaikki päätökset", en: "All decisions", es: "Todas las decisiones" }) }, { key: "PLAY", label: "PLAY" }, { key: "CAUTION", label: "CAUTION" }];
-  const sortItems: { key: SortMode; label: string }[] = [{ key: "rank", label: tr({ fi: "Paras ensin", en: "Best first", es: "Mejores primero" }) }, { key: "edge", label: "Edge" }, { key: "confidence", label: "Confidence" }, { key: "time", label: tr({ fi: "Alkamisaika", en: "Kickoff", es: "Hora de inicio" }) }];
+  const sortItems: { key: SortMode; label: string }[] = [{ key: "rank", label: tr({ fi: "Paras ensin", en: "Best first", es: "Mejores primero" }) }, { key: "edge", label: "Edge" }, { key: "confidence", label: tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" }) }, { key: "time", label: tr({ fi: "Alkamisaika", en: "Kickoff", es: "Inicio" }) }];
 
   return (
     <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
-      <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.title}>{tr({ fi: "Lähiajan kohteet", en: "Near-term picks", es: "Pronósticos próximos" })}</Text><Text style={styles.subtitle}>{tr({ fi: "Paras hinta verrataan marginaalista puhdistettuun markkinakonsensukseen.", en: "The best price is compared with no-vig market consensus.", es: "La mejor cuota se compara con el consenso de mercado sin margen." })}</Text></View><ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={() => load()} tone="secondary" compact disabled={loading} /></View>
+      <View style={styles.mobileHero}>
+        <Text style={styles.kicker}>PICKS V3 · DECISION FIRST</Text>
+        <Text style={styles.title}>{tr({ fi: "Lähiajan kohteet", en: "Near-term picks", es: "Pronósticos próximos" })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päätös, hinta ja tärkeimmät mittarit näkyvät ensin. Paperitoiminnot avautuvat vasta tarvittaessa.", en: "Decision, price and the key metrics come first. Paper actions open only when needed.", es: "La decisión, la cuota y las métricas principales aparecen primero. Las acciones simuladas se abren cuando hacen falta." })}</Text>
+        <ActionButton label={tr({ fi: "Päivitä kohteet", en: "Refresh picks", es: "Actualizar pronósticos" })} onPress={() => load()} tone="secondary" compact disabled={loading} />
+      </View>
+
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{FILTERS.map((item) => { const active = item.key === filter.key; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setFilter(item)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{filterLabel(item)}</Text></Pressable>; })}</ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{decisionItems.map((item) => { const active = item.key === decisionFilter; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setDecisionFilter(item.key)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text></Pressable>; })}</ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{sortItems.map((item) => { const active = item.key === sortMode; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setSortMode(item.key)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text></Pressable>; })}</ScrollView>
-      <Card><Text style={styles.cardTitle}>{tr({ fi: "Omat paperirajat ja aineisto", en: "Your paper limits and data", es: "Tus límites simulados y datos" })}</Text><Text style={styles.value}>{tr({ fi: "Enimmäispanos", en: "Maximum stake", es: "Importe máximo" })} {money(maximumStake)}</Text><Text style={styles.muted}>{tr({ fi: "Minimiedge", en: "Minimum edge", es: "Ventaja mínima" })} {percent(bankroll?.min_edge ?? 0.025)} · confidence {percent(bankroll?.min_confidence ?? 0.58)}</Text><Text style={styles.muted}>{visiblePicks.length}/{picks.length} {tr({ fi: "kohdetta", en: "picks", es: "pronósticos" })}{generatedAt ? ` · ${new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : ""}</Text></Card>
-      {loading && <ActivityIndicator color="#34d399" size="large" />}
-      {!loading && visiblePicks.length === 0 && <Text style={styles.muted}>{tr({ fi: "Tällä suodattimella ei löytynyt riittävän laadukasta aineistoa.", en: "No sufficiently high-quality data matched this filter.", es: "No se encontraron datos de calidad suficiente con este filtro." })}</Text>}
+
+      <Card><Text style={styles.cardTitle}>{tr({ fi: "Omat paperirajat", en: "Your paper limits", es: "Tus límites simulados" })}</Text><Text style={styles.value}>{tr({ fi: "Enimmäispanos", en: "Maximum stake", es: "Importe máximo" })} {money(maximumStake)}</Text><Text style={styles.muted}>{tr({ fi: "Minimiedge", en: "Minimum edge", es: "Ventaja mínima" })} {percent(bankroll?.min_edge ?? 0.025)} · confidence {percent(bankroll?.min_confidence ?? 0.58)}</Text><Text style={styles.muted}>{visiblePicks.length}/{picks.length} {tr({ fi: "kohdetta", en: "picks", es: "pronósticos" })}{generatedAt ? ` · ${new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : ""}</Text></Card>
+      {loading && <ActivityIndicator color="#bef264" size="large" />}
+      {!loading && visiblePicks.length === 0 && <Card><Text style={styles.cardTitle}>{tr({ fi: "Ei sopivia kohteita", en: "No matching picks", es: "No hay pronósticos" })}</Text><Text style={styles.muted}>{tr({ fi: "Tällä suodattimella ei löytynyt riittävän laadukasta aineistoa.", en: "No sufficiently high-quality data matched this filter.", es: "No se encontraron datos de calidad suficiente con este filtro." })}</Text></Card>}
+
       {visiblePicks.map((pick, index) => {
         const id = pickKey(pick, index);
         const watched = watchedKeys.has(watchKey(pick));
-        const match = pick.match || [pick.homeTeam, pick.awayTeam].filter(Boolean).join(" – ") || tr({ fi: "Ottelu", en: "Match", es: "Partido" });
-        const decision = pick.productDecision || pick.decision || "CAUTION";
+        const decision = String(pick.productDecision || pick.decision || "CAUTION");
         const featured = featuredKeys.has(id);
-        const consensusProbability = Number(pick.consensusProbability || pick.modelProbability || 0);
-        const marketProbability = Number(pick.marketProbability || (pick.odds ? 1 / pick.odds : 0));
-        const notes = (pick.qualityNotes || []).slice(0, 2);
         const limits = personalLimitStatus(pick, bankroll);
         const canSave = decision !== "SKIP" && limits.allowed;
-        return <Card key={`${id}-${index}`}><View style={styles.rowBetween}><View style={[styles.badge, (!canSave || decision === "SKIP") && styles.dangerBadge, canSave && decision === "CAUTION" && styles.warningBadge]}><Text style={styles.badgeText}>{featured ? "TOP · " : ""}{canSave ? decision : tr({ fi: "OMA RAJA", en: "YOUR LIMIT", es: "TU LÍMITE" })}</Text></View><Text style={styles.muted}>{pick.leagueTitle || pick.league || filterLabel(filter)}</Text></View><Text style={styles.cardTitle}>{match}</Text><Text style={styles.value}>{pick.selection || pick.label || tr({ fi: "Valinta", en: "Selection", es: "Selección" })} · {Number(pick.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{formatKickoff(pick.commenceTime)} · {pick.bookmaker || tr({ fi: "Paras saatavilla oleva hinta", en: "Best available price", es: "Mejor cuota disponible" })}</Text><View style={styles.divider} /><Text style={styles.muted}>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(consensusProbability)} · {tr({ fi: "markkina", en: "market", es: "mercado" })} {percent(marketProbability)} · edge {percent(pick.edge)} · EV {percent(pick.ev)}</Text><Text style={styles.muted}>{tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} {pick.fairOdds ? Number(pick.fairOdds).toFixed(2) : "–"} · confidence {percent(pick.confidence)} · trust {Number(pick.trustScore || 0).toFixed(0)}/100</Text><Text style={styles.muted}>{Number(pick.bookmakerCount || pick.dataQuality?.bookmakerCount || 0)} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })} · {dataFreshness(pick)}</Text>{notes.map((note) => <Text key={note} style={styles.muted}>• {note}</Text>)}{!limits.allowed && <Text style={styles.muted}>{tr({ fi: `Kohde ei läpäise omaa rajaa: edge ${limits.edgeOk ? "OK" : "liian pieni"}, confidence ${limits.confidenceOk ? "OK" : "liian pieni"}.`, en: `The pick does not pass your limits: edge ${limits.edgeOk ? "OK" : "too low"}, confidence ${limits.confidenceOk ? "OK" : "too low"}.`, es: `El pronóstico no supera tus límites: ventaja ${limits.edgeOk ? "OK" : "demasiado baja"}, confianza ${limits.confidenceOk ? "OK" : "demasiado baja"}.` })}</Text>}<ActionButton label={tr({ fi: "Avaa kaikki tiedot", en: "Open event detail", es: "Abrir detalle" })} onPress={() => onOpenEvent?.(pick)} disabled={!onOpenEvent || !eventId(pick) || !String(pick.sportKey || pick.league || "")} tone="secondary" /><ActionButton label={watched ? tr({ fi: "Seurannassa", en: "Watched", es: "En seguimiento" }) : watchingId === watchKey(pick) ? tr({ fi: "Lisätään…", en: "Adding…", es: "Añadiendo…" }) : tr({ fi: "Seuraa hintaa ja päätöstä", en: "Watch price and decision", es: "Seguir cuota y decisión" })} onPress={() => watchPick(pick)} disabled={watched || watchingId !== null} tone="secondary" /><Field label={tr({ fi: "Paperipanos (€)", en: "Paper stake (€)", es: "Importe simulado (€)" })} value={stakes[id] || initialStake(pick, maximumStake).toFixed(2)} onChangeText={(value) => setStakes((current) => ({ ...current, [id]: value }))} keyboardType="decimal-pad" /><ActionButton label={savingId === id ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })} onPress={() => savePick(pick, index)} disabled={savingId !== null || !canSave} />{decision === "SKIP" && <Text style={styles.muted}>{tr({ fi: "SKIP tarkoittaa, että hinta tai aineiston laatu ei täytä Scorecasterin rajaa.", en: "SKIP means the price or data quality does not meet the Scorecaster gate.", es: "SKIP significa que la cuota o la calidad de los datos no supera el filtro de Scorecaster." })}</Text>}</Card>;
+        const expanded = expandedId === id;
+        const home = pick.homeTeam || String(pick.match || "").split(/\s+[–—-]\s+/)[0] || "Home";
+        const away = pick.awayTeam || String(pick.match || "").split(/\s+[–—-]\s+/)[1] || "Away";
+        return (
+          <Card key={`${id}-${index}`}>
+            <View style={styles.rowBetween}>
+              <View style={{ flexDirection: "row", alignItems: "center", flex: 1, gap: 10 }}>
+                <View style={{ width: 42, height: 42, borderRadius: 14, backgroundColor: "#263b17", borderWidth: 1, borderColor: "#405b25", alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#bef264", fontWeight: "900", fontSize: 12 }}>{initials(home)}</Text></View>
+                <View style={{ flex: 1 }}><Text style={styles.cardTitle}>{home} – {away}</Text><Text style={styles.muted}>{pick.leagueTitle || pick.league || filterLabel(filter)} · {formatKickoff(pick.commenceTime)}</Text></View>
+              </View>
+              <View style={[styles.badge, decisionStyle(decision, canSave)]}><Text style={styles.badgeText}>{featured ? "TOP · " : ""}{canSave ? decision : tr({ fi: "OMA RAJA", en: "YOUR LIMIT", es: "TU LÍMITE" })}</Text></View>
+            </View>
+
+            <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.muted}>{pick.selection || pick.label || tr({ fi: "Valinta", en: "Selection", es: "Selección" })}</Text><Text style={styles.metric}>{Number(pick.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{pick.bookmaker || tr({ fi: "Paras saatavilla oleva hinta", en: "Best available price", es: "Mejor cuota disponible" })}</Text></View></View>
+
+            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+              <TinyMetric label="Edge" value={percent(pick.edge)} accent={Number(pick.edge || 0) > 0} />
+              <TinyMetric label="EV" value={percent(pick.ev)} accent={Number(pick.ev || 0) > 0} />
+              <TinyMetric label={tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })} value={percent(pick.confidence)} />
+            </View>
+            <Text style={styles.muted}>{Number(pick.bookmakerCount || pick.dataQuality?.bookmakerCount || 0)} {tr({ fi: "lähdettä", en: "sources", es: "fuentes" })} · {dataFreshness(pick)} · trust {Number(pick.trustScore || 0).toFixed(0)}/100</Text>
+            {!limits.allowed && <Text style={styles.muted}>{tr({ fi: `Oma raja estää paperitallennuksen: edge ${limits.edgeOk ? "OK" : "liian pieni"}, confidence ${limits.confidenceOk ? "OK" : "liian pieni"}.`, en: `Your limit blocks paper saving: edge ${limits.edgeOk ? "OK" : "too low"}, confidence ${limits.confidenceOk ? "OK" : "too low"}.`, es: `Tu límite impide guardar: ventaja ${limits.edgeOk ? "OK" : "demasiado baja"}, confianza ${limits.confidenceOk ? "OK" : "demasiado baja"}.` })}</Text>}
+
+            <ActionButton label={tr({ fi: "Avaa kaikki tiedot", en: "Open event detail", es: "Abrir detalle" })} onPress={() => onOpenEvent?.(pick)} disabled={!onOpenEvent || !eventId(pick) || !String(pick.sportKey || pick.league || "")} />
+            <View style={styles.actionRow}>
+              <View style={{ flex: 1, minWidth: 150 }}><ActionButton label={watched ? tr({ fi: "Seurannassa", en: "Watched", es: "En seguimiento" }) : watchingId === watchKey(pick) ? tr({ fi: "Lisätään…", en: "Adding…", es: "Añadiendo…" }) : tr({ fi: "Seuraa", en: "Watch", es: "Seguir" })} onPress={() => watchPick(pick)} disabled={watched || watchingId !== null} tone="secondary" /></View>
+              <View style={{ flex: 1, minWidth: 150 }}><ActionButton label={expanded ? tr({ fi: "Sulje toiminnot", en: "Close actions", es: "Cerrar acciones" }) : tr({ fi: "Paperitoiminnot", en: "Paper actions", es: "Acciones simuladas" })} onPress={() => setExpandedId(expanded ? null : id)} tone="secondary" /></View>
+            </View>
+
+            {expanded && <View style={{ borderTopWidth: 1, borderTopColor: "#273241", paddingTop: 12, gap: 10 }}><Field label={tr({ fi: "Paperipanos (€)", en: "Paper stake (€)", es: "Importe simulado (€)" })} value={stakes[id] || initialStake(pick, maximumStake).toFixed(2)} onChangeText={(value) => setStakes((current) => ({ ...current, [id]: value }))} keyboardType="decimal-pad" /><Text style={styles.muted}>{tr({ fi: "Enintään", en: "Maximum", es: "Máximo" })} {money(maximumStake)}. {tr({ fi: "Oikeaa vetoa ei aseteta.", en: "No real bet is placed.", es: "No se realiza ninguna apuesta real." })}</Text><ActionButton label={savingId === id ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })} onPress={() => savePick(pick, index)} disabled={savingId !== null || !canSave} />{decision === "SKIP" && <Text style={styles.muted}>{tr({ fi: "SKIP-valintaa ei voi tallentaa paperiseurantaan.", en: "A SKIP selection cannot be saved to paper tracking.", es: "Una selección SKIP no puede guardarse." })}</Text>}</View>}
+          </Card>
+        );
       })}
     </ScrollView>
   );
