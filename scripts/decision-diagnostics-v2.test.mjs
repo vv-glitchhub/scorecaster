@@ -118,7 +118,7 @@ test("Diagnostics V2 ships storage, worker, web, provider and native surfaces", 
   assert.match(schema, /decision_diagnostic_alerts/);
   assert.match(worker, /evaluateDiagnosticAlerts/);
   assert.match(api, /analyzeDecisionOutcomes/);
-  assert.match(web, /Threshold simulator/);
+  assert.match(web, /id="threshold-simulator"/);
   assert.match(provider, /focus="provider"/);
   assert.match(mobile, /Provider Health/);
   assert.match(more, /DiagnosticsScreen/);
