@@ -7,6 +7,7 @@ import AnalyticsScreen from "./screens/AnalyticsScreen";
 import AuthScreen from "./screens/AuthScreen";
 import EventDetailScreen from "./screens/EventDetailScreen";
 import HomeScreen from "./screens/HomeScreen";
+import MoreScreen from "./screens/MoreScreen";
 import PaperBetsScreen from "./screens/PaperBetsScreen";
 import PicksScreen from "./screens/PicksScreen";
 import SettingsScreen from "./screens/SettingsScreen";
@@ -15,20 +16,18 @@ import { LanguageProvider, useLanguage } from "./i18n";
 import { handleAuthCallbackUrl } from "./lib/auth-deep-link";
 import { mobileAuthConfigured, supabase } from "./lib/supabase";
 import type { Pick, Tab } from "./types";
-import { styles } from "./ui";
+import { BrandMark, styles } from "./ui";
 
 function MainApp({ session }: { session: Session }) {
   const { tr } = useLanguage();
   const [tab, setTab] = useState<Tab>("home");
   const [selectedEvent, setSelectedEvent] = useState<Pick | null>(null);
   const tabs = useMemo(() => [
-    { key: "home" as Tab, label: tr({ fi: "Koti", en: "Home", es: "Inicio" }), accessibilityLabel: tr({ fi: "Etusivu ja papeririskit", en: "Home and paper risks", es: "Inicio y riesgos simulados" }) },
-    { key: "picks" as Tab, label: tr({ fi: "Kohteet", en: "Picks", es: "Pronóst." }), accessibilityLabel: tr({ fi: "Lähiajan analysoidut kohteet", en: "Near-term analyzed picks", es: "Pronósticos próximos analizados" }) },
-    { key: "watchlist" as Tab, label: tr({ fi: "Vahti", en: "Watch", es: "Lista" }), accessibilityLabel: tr({ fi: "Varmennettu seurantalista ja hälytykset", en: "Verified watchlist and alerts", es: "Lista verificada y alertas" }) },
-    { key: "agent" as Tab, label: "AI", accessibilityLabel: tr({ fi: "Agent V11 päätöskopilotti", en: "Agent V11 decision copilot", es: "Copiloto de decisiones Agent V11" }) },
-    { key: "paper" as Tab, label: tr({ fi: "Paperi", en: "Paper", es: "Papel" }), accessibilityLabel: tr({ fi: "Paperivetojen seuranta", en: "Paper-pick tracking", es: "Seguimiento de pronósticos simulados" }) },
-    { key: "analytics" as Tab, label: tr({ fi: "Data", en: "Data", es: "Datos" }), accessibilityLabel: tr({ fi: "Paperiseurannan analytiikka", en: "Paper-tracking analytics", es: "Analítica del seguimiento simulado" }) },
-    { key: "settings" as Tab, label: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), accessibilityLabel: tr({ fi: "Profiili, kieli ja tietosuoja", en: "Profile, language and privacy", es: "Perfil, idioma y privacidad" }) }
+    { key: "home" as Tab, icon: "⌂", label: tr({ fi: "Koti", en: "Home", es: "Inicio" }), accessibilityLabel: tr({ fi: "Etusivu ja papeririskit", en: "Home and paper risks", es: "Inicio y riesgos simulados" }) },
+    { key: "picks" as Tab, icon: "◫", label: tr({ fi: "Kohteet", en: "Picks", es: "Pronóst." }), accessibilityLabel: tr({ fi: "Lähiajan analysoidut kohteet", en: "Near-term analyzed picks", es: "Pronósticos próximos analizados" }) },
+    { key: "agent" as Tab, icon: "✦", label: "AI", accessibilityLabel: tr({ fi: "Agent V11 päätöskopilotti", en: "Agent V11 decision copilot", es: "Copiloto de decisiones Agent V11" }) },
+    { key: "paper" as Tab, icon: "◎", label: tr({ fi: "Paperi", en: "Paper", es: "Papel" }), accessibilityLabel: tr({ fi: "Paperivetojen seuranta", en: "Paper-pick tracking", es: "Seguimiento de pronósticos simulados" }) },
+    { key: "more" as Tab, icon: "•••", label: tr({ fi: "Lisää", en: "More", es: "Más" }), accessibilityLabel: tr({ fi: "Seuranta, analytiikka ja profiili", en: "Tracking, analytics and profile", es: "Seguimiento, analítica y perfil" }) }
   ], [tr]);
 
   function chooseTab(next: Tab) {
@@ -36,13 +35,27 @@ function MainApp({ session }: { session: Session }) {
     setTab(next);
   }
 
+  const activePrimaryTab: Tab = ["watchlist", "analytics", "settings"].includes(tab) ? "more" : tab;
+  const subline = selectedEvent
+    ? tr({ fi: "Varmennettu ottelunäkymä", en: "Verified event detail", es: "Detalle verificado" })
+    : tab === "watchlist"
+      ? tr({ fi: "Seurantalista ja hälytykset", en: "Watchlist and alerts", es: "Seguimiento y alertas" })
+      : tab === "analytics"
+        ? tr({ fi: "Tulokset ja kalibrointi", en: "Results and calibration", es: "Resultados y calibración" })
+        : tab === "settings"
+          ? tr({ fi: "Profiili ja tietosuoja", en: "Profile and privacy", es: "Perfil y privacidad" })
+          : tr({ fi: "Urheiluanalyysi ja paperiseuranta", en: "Sports analysis and paper tracking", es: "Análisis deportivo y seguimiento simulado" });
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <StatusBar style="light" />
       <View style={styles.header}>
-        <View>
-          <Text style={styles.headerBrand}>Scorecaster</Text>
-          <Text style={styles.headerSubline}>{selectedEvent ? tr({ fi: "Varmennettu ottelunäkymä", en: "Verified event detail", es: "Detalle verificado" }) : tr({ fi: "Urheiluanalyysi ja paperiseuranta", en: "Sports analysis and paper tracking", es: "Análisis deportivo y seguimiento simulado" })}</Text>
+        <View style={styles.headerBrandRow}>
+          <BrandMark compact />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.headerBrand}>Scorecaster</Text>
+            <Text numberOfLines={1} style={styles.headerSubline}>{subline}</Text>
+          </View>
         </View>
         <Text style={styles.headerMode}>{tr({ fi: "PAPERITILA", en: "PAPER MODE", es: "MODO SIMULADO" })}</Text>
       </View>
@@ -51,27 +64,33 @@ function MainApp({ session }: { session: Session }) {
         {selectedEvent ? <EventDetailScreen pick={selectedEvent} onBack={() => setSelectedEvent(null)} /> : <>
           {tab === "home" && <HomeScreen />}
           {tab === "picks" && <PicksScreen onOpenEvent={setSelectedEvent} />}
-          {tab === "watchlist" && <WatchlistScreen />}
           {tab === "agent" && <AgentScreen />}
           {tab === "paper" && <PaperBetsScreen />}
+          {tab === "more" && <MoreScreen onNavigate={chooseTab} />}
+          {tab === "watchlist" && <WatchlistScreen />}
           {tab === "analytics" && <AnalyticsScreen />}
           {tab === "settings" && <SettingsScreen session={session} />}
         </>}
       </View>
 
       {!selectedEvent && <View accessibilityRole="tablist" style={styles.tabBar}>
-        {tabs.map((item) => (
-          <Pressable
-            accessibilityLabel={item.accessibilityLabel}
-            accessibilityRole="tab"
-            accessibilityState={{ selected: tab === item.key }}
-            key={item.key}
-            onPress={() => chooseTab(item.key)}
-            style={({ pressed }) => [styles.tabButton, pressed && styles.tabButtonPressed]}
-          >
-            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.72} style={[styles.tabText, tab === item.key && styles.tabTextActive]}>{item.label}</Text>
-          </Pressable>
-        ))}
+        {tabs.map((item) => {
+          const selected = activePrimaryTab === item.key;
+          return (
+            <Pressable
+              accessibilityLabel={item.accessibilityLabel}
+              accessibilityRole="tab"
+              accessibilityState={{ selected }}
+              key={item.key}
+              onPress={() => chooseTab(item.key)}
+              style={({ pressed }) => [styles.tabButton, pressed && styles.tabButtonPressed]}
+            >
+              {selected ? <View style={styles.tabIndicator} /> : null}
+              <Text style={[styles.tabIcon, selected && styles.tabIconActive]}>{item.icon}</Text>
+              <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.78} style={[styles.tabText, selected && styles.tabTextActive]}>{item.label}</Text>
+            </Pressable>
+          );
+        })}
       </View>}
     </SafeAreaView>
   );
@@ -115,11 +134,11 @@ function ScorecasterApp() {
   }, [tr]);
 
   if (!mobileAuthConfigured) {
-    return <SafeAreaView style={styles.safeArea}><StatusBar style="light" /><View style={styles.centered}><Text style={styles.title}>{tr({ fi: "Scorecaster ei ole vielä yhdistetty pilveen", en: "Scorecaster is not connected to the cloud yet", es: "Scorecaster aún no está conectado a la nube" })}</Text><Text style={styles.subtitle}>{tr({ fi: "Lisää mobiilin ympäristöön vain Supabasen julkinen URL ja publishable key. Salaisia palvelinavaimia ei saa lisätä sovellukseen.", en: "Add only the public Supabase URL and publishable key to the mobile environment. Never add server secrets to the app.", es: "Añade al entorno móvil solo la URL pública de Supabase y la clave publicable. Nunca añadas secretos del servidor a la aplicación." })}</Text></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safeArea}><StatusBar style="light" /><View style={styles.centered}><BrandMark /><Text style={styles.title}>{tr({ fi: "Scorecaster ei ole vielä yhdistetty pilveen", en: "Scorecaster is not connected to the cloud yet", es: "Scorecaster aún no está conectado a la nube" })}</Text><Text style={styles.subtitle}>{tr({ fi: "Lisää mobiilin ympäristöön vain Supabasen julkinen URL ja publishable key. Salaisia palvelinavaimia ei saa lisätä sovellukseen.", en: "Add only the public Supabase URL and publishable key to the mobile environment. Never add server secrets to the app.", es: "Añade al entorno móvil solo la URL pública de Supabase y la clave publicable. Nunca añadas secretos del servidor a la aplicación." })}</Text></View></SafeAreaView>;
   }
 
   if (!ready) {
-    return <SafeAreaView style={styles.safeArea}><StatusBar style="light" /><View style={styles.centered}><ActivityIndicator color="#34d399" size="large" /><Text style={styles.muted}>{tr({ fi: "Avataan suojattua istuntoa…", en: "Opening secure session…", es: "Abriendo sesión segura…" })}</Text></View></SafeAreaView>;
+    return <SafeAreaView style={styles.safeArea}><StatusBar style="light" /><View style={styles.centered}><BrandMark /><ActivityIndicator color="#bef264" size="large" /><Text style={styles.muted}>{tr({ fi: "Avataan suojattua istuntoa…", en: "Opening secure session…", es: "Abriendo sesión segura…" })}</Text></View></SafeAreaView>;
   }
 
   return session ? <MainApp session={session} /> : <AuthScreen />;

@@ -8,8 +8,8 @@ export const metadata = {
 export default function WatchlistPage() {
   return (
     <div className="space-y-7">
-      <WatchlistCandidates />
       <WatchlistClient />
+      <WatchlistCandidates />
     </div>
   );
 }

@@ -118,13 +118,17 @@ test("account export and deletion cover watchlist rows", async () => {
   assert.match(accountRoute, /"verified watchlist"/);
 });
 
-test("native app exposes a separate watchlist tab and does not create a paper stake", async () => {
+test("native app exposes watchlist through the More hub and does not create a paper stake", async () => {
   const app = await readFile(new URL("../mobile/src/App.tsx", import.meta.url), "utf8");
+  const more = await readFile(new URL("../mobile/src/screens/MoreScreen.tsx", import.meta.url), "utf8");
   const picks = await readFile(new URL("../mobile/src/screens/PicksScreen.tsx", import.meta.url), "utf8");
   const watch = await readFile(new URL("../mobile/src/screens/WatchlistScreen.tsx", import.meta.url), "utf8");
+  const tabBlock = app.slice(app.indexOf("const tabs"), app.indexOf("function chooseTab"));
 
-  assert.match(app, /key:\s*"watchlist"/);
-  assert.match(app, /<WatchlistScreen\s*\/>/);
+  assert.match(tabBlock, /key:\s*"more"/);
+  assert.doesNotMatch(tabBlock, /key:\s*"watchlist"/);
+  assert.match(app, /tab === "watchlist" && <WatchlistScreen/);
+  assert.match(more, /tab:\s*"watchlist"/);
   assert.match(picks, /"\/api\/cloud\/watchlist"/);
   assert.match(picks, /No stake was created/);
   assert.match(watch, /method:\s*"PATCH"/);
