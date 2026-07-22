@@ -172,6 +172,33 @@ test("analytics is a V11 performance cockpit with primary metrics before weights
   assert.doesNotMatch(analytics, /Agent V10/);
 });
 
+test("Daily Flow V3 connects events, verified watchlist and alert inbox with shared product UI", async () => {
+  const events = await read("app/events/EventsClient.jsx");
+  const watchlistPage = await read("app/watchlist/page.jsx");
+  const watchlist = await read("app/watchlist/WatchlistClient.jsx");
+  const candidates = await read("app/watchlist/WatchlistCandidates.jsx");
+  const alerts = await read("app/alerts/AlertInboxClient.jsx");
+
+  for (const source of [events, watchlist, alerts]) {
+    assert.match(source, /Daily Flow V3/);
+    assert.match(source, /PageHero/);
+    assert.match(source, /TrustBar/);
+    assert.match(source, /MetricTile/);
+  }
+  assert.match(events, /MatchIdentity/);
+  assert.match(events, /DecisionBadge/);
+  assert.match(events, /verified events only/);
+  assert.match(watchlist, /Watchlist Monitor V1/);
+  assert.match(watchlist, /\/api\/cloud\/watchlist-monitor/);
+  assert.match(watchlist, /Muokkaa hälytysrajoja/);
+  assert.match(candidates, /server verifies the live-API selection again/i);
+  assert.match(alerts, /action: "dismiss"/);
+  assert.match(alerts, /action: "restore"/);
+  assert.match(alerts, /\/api\/account\/alert-inbox-export/);
+  assert.ok(watchlistPage.indexOf("<WatchlistClient />") < watchlistPage.indexOf("<WatchlistCandidates />"));
+  assert.doesNotMatch(events + watchlist + alerts, /bg-\[radial-gradient/);
+});
+
 test("native home keeps advanced risk fields collapsed by default", async () => {
   const app = await read("mobile/src/App.tsx");
   const home = await read("mobile/src/screens/HomeScreen.tsx");
@@ -182,6 +209,28 @@ test("native home keeps advanced risk fields collapsed by default", async () => 
   assert.match(home, /Edit paper limits/);
   assert.match(home, /Editar límites simulados/);
   assert.match(home, /showRiskSettings &&/);
+});
+
+test("native Visual V3 uses five primary tabs and a dedicated More hub", async () => {
+  const app = await read("mobile/src/App.tsx");
+  const more = await read("mobile/src/screens/MoreScreen.tsx");
+  const ui = await read("mobile/src/ui.tsx");
+  const types = await read("mobile/src/types.ts");
+  const tabBlock = app.slice(app.indexOf("const tabs"), app.indexOf("function chooseTab"));
+
+  for (const key of ["home", "picks", "agent", "paper", "more"]) assert.match(tabBlock, new RegExp(`key: \\"${key}\\"`));
+  for (const key of ["watchlist", "analytics", "settings"]) assert.doesNotMatch(tabBlock, new RegExp(`key: \\"${key}\\"`));
+  assert.match(app, /activePrimaryTab/);
+  assert.match(app, /<MoreScreen onNavigate=\{chooseTab\}/);
+  assert.match(app, /<BrandMark compact/);
+  assert.match(more, /Seurantalista ja hälytykset/);
+  assert.match(more, /Results and calibration/);
+  assert.match(more, /Profile and settings/);
+  assert.match(ui, /export function BrandMark/);
+  assert.match(ui, /brand: "#bef264"/);
+  assert.match(ui, /mobileHero/);
+  assert.match(ui, /tabIndicator/);
+  assert.match(types, /\| "more"/);
 });
 
 test("root viewport allows user zoom for accessibility", async () => {
