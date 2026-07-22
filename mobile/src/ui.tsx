@@ -1,6 +1,24 @@
 import type { ReactNode } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View } from "react-native";
 
+const palette = {
+  bg: "#06080e",
+  surface: "#10151f",
+  surfaceStrong: "#151c28",
+  border: "#273241",
+  text: "#f8fafc",
+  textSecondary: "#d7dee8",
+  muted: "#8d9aac",
+  faint: "#5f6d80",
+  brand: "#bef264",
+  brandInk: "#17210d",
+  brandSoft: "#263b17",
+  sky: "#38bdf8",
+  purple: "#c084fc",
+  amber: "#fbbf24",
+  rose: "#fb7185"
+};
+
 export function money(value: number | null | undefined) {
   return new Intl.NumberFormat("fi-FI", {
     style: "currency",
@@ -11,6 +29,19 @@ export function money(value: number | null | undefined) {
 export function percent(value: number | null | undefined) {
   const number = Number(value || 0);
   return `${(Math.abs(number) <= 1 ? number * 100 : number).toFixed(1)} %`;
+}
+
+export function BrandMark({ compact = false }: { compact?: boolean }) {
+  return (
+    <View accessibilityElementsHidden importantForAccessibility="no" style={[styles.brandMark, compact && styles.brandMarkCompact]}>
+      <Text style={[styles.brandMarkLetter, compact && styles.brandMarkLetterCompact]}>S</Text>
+      <View style={styles.brandPulse}>
+        <View style={[styles.brandPulseLine, { height: 4 }]} />
+        <View style={[styles.brandPulseLine, { height: 11 }]} />
+        <View style={[styles.brandPulseLine, { height: 6 }]} />
+      </View>
+    </View>
+  );
 }
 
 export function Card({ children }: { children: ReactNode }) {
@@ -46,7 +77,7 @@ export function ActionButton({
         (pressed || disabled) && styles.buttonMuted
       ]}
     >
-      <Text style={styles.buttonText}>{label}</Text>
+      <Text style={[styles.buttonText, tone === "primary" && styles.buttonTextPrimary]}>{label}</Text>
     </Pressable>
   );
 }
@@ -77,9 +108,9 @@ export function Field({
         keyboardType={keyboardType}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#64748b"
+        placeholderTextColor={palette.faint}
         secureTextEntry={secureTextEntry}
-        selectionColor="#34d399"
+        selectionColor={palette.brand}
         style={styles.input}
         value={value}
       />
@@ -88,79 +119,143 @@ export function Field({
 }
 
 export const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" },
+  safeArea: { flex: 1, backgroundColor: palette.bg },
   content: { flex: 1 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24, gap: 12 },
   authContainer: { flexGrow: 1, justifyContent: "center", padding: 24, gap: 14 },
-  screen: { padding: 16, paddingBottom: 36, gap: 12 },
+  screen: { padding: 16, paddingBottom: 38, gap: 14 },
   header: {
-    minHeight: 62,
-    paddingHorizontal: 18,
-    paddingVertical: 9,
+    minHeight: 70,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderColor: "#1e293b",
+    borderColor: palette.border,
+    backgroundColor: "#090d14",
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between"
   },
-  headerBrand: { color: "#f8fafc", fontSize: 20, fontWeight: "900" },
-  headerSubline: { color: "#64748b", fontSize: 10, fontWeight: "700", marginTop: 1 },
-  headerMode: { color: "#34d399", fontSize: 11, fontWeight: "900", letterSpacing: 1 },
+  headerBrandRow: { flexDirection: "row", alignItems: "center", gap: 11, flex: 1 },
+  headerBrand: { color: palette.text, fontSize: 20, fontWeight: "900", letterSpacing: -0.7 },
+  headerSubline: { color: palette.muted, fontSize: 10, fontWeight: "800", marginTop: 1, letterSpacing: 0.25 },
+  headerMode: {
+    color: palette.brand,
+    fontSize: 9,
+    fontWeight: "900",
+    letterSpacing: 1,
+    borderWidth: 1,
+    borderColor: "#405b25",
+    backgroundColor: palette.brandSoft,
+    borderRadius: 999,
+    paddingHorizontal: 9,
+    paddingVertical: 6,
+    overflow: "hidden"
+  },
+  brandMark: {
+    width: 43,
+    height: 43,
+    borderRadius: 15,
+    backgroundColor: palette.brand,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: palette.brand,
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 5
+  },
+  brandMarkCompact: { width: 36, height: 36, borderRadius: 12 },
+  brandMarkLetter: { color: palette.brandInk, fontSize: 22, fontWeight: "900", lineHeight: 24 },
+  brandMarkLetterCompact: { fontSize: 18, lineHeight: 20 },
+  brandPulse: { position: "absolute", right: 5, bottom: 6, flexDirection: "row", alignItems: "center", gap: 1.5 },
+  brandPulseLine: { width: 1.5, borderRadius: 2, backgroundColor: palette.brandInk, opacity: 0.75 },
+  mobileHero: {
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    borderRadius: 24,
+    padding: 20,
+    gap: 9,
+    shadowColor: "#000000",
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 10 },
+    elevation: 4
+  },
+  kicker: { color: palette.brand, fontSize: 10, fontWeight: "900", letterSpacing: 1.5 },
   logo: {
     alignSelf: "center",
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    backgroundColor: "#34d399",
-    color: "#020617",
+    width: 68,
+    height: 68,
+    borderRadius: 22,
+    backgroundColor: palette.brand,
+    color: palette.brandInk,
     textAlign: "center",
     textAlignVertical: "center",
-    fontSize: 34,
+    fontSize: 35,
     fontWeight: "900",
-    lineHeight: 64
+    lineHeight: 68,
+    shadowColor: palette.brand,
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 6
   },
-  title: { color: "#f8fafc", fontSize: 28, fontWeight: "900" },
-  subtitle: { color: "#94a3b8", fontSize: 14, lineHeight: 21 },
-  privacyNote: { color: "#64748b", textAlign: "center", fontSize: 12, lineHeight: 18 },
+  title: { color: palette.text, fontSize: 29, lineHeight: 33, fontWeight: "900", letterSpacing: -1.05 },
+  subtitle: { color: palette.muted, fontSize: 14, lineHeight: 21 },
+  privacyNote: { color: palette.faint, textAlign: "center", fontSize: 12, lineHeight: 18 },
   card: {
     borderWidth: 1,
-    borderColor: "#1e293b",
-    backgroundColor: "#0f172a",
-    borderRadius: 18,
-    padding: 16,
-    gap: 10
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+    borderRadius: 21,
+    padding: 17,
+    gap: 10,
+    shadowColor: "#000000",
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 3
   },
-  cardFeatured: { borderColor: "#34d399" },
-  cardTitle: { color: "#f8fafc", fontSize: 16, fontWeight: "800" },
-  metric: { color: "#34d399", fontSize: 32, fontWeight: "900" },
-  value: { color: "#e2e8f0", fontSize: 16, fontWeight: "700" },
-  muted: { color: "#94a3b8", fontSize: 13, lineHeight: 19 },
-  label: { color: "#cbd5e1", fontSize: 13, fontWeight: "700" },
+  cardPressed: { opacity: 0.72, transform: [{ scale: 0.99 }] },
+  cardFeatured: { borderColor: "#4f6d2b", backgroundColor: "#121a16" },
+  cardTitle: { color: palette.text, fontSize: 17, lineHeight: 22, fontWeight: "900", letterSpacing: -0.3 },
+  metric: { color: palette.brand, fontSize: 34, fontWeight: "900", letterSpacing: -1.1 },
+  value: { color: palette.textSecondary, fontSize: 16, fontWeight: "800" },
+  muted: { color: palette.muted, fontSize: 13, lineHeight: 19 },
+  label: { color: palette.textSecondary, fontSize: 13, fontWeight: "800" },
+  openLabel: { color: palette.brand, fontSize: 13, fontWeight: "900", marginTop: 2 },
   fieldWrap: { gap: 6 },
   input: {
-    minHeight: 46,
+    minHeight: 48,
     borderWidth: 1,
-    borderColor: "#334155",
-    borderRadius: 12,
+    borderColor: palette.border,
+    borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    color: "#f8fafc",
-    backgroundColor: "#020617"
+    color: palette.text,
+    backgroundColor: palette.bg
   },
   button: {
-    minHeight: 46,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    minHeight: 48,
+    borderRadius: 14,
+    paddingHorizontal: 15,
     paddingVertical: 12,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#10b981"
+    backgroundColor: palette.brand,
+    shadowColor: palette.brand,
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 2
   },
-  buttonCompact: { minHeight: 40, paddingHorizontal: 12, paddingVertical: 9 },
-  buttonSecondary: { backgroundColor: "#334155" },
-  buttonDanger: { backgroundColor: "#be123c" },
+  buttonCompact: { minHeight: 42, paddingHorizontal: 13, paddingVertical: 9 },
+  buttonSecondary: { backgroundColor: palette.surfaceStrong, borderWidth: 1, borderColor: palette.border, shadowOpacity: 0 },
+  buttonDanger: { backgroundColor: "#7f1d35", borderWidth: 1, borderColor: "#9f2947", shadowOpacity: 0 },
   buttonMuted: { opacity: 0.55 },
-  buttonText: { color: "#f8fafc", fontWeight: "900", fontSize: 13 },
+  buttonText: { color: palette.text, fontWeight: "900", fontSize: 13 },
+  buttonTextPrimary: { color: palette.brandInk },
   rowBetween: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
@@ -169,35 +264,42 @@ export const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: "#064e3b"
+    backgroundColor: palette.brandSoft,
+    borderWidth: 1,
+    borderColor: "#405b25"
   },
-  badgeText: { color: "#a7f3d0", fontSize: 11, fontWeight: "900" },
-  warningBadge: { backgroundColor: "#78350f" },
-  dangerBadge: { backgroundColor: "#881337" },
+  badgeText: { color: palette.brand, fontSize: 10, fontWeight: "900", letterSpacing: 0.4 },
+  warningBadge: { backgroundColor: "#3d2b0b", borderColor: "#6f5014" },
+  dangerBadge: { backgroundColor: "#451421", borderColor: "#76243a" },
   filterRow: { gap: 8, paddingVertical: 4, paddingRight: 16 },
   filterChip: {
-    minHeight: 40,
+    minHeight: 42,
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: palette.border,
     borderRadius: 999,
-    paddingHorizontal: 14,
+    paddingHorizontal: 15,
     paddingVertical: 10,
-    backgroundColor: "#0f172a"
+    backgroundColor: palette.surface
   },
-  filterChipActive: { borderColor: "#34d399", backgroundColor: "#064e3b" },
-  filterText: { color: "#cbd5e1", fontWeight: "800", fontSize: 12 },
-  filterTextActive: { color: "#d1fae5" },
-  divider: { height: 1, backgroundColor: "#1e293b", marginVertical: 2 },
+  filterChipActive: { borderColor: palette.brand, backgroundColor: palette.brandSoft },
+  filterText: { color: palette.textSecondary, fontWeight: "800", fontSize: 12 },
+  filterTextActive: { color: palette.brand },
+  divider: { height: 1, backgroundColor: palette.border, marginVertical: 2 },
   tabBar: {
-    minHeight: 68,
+    minHeight: 74,
     borderTopWidth: 1,
-    borderColor: "#1e293b",
-    backgroundColor: "#0f172a",
+    borderColor: palette.border,
+    backgroundColor: "#0a0f17",
     flexDirection: "row",
-    paddingBottom: 4
+    paddingHorizontal: 5,
+    paddingTop: 5,
+    paddingBottom: 5
   },
-  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 2, borderRadius: 10 },
-  tabButtonPressed: { backgroundColor: "#111c31" },
-  tabText: { color: "#64748b", fontSize: 10, fontWeight: "800", textAlign: "center" },
-  tabTextActive: { color: "#34d399" }
+  tabButton: { flex: 1, alignItems: "center", justifyContent: "center", gap: 3, paddingHorizontal: 2, borderRadius: 13 },
+  tabButtonPressed: { backgroundColor: palette.surfaceStrong },
+  tabIcon: { color: palette.faint, fontSize: 17, lineHeight: 19, fontWeight: "900" },
+  tabIconActive: { color: palette.brand },
+  tabText: { color: palette.faint, fontSize: 10, fontWeight: "800", textAlign: "center" },
+  tabTextActive: { color: palette.brand },
+  tabIndicator: { position: "absolute", top: 0, width: 24, height: 3, borderRadius: 99, backgroundColor: palette.brand }
 });
