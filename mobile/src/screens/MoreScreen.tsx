@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
-import { Card, styles } from "../ui";
+import { ActionButton, Card, styles } from "../ui";
 import DiagnosticsScreen from "./DiagnosticsScreen";
 
 type MoreScreenProps = {
@@ -17,9 +17,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
-          <Pressable accessibilityRole="button" onPress={() => setDiagnosticsOpen(false)} style={({ pressed }) => [styles.secondaryButton, pressed && styles.cardPressed]}>
-            <Text style={styles.secondaryButtonText}>← {tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}</Text>
-          </Pressable>
+          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => setDiagnosticsOpen(false)} tone="secondary" compact />
         </View>
         <DiagnosticsScreen />
       </View>
