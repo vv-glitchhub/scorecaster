@@ -103,7 +103,7 @@ test("Automatic alerts cover all-SKIP, stale data, provider health and no-PLAY s
 });
 
 test("Diagnostics V2 ships storage, worker, web, provider and native surfaces", async () => {
-  const [schema, worker, api, web, provider, mobile, more, vercel, readiness] = await Promise.all([
+  const [schema, worker, api, web, provider, mobile, more, workflow, readiness] = await Promise.all([
     readFile(new URL("../supabase/scorecaster_decision_diagnostics.sql", import.meta.url), "utf8"),
     readFile(new URL("../app/api/internal/decision-diagnostics/route.js", import.meta.url), "utf8"),
     readFile(new URL("../app/api/diagnostics-v2/route.js", import.meta.url), "utf8"),
@@ -111,7 +111,7 @@ test("Diagnostics V2 ships storage, worker, web, provider and native surfaces", 
     readFile(new URL("../app/provider-health/page.jsx", import.meta.url), "utf8"),
     readFile(new URL("../mobile/src/screens/DiagnosticsScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../mobile/src/screens/MoreScreen.tsx", import.meta.url), "utf8"),
-    readFile(new URL("../vercel.json", import.meta.url), "utf8"),
+    readFile(new URL("../.github/workflows/decision-diagnostics.yml", import.meta.url), "utf8"),
     readFile(new URL("../config/release-readiness.json", import.meta.url), "utf8")
   ]);
   assert.match(schema, /decision_diagnostic_snapshots/);
@@ -122,6 +122,7 @@ test("Diagnostics V2 ships storage, worker, web, provider and native surfaces", 
   assert.match(provider, /focus="provider"/);
   assert.match(mobile, /Provider Health/);
   assert.match(more, /DiagnosticsScreen/);
-  assert.match(vercel, /api\/internal\/decision-diagnostics/);
+  assert.match(workflow, /cron: "12 \* \* \* \*"/);
+  assert.match(workflow, /Authorization: Bearer/);
   assert.match(readiness, /scorecaster_decision_diagnostics\.sql/);
 });
