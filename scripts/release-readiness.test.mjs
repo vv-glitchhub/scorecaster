@@ -11,18 +11,22 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 12);
+  assert.equal(manifest.supabaseMigrations.length, 13);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
-  assert.ok(manifest.publicPages.length >= 8);
+  assert.ok(manifest.publicPages.length >= 10);
   assert.ok(manifest.publicPages.includes("/polymarket-intelligence"));
+  assert.ok(manifest.publicPages.includes("/diagnostics-v2"));
+  assert.ok(manifest.publicPages.includes("/provider-health"));
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 15);
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 16);
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 

@@ -34,7 +34,7 @@
     "test:provider-firewall": "node --test scripts/provider-firewall.test.mjs",
     "test:form-rest": "node --test scripts/form-rest-shadow.test.mjs",
     "test:event-detail": "node --test scripts/event-detail.test.mjs",
-    "test:diagnostics": "node --test scripts/decision-diagnostics.test.mjs",
+    "test:diagnostics": "node --test scripts/decision-diagnostics.test.mjs scripts/decision-diagnostics-v2.test.mjs",
     "test:easy-use": "node --test scripts/easy-use-ui.test.mjs",
     "test:i18n": "node --test scripts/i18n.test.mjs",
     "test:fixtures": "node --test scripts/fixture-integrity.test.mjs",

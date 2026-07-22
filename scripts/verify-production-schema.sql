@@ -15,6 +15,8 @@ begin
     'bankroll_settings',
     'watchlist_items',
     'watchlist_monitor_state',
+    'decision_diagnostic_snapshots',
+    'decision_diagnostic_alerts',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
@@ -48,6 +50,8 @@ begin
       'bankroll_settings',
       'watchlist_items',
       'watchlist_monitor_state',
+      'decision_diagnostic_snapshots',
+      'decision_diagnostic_alerts',
       'paper_settlement_monitor_state',
       'autonomous_agent_settings',
       'autonomous_agent_state',
@@ -78,6 +82,8 @@ begin
     'bankroll_settings',
     'watchlist_items',
     'watchlist_monitor_state',
+    'decision_diagnostic_snapshots',
+    'decision_diagnostic_alerts',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
@@ -143,6 +149,18 @@ begin
   if has_table_privilege('authenticated', 'public.autonomous_agent_settings', 'DELETE') then
     raise exception 'authenticated users must not delete Autonomous Agent settings directly';
   end if;
+  if not has_table_privilege('service_role', 'public.decision_diagnostic_snapshots', 'INSERT') then
+    raise exception 'service_role cannot write Decision Diagnostics snapshots';
+  end if;
+  if not has_table_privilege('service_role', 'public.decision_diagnostic_alerts', 'UPDATE') then
+    raise exception 'service_role cannot update Decision Diagnostics alerts';
+  end if;
+  if has_table_privilege('authenticated', 'public.decision_diagnostic_snapshots', 'INSERT') then
+    raise exception 'authenticated users must not write shared Decision Diagnostics snapshots';
+  end if;
+  if has_table_privilege('authenticated', 'public.decision_diagnostic_alerts', 'UPDATE') then
+    raise exception 'authenticated users must not update shared Decision Diagnostics alerts';
+  end if;
 end;
 $$;
 
@@ -187,6 +205,8 @@ begin
     'bankroll_settings',
     'watchlist_items',
     'watchlist_monitor_state',
+    'decision_diagnostic_snapshots',
+    'decision_diagnostic_alerts',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
@@ -212,5 +232,6 @@ select json_build_object(
   'rlsVerified', true,
   'workerFunctionsVerified', true,
   'databaseRiskTriggerVerified', true,
+  'diagnosticsVerified', true,
   'verifiedAt', now()
 ) as scorecaster_production_schema;

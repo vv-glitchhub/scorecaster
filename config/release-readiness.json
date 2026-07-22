@@ -11,7 +11,9 @@
     "/responsible-use",
     "/production-status",
     "/autonomous-agent",
-    "/polymarket-intelligence"
+    "/polymarket-intelligence",
+    "/diagnostics-v2",
+    "/provider-health"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -30,7 +32,8 @@
     { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] }
+    { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] }
   ],
   "requiredSecurityHeaders": {
     "x-content-type-options": "nosniff",
@@ -50,6 +53,7 @@
     "supabase/scorecaster_notification_registry.sql",
     "supabase/scorecaster_notification_delivery.sql",
     "supabase/scorecaster_watchlist_monitor.sql",
+    "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql"
   ],
@@ -66,6 +70,11 @@
     {
       "id": "autonomous-agent-paper-safety",
       "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
+      "blocking": true
+    },
+    {
+      "id": "diagnostics-history-worker",
+      "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production",
       "blocking": true
     },
     {
