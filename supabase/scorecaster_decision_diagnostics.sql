@@ -112,7 +112,11 @@ using (true);
 
 revoke all on public.decision_diagnostic_snapshots from anon;
 revoke all on public.decision_diagnostic_alerts from anon;
+revoke insert, update, delete on public.decision_diagnostic_snapshots from authenticated;
+revoke insert, update, delete on public.decision_diagnostic_alerts from authenticated;
 grant select on public.decision_diagnostic_snapshots to authenticated;
 grant select on public.decision_diagnostic_alerts to authenticated;
+grant select, insert, update, delete on public.decision_diagnostic_snapshots to service_role;
+grant select, insert, update, delete on public.decision_diagnostic_alerts to service_role;
 
 -- Inserts and updates are intentionally reserved for the service-role worker.
