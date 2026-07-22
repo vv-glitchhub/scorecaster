@@ -9,13 +9,21 @@ import {
 
 const ALL_LEAGUES = SPORTS.flatMap((group) => group.leagues);
 const LEAGUE_KEYS = new Set(ALL_LEAGUES.map((league) => league.key));
-const DEFAULT_LEAGUES = [
+const CORE_SEASON_DEFAULT_LEAGUES = [
   "icehockey_nhl",
   "icehockey_finland_liiga",
   "icehockey_sweden_hockey_league",
   "basketball_nba",
   "soccer_epl",
   "soccer_spain_la_liga"
+];
+const SUMMER_DEFAULT_LEAGUES = [
+  "baseball_mlb",
+  "basketball_wnba",
+  "soccer_usa_mls",
+  "soccer_finland_veikkausliiga",
+  "soccer_sweden_allsvenskan",
+  "soccer_norway_eliteserien"
 ];
 const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
@@ -28,6 +36,17 @@ const CACHE_HEADERS = {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+function seasonForDate(now = Date.now()) {
+  const month = new Date(now).getUTCMonth();
+  return month >= 4 && month <= 7 ? "summer" : "core-season";
+}
+
+function defaultLeaguesForDate(now = Date.now()) {
+  return seasonForDate(now) === "summer"
+    ? SUMMER_DEFAULT_LEAGUES
+    : CORE_SEASON_DEFAULT_LEAGUES;
 }
 
 function findLeagueTitle(key) {
@@ -74,6 +93,16 @@ function dataGate(pick) {
   };
 }
 
+function gateFailureReasons(gate, edge, ev) {
+  const reasons = [];
+  if (gate.stale) reasons.push("Odds data is older than 12 hours.");
+  if (gate.bookmakerCount < 2) reasons.push("Fewer than two bookmakers are available.");
+  if (gate.confidence < 0.35) reasons.push("Market-data confidence is below 35%.");
+  if (edge < 0.005) reasons.push("Edge is below 0.5%.");
+  if (ev <= 0) reasons.push("Expected value is not positive.");
+  return reasons;
+}
+
 function preserveSafetyGate(marketDecision, pick) {
   if (marketDecision !== "BET") return marketDecision;
 
@@ -83,6 +112,22 @@ function preserveSafetyGate(marketDecision, pick) {
   if (Number(pick.intelligenceRelativeImpact || 0) <= -0.015) return "WATCH";
 
   return "BET";
+}
+
+function decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev }) {
+  if (decision === "PASS") {
+    return `SKIP: ${gateFailures.join(" ") || "The selection does not pass the minimum market-data gate."}`;
+  }
+  if (marketDecision === "BET" && decision === "WATCH") {
+    return "CAUTION: the market threshold passed, but the independent-intelligence safety gate did not permit PLAY.";
+  }
+  if (decision === "WAIT") {
+    return `CAUTION: the selection is watchable but not yet playable (${gate.bookmakerCount} bookmakers, ${(gate.confidence * 100).toFixed(0)}% data confidence).`;
+  }
+  if (decision === "WATCH") {
+    return `CAUTION: data is usable, but PLAY requires at least 2.0% edge and 3.0% EV. Current edge ${(edge * 100).toFixed(1)}%, EV ${(ev * 100).toFixed(1)}%.`;
+  }
+  return "PLAY: price, market-data quality and independent-intelligence safety gates passed.";
 }
 
 function applyQualityFallback(pick) {
@@ -96,6 +141,7 @@ function applyQualityFallback(pick) {
   const edge = Number(pick.edge || 0);
   const ev = Number(pick.ev || 0);
   const gate = dataGate(pick);
+  const gateFailures = gateFailureReasons(gate, edge, ev);
   let marketDecision;
 
   if (!gate.watchable || edge < 0.005 || ev <= 0) {
@@ -110,7 +156,9 @@ function applyQualityFallback(pick) {
 
   const decision = preserveSafetyGate(marketDecision, pick);
   const readiness = pick.sportsIntelligence?.readiness?.level || "market-only";
+  const decisionReason = decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev });
   const qualityNotes = [
+    decisionReason,
     ...(pick.qualityNotes || quality.qualityNotes || []),
     `${gate.bookmakerCount} bookmakers in consensus.`,
     `Market-data confidence ${(gate.confidence * 100).toFixed(0)}%.`,
@@ -124,6 +172,9 @@ function applyQualityFallback(pick) {
   const result = {
     ...pick,
     decision,
+    decisionReason,
+    decisionReasons: gateFailures,
+    skipReason: decision === "PASS" ? gateFailures[0] || decisionReason : null,
     marketDecisionBeforeSafetyGate: marketDecision,
     sourceTrust,
     qualityScore: pick.qualityScore || quality.qualityScore,
@@ -183,9 +234,9 @@ async function enrichSafely(pick) {
   }
 }
 
-function parseLeagues(searchParams) {
+function parseLeagues(searchParams, now = Date.now()) {
   const requested = searchParams.get("sports");
-  if (!requested) return DEFAULT_LEAGUES;
+  if (!requested) return defaultLeaguesForDate(now);
 
   const leagues = [...new Set(requested.split(",").map((value) => value.trim()).filter(Boolean))]
     .filter((league) => LEAGUE_KEYS.has(league))
@@ -256,7 +307,8 @@ export async function GET(request) {
     );
   }
 
-  const leagues = parseLeagues(url.searchParams);
+  const now = Date.now();
+  const leagues = parseLeagues(url.searchParams, now);
   if (!leagues) {
     return Response.json(
       { ok: false, error: "Choose between one and six supported leagues", data: [] },
@@ -274,7 +326,6 @@ export async function GET(request) {
   }
 
   const { origin } = url;
-  const now = Date.now();
   const leagueResults = await Promise.all(leagues.map((league) => loadLeague(origin, league, now)));
   const allPicks = leagueResults.flatMap((result) => result.picks);
 
@@ -297,6 +348,11 @@ export async function GET(request) {
     counts[level] = (counts[level] || 0) + 1;
     return counts;
   }, { verified: 0, partial: 0, "market-only": 0 });
+  const decisionCounts = sorted.reduce((counts, pick) => {
+    const value = pick.productDecision || "CAUTION";
+    counts[value] = (counts[value] || 0) + 1;
+    return counts;
+  }, { PLAY: 0, CAUTION: 0, SKIP: 0 });
 
   return Response.json(
     {
@@ -312,10 +368,13 @@ export async function GET(request) {
       analysisWindowHours: ANALYSIS_WINDOW_HOURS,
       featuredWindowHours: FEATURED_WINDOW_HOURS,
       maxIntelligenceEnrichments: MAX_INTELLIGENCE_ENRICHMENTS,
+      leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
+      defaultLeagueSeason: seasonForDate(now),
       providerGames,
       acceptedGames,
       excludedGames: Math.max(0, providerGames - acceptedGames),
       intelligenceLevels,
+      decisionCounts,
       disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Independent intelligence can downgrade a pick but never changes the market probability or upgrades a pick to PLAY.",
       leagues,
       count: sorted.length,
