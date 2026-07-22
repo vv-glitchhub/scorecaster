@@ -53,8 +53,8 @@
     "supabase/scorecaster_notification_registry.sql",
     "supabase/scorecaster_notification_delivery.sql",
     "supabase/scorecaster_watchlist_monitor.sql",
-    "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_decision_diagnostics.sql",
+    "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql"
   ],
   "mobileLocales": {
