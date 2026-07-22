@@ -12,6 +12,10 @@ import {
   evaluateDiagnosticAlerts,
   simulateDecisionThresholds
 } from "../../../lib/decision-diagnostics-v2.mjs";
+import {
+  diagnoseProviderRootCauses,
+  summarizeDiagnosticTrends
+} from "../../../lib/decision-diagnostics-v21.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -147,13 +151,17 @@ export async function GET(request) {
       loadOutcomes(auth)
     ]);
     const liveAlerts = evaluateDiagnosticAlerts(current, history.items);
+    const trends = summarizeDiagnosticTrends([current, ...history.items]);
+    const providerDiagnosis = diagnoseProviderRootCauses(current.providerHealth, current);
 
     return jsonResponse({
       ok: true,
-      version: "decision-diagnostics-v2",
+      version: "decision-diagnostics-v2.1",
       generatedAt: new Date().toISOString(),
       current,
+      trends,
       providerHealth: current.providerHealth,
+      providerDiagnosis,
       history,
       alerts: {
         available: storedAlerts.available,
@@ -164,8 +172,12 @@ export async function GET(request) {
       outcomes,
       simulator: simulation,
       productionThresholds: current.thresholds,
+      report: {
+        json: "/api/diagnostics-v2/report?format=json",
+        csv: "/api/diagnostics-v2/report?format=csv"
+      },
       paperOnly: true,
-      disclaimer: "Diagnostics and threshold simulation are descriptive. They do not change production probabilities, decisions or paper-risk limits."
+      disclaimer: "Diagnostics, root-cause guidance and threshold simulation are descriptive. They do not change production probabilities, decisions or paper-risk limits."
     }, 200, requestId, { "Cache-Control": "no-store" });
   } catch (error) {
     return jsonResponse({
