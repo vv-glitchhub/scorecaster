@@ -74,7 +74,7 @@ function optional(value: unknown, digits = 2) {
 }
 function initials(name?: string) {
   const parts = String(name || "?").trim().split(/\s+/).filter(Boolean);
-  return (parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}` : parts[0]?.slice(0, 2) || "?").toUpperCase();
+  return (parts.length > 1 ? parts.map((part) => part.charAt(0)).slice(-2).join("") : (parts[0] || "?").slice(0, 2)).toUpperCase();
 }
 function TinyMetric({ label, value, accent = false }: { label: string; value: string; accent?: boolean }) {
   return <View style={{ flex: 1, minWidth: 76, borderWidth: 1, borderColor: "#273241", backgroundColor: "#151c28", borderRadius: 14, padding: 11 }}><Text style={styles.muted}>{label}</Text><Text style={[styles.value, accent && { color: "#bef264" }]}>{value}</Text></View>;
