@@ -82,28 +82,27 @@ test("release readiness UI is trilingual and separates automated and manual evid
   const production = await source("app/production-status/production-status-client.jsx");
   assert.match(page, /release-readiness\.json/);
   assert.match(client, /fetch\("\/api\/health"/);
-  assert.match(client, /automated/);
-  assert.match(client, /manual/);
-  assert.match(client, /Julkaisuvalmius/);
-  assert.match(client, /Preparación de lanzamiento/);
-  assert.match(shell, /\/release-readiness/);
-  assert.match(production, /\/release-readiness/);
+  assert.match(client, /fetch\("\/api\/operations"/);
+  assert.match(client, /manualReleaseChecks/);
+  assert.match(client, /fi:/);
+  assert.match(client, /en:/);
+  assert.match(client, /es:/);
+  assert.match(client, /href="\/operations"/);
+  assert.match(shell, /href: "\/release-readiness"/);
+  assert.match(shell, /href: "\/polymarket-intelligence"/);
+  assert.match(production, /href="\/release-readiness"/);
+  assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY|expo_push_token/);
 });
 
 test("store links stay on the reviewed production origin", async () => {
-  const [storeConfig, apple, google] = await Promise.all([
-    json("mobile/store.config.json"),
-    json("mobile/store/apple-listing.json"),
-    json("mobile/store/google-play-listing.json")
-  ]);
-  const origin = "https://scorecaster.vercel.app";
-  for (const value of [
-    storeConfig.privacyUrl,
-    storeConfig.termsUrl,
-    storeConfig.supportUrl,
-    apple.privacyUrl,
-    apple.supportUrl,
-    google.privacyUrl,
-    google.supportUrl
-  ]) assert.ok(value.startsWith(origin));
+  const manifest = await json("config/release-readiness.json");
+  const apple = await json("mobile/store.config.json");
+  const google = await json("mobile/store/google-play-listing.json");
+  for (const entry of Object.values(apple.apple.info)) {
+    assert.ok(entry.marketingUrl.startsWith(manifest.productionBaseUrl));
+    assert.ok(entry.supportUrl.startsWith(manifest.productionBaseUrl));
+    assert.ok(entry.privacyPolicyUrl.startsWith(manifest.productionBaseUrl));
+  }
+  assert.ok(google.supportUrl.startsWith(manifest.productionBaseUrl));
+  assert.ok(google.privacyPolicyUrl.startsWith(manifest.productionBaseUrl));
 });
