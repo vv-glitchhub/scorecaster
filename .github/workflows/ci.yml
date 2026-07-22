@@ -150,6 +150,11 @@ jobs:
           set -o pipefail
           npm run test:event-detail 2>&1 | tee event-detail.log
 
+      - name: Decision Diagnostics V1 tests
+        run: |
+          set -o pipefail
+          npm run test:diagnostics 2>&1 | tee decision-diagnostics.log
+
       - name: Easy-use navigation and onboarding tests
         run: |
           set -o pipefail
@@ -197,6 +202,7 @@ jobs:
             provider-firewall.log
             form-rest-shadow.log
             event-detail.log
+            decision-diagnostics.log
             easy-use.log
             i18n.log
             fixture-integrity.log
