@@ -35,6 +35,7 @@
     { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/shadow-learning", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/unified-data", "method": "GET", "allowedStatuses": [401, 503] }
@@ -60,7 +61,8 @@
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
-    "supabase/scorecaster_autonomous_agent.sql"
+    "supabase/scorecaster_autonomous_agent.sql",
+    "supabase/scorecaster_shadow_learning_v1.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -85,6 +87,21 @@
     {
       "id": "autonomous-v12-mission-control",
       "title": "Mission Control web and native views show the same mode, blockers, stake multiplier, model lab, provider readiness and worker audit without exposing secrets",
+      "blocking": true
+    },
+    {
+      "id": "shadow-learning-storage",
+      "title": "V12 paper PLAY creates an immutable Shadow Learning snapshot and settlement appends only result, closing odds, CLV, profit and settlement time",
+      "blocking": true
+    },
+    {
+      "id": "shadow-learning-two-user-isolation",
+      "title": "Shadow Learning samples, state and cycles pass a controlled two-user RLS isolation test and account export/deletion test",
+      "blocking": true
+    },
+    {
+      "id": "shadow-learning-promotion-boundary",
+      "title": "At least 300 settled observations, 100 closing lines, positive CLV, chronological holdout, stable drift and bounded risk are required; promotion remains manual and real-money execution absent",
       "blocking": true
     },
     {
