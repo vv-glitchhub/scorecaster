@@ -27,6 +27,7 @@ const report = {
   status: "running",
   migrations: [],
   schemaVerified: false,
+  autonomousV13Verified: false,
   probes: [],
   health: null,
   error: null
@@ -90,9 +91,7 @@ function runPsql(args, label) {
     }
   );
 
-  if (result.error?.code === "ENOENT") {
-    throw new Error("PostgreSQL client psql is not installed");
-  }
+  if (result.error?.code === "ENOENT") throw new Error("PostgreSQL client psql is not installed");
   if (result.status !== 0) {
     const detail = redact(result.stderr, 1000);
     throw new Error(`${label} failed${detail ? `: ${detail}` : ""}`);
@@ -102,13 +101,15 @@ function runPsql(args, label) {
 
 async function verifySchema() {
   runPsql(["--file=scripts/verify-production-schema.sql"], "Production schema verification");
+  runPsql(["--file=scripts/verify-autonomous-v13-schema.sql"], "Autonomous V13 schema verification");
   report.schemaVerified = true;
+  report.autonomousV13Verified = true;
 }
 
 async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
-  assert(migrations.length >= 13, "Release manifest does not contain the complete production rollout");
+  assert(migrations.length >= 15, "Release manifest does not contain the complete production rollout");
 
   for (const migration of migrations) {
     assert(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path: ${migration}`);
@@ -153,15 +154,13 @@ async function probeWorkers() {
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
     "/api/internal/notification-delivery",
-    "/api/internal/decision-diagnostics"
+    "/api/internal/decision-diagnostics",
+    "/api/internal/unified-data"
   ];
 
   for (const workerPath of workers) {
     const response = await fetch(`${baseUrl}${workerPath}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${cronSecret}`
-      },
+      headers: { Accept: "application/json", Authorization: `Bearer ${cronSecret}` },
       cache: "no-store",
       signal: AbortSignal.timeout(60_000)
     });
