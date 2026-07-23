@@ -169,13 +169,15 @@ test("daily brief explains saved and blocked candidates without claiming live-mo
   assert.equal(brief.realMoneyBetting, false);
 });
 
-test("V2 ships migration, worker, cloud API, web emergency stop, native console and privacy coverage", async () => {
-  const [migration, worker, internal, cloud, web, mobile, more, accountExport, account, manifest] = await Promise.all([
+test("V13 layers V2 governance over V12 Mission Control and ships complete privacy coverage", async () => {
+  const [migration, worker, runner, internal, cloud, web, page, mobile, more, accountExport, account, manifest] = await Promise.all([
     source("supabase/scorecaster_autonomous_agent_v2.sql"),
     source("lib/autonomous-paper-agent-v2.js"),
+    source("lib/autonomous-scorecaster-v12-runner.js"),
     source("app/api/internal/autonomous-agent/route.js"),
     source("app/api/cloud/autonomous-agent/route.js"),
     source("app/autonomous-agent/AutonomousAgentClient.jsx"),
+    source("app/autonomous-agent/page.jsx"),
     source("mobile/src/screens/AutonomousAgentScreen.tsx"),
     source("mobile/src/screens/MoreScreen.tsx"),
     source("app/api/account/export/route.js"),
@@ -195,29 +197,39 @@ test("V2 ships migration, worker, cloud API, web emergency stop, native console 
   assert.match(worker, /scorecaster-autonomous-v2/);
   assert.match(worker, /productionProbabilityChangedByLearning: false/);
   assert.match(worker, /realMoneyBetting: false/);
-  assert.match(internal, /runAutonomousPaperAgentV2/);
+  assert.match(runner, /runAutonomousPaperAgentV2/);
+  assert.match(runner, /autonomous-scorecaster-v13/);
+  assert.match(runner, /v12_preflight/);
+  assert.match(internal, /runAutonomousScorecasterV12/);
   assert.match(cloud, /autonomous_agent_decision_audit/);
   assert.match(cloud, /safety_cooldown_active/);
   assert.match(web, /Hätäpysäytys/);
   assert.match(web, /Decision audit/);
   assert.match(web, /shadow-only/);
+  assert.match(page, /Autonomous Scorecaster V13/);
+  assert.match(page, /Mission Control/);
   assert.match(mobile, /AUTONOMOUS PAPER AGENT V2/);
   assert.match(mobile, /Emergency stop/);
   assert.match(more, /AutonomousAgentScreen/);
+  assert.match(more, /MissionControlScreen/);
   assert.match(accountExport, /autonomousAgentDecisionAudit/);
   assert.match(accountExport, /autonomousAgentDailyBriefs/);
   assert.match(account, /autonomous_agent_decision_audit/);
   assert.match(account, /autonomous_agent_daily_briefs/);
   assert.match(manifest, /scorecaster_autonomous_agent_v2\.sql/);
+  assert.match(manifest, /autonomous-agent-v13-governance/);
+  assert.match(manifest, /autonomous-v12-circuit-breakers/);
 });
 
-test("V2 source contains no bookmaker credentials, payments or real-money execution path", async () => {
+test("V13 source contains no bookmaker credentials, payments or real-money execution path", async () => {
   const sourceText = [
     await source("lib/autonomous-agent-v2.mjs"),
     await source("lib/autonomous-paper-agent-v2.js"),
+    await source("lib/autonomous-scorecaster-v12-runner.js"),
     await source("app/api/cloud/autonomous-agent/route.js")
   ].join("\n");
   assert.doesNotMatch(sourceText, /bookmaker.*password|payment.*card|bank.*credential|deposit.*endpoint|withdraw.*endpoint/i);
   assert.match(sourceText, /paperOnly/);
   assert.match(sourceText, /realMoneyBetting: false/);
+  assert.match(sourceText, /productionProbabilityChanged/);
 });
