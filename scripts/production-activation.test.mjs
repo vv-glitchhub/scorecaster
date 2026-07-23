@@ -30,20 +30,25 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 14);
+  assert.equal(manifest.supabaseMigrations.length, 15);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_autonomous_intelligence_v12.sql"));
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
+  assert.match(runner, /migrations\.length >= 15/);
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
+  assert.match(runner, /verify-autonomous-v12-schema\.sql/);
   assert.match(runner, /sha256/);
 });
 
-test("schema verifier checks RLS, anonymous denial, worker grants and database risk enforcement", async () => {
+test("schema verifier checks RLS, anonymous denial, worker grants and V12 model safety", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
+  const v12 = await source("scripts/verify-autonomous-v12-schema.sql");
   const unified = await source("supabase/scorecaster_unified_data.sql");
   assert.match(sql, /relrowsecurity/);
   assert.match(sql, /relforcerowsecurity/);
@@ -58,6 +63,9 @@ test("schema verifier checks RLS, anonymous denial, worker grants and database r
   assert.match(sql, /bets_enforce_paper_stake_limit/);
   assert.match(sql, /autonomous_agent_settings_schedule/);
   assert.match(sql, /authenticated users must not delete Autonomous Agent settings directly/);
+  for (const token of ["autonomous_agent_models", "autonomous_agent_learning_snapshots", "autonomous_agent_incidents", "complete_autonomous_agent_user_v12", "probability_applied_to_published_model", "paper_risk_policy_only"]) assert.match(v12, new RegExp(token));
+  assert.match(v12, /service_role/);
+  assert.match(v12, /authenticated users must not write Autonomous V12/);
   assert.match(unified, /unified_data_snapshots/);
   assert.match(unified, /unified_data_provider_observations/);
   assert.match(unified, /unified_data_closing_records/);
@@ -73,7 +81,8 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
     "/api/internal/notification-delivery",
-    "/api/internal/decision-diagnostics"
+    "/api/internal/decision-diagnostics",
+    "/api/internal/unified-data"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
   assert.match(runner, /unexpectedly contains the database connection string/);
