@@ -54,6 +54,10 @@ type HistoryPayload = {
   };
 };
 
+function rowKey(row?: DataRow | null) {
+  return row ? `${row.eventId}:${row.selection}` : "";
+}
+
 function emptyHistory(reason: string): HistoryPayload {
   return {
     historyAvailable: false,
@@ -84,7 +88,7 @@ export default function DataLayerScreen() {
   const { tr } = useLanguage();
   const [payload, setPayload] = useState<Payload | null>(null);
   const [history, setHistory] = useState<HistoryPayload | null>(null);
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
   const [loading, setLoading] = useState(true);
 
   async function load() {
@@ -92,7 +96,7 @@ export default function DataLayerScreen() {
     try {
       const next = await apiRequest<Payload>("/api/data-layer");
       setPayload(next);
-      setSelectedId((current) => current || next.data?.[0]?.eventId || "");
+      setSelectedKey((current) => current || rowKey(next.data?.[0]));
       try {
         setHistory(await apiRequest<HistoryPayload>("/api/data-layer/history?hours=168&limit=1200"));
       } catch (historyError) {
@@ -106,7 +110,7 @@ export default function DataLayerScreen() {
   }
 
   useEffect(() => { void load(); }, []);
-  const selected = useMemo(() => payload?.data?.find((row) => row.eventId === selectedId) || payload?.data?.[0] || null, [payload, selectedId]);
+  const selected = useMemo(() => payload?.data?.find((row) => rowKey(row) === selectedKey) || payload?.data?.[0] || null, [payload, selectedKey]);
   const ledger = selected?.ledger;
   const summary = history?.data?.summary;
   const activeIncidents = (history?.data?.incidents || []).filter((item) => item.active !== false);
@@ -118,7 +122,7 @@ export default function DataLayerScreen() {
       {payload?.data?.length === 0 ? <Card><Text style={styles.cardTitle}>{tr({ fi: "Nykyisiä kohteita ei ole", en: "No current selections", es: "No hay selecciones" })}</Text></Card> : null}
 
       <View style={local.selectorGrid}>
-        {(payload?.data || []).map((row) => <Pressable key={`${row.eventId}:${row.selection}`} onPress={() => setSelectedId(row.eventId)} style={[local.selector, selected?.eventId === row.eventId && local.selectorActive]}><View style={styles.rowBetween}><Text style={local.selectorTitle}>{row.match}</Text><Text style={local.decision}>{row.decision}</Text></View><Text style={styles.muted}>{row.selection} · {Number(row.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{row.ledger?.coverage?.usedFamilies || 0} used · {pct(row.ledger?.coverage?.verifiedCoverageRate)} verified · {row.ledger?.coverage?.independentOddsProviders || 1} odds providers</Text></Pressable>)}
+        {(payload?.data || []).map((row) => { const key = rowKey(row); return <Pressable key={key} onPress={() => setSelectedKey(key)} style={[local.selector, rowKey(selected) === key && local.selectorActive]}><View style={styles.rowBetween}><Text style={local.selectorTitle}>{row.match}</Text><Text style={local.decision}>{row.decision}</Text></View><Text style={styles.muted}>{row.selection} · {Number(row.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{row.ledger?.coverage?.usedFamilies || 0} used · {pct(row.ledger?.coverage?.verifiedCoverageRate)} verified · {row.ledger?.coverage?.independentOddsProviders || 1} odds providers</Text></Pressable>; })}
       </View>
 
       {ledger ? <>
