@@ -96,8 +96,9 @@ test("web console is trilingual and preserves the paper-only boundary", async ()
   assert.match(client, /fi:/);
   assert.match(client, /en:/);
   assert.match(client, /es:/);
-  assert.match(client, /Vain PLAY-päätös voidaan tallentaa/);
+  assert.match(client, /Vain täydet portit läpäissyt PLAY voidaan tallentaa/);
   assert.match(client, /Ei talletuksia/);
+  assert.match(client, /Hätäpysäytys/);
   assert.match(shell, /href: "\/autonomous-agent"/);
   assert.match(shell, /Autonomous Agent/);
 });
@@ -112,10 +113,13 @@ test("operations, export, deletion and release manifest include autonomous audit
   }
   assert.match(exportRoute, /autonomousAgentSettings/);
   assert.match(exportRoute, /autonomousAgentRuns/);
+  assert.match(exportRoute, /autonomousAgentDecisionAudit/);
   assert.match(account, /"autonomous_agent_runs"/);
   assert.match(account, /"autonomous_agent_state"/);
   assert.match(account, /"autonomous_agent_settings"/);
+  assert.match(account, /"autonomous_agent_decision_audit"/);
   assert.match(manifest, /scorecaster_autonomous_agent\.sql/);
+  assert.match(manifest, /scorecaster_autonomous_agent_v2\.sql/);
   assert.match(manifest, /api\/internal\/autonomous-agent/);
   assert.match(manifest, /api\/cloud\/autonomous-agent/);
 });
