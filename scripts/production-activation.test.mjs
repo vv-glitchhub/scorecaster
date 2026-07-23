@@ -30,11 +30,12 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 14);
+  assert.equal(manifest.supabaseMigrations.length, 15);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_v12.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
@@ -45,6 +46,7 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
 test("schema verifier checks RLS, anonymous denial, worker grants and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
   const unified = await source("supabase/scorecaster_unified_data.sql");
+  const autonomousV12 = await source("supabase/scorecaster_autonomous_v12.sql");
   assert.match(sql, /relrowsecurity/);
   assert.match(sql, /relforcerowsecurity/);
   assert.match(sql, /pg_policies/);
@@ -55,6 +57,10 @@ test("schema verifier checks RLS, anonymous denial, worker grants and database r
   assert.match(sql, /claim_paper_settlement_monitor_users/);
   assert.match(sql, /claim_autonomous_agent_users/);
   assert.match(sql, /request_autonomous_agent_run/);
+  assert.match(sql, /autonomous_agent_v12_controls/);
+  assert.match(sql, /autonomous_agent_v12_state/);
+  assert.match(sql, /autonomous_agent_v12_learning_cycles/);
+  assert.match(sql, /autonomous_agent_v12_audit/);
   assert.match(sql, /bets_enforce_paper_stake_limit/);
   assert.match(sql, /autonomous_agent_settings_schedule/);
   assert.match(sql, /authenticated users must not delete Autonomous Agent settings directly/);
@@ -64,6 +70,9 @@ test("schema verifier checks RLS, anonymous denial, worker grants and database r
   assert.match(unified, /unified_data_incidents/);
   assert.match(unified, /force row level security/);
   assert.match(unified, /service_role/);
+  assert.match(autonomousV12, /force row level security/);
+  assert.match(autonomousV12, /service_role/);
+  assert.match(autonomousV12, /paper-only|paperOnly|paper only/i);
 });
 
 test("protected worker probes are bounded and activation reports exclude credentials", async () => {
@@ -72,8 +81,10 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/watchlist-monitor",
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
+    "/api/internal/autonomous-v12",
     "/api/internal/notification-delivery",
-    "/api/internal/decision-diagnostics"
+    "/api/internal/decision-diagnostics",
+    "/api/internal/unified-data"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
   assert.match(runner, /unexpectedly contains the database connection string/);
@@ -91,6 +102,7 @@ test("production activation remains separate from recurring workers", async () =
   assert.match(workers, /SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true'/);
+  assert.match(workers, /\/api\/internal\/autonomous-v12/);
   assert.match(diagnostics, /cron: "12 \* \* \* \*"/);
   assert.match(unified, /cron: "17,47 \* \* \* \*"/);
   assert.match(unified, /\/api\/internal\/unified-data/);
