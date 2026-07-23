@@ -61,7 +61,8 @@
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql",
-    "supabase/scorecaster_autonomous_agent_v2.sql"
+    "supabase/scorecaster_autonomous_agent_v2.sql",
+    "supabase/scorecaster_autonomous_v13_hard_caps.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -91,6 +92,11 @@
     {
       "id": "autonomous-agent-v13-governance",
       "title": "Autonomous V13 combines V12 circuit breakers with incident, provider disagreement, data coverage, drawdown, daily-loss, CLV, loss-streak and cooldown gates",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v13-database-hard-caps",
+      "title": "Database trigger enforces 1 percent single stake, 5 percent UTC daily exposure, 2.5 percent UTC league exposure, daily pick limit and same-event deduplication for all autonomous paper sources",
       "blocking": true
     },
     {
