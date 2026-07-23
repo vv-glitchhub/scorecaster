@@ -6,10 +6,14 @@ import { useLanguage } from "../components/LanguageProvider";
 import UnifiedDataLedger from "../components/UnifiedDataLedger";
 import { DecisionBadge, EmptyState, MetricTile, PageHero, SectionHeader, TrustBar } from "../components/ProductUI";
 
+function rowKey(row = {}) {
+  return `${row.eventId || "event"}:${row.selection || "selection"}`;
+}
+
 export default function UnifiedDataLayerClient() {
   const { tr } = useLanguage();
   const [state, setState] = useState({ loading: true, error: "", data: [], meta: null });
-  const [selectedId, setSelectedId] = useState("");
+  const [selectedKey, setSelectedKey] = useState("");
 
   async function load() {
     setState((value) => ({ ...value, loading: true, error: "" }));
@@ -18,14 +22,14 @@ export default function UnifiedDataLayerClient() {
       const payload = await response.json();
       if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Unified data unavailable");
       setState({ loading: false, error: "", data: payload.data || [], meta: payload });
-      setSelectedId((current) => current || payload.data?.[0]?.eventId || "");
+      setSelectedKey((current) => current || rowKey(payload.data?.[0]));
     } catch (error) {
       setState({ loading: false, error: error instanceof Error ? error.message : "Unified data unavailable", data: [], meta: null });
     }
   }
 
   useEffect(() => { void load(); }, []);
-  const selected = useMemo(() => state.data.find((row) => row.eventId === selectedId) || state.data[0] || null, [state.data, selectedId]);
+  const selected = useMemo(() => state.data.find((row) => rowKey(row) === selectedKey) || state.data[0] || null, [state.data, selectedKey]);
   const coverage = state.data.reduce((sum, row) => sum + Number(row.ledger?.coverage?.verifiedCoverageRate || 0), 0) / Math.max(1, state.data.length);
   const multiProvider = state.data.filter((row) => Number(row.ledger?.coverage?.independentOddsProviders || 1) >= 2).length;
   const usedSignals = state.data.reduce((sum, row) => sum + Number(row.ledger?.coverage?.usedFamilies || 0), 0);
@@ -59,7 +63,7 @@ export default function UnifiedDataLayerClient() {
       {state.data.length > 0 && <section className="space-y-4">
         <SectionHeader eyebrow={tr({ fi: "Nykyhetki", en: "Current state", es: "Estado actual" })} title={tr({ fi: "Valitse tarkastettava data-audit", en: "Choose a data audit", es: "Elige una auditoría" })} description={tr({ fi: "Alla näkyy nykyinen päätöshetken ledger. Pysyvä historia jatkuu seuraavassa osiossa.", en: "This is the current decision-time ledger. Persistent history follows below.", es: "Este es el registro actual. El historial continúa abajo." })} />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {state.data.map((row) => <button type="button" key={`${row.eventId}:${row.selection}`} onClick={() => setSelectedId(row.eventId)} className={`rounded-[1.3rem] border p-5 text-left transition ${selected?.eventId === row.eventId ? "border-blue-300 bg-blue-300/10" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-blue-300/40"}`}><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{row.match}</div><div className="mt-1 text-sm text-[var(--sc-muted)]">{row.selection} · {Number(row.odds || 0).toFixed(2)}</div></div><DecisionBadge decision={row.decision} /></div><div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-faint)]"><span>{row.ledger?.coverage?.usedFamilies || 0} used</span><span>{Math.round(Number(row.ledger?.coverage?.verifiedCoverageRate || 0) * 100)}% verified</span><span>{row.ledger?.coverage?.independentOddsProviders || 1} odds providers</span></div></button>)}
+          {state.data.map((row) => { const key = rowKey(row); return <button type="button" key={key} onClick={() => setSelectedKey(key)} className={`rounded-[1.3rem] border p-5 text-left transition ${rowKey(selected) === key ? "border-blue-300 bg-blue-300/10" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-blue-300/40"}`}><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{row.match}</div><div className="mt-1 text-sm text-[var(--sc-muted)]">{row.selection} · {Number(row.odds || 0).toFixed(2)}</div></div><DecisionBadge decision={row.decision} /></div><div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-faint)]"><span>{row.ledger?.coverage?.usedFamilies || 0} used</span><span>{Math.round(Number(row.ledger?.coverage?.verifiedCoverageRate || 0) * 100)}% verified</span><span>{row.ledger?.coverage?.independentOddsProviders || 1} odds providers</span></div></button>; })}
         </div>
       </section>}
 
