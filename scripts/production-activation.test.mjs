@@ -30,9 +30,10 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 13);
+  assert.equal(manifest.supabaseMigrations.length, 14);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
@@ -43,6 +44,7 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
 
 test("schema verifier checks RLS, anonymous denial, worker grants and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
+  const unified = await source("supabase/scorecaster_unified_data.sql");
   assert.match(sql, /relrowsecurity/);
   assert.match(sql, /relforcerowsecurity/);
   assert.match(sql, /pg_policies/);
@@ -56,6 +58,12 @@ test("schema verifier checks RLS, anonymous denial, worker grants and database r
   assert.match(sql, /bets_enforce_paper_stake_limit/);
   assert.match(sql, /autonomous_agent_settings_schedule/);
   assert.match(sql, /authenticated users must not delete Autonomous Agent settings directly/);
+  assert.match(unified, /unified_data_snapshots/);
+  assert.match(unified, /unified_data_provider_observations/);
+  assert.match(unified, /unified_data_closing_records/);
+  assert.match(unified, /unified_data_incidents/);
+  assert.match(unified, /force row level security/);
+  assert.match(unified, /service_role/);
 });
 
 test("protected worker probes are bounded and activation reports exclude credentials", async () => {
@@ -77,10 +85,13 @@ test("production activation remains separate from recurring workers", async () =
   const activation = await source(".github/workflows/production-activation.yml");
   const workers = await source(".github/workflows/notification-delivery.yml");
   const diagnostics = await source(".github/workflows/decision-diagnostics.yml");
+  const unified = await source(".github/workflows/unified-data-capture.yml");
   assert.doesNotMatch(activation, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED\s*==\s*'true'/);
   assert.match(workers, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true'/);
   assert.match(workers, /SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true'/);
   assert.match(diagnostics, /cron: "12 \* \* \* \*"/);
+  assert.match(unified, /cron: "17,47 \* \* \* \*"/);
+  assert.match(unified, /\/api\/internal\/unified-data/);
 });
