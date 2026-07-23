@@ -190,8 +190,8 @@ export default function AutonomousV12Screen() {
       <Card>
         <Text style={styles.cardTitle}>Circuit Breakers</Text>
         {(circuit.reasons || []).length === 0 && (circuit.warnings || []).length === 0 ? <Text style={styles.muted}>{tr({ fi: "Yksikään hätäjarru ei ole aktiivinen.", en: "No circuit breaker is active.", es: "No hay frenos activos." })}</Text> : null}
-        {(circuit.reasons || []).map((reason) => <Text key={reason} style={styles.dangerText}>STOP · {reason}</Text>)}
-        {(circuit.warnings || []).map((reason) => <Text key={reason} style={styles.warningText}>WATCH · {reason}</Text>)}
+        {(circuit.reasons || []).map((reason) => <Text key={reason} style={local.dangerText}>STOP · {reason}</Text>)}
+        {(circuit.warnings || []).map((reason) => <Text key={reason} style={local.warningText}>WATCH · {reason}</Text>)}
       </Card>
 
       <Card>
@@ -221,5 +221,7 @@ const local = {
   metric: { width: "48%" as const, minHeight: 82, borderWidth: 1, borderColor: "#263449", backgroundColor: "#101b2d", borderRadius: 17, padding: 14, justifyContent: "space-between" as const },
   metricLabel: { color: "#8290a8", fontSize: 11, fontWeight: "800" as const },
   metricValue: { color: "#f8fafc", fontSize: 20, fontWeight: "900" as const },
+  dangerText: { color: "#fecdd3", fontSize: 13, lineHeight: 19, fontWeight: "800" as const },
+  warningText: { color: "#fde68a", fontSize: 13, lineHeight: 19, fontWeight: "800" as const },
   audit: { borderTopWidth: 1, borderTopColor: "#263449", paddingTop: 12, gap: 4 }
 };
