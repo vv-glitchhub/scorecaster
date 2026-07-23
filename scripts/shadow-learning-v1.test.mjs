@@ -24,7 +24,7 @@ function sample(index, {
     profit: outcome === "win" ? stake * (odds - 1) : -stake,
     sport: index % 2 ? "soccer_epl" : "basketball_nba",
     market: "h2h",
-    model_version: "Autonomous-Scorecaster-V12",
+    model_version: "Autonomous-Scorecaster-V13",
     settled_at: new Date(Date.UTC(2026, 0, 1 + index)).toISOString()
   };
 }
@@ -78,4 +78,5 @@ test("a review-ready challenger remains shadow-only and requires human approval"
   assert.equal(report.promotion.automaticPromotionAllowed, false);
   assert.equal(report.safety.originalProbabilityImmutable, true);
   assert.equal(report.safety.contextCanUpgradeToPlay, false);
+  assert.equal(report.safety.automaticRealMoneyExecution, false);
 });
