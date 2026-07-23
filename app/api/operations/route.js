@@ -53,6 +53,8 @@ export async function GET(request) {
     autonomousState,
     autonomousSettings,
     autonomousRuns24h,
+    autonomousAudit24h,
+    autonomousBrief,
     watchlistItems,
     openPaperBets,
     unreadAlerts,
@@ -70,14 +72,14 @@ export async function GET(request) {
       .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_open_count,last_settled_count,last_pending_count,last_provider_warnings_count,updated_at")
       .eq("user_id", userId)
       .maybeSingle()),
-    safeQuery("Autonomous Agent", () => auth.supabase
+    safeQuery("Autonomous Agent V2", () => auth.supabase
       .from("autonomous_agent_state")
-      .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,updated_at")
+      .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,paused_until,pause_reason,health_status,health_score,resolved_sample,consecutive_losses,drawdown_percent,roi,average_clv,last_brief,updated_at")
       .eq("user_id", userId)
       .maybeSingle()),
-    safeQuery("Autonomous Agent Settings", () => auth.supabase
+    safeQuery("Autonomous Agent V2 Settings", () => auth.supabase
       .from("autonomous_agent_settings")
-      .select("enabled,daily_pick_limit,min_priority_score,min_odds,max_odds,updated_at")
+      .select("enabled,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,updated_at")
       .eq("user_id", userId)
       .maybeSingle()),
     safeQuery("Autonomous Agent Runs", () => auth.supabase
@@ -85,6 +87,18 @@ export async function GET(request) {
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .gte("created_at", since24Hours)),
+    safeQuery("Autonomous Agent Decision Audit", () => auth.supabase
+      .from("autonomous_agent_decision_audit")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", since24Hours)),
+    safeQuery("Autonomous Agent Daily Brief", () => auth.supabase
+      .from("autonomous_agent_daily_briefs")
+      .select("brief_date,brief,updated_at")
+      .eq("user_id", userId)
+      .order("brief_date", { ascending: false })
+      .limit(1)
+      .maybeSingle()),
     safeQuery("Watchlist", () => auth.supabase
       .from("watchlist_items")
       .select("id", { count: "exact", head: true })
@@ -120,7 +134,7 @@ export async function GET(request) {
       .limit(1000))
   ]);
 
-  const results = [watchlistState, settlementState, autonomousState, autonomousSettings, autonomousRuns24h, watchlistItems, openPaperBets, unreadAlerts, activeDevices, timeline24h, deliveries];
+  const results = [watchlistState, settlementState, autonomousState, autonomousSettings, autonomousRuns24h, autonomousAudit24h, autonomousBrief, watchlistItems, openPaperBets, unreadAlerts, activeDevices, timeline24h, deliveries];
   const fatal = results.find((result) => result.error);
   if (fatal) {
     return jsonResponse({ ok: false, error: publicError(fatal.error, "Operations overview could not be loaded") }, 500, requestId);
@@ -131,6 +145,7 @@ export async function GET(request) {
   const autonomousConfiguration = autonomousAgentConfiguration();
   const deliveryConfiguration = notificationDeliveryConfiguration();
   const autonomousUserEnabled = autonomousSettings.data?.enabled === true;
+  const autonomousPaused = Boolean(autonomousState.data?.paused_until && Date.parse(autonomousState.data.paused_until) > Date.now());
   const watchlistWorker = classifyScheduledWorker({
     available: watchlistState.available,
     active: watchlistConfiguration.monitorActive,
@@ -144,10 +159,10 @@ export async function GET(request) {
     intervalMinutes: 60
   });
   const autonomousWorker = classifyScheduledWorker({
-    available: autonomousState.available && autonomousSettings.available,
-    active: autonomousConfiguration.agentActive && autonomousUserEnabled,
+    available: autonomousState.available && autonomousSettings.available && autonomousAudit24h.available,
+    active: autonomousConfiguration.agentActive && autonomousUserEnabled && !autonomousPaused,
     state: autonomousState.data,
-    intervalMinutes: 1440
+    intervalMinutes: autonomousConfiguration.intervalMinutes
   });
   const deliveryWorker = summarizeNotificationDeliveries(deliveries.data || [], {
     available: deliveries.available,
@@ -159,6 +174,7 @@ export async function GET(request) {
     watchlistMigration: watchlistState.available,
     settlementMigration: settlementState.available,
     autonomousAgentMigration: autonomousState.available && autonomousSettings.available,
+    autonomousAgentV2Migration: autonomousAudit24h.available && autonomousBrief.available,
     notificationRegistryMigration: activeDevices.available,
     notificationDeliveryMigration: deliveries.available,
     watchlistWorkerConfigured: watchlistConfiguration.configured,
@@ -168,6 +184,9 @@ export async function GET(request) {
     autonomousAgentConfigured: autonomousConfiguration.adminConfigured && autonomousConfiguration.oddsProviderConfigured && autonomousConfiguration.cronSecretConfigured,
     autonomousAgentGloballyEnabled: autonomousConfiguration.agentActive,
     autonomousAgentUserEnabled: autonomousUserEnabled,
+    autonomousAgentNotPaused: !autonomousPaused,
+    autonomousAgentShadowLearningOnly: autonomousConfiguration.shadowLearningOnly,
+    autonomousAgentProductionProbabilityUnchanged: autonomousConfiguration.productionProbabilityChangedByLearning === false,
     notificationDeliveryConfigured: deliveryConfiguration.adminConfigured && deliveryConfiguration.cronSecretConfigured,
     notificationDeliveryEnabled: deliveryConfiguration.deliveryActive,
     physicalPushDeviceRegistered: activeDevices.count > 0
@@ -176,6 +195,7 @@ export async function GET(request) {
   return jsonResponse({
     ok: true,
     paperOnly: true,
+    realMoneyBetting: false,
     generatedAt: new Date().toISOString(),
     productBoundary: "sports analysis, alerting and virtual paper tracking only",
     workers: {
@@ -193,10 +213,19 @@ export async function GET(request) {
       },
       autonomousAgent: {
         ...autonomousWorker,
-        active: autonomousConfiguration.agentActive && autonomousUserEnabled,
-        intervalMinutes: 1440,
+        version: autonomousConfiguration.version,
+        active: autonomousConfiguration.agentActive && autonomousUserEnabled && !autonomousPaused,
+        intervalMinutes: autonomousConfiguration.intervalMinutes,
+        adaptiveCadence: autonomousConfiguration.adaptiveCadence,
+        shadowLearningOnly: autonomousConfiguration.shadowLearningOnly,
+        productionProbabilityChangedByLearning: autonomousConfiguration.productionProbabilityChangedByLearning,
         userEnabled: autonomousUserEnabled,
-        state: autonomousState.data || null
+        paused: autonomousPaused,
+        healthStatus: autonomousState.data?.health_status || "learning",
+        healthScore: Number(autonomousState.data?.health_score ?? 50),
+        latestBrief: autonomousBrief.data?.brief || autonomousState.data?.last_brief || null,
+        state: autonomousState.data || null,
+        settings: autonomousSettings.data || null
       },
       notificationDelivery: {
         ...deliveryWorker,
@@ -209,7 +238,8 @@ export async function GET(request) {
       unreadActiveAlerts: unreadAlerts.count,
       activeNotificationDevices: activeDevices.count,
       marketTimelineSnapshots24h: timeline24h.count,
-      autonomousAgentRuns24h: autonomousRuns24h.count
+      autonomousAgentRuns24h: autonomousRuns24h.count,
+      autonomousAgentAuditRows24h: autonomousAudit24h.count
     },
     configurations: {
       watchlist: {
@@ -228,12 +258,17 @@ export async function GET(request) {
         schedulingManagedExternally: settlementConfiguration.schedulingManagedExternally
       },
       autonomousAgent: {
+        version: autonomousConfiguration.version,
         codeAvailable: autonomousConfiguration.codeAvailable,
         enabledFlag: autonomousConfiguration.enabledFlag,
         adminConfigured: autonomousConfiguration.adminConfigured,
         oddsProviderConfigured: autonomousConfiguration.oddsProviderConfigured,
+        unifiedDataConfigured: autonomousConfiguration.unifiedDataConfigured,
         cronSecretConfigured: autonomousConfiguration.cronSecretConfigured,
-        schedulingManagedExternally: autonomousConfiguration.schedulingManagedExternally
+        schedulingManagedExternally: autonomousConfiguration.schedulingManagedExternally,
+        adaptiveCadence: autonomousConfiguration.adaptiveCadence,
+        shadowLearningOnly: autonomousConfiguration.shadowLearningOnly,
+        realMoneyBetting: autonomousConfiguration.realMoneyBetting
       },
       notificationDelivery: {
         codeAvailable: deliveryConfiguration.codeAvailable,
