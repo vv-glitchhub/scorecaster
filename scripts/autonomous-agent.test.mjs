@@ -21,7 +21,7 @@ test("autonomous agent schema is opt-in, leased, RLS isolated and service-role c
   assert.match(sql, /grant execute on function public\.request_autonomous_agent_run\(\) to authenticated/);
 });
 
-test("worker uses verified Top Picks, V11 governance and bounded paper-only decisions", async () => {
+test("V1 worker remains a safe fallback with verified Top Picks and bounded paper-only decisions", async () => {
   const worker = await source("lib/autonomous-paper-agent.js");
   assert.match(worker, /GET as getTopPicks/);
   assert.match(worker, /buildAgentV9Portfolio/);
@@ -39,6 +39,20 @@ test("worker uses verified Top Picks, V11 governance and bounded paper-only deci
   assert.doesNotMatch(worker, /bookmaker.*password|payment.*card|bank.*credential/i);
 });
 
+test("V12 worker wraps V1 fallback and adds autonomous control without published-probability changes", async () => {
+  const worker = await source("lib/autonomous-paper-agent-v12.js");
+  assert.match(worker, /runAutonomousPaperAgent/);
+  assert.match(worker, /runAutonomousIntelligenceV12/);
+  assert.match(worker, /buildAutonomousControlPlane/);
+  assert.match(worker, /applyAutonomousControl/);
+  assert.match(worker, /autonomous-intelligence-v12-fallback-v1/);
+  assert.match(worker, /probabilityAdjustedByLearning: false/);
+  assert.match(worker, /realMoneyBetting: false/);
+  assert.match(worker, /autonomous_agent_learning_snapshots/);
+  assert.match(worker, /autonomous_agent_incidents/);
+  assert.doesNotMatch(worker, /bookmaker.*password|payment.*card|bank.*credential/i);
+});
+
 test("source and per-user failures are isolated, audited and retried", async () => {
   const worker = await source("lib/autonomous-paper-agent.js");
   assert.match(worker, /const sourceFailures = new Map\(\)/);
@@ -52,11 +66,13 @@ test("source and per-user failures are isolated, audited and retried", async () 
 
 test("autonomous paper rows are deterministic and database-risk guarded", async () => {
   const worker = await source("lib/autonomous-paper-agent.js");
+  const v12 = await source("lib/autonomous-paper-agent-v12.js");
   const riskSql = await source("supabase/scorecaster_paper_risk_limits.sql");
   assert.match(worker, /createHash\("sha256"\)/);
   assert.match(worker, /autonomous-v1-\$\{day\}-\$\{digest\}/);
-  assert.match(worker, /onConflict: "user_id,client_ref", ignoreDuplicates: true/);
-  assert.match(worker, /status: "open"/);
+  assert.match(v12, /autonomous-v12-\$\{day\}-\$\{digest\}/);
+  assert.match(v12, /onConflict: "user_id,client_ref", ignoreDuplicates: true/);
+  assert.match(v12, /status: "open"/);
   assert.match(riskSql, /v_source like 'scorecaster%'/);
   assert.match(riskSql, /Open paper exposure exceeds/);
   assert.match(riskSql, /Open paper league exposure exceeds/);
@@ -72,7 +88,9 @@ test("cloud and internal routes fail closed and never expose worker credentials"
   assert.match(cloud, /mutationOriginAllowed\(request\)/);
   assert.match(cloud, /bucket: "autonomous_agent_run_request"/);
   assert.match(cloud, /request_autonomous_agent_run/);
+  assert.match(cloud, /publishedProbabilityChangedByLearning: false/);
   assert.match(internal, /maxDuration = 60/);
+  assert.match(internal, /runAutonomousIntelligenceV12/);
   assert.match(internal, /autonomousAgentAuthorizationValid/);
   assert.match(internal, /Unauthorized/);
   assert.match(config, /cronSecret\.length >= 16/);
@@ -89,15 +107,17 @@ test("scheduler is explicit opt-in and autonomous worker is independent", async 
   assert.doesNotMatch(workflow, /needs: autonomous/);
 });
 
-test("web console is trilingual and preserves the paper-only boundary", async () => {
+test("web console is trilingual and exposes V12 controls while preserving paper-only safety", async () => {
   const client = await source("app/autonomous-agent/AutonomousAgentClient.jsx");
   const shell = await source("app/components/AppShell.jsx");
   assert.match(client, /fetch\("\/api\/cloud\/autonomous-agent"/);
+  assert.match(client, /Autonomous Intelligence V12/);
+  assert.match(client, /Kill switch/);
+  assert.match(client, /Champion–challenger/);
+  assert.match(client, /paper-only · no real money/);
   assert.match(client, /fi:/);
   assert.match(client, /en:/);
   assert.match(client, /es:/);
-  assert.match(client, /Vain PLAY-päätös voidaan tallentaa/);
-  assert.match(client, /Ei talletuksia/);
   assert.match(shell, /href: "\/autonomous-agent"/);
   assert.match(shell, /Autonomous Agent/);
 });
@@ -107,14 +127,13 @@ test("operations, export, deletion and release manifest include autonomous audit
   const exportRoute = await source("app/api/account/export/route.js");
   const account = await source("app/api/account/route.js");
   const manifest = await source("config/release-readiness.json");
-  for (const token of ["autonomous_agent_state", "autonomous_agent_settings", "autonomous_agent_runs", "autonomousAgentRuns24h"]) {
-    assert.match(operations, new RegExp(token));
-  }
+  for (const token of ["autonomous_agent_state", "autonomous_agent_settings", "autonomous_agent_runs", "autonomousAgentRuns24h"]) assert.match(operations, new RegExp(token));
   assert.match(exportRoute, /autonomousAgentSettings/);
   assert.match(exportRoute, /autonomousAgentRuns/);
   assert.match(account, /"autonomous_agent_runs"/);
   assert.match(account, /"autonomous_agent_state"/);
   assert.match(account, /"autonomous_agent_settings"/);
+  assert.match(manifest, /scorecaster_autonomous_intelligence_v12\.sql/);
   assert.match(manifest, /scorecaster_autonomous_agent\.sql/);
   assert.match(manifest, /api\/internal\/autonomous-agent/);
   assert.match(manifest, /api\/cloud\/autonomous-agent/);
