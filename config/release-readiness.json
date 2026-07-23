@@ -60,7 +60,8 @@
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
-    "supabase/scorecaster_autonomous_agent.sql"
+    "supabase/scorecaster_autonomous_agent.sql",
+    "supabase/scorecaster_autonomous_agent_v2.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -85,6 +86,21 @@
     {
       "id": "autonomous-v12-mission-control",
       "title": "Mission Control web and native views show the same mode, blockers, stake multiplier, model lab, provider readiness and worker audit without exposing secrets",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v13-governance",
+      "title": "Autonomous V13 combines V12 circuit breakers with incident, provider disagreement, data coverage, drawdown, daily-loss, CLV, loss-streak and cooldown gates",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v13-audit",
+      "title": "Every V13 candidate is retained as an allowed or blocked audit row with a matching daily brief, no automatic production-probability change and no PLAY upgrade",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v13-emergency-stop",
+      "title": "Web and physical iOS/Android emergency stop disables user opt-in and prevents new paper selections before the next worker claim",
       "blocking": true
     },
     {
