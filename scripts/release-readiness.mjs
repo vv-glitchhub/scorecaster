@@ -91,17 +91,19 @@ for (const endpoint of protectedApis) {
 }
 
 const migrations = manifest.supabaseMigrations || [];
-check(migrations.length >= 15, "Release manifest must list the complete ordered Supabase rollout");
+check(migrations.length >= 16, "Release manifest must list the complete ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
 const settlementIndex = migrations.indexOf("supabase/scorecaster_settlement_monitor.sql");
 const autonomousV1Index = migrations.indexOf("supabase/scorecaster_autonomous_agent.sql");
 const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_agent_v2.sql");
+const shadowLearningIndex = migrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
 check(settlementIndex >= 0, "Settlement Monitor migration must be listed");
 check(autonomousV1Index === settlementIndex + 1, "Autonomous Agent V1 must run immediately after Settlement Monitor");
 check(autonomousV2Index === autonomousV1Index + 1, "Autonomous Agent V2 must run immediately after V1");
-check(autonomousV2Index === migrations.length - 1, "Autonomous Agent V2 must be the final listed migration");
+check(shadowLearningIndex === autonomousV2Index + 1, "Shadow Learning must run immediately after Autonomous Agent V2");
+check(shadowLearningIndex === migrations.length - 1, "Shadow Learning must be the final listed migration");
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);
@@ -153,7 +155,8 @@ for (const requiredFile of [
   "scripts/production-activation.mjs",
   "scripts/verify-production-schema.sql",
   ".github/workflows/production-activation.yml",
-  "docs/PRODUCTION_ACTIVATION_V1.md"
+  "docs/PRODUCTION_ACTIVATION_V1.md",
+  "docs/SHADOW_LEARNING_V1.md"
 ]) {
   check(await exists(requiredFile), `${requiredFile} is required for release verification`);
 }
