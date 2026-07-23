@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
 import { ActionButton, Card, styles } from "../ui";
+import AutonomousAgentScreen from "./AutonomousAgentScreen";
 import DataLayerScreen from "./DataLayerScreen";
 import DiagnosticsScreen from "./DiagnosticsScreen";
 
@@ -14,14 +15,15 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   const { tr } = useLanguage();
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
+  const [autonomousOpen, setAutonomousOpen] = useState(false);
 
-  if (diagnosticsOpen || dataLayerOpen) {
+  if (diagnosticsOpen || dataLayerOpen || autonomousOpen) {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
-          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); }} tone="secondary" compact />
+          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setAutonomousOpen(false); }} tone="secondary" compact />
         </View>
-        {diagnosticsOpen ? <DiagnosticsScreen /> : <DataLayerScreen />}
+        {diagnosticsOpen ? <DiagnosticsScreen /> : autonomousOpen ? <AutonomousAgentScreen /> : <DataLayerScreen />}
       </View>
     );
   }
@@ -60,8 +62,17 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
       <View style={styles.mobileHero}>
         <Text style={styles.kicker}>{tr({ fi: "SCORECASTER MOBILE", en: "SCORECASTER MOBILE", es: "SCORECASTER MOBILE" })}</Text>
         <Text style={styles.title}>{tr({ fi: "Lisää työkalut ilman ahdasta alapalkkia", en: "More tools without a crowded tab bar", es: "Más herramientas sin una barra saturada" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Tracking, analytics, diagnostics, the data layer and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Seguimiento, analítica, diagnóstico, datos y perfil están aquí." })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Autonominen agentti, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. The autonomous Agent, tracking, analytics, diagnostics, data layer and profile live in this hub.", es: "Las acciones diarias quedan en la barra. El Agent autónomo, seguimiento, analítica, diagnóstico y perfil están aquí." })}</Text>
       </View>
+
+      <Pressable accessibilityLabel={tr({ fi: "Avaa Autonomous Agent", en: "Open Autonomous Agent", es: "Abrir Autonomous Agent" })} accessibilityRole="button" onPress={() => setAutonomousOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
+        <Card>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "AUTONOMIA & RISKI", en: "AUTONOMY & RISK", es: "AUTONOMÍA & RIESGO" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
+          <Text style={styles.cardTitle}>{tr({ fi: "Autonomous Paper Agent", en: "Autonomous Paper Agent", es: "Agente autónomo simulado" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Readiness, hätäpysäytys, Unified Data -portit, drawdown/CLV-jarru, daily brief ja täydellinen päätösaudit.", en: "Readiness, emergency stop, Unified Data gates, drawdown/CLV brake, daily brief and complete decision audit.", es: "Preparación, parada, datos, drawdown/CLV, resumen y auditoría." })}</Text>
+          <Text style={styles.openLabel}>{tr({ fi: "Avaa natiivikonsoli", en: "Open native console", es: "Abrir consola nativa" })} →</Text>
+        </Card>
+      </Pressable>
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa päätösdiagnostiikka", en: "Open decision diagnostics", es: "Abrir diagnóstico de decisiones" })} accessibilityRole="button" onPress={() => setDiagnosticsOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
@@ -74,7 +85,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa yhdistetty datakerros", en: "Open unified data layer", es: "Abrir capa de datos" })} accessibilityRole="button" onPress={() => setDataLayerOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
-          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "DATA & AI", en: "DATA & AI", es: "DATOS & IA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V1</Text></View></View>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "DATA & AI", en: "DATA & AI", es: "DATOS & IA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
           <Text style={styles.cardTitle}>{tr({ fi: "Unified Sports Data", en: "Unified Sports Data", es: "Datos deportivos unificados" })}</Text>
           <Text style={styles.muted}>{tr({ fi: "Näe mitä odds-, kokoonpano-, loukkaantumis-, vire-, lepo-, matka-, sää- ja uutisdataa AI käytti sekä mihin se vaikutti.", en: "See which odds, lineup, injury, form, rest, travel, weather and news data AI used and how it affected the analysis.", es: "Consulta qué datos utilizó la IA y cómo afectaron al análisis." })}</Text>
           <Text style={styles.openLabel}>{tr({ fi: "Avaa data-audit", en: "Open data audit", es: "Abrir auditoría" })} →</Text>
@@ -92,7 +103,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
         </Pressable>
       ))}
 
-      <Card><Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text><Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets.", es: "La app no gestiona depósitos, cuentas de apuestas ni apuestas con dinero real." })}</Text></Card>
+      <Card><Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text><Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja. Autonomous Agentin oppiminen pysyy shadow-tilassa.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets. Autonomous Agent learning remains shadow-only.", es: "La app no gestiona dinero real y el aprendizaje permanece en sombra." })}</Text></Card>
     </ScrollView>
   );
 }
