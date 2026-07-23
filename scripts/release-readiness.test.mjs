@@ -11,14 +11,16 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 14);
+  assert.equal(manifest.supabaseMigrations.length, 15);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_intelligence_v12.sql");
   assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_autonomous_intelligence_v12.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
   assert.ok(manifest.publicPages.length >= 10);
@@ -32,6 +34,9 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 17);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-control-plane" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-model-governance" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-recovery" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
