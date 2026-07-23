@@ -53,6 +53,10 @@ export async function GET(request) {
     autonomousState,
     autonomousSettings,
     autonomousRuns24h,
+    autonomousV12Controls,
+    autonomousV12State,
+    autonomousV12Learning24h,
+    autonomousV12Audit24h,
     watchlistItems,
     openPaperBets,
     unreadAlerts,
@@ -82,6 +86,26 @@ export async function GET(request) {
       .maybeSingle()),
     safeQuery("Autonomous Agent Runs", () => auth.supabase
       .from("autonomous_agent_runs")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", since24Hours)),
+    safeQuery("Autonomous V12 Controls", () => auth.supabase
+      .from("autonomous_agent_v12_controls")
+      .select("kill_switch,autonomy_level,max_daily_loss_percent,max_drawdown_percent,max_loss_streak,allow_shadow_learning,allow_automatic_risk_tightening,updated_at")
+      .eq("user_id", userId)
+      .maybeSingle()),
+    safeQuery("Autonomous V12 State", () => auth.supabase
+      .from("autonomous_agent_v12_state")
+      .select("operating_state,policy,circuit_breakers,learning_report,shadow_champion_id,last_learning_at,last_decision_at,updated_at")
+      .eq("user_id", userId)
+      .maybeSingle()),
+    safeQuery("Autonomous V12 Learning", () => auth.supabase
+      .from("autonomous_agent_v12_learning_cycles")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .gte("created_at", since24Hours)),
+    safeQuery("Autonomous V12 Audit", () => auth.supabase
+      .from("autonomous_agent_v12_audit")
       .select("id", { count: "exact", head: true })
       .eq("user_id", userId)
       .gte("created_at", since24Hours)),
@@ -120,7 +144,7 @@ export async function GET(request) {
       .limit(1000))
   ]);
 
-  const results = [watchlistState, settlementState, autonomousState, autonomousSettings, autonomousRuns24h, watchlistItems, openPaperBets, unreadAlerts, activeDevices, timeline24h, deliveries];
+  const results = [watchlistState, settlementState, autonomousState, autonomousSettings, autonomousRuns24h, autonomousV12Controls, autonomousV12State, autonomousV12Learning24h, autonomousV12Audit24h, watchlistItems, openPaperBets, unreadAlerts, activeDevices, timeline24h, deliveries];
   const fatal = results.find((result) => result.error);
   if (fatal) {
     return jsonResponse({ ok: false, error: publicError(fatal.error, "Operations overview could not be loaded") }, 500, requestId);
@@ -144,10 +168,10 @@ export async function GET(request) {
     intervalMinutes: 60
   });
   const autonomousWorker = classifyScheduledWorker({
-    available: autonomousState.available && autonomousSettings.available,
-    active: autonomousConfiguration.agentActive && autonomousUserEnabled,
+    available: autonomousState.available && autonomousSettings.available && autonomousV12State.available && autonomousV12Controls.available,
+    active: autonomousConfiguration.agentActive && autonomousUserEnabled && autonomousV12Controls.data?.kill_switch !== true,
     state: autonomousState.data,
-    intervalMinutes: 1440
+    intervalMinutes: 15
   });
   const deliveryWorker = summarizeNotificationDeliveries(deliveries.data || [], {
     available: deliveries.available,
@@ -159,6 +183,7 @@ export async function GET(request) {
     watchlistMigration: watchlistState.available,
     settlementMigration: settlementState.available,
     autonomousAgentMigration: autonomousState.available && autonomousSettings.available,
+    autonomousV12Migration: autonomousV12Controls.available && autonomousV12State.available && autonomousV12Learning24h.available && autonomousV12Audit24h.available,
     notificationRegistryMigration: activeDevices.available,
     notificationDeliveryMigration: deliveries.available,
     watchlistWorkerConfigured: watchlistConfiguration.configured,
@@ -168,6 +193,7 @@ export async function GET(request) {
     autonomousAgentConfigured: autonomousConfiguration.adminConfigured && autonomousConfiguration.oddsProviderConfigured && autonomousConfiguration.cronSecretConfigured,
     autonomousAgentGloballyEnabled: autonomousConfiguration.agentActive,
     autonomousAgentUserEnabled: autonomousUserEnabled,
+    autonomousV12KillSwitchReleased: autonomousV12Controls.data?.kill_switch !== true,
     notificationDeliveryConfigured: deliveryConfiguration.adminConfigured && deliveryConfiguration.cronSecretConfigured,
     notificationDeliveryEnabled: deliveryConfiguration.deliveryActive,
     physicalPushDeviceRegistered: activeDevices.count > 0
@@ -176,6 +202,7 @@ export async function GET(request) {
   return jsonResponse({
     ok: true,
     paperOnly: true,
+    realMoneyBetting: false,
     generatedAt: new Date().toISOString(),
     productBoundary: "sports analysis, alerting and virtual paper tracking only",
     workers: {
@@ -193,10 +220,13 @@ export async function GET(request) {
       },
       autonomousAgent: {
         ...autonomousWorker,
-        active: autonomousConfiguration.agentActive && autonomousUserEnabled,
-        intervalMinutes: 1440,
+        version: "Autonomous-Scorecaster-V12",
+        active: autonomousConfiguration.agentActive && autonomousUserEnabled && autonomousV12Controls.data?.kill_switch !== true,
+        intervalMinutes: 15,
         userEnabled: autonomousUserEnabled,
-        state: autonomousState.data || null
+        scheduleState: autonomousState.data || null,
+        controls: autonomousV12Controls.data || null,
+        state: autonomousV12State.data || null
       },
       notificationDelivery: {
         ...deliveryWorker,
@@ -209,7 +239,9 @@ export async function GET(request) {
       unreadActiveAlerts: unreadAlerts.count,
       activeNotificationDevices: activeDevices.count,
       marketTimelineSnapshots24h: timeline24h.count,
-      autonomousAgentRuns24h: autonomousRuns24h.count
+      autonomousAgentRuns24h: autonomousRuns24h.count,
+      autonomousV12LearningCycles24h: autonomousV12Learning24h.count,
+      autonomousV12AuditRows24h: autonomousV12Audit24h.count
     },
     configurations: {
       watchlist: {
@@ -229,6 +261,7 @@ export async function GET(request) {
       },
       autonomousAgent: {
         codeAvailable: autonomousConfiguration.codeAvailable,
+        version: "Autonomous-Scorecaster-V12",
         enabledFlag: autonomousConfiguration.enabledFlag,
         adminConfigured: autonomousConfiguration.adminConfigured,
         oddsProviderConfigured: autonomousConfiguration.oddsProviderConfigured,
