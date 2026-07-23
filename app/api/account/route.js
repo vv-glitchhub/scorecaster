@@ -18,6 +18,9 @@ const USER_TABLES = [
   "market_timeline_snapshots",
   "watchlist_monitor_state",
   "paper_settlement_monitor_state",
+  "autonomous_agent_incidents",
+  "autonomous_agent_learning_snapshots",
+  "autonomous_agent_models",
   "autonomous_agent_runs",
   "autonomous_agent_state",
   "autonomous_agent_settings",
@@ -37,7 +40,7 @@ const USER_TABLES = [
 ];
 
 function isMissingTable(error) {
-  return error?.code === "42P01" || /does not exist/i.test(error?.message || "");
+  return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
 }
 
 export async function GET(request) {
@@ -51,8 +54,8 @@ export async function GET(request) {
     deletionAvailable: Boolean(getSupabaseAdminClient()),
     confirmationPhrase: CONFIRMATION,
     requiresEmailConfirmation: true,
-    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "autonomous agent settings and audit runs", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
-    neverStored: ["payment card data", "bank credentials", "real-money balance"]
+    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "Autonomous Intelligence V12 settings, model registry, learning snapshots, incidents and audit runs", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
+    neverStored: ["payment card data", "bank credentials", "real-money balance", "bookmaker credentials"]
   }, 200, requestId);
 }
 
