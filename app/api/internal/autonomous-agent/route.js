@@ -3,7 +3,7 @@ import {
   autonomousAgentAuthorizationValid,
   autonomousAgentConfiguration
 } from "../../../../lib/autonomous-agent-config.js";
-import { runAutonomousPaperAgent } from "../../../../lib/autonomous-paper-agent.js";
+import { runAutonomousPaperAgentV2 } from "../../../../lib/autonomous-paper-agent-v2.js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,12 +27,15 @@ export async function GET(request) {
   if (!admin) return json({ ok: false, error: "Autonomous Agent admin client is unavailable" }, 503);
 
   try {
-    return json(await runAutonomousPaperAgent({ admin, origin: new URL(request.url).origin }), 200);
+    return json(await runAutonomousPaperAgentV2({ admin, origin: new URL(request.url).origin }), 200);
   } catch (error) {
     return json({
       ok: false,
+      version: "autonomous-paper-agent-v2",
+      paperOnly: true,
+      realMoneyBetting: false,
       error: process.env.NODE_ENV === "production"
-        ? "Autonomous Paper Agent cycle failed"
+        ? "Autonomous Paper Agent V2 cycle failed"
         : String(error?.message || error)
     }, 500);
   }
