@@ -33,6 +33,7 @@
     { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/autonomous-v12", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/unified-data", "method": "GET", "allowedStatuses": [401, 503] }
@@ -58,7 +59,8 @@
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
-    "supabase/scorecaster_autonomous_agent.sql"
+    "supabase/scorecaster_autonomous_agent.sql",
+    "supabase/scorecaster_autonomous_v12.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -73,6 +75,21 @@
     {
       "id": "autonomous-agent-paper-safety",
       "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-v12-closed-loop",
+      "title": "Autonomous V12 observe, decide, paper-save, settle, learn, risk-tighten and repeat loop verified across multiple worker cycles",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-v12-circuit-breakers",
+      "title": "Kill switch, stale data, provider outage, daily loss, drawdown, loss streak, settlement backlog and learning drift circuit breakers verified",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-v12-no-risk-relaxation",
+      "title": "Automatic policy changes only tighten user risk limits and never upgrade a decision or alter production probability",
       "blocking": true
     },
     {
