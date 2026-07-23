@@ -58,7 +58,8 @@
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
-    "supabase/scorecaster_autonomous_agent.sql"
+    "supabase/scorecaster_autonomous_agent.sql",
+    "supabase/scorecaster_autonomous_agent_v2.sql"
   ],
   "mobileLocales": {
     "apple": ["fi", "en-US", "es-ES"],
@@ -73,6 +74,21 @@
     {
       "id": "autonomous-agent-paper-safety",
       "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v2-governance",
+      "title": "Autonomous Agent V2 readiness, Unified Data gates, incident pause, drawdown, daily-loss, CLV, loss-streak and cooldown guards verified with controlled production paper accounts",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v2-audit",
+      "title": "Every V2 candidate is retained as an allowed or blocked audit row with no automatic production-probability change and no PLAY upgrade",
+      "blocking": true
+    },
+    {
+      "id": "autonomous-agent-v2-emergency-stop",
+      "title": "Web and physical iOS/Android emergency stop disables user opt-in and prevents new paper selections before the next worker cycle",
       "blocking": true
     },
     {
