@@ -11,6 +11,11 @@ import {
   buildAutonomyState,
   summarizeAutonomousDataReadiness
 } from "../../../../lib/autonomous-scorecaster-v12.mjs";
+import {
+  applyAutonomousSystemCaps,
+  AUTONOMOUS_HARD_LIMITS,
+  buildDailyPaperUsage
+} from "../../../../lib/autonomous-risk-governor.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -39,6 +44,10 @@ function historyRow(row = {}) {
   };
 }
 
+function utcDayStart(now = new Date()) {
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+}
+
 async function currentPicks(request) {
   try {
     const target = new URL("/api/top-picks", request.url);
@@ -56,7 +65,7 @@ async function currentPicks(request) {
   }
 }
 
-function buildBrief(state, settings, latestRun, picksWarning) {
+function buildBrief(state, settings, workerState, picksWarning, daily) {
   const recommendations = [];
   if (!settings?.enabled) recommendations.push("Enable Autonomous Agent for this account before requesting protected paper cycles.");
   if (state.mode === "FROZEN") recommendations.push(...state.resumeConditions.map((item) => item.condition));
@@ -64,13 +73,20 @@ function buildBrief(state, settings, latestRun, picksWarning) {
   if (state.mode === "BOOTSTRAP") recommendations.push("Keep exposure minimal while the first 30 settled observations are collected.");
   if (state.mode === "GUARDED") recommendations.push("Continue collecting settled outcomes and positive closing-line evidence under reduced sizing.");
   if (state.mode === "ACTIVE") recommendations.push("All primary autonomy gates are healthy; continue monitoring drift, CLV and provider incidents.");
+  if (daily.picksRemaining <= 0) recommendations.push("The persistent UTC daily pick limit is full. No more autonomous paper selections may be added today.");
+  if (daily.exposureRemaining < 0.01) recommendations.push("The persistent UTC daily virtual-exposure budget is full.");
   if (picksWarning) recommendations.push(picksWarning);
 
   return {
     headline: state.reason,
     mode: state.mode,
-    canCreateNewPaperExposure: Boolean(settings?.enabled && state.mode !== "FROZEN"),
-    nextCheckAt: latestRun?.next_check_at || null,
+    canCreateNewPaperExposure: Boolean(
+      settings?.enabled &&
+      state.mode !== "FROZEN" &&
+      daily.picksRemaining > 0 &&
+      daily.exposureRemaining >= 0.01
+    ),
+    nextCheckAt: workerState?.next_check_at || null,
     recommendations: [...new Set(recommendations)].slice(0, 8),
     proof: {
       settledSample: state.history.settledCount,
@@ -79,7 +95,11 @@ function buildBrief(state, settings, latestRun, picksWarning) {
       multiProviderRate: state.dataReadiness.multiProviderRate,
       averageClv: state.history.clv.average,
       recentBankrollImpact: state.history.recent30.bankrollImpact,
-      modelDrift: state.modelLab.driftStatus
+      modelDrift: state.modelLab.driftStatus,
+      dailyPicksUsed: daily.picksUsed,
+      dailyPicksRemaining: daily.picksRemaining,
+      dailyStakeUsed: daily.stakeUsed,
+      dailyExposureRemaining: daily.exposureRemaining
     }
   };
 }
@@ -95,7 +115,8 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [settingsResult, stateResult, runsResult, bankrollResult, historyResult, openResult, picksResult] = await Promise.all([
+  const dayStart = utcDayStart().toISOString();
+  const [settingsResult, stateResult, runsResult, bankrollResult, historyResult, openResult, todayResult, picksResult] = await Promise.all([
     auth.supabase.from("autonomous_agent_settings")
       .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
       .eq("user_id", auth.user.id).maybeSingle(),
@@ -122,10 +143,16 @@ export async function GET(request) {
       .eq("status", "open")
       .order("created_at", { ascending: false })
       .limit(200),
+    auth.supabase.from("bets")
+      .select("id,created_at,stake,match,raw_pick")
+      .eq("user_id", auth.user.id)
+      .gte("created_at", dayStart)
+      .order("created_at", { ascending: true })
+      .limit(100),
     currentPicks(request)
   ]);
 
-  const error = settingsResult.error || stateResult.error || runsResult.error || bankrollResult.error || historyResult.error || openResult.error;
+  const error = settingsResult.error || stateResult.error || runsResult.error || bankrollResult.error || historyResult.error || openResult.error || todayResult.error;
   const configuration = autonomousAgentConfiguration();
   if (error && missingTable(error)) {
     return jsonResponse({
@@ -143,7 +170,7 @@ export async function GET(request) {
   if (error) return jsonResponse({ ok: false, error: publicError(error, "Autonomy Mission Control could not be loaded") }, 500, requestId);
 
   const settings = settingsResult.data || { enabled: false, sports: [], daily_pick_limit: 3 };
-  const bankroll = {
+  const bankroll = applyAutonomousSystemCaps({
     bankroll: Number(bankrollResult.data?.bankroll || 1000),
     maxStakePercent: Number(bankrollResult.data?.max_stake_percent || 2),
     maxTotalExposurePercent: Number(bankrollResult.data?.max_daily_exposure_percent || 8),
@@ -151,6 +178,20 @@ export async function GET(request) {
     minEdge: Number(bankrollResult.data?.min_edge || 0.025),
     minConfidence: Number(bankrollResult.data?.min_confidence || 0.58),
     paperTradingMode: bankrollResult.data?.paper_trading_mode !== false
+  });
+  const dailyUsage = buildDailyPaperUsage(todayResult.data || []);
+  const dailyPickLimit = Math.max(1, Math.min(3, Number(settings.daily_pick_limit || 3)));
+  const dailyExposureCap = bankroll.bankroll * bankroll.maxTotalExposurePercent / 100;
+  const daily = {
+    dayStart,
+    pickLimit: dailyPickLimit,
+    picksUsed: dailyUsage.pickCount,
+    picksRemaining: Math.max(0, dailyPickLimit - dailyUsage.pickCount),
+    stakeUsed: Number(dailyUsage.totalStake.toFixed(2)),
+    exposureCap: Number(dailyExposureCap.toFixed(2)),
+    exposureRemaining: Number(Math.max(0, dailyExposureCap - dailyUsage.totalStake).toFixed(2)),
+    uniqueEvents: dailyUsage.events.size,
+    hardLimits: AUTONOMOUS_HARD_LIMITS
   };
   const history = (historyResult.data || []).map(historyRow);
   const modelLab = buildSelfLearningReport(history);
@@ -170,7 +211,7 @@ export async function GET(request) {
   return jsonResponse({
     ok: true,
     available: true,
-    version: "autonomy-mission-control-v12",
+    version: "autonomy-mission-control-v12-daily-governor",
     paperOnly: true,
     realMoneyBetting: false,
     configuration: {
@@ -182,11 +223,12 @@ export async function GET(request) {
     },
     settings,
     bankroll,
+    daily,
     state,
     autonomy,
     currentDataReadiness: summarizeAutonomousDataReadiness(picks),
     modelLab,
-    brief: buildBrief(autonomy, settings, state, picksResult.warning),
+    brief: buildBrief(autonomy, settings, state, picksResult.warning, daily),
     currentCandidates: picks.slice(0, 20).map((pick) => ({
       eventId: pick.gameId || pick.eventId || pick.id || null,
       match: pick.match || `${pick.homeTeam || "Home"} vs ${pick.awayTeam || "Away"}`,
