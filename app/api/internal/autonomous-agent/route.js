@@ -3,7 +3,7 @@ import {
   autonomousAgentAuthorizationValid,
   autonomousAgentConfiguration
 } from "../../../../lib/autonomous-agent-config.js";
-import { runAutonomousScorecasterV12 } from "../../../../lib/autonomous-scorecaster-v12-runner.js";
+import { runAutonomousIntelligenceV121 } from "../../../../lib/autonomous-intelligence-v12-1-runner.js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -27,12 +27,15 @@ export async function GET(request) {
   if (!admin) return json({ ok: false, error: "Autonomous Agent admin client is unavailable" }, 503);
 
   try {
-    return json(await runAutonomousScorecasterV12({ admin, origin: new URL(request.url).origin }), 200);
+    return json(await runAutonomousIntelligenceV121({ admin, origin: new URL(request.url).origin }), 200);
   } catch (error) {
     return json({
       ok: false,
+      version: "autonomous-intelligence-v12.1",
+      paperOnly: true,
+      realMoneyBetting: false,
       error: process.env.NODE_ENV === "production"
-        ? "Autonomous Scorecaster V12 cycle failed"
+        ? "Autonomous Intelligence V12.1 cycle failed"
         : String(error?.message || error)
     }, 500);
   }
