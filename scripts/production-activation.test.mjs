@@ -30,22 +30,26 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 15);
+  assert.equal(manifest.supabaseMigrations.length, 16);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
-  assert.match(runner, /migrations\.length >= 15/);
+  assert.match(runner, /migrations\.length >= 16/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
+  assert.match(runner, /verify-autonomous-v13-hard-caps\.sql/);
   assert.match(runner, /sha256/);
 });
 
-test("schema verifier checks RLS, anonymous denial, V2 worker grants and database risk enforcement", async () => {
+test("schema verifier checks RLS, V2 worker grants, V13 hard caps and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
+  const hardCapVerification = await source("scripts/verify-autonomous-v13-hard-caps.sql");
+  const hardCapMigration = await source("supabase/scorecaster_autonomous_v13_hard_caps.sql");
   const unified = await source("supabase/scorecaster_unified_data.sql");
   const autonomousV2 = await source("supabase/scorecaster_autonomous_agent_v2.sql");
   assert.match(sql, /relrowsecurity/);
@@ -71,6 +75,13 @@ test("schema verifier checks RLS, anonymous denial, V2 worker grants and databas
   assert.match(autonomousV2, /status in \('running', 'success', 'error', 'deferred', 'paused'\)/);
   assert.match(autonomousV2, /force row level security/);
   assert.match(autonomousV2, /service_role/);
+  assert.match(hardCapMigration, /v_bankroll \* 0\.01/);
+  assert.match(hardCapMigration, /v_bankroll \* 0\.05/);
+  assert.match(hardCapMigration, /v_bankroll \* 0\.025/);
+  assert.match(hardCapMigration, /date_trunc\('day'/);
+  assert.match(hardCapMigration, /already used this event/);
+  assert.match(hardCapVerification, /bets_enforce_autonomous_v13_hard_caps/);
+  assert.match(hardCapVerification, /authenticated users must not execute/);
 });
 
 test("protected worker probes are bounded and activation reports exclude credentials", async () => {
@@ -84,6 +95,7 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/unified-data"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
+  assert.match(runner, /autonomousV13HardCapsVerified/);
   assert.match(runner, /unexpectedly contains the database connection string/);
   assert.match(runner, /unexpectedly contains the worker secret/);
   assert.doesNotMatch(runner, /console\.log\([^\n]*(databaseUrl|cronSecret)/);
