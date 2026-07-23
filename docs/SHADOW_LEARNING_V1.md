@@ -41,6 +41,8 @@ The worker:
 5. measures Brier score, log loss, calibration, drift, ROI, CLV and drawdown
 6. stores the cycle and marks a challenger as review-ready only when every gate passes
 
+The repository background workflow invokes the endpoint only when `SCORECASTER_SHADOW_LEARNING_ENABLED` is explicitly enabled. Database state keeps each user on a bounded daily evaluation cadence even though the shared scheduler wakes more frequently.
+
 ## Promotion gates
 
 A challenger cannot even become review-ready until it has:
@@ -81,6 +83,10 @@ Keep `SCORECASTER_SHADOW_LEARNING_ENABLED=false` until:
 - settlement updates preserve the original decision snapshot
 - the protected endpoint returns a successful empty or collecting-evidence cycle
 - external scheduling uses the same strong `CRON_SECRET`
+
+## User data controls
+
+Shadow Learning samples, state and cycles are included in the authenticated Scorecaster account export. They are deleted before the authentication account is removed, and foreign-key cascades provide an additional deletion boundary for paper bets and user accounts.
 
 ## Safety boundary
 
