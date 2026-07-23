@@ -4,18 +4,8 @@
   "productionBaseUrl": "https://scorecaster.vercel.app",
   "productBoundary": "sports analysis, risk control and virtual paper tracking only",
   "publicPages": [
-    "/",
-    "/help",
-    "/privacy",
-    "/terms",
-    "/responsible-use",
-    "/production-status",
-    "/autonomous-agent",
-    "/mission-control",
-    "/polymarket-intelligence",
-    "/diagnostics-v2",
-    "/provider-health",
-    "/data-layer"
+    "/", "/help", "/privacy", "/terms", "/responsible-use", "/production-status",
+    "/autonomous-agent", "/mission-control", "/polymarket-intelligence", "/diagnostics-v2", "/provider-health", "/data-layer"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -59,6 +49,7 @@
     "supabase/scorecaster_watchlist_monitor.sql",
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
+    "supabase/scorecaster_autonomous_intelligence_v12.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql"
   ],
@@ -67,75 +58,22 @@
     "googlePlay": ["fi-FI", "en-US", "es-ES"]
   },
   "manualReleaseChecks": [
-    {
-      "id": "two-user-isolation",
-      "title": "Two-user RLS isolation on web and mobile",
-      "blocking": true
-    },
-    {
-      "id": "autonomous-agent-paper-safety",
-      "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
-      "blocking": true
-    },
-    {
-      "id": "autonomous-v12-circuit-breakers",
-      "title": "Autonomous V12 drawdown, loss-streak, model-drift and unified-data circuit breakers verified with controlled production-safe paper scenarios",
-      "blocking": true
-    },
-    {
-      "id": "autonomous-v12-mission-control",
-      "title": "Mission Control web and native views show the same mode, blockers, stake multiplier, model lab, provider readiness and worker audit without exposing secrets",
-      "blocking": true
-    },
-    {
-      "id": "diagnostics-history-worker",
-      "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-provider-activation",
-      "title": "Secondary odds, team context, lineup, injury, weather and news providers verified with real production events and explicit missing-data fallbacks",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-ai-provenance",
-      "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-history-worker",
-      "title": "Unified Data migration, service role, 30-minute capture schedule, provider observations, incidents and closing-line finalization verified in production",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-closing-line",
-      "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage",
-      "blocking": true
-    },
-    {
-      "id": "physical-push",
-      "title": "Physical iOS and Android push delivery test",
-      "blocking": true
-    },
-    {
-      "id": "multilingual-device-flow",
-      "title": "Authentication, paper save, settlement, export and deletion in FI, EN and ES",
-      "blocking": true
-    },
-    {
-      "id": "eas-project-and-assets",
-      "title": "EAS project linkage, final icon, splash and signed builds",
-      "blocking": true
-    },
-    {
-      "id": "legal-support-identity",
-      "title": "Final support contact, legal controller identity and store disclosures",
-      "blocking": true
-    },
-    {
-      "id": "external-security-review",
-      "title": "Independent production security review",
-      "blocking": true
-    }
+    { "id": "two-user-isolation", "title": "Two-user RLS isolation on web and mobile", "blocking": true },
+    { "id": "autonomous-agent-paper-safety", "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users", "blocking": true },
+    { "id": "autonomous-v12-circuit-breakers", "title": "Autonomous V12 drawdown, loss-streak, model-drift and unified-data circuit breakers verified with controlled production-safe paper scenarios", "blocking": true },
+    { "id": "autonomous-v12-mission-control", "title": "Mission Control web and native views show the same mode, blockers, stake multiplier, model lab, provider readiness and worker audit without exposing secrets", "blocking": true },
+    { "id": "autonomous-v12-1-persistence", "title": "V12.1 learning snapshots, model registry, incidents, adaptive intervals and health state are persisted with forced RLS and service-role-only writes", "blocking": true },
+    { "id": "autonomous-v12-1-model-governance", "title": "Paper-model promotion requires 300 settled samples, two ready snapshots, stable drift, provider health and acceptable ROI/CLV/Brier evidence while published probability remains unchanged", "blocking": true },
+    { "id": "autonomous-v12-1-recovery", "title": "Provider outage, critical drift, configured drawdown and loss-streak incidents freeze paper exposure and recover through an audited guarded interval", "blocking": true },
+    { "id": "diagnostics-history-worker", "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production", "blocking": true },
+    { "id": "unified-data-provider-activation", "title": "Secondary odds, team context, lineup, injury, weather and news providers verified with real production events and explicit missing-data fallbacks", "blocking": true },
+    { "id": "unified-data-ai-provenance", "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures", "blocking": true },
+    { "id": "unified-data-history-worker", "title": "Unified Data migration, service role, 30-minute capture schedule, provider observations, incidents and closing-line finalization verified in production", "blocking": true },
+    { "id": "unified-data-closing-line", "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage", "blocking": true },
+    { "id": "physical-push", "title": "Physical iOS and Android push delivery test", "blocking": true },
+    { "id": "multilingual-device-flow", "title": "Authentication, paper save, settlement, export and deletion in FI, EN and ES", "blocking": true },
+    { "id": "eas-project-and-assets", "title": "EAS project linkage, final icon, splash and signed builds", "blocking": true },
+    { "id": "legal-support-identity", "title": "Final support contact, legal controller identity and store disclosures", "blocking": true },
+    { "id": "external-security-review", "title": "Independent production security review", "blocking": true }
   ]
 }
