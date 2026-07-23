@@ -97,9 +97,11 @@ check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be 
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
 const settlementIndex = migrations.indexOf("supabase/scorecaster_settlement_monitor.sql");
 const autonomousIndex = migrations.indexOf("supabase/scorecaster_autonomous_agent.sql");
+const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_agent_v2.sql");
 check(settlementIndex >= 0, "Settlement Monitor migration must be listed");
-check(autonomousIndex === migrations.length - 1, "Autonomous Agent must be the final listed migration");
-check(settlementIndex >= 0 && autonomousIndex === settlementIndex + 1, "Autonomous Agent must run immediately after Settlement Monitor");
+check(autonomousIndex === settlementIndex + 1, "Autonomous Agent must run immediately after Settlement Monitor");
+check(autonomousV2Index === autonomousIndex + 1, "Autonomous V13 governance must run immediately after the base Autonomous Agent migration");
+check(autonomousV2Index === migrations.length - 1, "Autonomous V13 governance must be the final listed migration");
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);
