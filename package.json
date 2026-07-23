@@ -16,7 +16,7 @@
     "test:operations": "node --test scripts/operations-dashboard.test.mjs",
     "test:release-readiness": "node --test scripts/release-readiness.test.mjs",
     "test:production-activation": "node --test scripts/production-activation.test.mjs",
-    "test:autonomous-agent": "node --test scripts/autonomous-agent.test.mjs scripts/autonomous-scorecaster-v12.test.mjs scripts/autonomous-daily-governor.test.mjs",
+    "test:autonomous-agent": "node --test scripts/autonomous-agent.test.mjs scripts/autonomous-scorecaster-v12.test.mjs scripts/autonomous-daily-governor.test.mjs scripts/autonomous-agent-v2.test.mjs",
     "test:polymarket": "node --test scripts/polymarket-intelligence.test.mjs",
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",

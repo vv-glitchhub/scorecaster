@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- Scorecaster Production Schema Verification V1
+-- Scorecaster Production Schema Verification V2
 -- Read-only checks. Any failed assertion aborts the activation workflow.
 
 do $$
@@ -17,10 +17,16 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_decision_audit',
+    'autonomous_agent_daily_briefs',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -52,10 +58,16 @@ begin
       'watchlist_monitor_state',
       'decision_diagnostic_snapshots',
       'decision_diagnostic_alerts',
+      'unified_data_snapshots',
+      'unified_data_provider_observations',
+      'unified_data_closing_records',
+      'unified_data_incidents',
       'paper_settlement_monitor_state',
       'autonomous_agent_settings',
       'autonomous_agent_state',
       'autonomous_agent_runs',
+      'autonomous_agent_decision_audit',
+      'autonomous_agent_daily_briefs',
       'market_timeline_snapshots',
       'alert_inbox',
       'notification_preferences',
@@ -84,10 +96,16 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_decision_audit',
+    'autonomous_agent_daily_briefs',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -124,7 +142,10 @@ begin
     raise exception 'Autonomous Agent claim function is missing';
   end if;
   if to_regprocedure('public.complete_autonomous_agent_user(uuid,text,uuid,integer,integer,integer,integer,numeric,text)') is null then
-    raise exception 'Autonomous Agent completion function is missing';
+    raise exception 'Autonomous Agent V1 completion function is missing';
+  end if;
+  if to_regprocedure('public.complete_autonomous_agent_user_v2(uuid,text,uuid,integer,integer,integer,integer,numeric,text,integer,text,numeric,integer,integer,numeric,numeric,numeric,integer,text,jsonb)') is null then
+    raise exception 'Autonomous Agent V2 completion function is missing';
   end if;
   if to_regprocedure('public.request_autonomous_agent_run()') is null then
     raise exception 'Autonomous Agent user request function is missing';
@@ -143,11 +164,26 @@ begin
   if not has_function_privilege('service_role', 'public.claim_autonomous_agent_users(integer)', 'EXECUTE') then
     raise exception 'service_role cannot claim Autonomous Agent users';
   end if;
+  if not has_function_privilege('service_role', 'public.complete_autonomous_agent_user_v2(uuid,text,uuid,integer,integer,integer,integer,numeric,text,integer,text,numeric,integer,integer,numeric,numeric,numeric,integer,text,jsonb)', 'EXECUTE') then
+    raise exception 'service_role cannot complete Autonomous Agent V2 users';
+  end if;
   if not has_function_privilege('authenticated', 'public.request_autonomous_agent_run()', 'EXECUTE') then
     raise exception 'authenticated users cannot request their own Autonomous Agent run';
   end if;
   if has_table_privilege('authenticated', 'public.autonomous_agent_settings', 'DELETE') then
     raise exception 'authenticated users must not delete Autonomous Agent settings directly';
+  end if;
+  if not has_table_privilege('service_role', 'public.autonomous_agent_decision_audit', 'INSERT') then
+    raise exception 'service_role cannot write Autonomous Agent V2 decision audit';
+  end if;
+  if not has_table_privilege('service_role', 'public.autonomous_agent_daily_briefs', 'UPDATE') then
+    raise exception 'service_role cannot update Autonomous Agent V2 daily briefs';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_decision_audit', 'INSERT') then
+    raise exception 'authenticated users must not write Autonomous Agent V2 decision audit';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_daily_briefs', 'UPDATE') then
+    raise exception 'authenticated users must not update Autonomous Agent V2 daily briefs';
   end if;
   if not has_table_privilege('service_role', 'public.decision_diagnostic_snapshots', 'INSERT') then
     raise exception 'service_role cannot write Decision Diagnostics snapshots';
@@ -207,10 +243,16 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_decision_audit',
+    'autonomous_agent_daily_briefs',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -227,11 +269,13 @@ $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'production-schema-verification-v1',
+  'version', 'production-schema-verification-v2',
   'paperOnly', true,
   'rlsVerified', true,
   'workerFunctionsVerified', true,
   'databaseRiskTriggerVerified', true,
   'diagnosticsVerified', true,
+  'unifiedDataVerified', true,
+  'autonomousAgentV2Verified', true,
   'verifiedAt', now()
 ) as scorecaster_production_schema;

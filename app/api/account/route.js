@@ -18,6 +18,8 @@ const USER_TABLES = [
   "market_timeline_snapshots",
   "watchlist_monitor_state",
   "paper_settlement_monitor_state",
+  "autonomous_agent_decision_audit",
+  "autonomous_agent_daily_briefs",
   "autonomous_agent_runs",
   "autonomous_agent_state",
   "autonomous_agent_settings",
@@ -51,7 +53,7 @@ export async function GET(request) {
     deletionAvailable: Boolean(getSupabaseAdminClient()),
     confirmationPhrase: CONFIRMATION,
     requiresEmailConfirmation: true,
-    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "autonomous agent settings and audit runs", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
+    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "Autonomous Agent V2 settings, health state, decision audit, daily briefs and run history", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
     neverStored: ["payment card data", "bank credentials", "real-money balance"]
   }, 200, requestId);
 }
