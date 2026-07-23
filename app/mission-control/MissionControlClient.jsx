@@ -67,6 +67,7 @@ export default function MissionControlClient() {
   const readiness = autonomy?.dataReadiness;
   const modelLab = data?.modelLab;
   const brief = data?.brief;
+  const daily = data?.daily;
   const mode = autonomy?.mode || "FROZEN";
   const recentRuns = data?.runs || [];
   const currentCandidates = data?.currentCandidates || [];
@@ -87,9 +88,9 @@ export default function MissionControlClient() {
         eyebrow="AUTONOMOUS SCORECASTER V12"
         title={tr({ fi: "Autonomisen agentin Mission Control", en: "Autonomous Agent Mission Control", es: "Centro de control del agente autónomo" })}
         description={tr({
-          fi: "Yksi ohjaamo paperivalinnoille, oppimiselle, pelikassalle, provider-datalle, circuit breakereille ja worker-ajoille. Jokainen autonomiaa rajoittava syy näkyy käyttäjälle.",
-          en: "One cockpit for paper selections, learning, bankroll health, provider data, circuit breakers and worker runs. Every reason that limits autonomy is visible.",
-          es: "Un centro para selecciones simuladas, aprendizaje, banca, proveedores, límites de seguridad y ejecuciones."
+          fi: "Yksi ohjaamo paperivalinnoille, oppimiselle, pelikassalle, provider-datalle, circuit breakereille ja worker-ajoille. Pysyvä UTC-päiväkiintiö estää useita worker-kierroksia ylittämästä päivän rajoja.",
+          en: "One cockpit for paper selections, learning, bankroll health, provider data, circuit breakers and worker runs. A persistent UTC daily budget prevents repeated cycles from exceeding daily limits.",
+          es: "Un centro para selecciones simuladas, aprendizaje, banca, proveedores y límites. Un presupuesto UTC persistente impide superar los límites diarios."
         })}
         actions={<><button type="button" onClick={() => void load()} disabled={state.loading} className="sc-button-primary">{state.loading ? "…" : tr({ fi: "Päivitä tila", en: "Refresh state", es: "Actualizar" })}</button><Link href="/autonomous-agent" className="sc-button-secondary">{tr({ fi: "Agentin asetukset", en: "Agent settings", es: "Configuración" })}</Link><Link href="/tracking" className="sc-button-ghost">{tr({ fi: "Paperisalkku", en: "Paper portfolio", es: "Cartera simulada" })}</Link></>}
         aside={<div className={`rounded-[1.4rem] border p-5 ${modeClass(mode)}`}><div className="text-[10px] font-black uppercase tracking-[0.18em] opacity-70">Autonomy mode</div><div className="mt-2 text-3xl font-black">{mode}</div><div className="mt-2 text-sm leading-6 opacity-90">{autonomy?.reason || tr({ fi: "Tilaa ladataan.", en: "Loading state.", es: "Cargando estado." })}</div></div>}
@@ -97,8 +98,8 @@ export default function MissionControlClient() {
 
       <TrustBar items={[
         { label: tr({ fi: "Toteutus", en: "Execution", es: "Ejecución" }), value: tr({ fi: "vain paperitila", en: "paper only", es: "solo simulado" }), tone: "warning" },
-        { label: tr({ fi: "Todennäköisyys", en: "Probability", es: "Probabilidad" }), value: "no-vig market consensus", tone: "info" },
-        { label: tr({ fi: "Oppiminen", en: "Learning", es: "Aprendizaje" }), value: "shadow champion/challenger", tone: "good" },
+        { label: tr({ fi: "Päiväkiintiö", en: "Daily budget", es: "Presupuesto diario" }), value: "persistent UTC", tone: "good" },
+        { label: tr({ fi: "Kovat katot", en: "Hard caps", es: "Límites duros" }), value: "1% / 5% / 2.5%", tone: "info" },
         { label: tr({ fi: "Automaattinen korotus", en: "Automatic upgrade", es: "Mejora automática" }), value: tr({ fi: "estetty", en: "disabled", es: "desactivada" }), tone: "warning" }
       ]} />
 
@@ -107,6 +108,10 @@ export default function MissionControlClient() {
 
       {data?.available && <>
         <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <MetricTile label={tr({ fi: "Päivän valinnat", en: "Daily picks", es: "Selecciones diarias" })} value={`${daily?.picksUsed || 0}/${daily?.pickLimit || 0}`} tone={Number(daily?.picksRemaining || 0) > 0 ? "green" : "red"} />
+          <MetricTile label={tr({ fi: "Päivän virtuaalipanos", en: "Daily virtual stake", es: "Apuesta virtual diaria" })} value={`${money(daily?.stakeUsed)} / ${money(daily?.exposureCap)}`} tone={Number(daily?.exposureRemaining || 0) > 0 ? "blue" : "red"} />
+          <MetricTile label={tr({ fi: "Jäljellä tänään", en: "Remaining today", es: "Restante hoy" })} value={`${daily?.picksRemaining || 0} · ${money(daily?.exposureRemaining)}`} tone={Number(daily?.picksRemaining || 0) > 0 && Number(daily?.exposureRemaining || 0) > 0 ? "green" : "yellow"} />
+          <MetricTile label={tr({ fi: "Uniikit tapahtumat", en: "Unique events", es: "Eventos únicos" })} value={daily?.uniqueEvents || 0} tone="purple" />
           <MetricTile label={tr({ fi: "Ratkaistu otos", en: "Settled sample", es: "Muestra resuelta" })} value={history?.settledCount ?? 0} tone="blue" />
           <MetricTile label="ROI" value={pct(history?.roi)} tone={Number(history?.roi || 0) >= 0 ? "green" : "red"} />
           <MetricTile label="Average CLV" value={pct(history?.clv?.average)} tone={Number(history?.clv?.average || 0) >= 0 ? "green" : "yellow"} />
@@ -119,11 +124,15 @@ export default function MissionControlClient() {
 
         <section className="grid gap-6 xl:grid-cols-[minmax(0,1.25fr)_minmax(320px,0.75fr)]">
           <div className="sc-surface rounded-[1.7rem] p-6">
-            <SectionHeader eyebrow={tr({ fi: "Päivittäinen brief", en: "Daily brief", es: "Resumen diario" })} title={brief?.headline || autonomy?.reason} description={tr({ fi: "Brief kertoo saako agentti luoda uutta paperialtistusta ja mikä on seuraava tärkein toimenpide.", en: "The brief states whether the agent may create new paper exposure and the next most important action.", es: "El resumen indica si el agente puede crear nueva exposición simulada." })} />
+            <SectionHeader eyebrow={tr({ fi: "Päivittäinen brief", en: "Daily brief", es: "Resumen diario" })} title={brief?.headline || autonomy?.reason} description={tr({ fi: "Brief yhdistää autonomiatilan ja koko UTC-vuorokauden pysyvän valinta- ja altistusbudjetin.", en: "The brief combines autonomy state with the persistent pick and exposure budget for the whole UTC day.", es: "El resumen combina el estado con el presupuesto persistente de todo el día UTC." })} />
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               <MetricTile compact label={tr({ fi: "Uusi altistus", en: "New exposure", es: "Nueva exposición" })} value={brief?.canCreateNewPaperExposure ? tr({ fi: "SALLITTU", en: "ALLOWED", es: "PERMITIDA" }) : tr({ fi: "ESTETTY", en: "BLOCKED", es: "BLOQUEADA" })} tone={brief?.canCreateNewPaperExposure ? "green" : "red"} />
               <MetricTile compact label={tr({ fi: "Panoskerroin", en: "Stake multiplier", es: "Multiplicador" })} value={`${decimal(autonomy?.stakeMultiplier, 2)}×`} tone={modeTone(mode)} />
-              <MetricTile compact label={tr({ fi: "Päivän valintakatto", en: "Daily pick cap", es: "Límite diario" })} value={autonomy?.pickCap ?? 0} />
+              <MetricTile compact label={tr({ fi: "Tilakohtainen valintakatto", en: "Mode pick cap", es: "Límite por modo" })} value={autonomy?.pickCap ?? 0} />
+              <MetricTile compact label={tr({ fi: "Pysyvä päiväkiintiö", en: "Persistent daily quota", es: "Cuota diaria persistente" })} value={`${daily?.picksRemaining || 0} / ${money(daily?.exposureRemaining)}`} tone={Number(daily?.picksRemaining || 0) > 0 ? "green" : "red"} />
+              <MetricTile compact label={tr({ fi: "Yksittäinen PLAY", en: "Single PLAY", es: "PLAY individual" })} value={`≤ ${daily?.hardLimits?.maxStakePercent || 1}%`} />
+              <MetricTile compact label={tr({ fi: "Päivä / avoin", en: "Daily / open", es: "Diario / abierto" })} value={`≤ ${daily?.hardLimits?.maxDailyExposurePercent || 5}%`} />
+              <MetricTile compact label={tr({ fi: "Yksi liiga", en: "Single league", es: "Una liga" })} value={`≤ ${daily?.hardLimits?.maxLeagueExposurePercent || 2.5}%`} />
               <MetricTile compact label={tr({ fi: "Seuraava worker-tarkistus", en: "Next worker check", es: "Próxima revisión" })} value={date(data?.state?.next_check_at)} />
             </div>
             <div className="mt-5 space-y-2">{(brief?.recommendations || []).map((item) => <div key={item} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-4 py-3 text-sm leading-6 text-[var(--sc-text-secondary)]">{item}</div>)}</div>
@@ -151,7 +160,7 @@ export default function MissionControlClient() {
         </section>
 
         <section className="sc-surface rounded-[1.7rem] p-6">
-          <SectionHeader eyebrow={tr({ fi: "Nykyiset ehdokkaat", en: "Current candidates", es: "Candidatos actuales" })} title={tr({ fi: "Mitä agentti näkee juuri nyt", en: "What the agent sees now", es: "Lo que ve el agente" })} description={tr({ fi: "Tämä lista näyttää markkinapäätöksen sekä datakattavuuden ennen käyttäjäkohtaista pelikassa- ja circuit breaker -porttia.", en: "This list shows the market decision and data readiness before user-specific bankroll and circuit-breaker gates.", es: "La lista muestra la decisión y la calidad de datos antes de los límites personales." })} />
+          <SectionHeader eyebrow={tr({ fi: "Nykyiset ehdokkaat", en: "Current candidates", es: "Candidatos actuales" })} title={tr({ fi: "Mitä agentti näkee juuri nyt", en: "What the agent sees now", es: "Lo que ve el agente" })} description={tr({ fi: "Tämä lista näyttää markkinapäätöksen sekä datakattavuuden ennen käyttäjäkohtaista pelikassa-, päiväbudjetti- ja circuit breaker -porttia.", en: "This list shows market decisions and data readiness before user bankroll, daily-budget and circuit-breaker gates.", es: "La lista muestra decisiones y calidad antes de los límites personales y diarios." })} />
           {currentCandidates.length === 0 ? <EmptyState title={tr({ fi: "Nykyisiä ehdokkaita ei ole", en: "No current candidates", es: "No hay candidatos" })} description={tr({ fi: "Top Picks ei palauttanut tällä hetkellä varmennettuja kohteita.", en: "Top Picks did not return verified selections now.", es: "Top Picks no devolvió selecciones verificadas." })} /> : <div className="mt-5 overflow-x-auto"><table className="w-full min-w-[850px] text-left text-sm"><thead className="text-[10px] font-black uppercase tracking-[0.13em] text-[var(--sc-faint)]"><tr><th className="p-3">Match</th><th className="p-3">Selection</th><th className="p-3">Decision</th><th className="p-3">Odds</th><th className="p-3">Edge</th><th className="p-3">Verified</th><th className="p-3">Providers</th><th className="p-3">Safety</th></tr></thead><tbody>{currentCandidates.map((row) => <tr key={`${row.eventId}:${row.selection}`} className="border-t border-[var(--sc-border)]"><td className="p-3 font-bold text-[var(--sc-text)]">{row.match}</td><td className="p-3 text-[var(--sc-muted)]">{row.selection}</td><td className="p-3"><DecisionBadge decision={row.decision} /></td><td className="p-3">{decimal(row.odds)}</td><td className="p-3">{pct(row.edge)}</td><td className="p-3">{pct(row.verifiedCoverage)}</td><td className="p-3">{row.oddsProviders || 1}</td><td className="p-3 text-xs text-[var(--sc-muted)]">{row.safetyAction || "–"}</td></tr>)}</tbody></table></div>}
         </section>
 
@@ -169,7 +178,7 @@ export default function MissionControlClient() {
 
         <section className="rounded-[1.7rem] border border-purple-300/20 bg-purple-300/10 p-6">
           <SectionHeader eyebrow="SAFETY CONTRACT" title={tr({ fi: "Autonomia ei tarkoita hallitsematonta pelaamista", en: "Autonomy does not mean uncontrolled betting", es: "La autonomía no significa apuestas sin control" })} />
-          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm leading-6 text-purple-50"><div>✓ {tr({ fi: "Vain virtuaalinen pelikassa", en: "Virtual bankroll only", es: "Solo banca virtual" })}</div><div>✓ {tr({ fi: "Ei vedonvälittäjäkirjautumista", en: "No bookmaker login", es: "Sin acceso a casas" })}</div><div>✓ {tr({ fi: "Ei automaattista mallipromootiota", en: "No automatic model promotion", es: "Sin promoción automática" })}</div><div>✓ {tr({ fi: "Fail-closed circuit breakerit", en: "Fail-closed circuit breakers", es: "Límites fail-closed" })}</div></div>
+          <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4 text-sm leading-6 text-purple-50"><div>✓ {tr({ fi: "Vain virtuaalinen pelikassa", en: "Virtual bankroll only", es: "Solo banca virtual" })}</div><div>✓ {tr({ fi: "Pysyvät UTC-päivärajat", en: "Persistent UTC daily limits", es: "Límites diarios UTC persistentes" })}</div><div>✓ {tr({ fi: "Ei automaattista mallipromootiota", en: "No automatic model promotion", es: "Sin promoción automática" })}</div><div>✓ {tr({ fi: "Fail-closed circuit breakerit", en: "Fail-closed circuit breakers", es: "Límites fail-closed" })}</div></div>
         </section>
       </>}
     </div>
