@@ -153,6 +153,30 @@ begin
 end;
 $$;
 
+create or replace function public.trim_autonomous_v12_audit_after_insert()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_user_id uuid;
+begin
+  for v_user_id in select distinct user_id from inserted_audit_rows loop
+    delete from public.autonomous_agent_v12_audit audit_row
+    where audit_row.user_id = v_user_id
+      and audit_row.id in (
+        select old_row.id
+        from public.autonomous_agent_v12_audit old_row
+        where old_row.user_id = v_user_id
+        order by old_row.created_at desc, old_row.id desc
+        offset 5000
+      );
+  end loop;
+  return null;
+end;
+$$;
+
 drop trigger if exists autonomous_v12_controls_set_updated_at on public.autonomous_agent_v12_controls;
 create trigger autonomous_v12_controls_set_updated_at
 before update on public.autonomous_agent_v12_controls
@@ -162,6 +186,12 @@ drop trigger if exists autonomous_v12_state_set_updated_at on public.autonomous_
 create trigger autonomous_v12_state_set_updated_at
 before update on public.autonomous_agent_v12_state
 for each row execute function public.set_autonomous_v12_updated_at();
+
+drop trigger if exists autonomous_v12_audit_retention on public.autonomous_agent_v12_audit;
+create trigger autonomous_v12_audit_retention
+after insert on public.autonomous_agent_v12_audit
+referencing new table as inserted_audit_rows
+for each statement execute function public.trim_autonomous_v12_audit_after_insert();
 
 alter table public.autonomous_agent_v12_controls enable row level security;
 alter table public.autonomous_agent_v12_controls force row level security;
@@ -197,6 +227,7 @@ revoke all on public.autonomous_agent_v12_state from anon;
 revoke all on public.autonomous_agent_v12_learning_cycles from anon;
 revoke all on public.autonomous_agent_v12_audit from anon;
 revoke all on function public.trim_autonomous_v12_learning_cycles(uuid, integer) from public, anon, authenticated;
+revoke all on function public.trim_autonomous_v12_audit_after_insert() from public, anon, authenticated;
 
 grant select, insert, update on public.autonomous_agent_v12_controls to authenticated;
 grant select on public.autonomous_agent_v12_state to authenticated;
