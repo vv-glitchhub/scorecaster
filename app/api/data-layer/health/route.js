@@ -42,22 +42,28 @@ export async function GET() {
   };
   const configuredProviderCount = Object.values(providers).filter(Boolean).length;
   const workerConfigured = Boolean(process.env.CRON_SECRET && process.env.SUPABASE_SERVICE_ROLE_KEY);
-  const captureFresh = storage.latestCapturedAt
-    ? Date.now() - Date.parse(storage.latestCapturedAt) <= 90 * 60 * 1000
-    : false;
+  const latestTimestamp = Date.parse(storage.latestCapturedAt || "");
+  const captureAgeMinutes = Number.isFinite(latestTimestamp)
+    ? Math.max(0, (Date.now() - latestTimestamp) / 60_000)
+    : null;
+  const captureFresh = captureAgeMinutes !== null && captureAgeMinutes <= 90;
   const status = storage.migrationActive && workerConfigured && captureFresh ? "healthy" : storage.migrationActive ? "degraded" : "inactive";
 
   return Response.json({
     ok: true,
-    version: "unified-sports-data-health-v2",
+    version: "unified-sports-data-health-v2.1",
     status,
+    migrationActive: storage.migrationActive,
+    captureFresh,
+    captureAgeMinutes,
     storage,
     worker: {
       configured: workerConfigured,
       intervalMinutes: 30,
       endpoint: "/api/internal/unified-data",
       scheduler: ".github/workflows/unified-data-capture.yml",
-      captureFresh
+      captureFresh,
+      captureAgeMinutes
     },
     providers: {
       ...providers,
