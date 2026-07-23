@@ -49,10 +49,17 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v1",
+      version: "unified-sports-data-api-v2",
       generatedAt: new Date().toISOString(),
       eventId: eventId || null,
       count: rows.length,
+      history: {
+        endpoint: "/api/data-layer/history",
+        captureIntervalMinutes: 30,
+        storesProviderObservations: true,
+        storesClosingOddsPostStart: true,
+        storesOperationalIncidents: true
+      },
       providerPolicy: {
         primaryOdds: "The Odds API bookmaker consensus",
         secondaryOdds: "SportsGameOdds when configured and event-matched",
@@ -67,6 +74,7 @@ export async function GET(request) {
         contextCanUpgrade: false,
         contextCanDowngradeVerifiedRisk: true,
         closingOddsPregameLeakage: false,
+        closingOddsSource: "final stored pre-start snapshot",
         paperOnly: true
       },
       data: rows
