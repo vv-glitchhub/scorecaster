@@ -19,7 +19,7 @@ const expectedConfirmations = {
 };
 
 const report = {
-  version: "production-activation-v1",
+  version: "production-activation-v2-autonomous-v12.1",
   action,
   productBoundary: "sports analysis, risk control and virtual paper tracking only",
   realMoneyBetting: false,
@@ -27,17 +27,14 @@ const report = {
   status: "running",
   migrations: [],
   schemaVerified: false,
+  autonomousV121SchemaVerified: false,
   probes: [],
   health: null,
   error: null
 };
 
 function clean(value, maximum = 500) {
-  return String(value || "")
-    .replace(/[\u0000-\u001f\u007f]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, maximum);
+  return String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximum);
 }
 
 function redact(value, maximum = 500) {
@@ -52,11 +49,7 @@ function assert(condition, message) {
 }
 
 function validHttps(value) {
-  try {
-    return new URL(value).protocol === "https:";
-  } catch {
-    return false;
-  }
+  try { return new URL(value).protocol === "https:"; } catch { return false; }
 }
 
 function validPostgresUrl(value) {
@@ -75,24 +68,10 @@ async function fileDigest(relativePath) {
 function runPsql(args, label) {
   const result = spawnSync(
     "psql",
-    [
-      `--dbname=${databaseUrl}`,
-      "--no-psqlrc",
-      "--set=ON_ERROR_STOP=1",
-      "--set=VERBOSITY=terse",
-      ...args
-    ],
-    {
-      cwd: root,
-      encoding: "utf8",
-      env: { ...process.env, PGCONNECT_TIMEOUT: "15" },
-      stdio: ["ignore", "pipe", "pipe"]
-    }
+    [`--dbname=${databaseUrl}`, "--no-psqlrc", "--set=ON_ERROR_STOP=1", "--set=VERBOSITY=terse", ...args],
+    { cwd: root, encoding: "utf8", env: { ...process.env, PGCONNECT_TIMEOUT: "15" }, stdio: ["ignore", "pipe", "pipe"] }
   );
-
-  if (result.error?.code === "ENOENT") {
-    throw new Error("PostgreSQL client psql is not installed");
-  }
+  if (result.error?.code === "ENOENT") throw new Error("PostgreSQL client psql is not installed");
   if (result.status !== 0) {
     const detail = redact(result.stderr, 1000);
     throw new Error(`${label} failed${detail ? `: ${detail}` : ""}`);
@@ -103,12 +82,17 @@ function runPsql(args, label) {
 async function verifySchema() {
   runPsql(["--file=scripts/verify-production-schema.sql"], "Production schema verification");
   report.schemaVerified = true;
+  runPsql(["--file=scripts/verify-autonomous-v12-schema.sql"], "Autonomous Intelligence V12.1 schema verification");
+  report.autonomousV121SchemaVerified = true;
 }
 
 async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
-  assert(migrations.length >= 13, "Release manifest does not contain the complete production rollout");
+  assert(migrations.length >= 15, "Release manifest does not contain the complete production rollout");
+  assert(migrations.at(-3) === "supabase/scorecaster_autonomous_intelligence_v12.sql", "V12.1 migration must run before final worker migrations");
+  assert(migrations.at(-2) === "supabase/scorecaster_settlement_monitor.sql", "Settlement Monitor migration order changed unexpectedly");
+  assert(migrations.at(-1) === "supabase/scorecaster_autonomous_agent.sql", "Autonomous Agent migration must remain last");
 
   for (const migration of migrations) {
     assert(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path: ${migration}`);
@@ -116,17 +100,13 @@ async function migrate() {
     runPsql(["--single-transaction", `--file=${migration}`], `Migration ${migration}`);
     report.migrations.push({ path: migration, sha256: digest, status: "applied" });
   }
-
   await verifySchema();
 }
 
 async function parseResponse(response) {
   const responseText = await response.text();
-  try {
-    return JSON.parse(responseText);
-  } catch {
-    return { ok: false, error: redact(responseText, 300) || "Non-JSON response" };
-  }
+  try { return JSON.parse(responseText); }
+  catch { return { ok: false, error: redact(responseText, 300) || "Non-JSON response" }; }
 }
 
 async function probeWorkers() {
@@ -153,28 +133,33 @@ async function probeWorkers() {
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
     "/api/internal/notification-delivery",
-    "/api/internal/decision-diagnostics"
+    "/api/internal/decision-diagnostics",
+    "/api/internal/unified-data"
   ];
 
   for (const workerPath of workers) {
     const response = await fetch(`${baseUrl}${workerPath}`, {
-      headers: {
-        Accept: "application/json",
-        Authorization: `Bearer ${cronSecret}`
-      },
+      headers: { Accept: "application/json", Authorization: `Bearer ${cronSecret}` },
       cache: "no-store",
       signal: AbortSignal.timeout(60_000)
     });
     const payload = await parseResponse(response);
     const probeOk = response.ok && payload?.ok !== false && payload?.skipped !== true;
+    const version = clean(payload?.version || payload?.result?.version, 100);
     report.probes.push({
       path: workerPath,
       status: response.status,
       ok: probeOk,
-      version: clean(payload?.version || payload?.result?.version, 100),
+      version,
+      paperOnly: payload?.paperOnly !== false,
+      realMoneyBetting: payload?.realMoneyBetting === true,
       error: probeOk ? null : clean(payload?.error || "Worker did not complete an active cycle", 300)
     });
     assert(probeOk, `${workerPath} did not complete an active protected production cycle`);
+    assert(payload?.realMoneyBetting !== true, `${workerPath} reported an unsafe real-money mode`);
+    if (workerPath === "/api/internal/autonomous-agent") {
+      assert(/autonomous-(intelligence-v12\.1|scorecaster-v12|paper-agent-v2|paper-agent-v1)/.test(version), "Autonomous worker did not report a reviewed version");
+    }
   }
 }
 
@@ -190,15 +175,10 @@ async function saveReport() {
 try {
   assert(allowedActions.has(action), "Activation action must be schema, migrate or probe");
   assert(confirmation === expectedConfirmations[action], `Confirmation must exactly match: ${expectedConfirmations[action]}`);
-
-  if (action === "schema" || action === "migrate") {
-    assert(validPostgresUrl(databaseUrl), "Production PostgreSQL connection string is missing or invalid");
-  }
-
+  if (action === "schema" || action === "migrate") assert(validPostgresUrl(databaseUrl), "Production PostgreSQL connection string is missing or invalid");
   if (action === "schema") await verifySchema();
   if (action === "migrate") await migrate();
   if (action === "probe") await probeWorkers();
-
   report.status = "success";
   console.log(`Scorecaster production activation ${action} completed successfully.`);
 } catch (error) {
