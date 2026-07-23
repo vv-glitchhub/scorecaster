@@ -57,7 +57,7 @@ begin
   where user_id = new.user_id
     and created_at >= v_day_start
     and lower(coalesce(raw_pick ->> 'source', '')) like 'scorecaster-autonomous%'
-    and id <> new.id;
+    and id is distinct from new.id;
 
   if v_daily_count >= v_daily_pick_limit then
     raise exception 'Autonomous V13 UTC daily pick limit reached'
@@ -76,7 +76,7 @@ begin
     and created_at >= v_day_start
     and lower(coalesce(raw_pick ->> 'source', '')) like 'scorecaster-autonomous%'
     and coalesce(league, sport, 'unknown') = coalesce(new.league, new.sport, 'unknown')
-    and id <> new.id;
+    and id is distinct from new.id;
 
   if v_daily_league_stake + new.stake > v_max_league then
     raise exception 'Autonomous V13 UTC league exposure exceeds the 2.5 percent system hard cap'
@@ -91,7 +91,7 @@ begin
       and created_at >= v_day_start
       and lower(coalesce(raw_pick ->> 'source', '')) like 'scorecaster-autonomous%'
       and lower(coalesce(raw_pick ->> 'eventId', raw_pick ->> 'event_id', match, '')) = v_event_id
-      and id <> new.id;
+      and id is distinct from new.id;
 
     if v_duplicate_count > 0 then
       raise exception 'Autonomous V13 already used this event during the UTC day'
