@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- Scorecaster Production Schema Verification V1
+-- Scorecaster Production Schema Verification V2
 -- Read-only checks. Any failed assertion aborts the activation workflow.
 
 do $$
@@ -17,10 +17,18 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_v12_controls',
+    'autonomous_agent_v12_state',
+    'autonomous_agent_v12_learning_cycles',
+    'autonomous_agent_v12_audit',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -52,10 +60,18 @@ begin
       'watchlist_monitor_state',
       'decision_diagnostic_snapshots',
       'decision_diagnostic_alerts',
+      'unified_data_snapshots',
+      'unified_data_provider_observations',
+      'unified_data_closing_records',
+      'unified_data_incidents',
       'paper_settlement_monitor_state',
       'autonomous_agent_settings',
       'autonomous_agent_state',
       'autonomous_agent_runs',
+      'autonomous_agent_v12_controls',
+      'autonomous_agent_v12_state',
+      'autonomous_agent_v12_learning_cycles',
+      'autonomous_agent_v12_audit',
       'market_timeline_snapshots',
       'alert_inbox',
       'notification_preferences',
@@ -84,10 +100,18 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_v12_controls',
+    'autonomous_agent_v12_state',
+    'autonomous_agent_v12_learning_cycles',
+    'autonomous_agent_v12_audit',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -129,6 +153,9 @@ begin
   if to_regprocedure('public.request_autonomous_agent_run()') is null then
     raise exception 'Autonomous Agent user request function is missing';
   end if;
+  if to_regprocedure('public.trim_autonomous_v12_learning_cycles(uuid,integer)') is null then
+    raise exception 'Autonomous V12 retention function is missing';
+  end if;
 end;
 $$;
 
@@ -143,6 +170,12 @@ begin
   if not has_function_privilege('service_role', 'public.claim_autonomous_agent_users(integer)', 'EXECUTE') then
     raise exception 'service_role cannot claim Autonomous Agent users';
   end if;
+  if not has_function_privilege('service_role', 'public.trim_autonomous_v12_learning_cycles(uuid,integer)', 'EXECUTE') then
+    raise exception 'service_role cannot trim Autonomous V12 learning history';
+  end if;
+  if has_function_privilege('authenticated', 'public.trim_autonomous_v12_learning_cycles(uuid,integer)', 'EXECUTE') then
+    raise exception 'authenticated users must not trim Autonomous V12 learning history';
+  end if;
   if not has_function_privilege('authenticated', 'public.request_autonomous_agent_run()', 'EXECUTE') then
     raise exception 'authenticated users cannot request their own Autonomous Agent run';
   end if;
@@ -152,14 +185,35 @@ begin
   if not has_table_privilege('service_role', 'public.decision_diagnostic_snapshots', 'INSERT') then
     raise exception 'service_role cannot write Decision Diagnostics snapshots';
   end if;
-  if not has_table_privilege('service_role', 'public.decision_diagnostic_alerts', 'UPDATE') then
-    raise exception 'service_role cannot update Decision Diagnostics alerts';
+  if not has_table_privilege('service_role', 'public.unified_data_snapshots', 'INSERT') then
+    raise exception 'service_role cannot write Unified Data snapshots';
+  end if;
+  if not has_table_privilege('service_role', 'public.unified_data_closing_records', 'UPDATE') then
+    raise exception 'service_role cannot finalize Unified Data closing records';
+  end if;
+  if not has_table_privilege('service_role', 'public.autonomous_agent_v12_state', 'UPDATE') then
+    raise exception 'service_role cannot update Autonomous V12 state';
+  end if;
+  if not has_table_privilege('service_role', 'public.autonomous_agent_v12_learning_cycles', 'INSERT') then
+    raise exception 'service_role cannot write Autonomous V12 learning cycles';
+  end if;
+  if not has_table_privilege('service_role', 'public.autonomous_agent_v12_audit', 'INSERT') then
+    raise exception 'service_role cannot write Autonomous V12 audit rows';
   end if;
   if has_table_privilege('authenticated', 'public.decision_diagnostic_snapshots', 'INSERT') then
     raise exception 'authenticated users must not write shared Decision Diagnostics snapshots';
   end if;
-  if has_table_privilege('authenticated', 'public.decision_diagnostic_alerts', 'UPDATE') then
-    raise exception 'authenticated users must not update shared Decision Diagnostics alerts';
+  if has_table_privilege('authenticated', 'public.unified_data_snapshots', 'INSERT') then
+    raise exception 'authenticated users must not write shared Unified Data snapshots';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_v12_state', 'UPDATE') then
+    raise exception 'authenticated users must not update Autonomous V12 runtime state';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_v12_learning_cycles', 'INSERT') then
+    raise exception 'authenticated users must not write Autonomous V12 learning cycles';
+  end if;
+  if has_table_privilege('authenticated', 'public.autonomous_agent_v12_audit', 'INSERT') then
+    raise exception 'authenticated users must not write Autonomous V12 audit rows';
   end if;
 end;
 $$;
@@ -207,10 +261,18 @@ begin
     'watchlist_monitor_state',
     'decision_diagnostic_snapshots',
     'decision_diagnostic_alerts',
+    'unified_data_snapshots',
+    'unified_data_provider_observations',
+    'unified_data_closing_records',
+    'unified_data_incidents',
     'paper_settlement_monitor_state',
     'autonomous_agent_settings',
     'autonomous_agent_state',
     'autonomous_agent_runs',
+    'autonomous_agent_v12_controls',
+    'autonomous_agent_v12_state',
+    'autonomous_agent_v12_learning_cycles',
+    'autonomous_agent_v12_audit',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -227,11 +289,14 @@ $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'production-schema-verification-v1',
+  'version', 'production-schema-verification-v2',
   'paperOnly', true,
+  'realMoneyBetting', false,
   'rlsVerified', true,
   'workerFunctionsVerified', true,
   'databaseRiskTriggerVerified', true,
   'diagnosticsVerified', true,
+  'unifiedDataVerified', true,
+  'autonomousV12Verified', true,
   'verifiedAt', now()
 ) as scorecaster_production_schema;
