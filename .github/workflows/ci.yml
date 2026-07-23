@@ -72,6 +72,11 @@ jobs:
           set -o pipefail
           npm run test:autonomous-agent 2>&1 | tee autonomous-agent.log
 
+      - name: Autonomous Scorecaster V12 tests
+        run: |
+          set -o pipefail
+          npm run test:autonomous-v12 2>&1 | tee autonomous-v12.log
+
       - name: Betting Agent and Simulator regression tests
         run: npm run test:apps
 
@@ -135,7 +140,7 @@ jobs:
           set -o pipefail
           npm run test:sports-intelligence 2>&1 | tee sports-intelligence.log
 
-      - name: Unified Sports Data V1 tests
+      - name: Unified Sports Data V1 and V2 tests
         run: |
           set -o pipefail
           npm run test:unified-data 2>&1 | tee unified-sports-data.log
@@ -155,7 +160,7 @@ jobs:
           set -o pipefail
           npm run test:event-detail 2>&1 | tee event-detail.log
 
-      - name: Decision Diagnostics V1 tests
+      - name: Decision Diagnostics tests
         run: |
           set -o pipefail
           npm run test:diagnostics 2>&1 | tee decision-diagnostics.log
@@ -190,6 +195,7 @@ jobs:
             release-readiness.log
             production-activation.log
             autonomous-agent.log
+            autonomous-v12.log
             settlement-monitor.log
             operations-dashboard.log
             agent-v9.log
