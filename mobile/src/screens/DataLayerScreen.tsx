@@ -54,6 +54,20 @@ type HistoryPayload = {
   };
 };
 
+function emptyHistory(reason: string): HistoryPayload {
+  return {
+    historyAvailable: false,
+    reason,
+    data: {
+      summary: { snapshotCount: 0, currentSelections: 0, closingRecordCount: 0, activeIncidentCount: 0, averageCurrentCoverage: 0, multiProviderSelections: 0 },
+      providerQuality: [],
+      incidents: [],
+      closingRecords: [],
+      trend: []
+    }
+  };
+}
+
 function pct(value: number | null | undefined, digits = 0) {
   return Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
 }
@@ -76,13 +90,14 @@ export default function DataLayerScreen() {
   async function load() {
     setLoading(true);
     try {
-      const [next, historical] = await Promise.all([
-        apiRequest<Payload>("/api/data-layer"),
-        apiRequest<HistoryPayload>("/api/data-layer/history?hours=168&limit=1200")
-      ]);
+      const next = await apiRequest<Payload>("/api/data-layer");
       setPayload(next);
-      setHistory(historical);
       setSelectedId((current) => current || next.data?.[0]?.eventId || "");
+      try {
+        setHistory(await apiRequest<HistoryPayload>("/api/data-layer/history?hours=168&limit=1200"));
+      } catch (historyError) {
+        setHistory(emptyHistory(historyError instanceof Error ? historyError.message : "History unavailable"));
+      }
     } catch (error) {
       Alert.alert(tr({ fi: "Datakerrosta ei voitu ladata", en: "Data layer could not be loaded", es: "No se pudo cargar la capa" }), error instanceof Error ? error.message : "Unknown error");
     } finally {
@@ -103,7 +118,7 @@ export default function DataLayerScreen() {
       {payload?.data?.length === 0 ? <Card><Text style={styles.cardTitle}>{tr({ fi: "Nykyisiä kohteita ei ole", en: "No current selections", es: "No hay selecciones" })}</Text></Card> : null}
 
       <View style={local.selectorGrid}>
-        {(payload?.data || []).map((row) => <Pressable key={row.eventId} onPress={() => setSelectedId(row.eventId)} style={[local.selector, selected?.eventId === row.eventId && local.selectorActive]}><View style={styles.rowBetween}><Text style={local.selectorTitle}>{row.match}</Text><Text style={local.decision}>{row.decision}</Text></View><Text style={styles.muted}>{row.selection} · {Number(row.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{row.ledger?.coverage?.usedFamilies || 0} used · {pct(row.ledger?.coverage?.verifiedCoverageRate)} verified · {row.ledger?.coverage?.independentOddsProviders || 1} odds providers</Text></Pressable>)}
+        {(payload?.data || []).map((row) => <Pressable key={`${row.eventId}:${row.selection}`} onPress={() => setSelectedId(row.eventId)} style={[local.selector, selected?.eventId === row.eventId && local.selectorActive]}><View style={styles.rowBetween}><Text style={local.selectorTitle}>{row.match}</Text><Text style={local.decision}>{row.decision}</Text></View><Text style={styles.muted}>{row.selection} · {Number(row.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{row.ledger?.coverage?.usedFamilies || 0} used · {pct(row.ledger?.coverage?.verifiedCoverageRate)} verified · {row.ledger?.coverage?.independentOddsProviders || 1} odds providers</Text></Pressable>)}
       </View>
 
       {ledger ? <>
@@ -115,7 +130,7 @@ export default function DataLayerScreen() {
       <Card>
         <Text style={styles.kicker}>30 MIN HISTORY</Text>
         <Text style={styles.cardTitle}>{tr({ fi: "Datakerroksen tuotantohistoria", en: "Production data history", es: "Historial de producción" })}</Text>
-        {history?.historyAvailable ? <View style={local.grid}><Metric label={tr({ fi: "Snapshotteja", en: "Snapshots", es: "Capturas" })} value={String(summary?.snapshotCount || 0)} /><Metric label={tr({ fi: "Kattavuus", en: "Coverage", es: "Cobertura" })} value={pct(summary?.averageCurrentCoverage)} /><Metric label="Multi-provider" value={String(summary?.multiProviderSelections || 0)} /><Metric label="Closing" value={String(summary?.closingRecordCount || 0)} /></View> : <Text style={styles.muted}>{history?.reason || tr({ fi: "Historia aktivoituu Supabase-migraation ja capture-workerin jälkeen.", en: "History activates after the Supabase migration and capture worker.", es: "El historial se activa tras la migración." })}</Text>}
+        {history?.historyAvailable ? <View style={local.grid}><Metric label={tr({ fi: "Snapshotteja", en: "Snapshots", es: "Capturas" })} value={String(summary?.snapshotCount || 0)} /><Metric label={tr({ fi: "Kattavuus", en: "Coverage", es: "Cobertura" })} value={pct(summary?.averageCurrentCoverage)} /><Metric label="Multi-provider" value={String(summary?.multiProviderSelections || 0)} /><Metric label="Closing" value={String(summary?.closingRecordCount || 0)} /></View> : <Text style={styles.muted}>{history?.reason || tr({ fi: "Historia aktivoituu Supabase-migraation ja capture-workerin jälkeen. Nykyinen ledger toimii silti.", en: "History activates after migration and capture. The current ledger still works.", es: "El historial se activa tras la migración. El registro actual sigue funcionando." })}</Text>}
       </Card>
 
       {history?.historyAvailable ? <>
