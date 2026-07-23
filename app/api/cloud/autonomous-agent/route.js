@@ -28,6 +28,15 @@ const DEFAULT_SETTINGS = {
   min_odds: 1.2,
   max_odds: 5
 };
+const DEFAULT_V12_CONTROLS = {
+  kill_switch: false,
+  autonomy_level: "balanced",
+  max_daily_loss_percent: 4,
+  max_drawdown_percent: 15,
+  max_loss_streak: 10,
+  allow_shadow_learning: true,
+  allow_automatic_risk_tightening: true
+};
 
 function missingTable(error) {
   return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
@@ -38,6 +47,11 @@ function normalizeSports(value) {
   return [...new Set(value.map((item) => cleanText(item, 120)).filter((item) => SUPPORTED_KEYS.has(item)))]
     .sort()
     .slice(0, 6);
+}
+
+function normalizeAutonomyLevel(value) {
+  const level = cleanText(value, 20).toLowerCase();
+  return ["observe", "conservative", "balanced"].includes(level) ? level : "balanced";
 }
 
 async function requireAuth(request, requestId) {
@@ -58,7 +72,7 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [settingsResult, stateResult, runsResult] = await Promise.all([
+  const [settingsResult, stateResult, runsResult, controlsResult, v12StateResult, learningResult, auditResult] = await Promise.all([
     auth.supabase.from("autonomous_agent_settings")
       .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
       .eq("user_id", auth.user.id).maybeSingle(),
@@ -67,51 +81,89 @@ export async function GET(request) {
       .eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("autonomous_agent_runs")
       .select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,error,started_at,completed_at,created_at")
-      .eq("user_id", auth.user.id)
-      .order("created_at", { ascending: false })
-      .limit(20)
+      .eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(30),
+    auth.supabase.from("autonomous_agent_v12_controls")
+      .select("kill_switch,autonomy_level,max_daily_loss_percent,max_drawdown_percent,max_loss_streak,allow_shadow_learning,allow_automatic_risk_tightening,created_at,updated_at")
+      .eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_v12_state")
+      .select("operating_state,policy,circuit_breakers,learning_report,shadow_champion_id,last_audit,last_learning_at,last_decision_at,updated_at")
+      .eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_v12_learning_cycles")
+      .select("id,status,sample_size,clv_sample,probability_sample,metrics,calibration,challenger,policy,created_at")
+      .eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(30),
+    auth.supabase.from("autonomous_agent_v12_audit")
+      .select("id,run_id,event_id,selection,action,reasons,evidence,created_at")
+      .eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(100)
   ]);
 
-  const error = settingsResult.error || stateResult.error || runsResult.error;
+  const baseError = settingsResult.error || stateResult.error || runsResult.error;
   const configuration = autonomousAgentConfiguration();
-  if (error && missingTable(error)) {
+  if (baseError && missingTable(baseError)) {
     return jsonResponse({
       ok: true,
       available: false,
+      v12Available: false,
       warning: "Autonomous Agent migration is not active",
       paperOnly: true,
+      realMoneyBetting: false,
       agentActive: false,
       configuration: {
         enabledFlag: configuration.enabledFlag,
         configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured
       },
       settings: DEFAULT_SETTINGS,
+      controls: DEFAULT_V12_CONTROLS,
       state: null,
+      v12State: null,
       runs: [],
+      learningCycles: [],
+      audit: [],
       supportedSports: SUPPORTED
     }, 200, requestId);
   }
-  if (error) {
-    return jsonResponse({ ok: false, error: publicError(error, "Autonomous Agent status could not be loaded") }, 500, requestId);
+  if (baseError) {
+    return jsonResponse({ ok: false, error: publicError(baseError, "Autonomous Agent status could not be loaded") }, 500, requestId);
+  }
+
+  const v12Error = controlsResult.error || v12StateResult.error || learningResult.error || auditResult.error;
+  const v12Available = !v12Error;
+  if (v12Error && !missingTable(v12Error)) {
+    return jsonResponse({ ok: false, error: publicError(v12Error, "Autonomous V12 status could not be loaded") }, 500, requestId);
   }
 
   return jsonResponse({
     ok: true,
+    version: "autonomous-scorecaster-v12-api-v1",
     available: true,
+    v12Available,
+    v12Warning: v12Available ? null : "Autonomous V12 migration is not active",
+    migrationRequired: v12Available ? null : "supabase/scorecaster_autonomous_v12.sql",
     paperOnly: true,
     realMoneyBetting: false,
+    productionProbabilityChanged: false,
+    automaticRiskRelaxation: false,
     agentActive: configuration.agentActive,
     schedulingManagedExternally: configuration.schedulingManagedExternally,
-    intervalMinutes: configuration.intervalMinutes,
+    intervalMinutes: 15,
     configuration: {
       enabledFlag: configuration.enabledFlag,
       configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured
     },
     settings: { ...DEFAULT_SETTINGS, ...(settingsResult.data || {}) },
+    controls: { ...DEFAULT_V12_CONTROLS, ...(controlsResult.data || {}) },
     state: stateResult.data || null,
+    v12State: v12StateResult.data || null,
     runs: runsResult.data || [],
+    learningCycles: learningResult.data || [],
+    audit: auditResult.data || [],
     supportedSports: SUPPORTED,
-    limits: { dailyPickLimit: 3, sports: 6, maxOdds: 20 }
+    limits: {
+      dailyPickLimit: 3,
+      sports: 6,
+      maxOdds: 20,
+      autonomyLevels: ["observe", "conservative", "balanced"],
+      paperOnly: true
+    }
   }, 200, requestId);
 }
 
@@ -128,7 +180,7 @@ export async function PUT(request) {
   });
   if (limited) return limited;
 
-  const body = await readJsonBody(request, 16 * 1024);
+  const body = await readJsonBody(request, 24 * 1024);
   if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
   if (typeof body.data?.enabled !== "boolean") {
     return jsonResponse({ ok: false, error: "Autonomous Agent enabled state is required" }, 400, requestId);
@@ -140,35 +192,48 @@ export async function PUT(request) {
     return jsonResponse({ ok: false, error: "Autonomous Agent odds range is invalid" }, 400, requestId);
   }
 
-  const row = {
+  const settingsRow = {
     user_id: auth.user.id,
     enabled: body.data.enabled,
     sports: normalizeSports(body.data?.sports),
-    daily_pick_limit: Math.trunc(boundedNumber(body.data?.dailyPickLimit ?? body.data?.daily_pick_limit, {
-      min: 1,
-      max: 3,
-      fallback: 3
-    })),
-    min_priority_score: boundedNumber(body.data?.minPriorityScore ?? body.data?.min_priority_score, {
-      min: 0.5,
-      max: 1,
-      fallback: 0.62
-    }),
+    daily_pick_limit: Math.trunc(boundedNumber(body.data?.dailyPickLimit ?? body.data?.daily_pick_limit, { min: 1, max: 3, fallback: 3 })),
+    min_priority_score: boundedNumber(body.data?.minPriorityScore ?? body.data?.min_priority_score, { min: 0.5, max: 1, fallback: 0.62 }),
     min_odds: minOdds,
     max_odds: maxOdds
   };
+  const controlsRow = {
+    user_id: auth.user.id,
+    kill_switch: body.data?.killSwitch === true || body.data?.kill_switch === true,
+    autonomy_level: normalizeAutonomyLevel(body.data?.autonomyLevel ?? body.data?.autonomy_level),
+    max_daily_loss_percent: boundedNumber(body.data?.maxDailyLossPercent ?? body.data?.max_daily_loss_percent, { min: 0.5, max: 10, fallback: 4 }),
+    max_drawdown_percent: boundedNumber(body.data?.maxDrawdownPercent ?? body.data?.max_drawdown_percent, { min: 2, max: 30, fallback: 15 }),
+    max_loss_streak: Math.trunc(boundedNumber(body.data?.maxLossStreak ?? body.data?.max_loss_streak, { min: 3, max: 20, fallback: 10 })),
+    allow_shadow_learning: body.data?.allowShadowLearning !== false && body.data?.allow_shadow_learning !== false,
+    allow_automatic_risk_tightening: body.data?.allowAutomaticRiskTightening !== false && body.data?.allow_automatic_risk_tightening !== false
+  };
 
-  const { data, error } = await auth.supabase.from("autonomous_agent_settings")
-    .upsert(row, { onConflict: "user_id" })
-    .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
-    .single();
+  const [settingsWrite, controlsWrite] = await Promise.all([
+    auth.supabase.from("autonomous_agent_settings").upsert(settingsRow, { onConflict: "user_id" })
+      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at").single(),
+    auth.supabase.from("autonomous_agent_v12_controls").upsert(controlsRow, { onConflict: "user_id" })
+      .select("kill_switch,autonomy_level,max_daily_loss_percent,max_drawdown_percent,max_loss_streak,allow_shadow_learning,allow_automatic_risk_tightening,created_at,updated_at").single()
+  ]);
+  const error = settingsWrite.error || controlsWrite.error;
   if (error) {
     return jsonResponse({
       ok: false,
-      error: publicError(error, "Autonomous Agent settings could not be saved")
+      error: publicError(error, missingTable(error) ? "Autonomous V12 migration is not active" : "Autonomous V12 settings could not be saved"),
+      migrationRequired: missingTable(error) ? "supabase/scorecaster_autonomous_v12.sql" : null
     }, missingTable(error) ? 503 : 500, requestId);
   }
-  return jsonResponse({ ok: true, paperOnly: true, settings: data }, 200, requestId);
+  return jsonResponse({
+    ok: true,
+    version: "autonomous-scorecaster-v12-api-v1",
+    paperOnly: true,
+    realMoneyBetting: false,
+    settings: settingsWrite.data,
+    controls: controlsWrite.data
+  }, 200, requestId);
 }
 
 export async function POST(request) {
@@ -188,7 +253,7 @@ export async function POST(request) {
   if (error) {
     return jsonResponse({
       ok: false,
-      error: publicError(error, "Autonomous Agent run could not be requested")
+      error: publicError(error, "Autonomous V12 run could not be requested")
     }, missingTable(error) ? 503 : 500, requestId);
   }
   if (!data) return jsonResponse({ ok: false, error: "Enable Autonomous Agent before requesting a run" }, 409, requestId);
@@ -196,6 +261,7 @@ export async function POST(request) {
     ok: true,
     accepted: true,
     paperOnly: true,
-    message: "Autonomous Agent run was queued for the next protected worker cycle"
+    realMoneyBetting: false,
+    message: "Autonomous Scorecaster V12 was queued for the next protected worker cycle"
   }, 202, requestId);
 }
