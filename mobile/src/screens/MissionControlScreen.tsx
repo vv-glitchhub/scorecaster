@@ -30,6 +30,22 @@ type AutonomyState = {
   exposure: { openCount: number; openStake: number };
 };
 
+type DailyBudget = {
+  dayStart: string;
+  pickLimit: number;
+  picksUsed: number;
+  picksRemaining: number;
+  stakeUsed: number;
+  exposureCap: number;
+  exposureRemaining: number;
+  uniqueEvents: number;
+  hardLimits: {
+    maxStakePercent: number;
+    maxDailyExposurePercent: number;
+    maxLeagueExposurePercent: number;
+  };
+};
+
 type Candidate = {
   eventId: string | null;
   match: string;
@@ -56,6 +72,7 @@ type MissionPayload = {
   available: boolean;
   warning?: string;
   autonomy: AutonomyState;
+  daily: DailyBudget;
   brief: { headline: string; canCreateNewPaperExposure: boolean; recommendations: string[] };
   configuration: { configured: boolean; agentActive: boolean };
   settings: { enabled: boolean };
@@ -104,6 +121,7 @@ export default function MissionControlScreen() {
   useEffect(() => { void load(); }, []);
 
   const autonomy = payload?.autonomy;
+  const daily = payload?.daily;
   const history = autonomy?.history;
   const readiness = autonomy?.dataReadiness;
   const mode = autonomy?.mode || "FROZEN";
@@ -114,7 +132,7 @@ export default function MissionControlScreen() {
         <View style={local.titleWrap}>
           <Text style={styles.kicker}>AUTONOMOUS SCORECASTER V12</Text>
           <Text style={styles.title}>{tr({ fi: "Mission Control", en: "Mission Control", es: "Centro de control" })}</Text>
-          <Text style={styles.subtitle}>{tr({ fi: "Oppiminen, paperipelikassa, provider-data, circuit breakerit ja worker-ajot yhdessä näkymässä.", en: "Learning, paper bankroll, provider data, circuit breakers and worker cycles in one view.", es: "Aprendizaje, banca simulada, datos, límites y ciclos en una vista." })}</Text>
+          <Text style={styles.subtitle}>{tr({ fi: "Oppiminen, paperipelikassa, pysyvä UTC-päiväkiintiö, provider-data, circuit breakerit ja worker-ajot yhdessä näkymässä.", en: "Learning, paper bankroll, persistent UTC daily budget, provider data, circuit breakers and worker cycles in one view.", es: "Aprendizaje, banca simulada, presupuesto UTC, datos, límites y ciclos en una vista." })}</Text>
         </View>
         <ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={() => load()} tone="secondary" compact disabled={loading} />
       </View>
@@ -128,6 +146,21 @@ export default function MissionControlScreen() {
           <Text style={local.modeTitle}>{mode}</Text>
           <Text style={local.modeText}>{autonomy.reason}</Text>
         </View>
+
+        <Card>
+          <Text style={styles.kicker}>{tr({ fi: "PYSYVÄ UTC-PÄIVÄBUDJETTI", en: "PERSISTENT UTC DAILY BUDGET", es: "PRESUPUESTO UTC PERSISTENTE" })}</Text>
+          <Text style={styles.cardTitle}>{tr({ fi: "Kaikki worker-kierrokset käyttävät samaa päivän kiintiötä", en: "Every worker cycle shares the same daily quota", es: "Todos los ciclos comparten la misma cuota diaria" })}</Text>
+          <View style={local.grid}>
+            <Metric label={tr({ fi: "Valinnat", en: "Picks", es: "Selecciones" })} value={`${daily?.picksUsed || 0}/${daily?.pickLimit || 0}`} />
+            <Metric label={tr({ fi: "Jäljellä", en: "Remaining", es: "Restante" })} value={String(daily?.picksRemaining || 0)} />
+            <Metric label={tr({ fi: "Panos käytetty", en: "Stake used", es: "Apuesta usada" })} value={`${money(daily?.stakeUsed)} / ${money(daily?.exposureCap)}`} />
+            <Metric label={tr({ fi: "Budjettia jäljellä", en: "Budget remaining", es: "Presupuesto restante" })} value={money(daily?.exposureRemaining)} />
+            <Metric label={tr({ fi: "Yksittäinen PLAY", en: "Single PLAY", es: "PLAY individual" })} value={`≤ ${daily?.hardLimits?.maxStakePercent || 1}%`} />
+            <Metric label={tr({ fi: "Päivä / avoin", en: "Daily / open", es: "Diario / abierto" })} value={`≤ ${daily?.hardLimits?.maxDailyExposurePercent || 5}%`} />
+            <Metric label={tr({ fi: "Yksi liiga", en: "Single league", es: "Una liga" })} value={`≤ ${daily?.hardLimits?.maxLeagueExposurePercent || 2.5}%`} />
+            <Metric label={tr({ fi: "Uniikit tapahtumat", en: "Unique events", es: "Eventos únicos" })} value={String(daily?.uniqueEvents || 0)} />
+          </View>
+        </Card>
 
         <View style={local.grid}>
           <Metric label={tr({ fi: "Ratkaistu otos", en: "Settled sample", es: "Muestra" })} value={String(history?.settledCount || 0)} />
@@ -143,7 +176,7 @@ export default function MissionControlScreen() {
         <Card>
           <Text style={styles.kicker}>{tr({ fi: "PÄIVITTÄINEN BRIEF", en: "DAILY BRIEF", es: "RESUMEN DIARIO" })}</Text>
           <Text style={styles.cardTitle}>{payload?.brief?.headline || autonomy.reason}</Text>
-          <View style={local.rowGap}><StatusPill label={payload?.brief?.canCreateNewPaperExposure ? "EXPOSURE ALLOWED" : "EXPOSURE BLOCKED"} good={Boolean(payload?.brief?.canCreateNewPaperExposure)} /><StatusPill label={`${autonomy.stakeMultiplier.toFixed(2)}× STAKE`} good={autonomy.stakeMultiplier > 0} /><StatusPill label={`${autonomy.pickCap} PICKS`} good={autonomy.pickCap > 0} /></View>
+          <View style={local.rowGap}><StatusPill label={payload?.brief?.canCreateNewPaperExposure ? "EXPOSURE ALLOWED" : "EXPOSURE BLOCKED"} good={Boolean(payload?.brief?.canCreateNewPaperExposure)} /><StatusPill label={`${autonomy.stakeMultiplier.toFixed(2)}× STAKE`} good={autonomy.stakeMultiplier > 0} /><StatusPill label={`${autonomy.pickCap} MODE PICKS`} good={autonomy.pickCap > 0} /><StatusPill label={`${daily?.picksRemaining || 0} DAILY LEFT`} good={Number(daily?.picksRemaining || 0) > 0} /></View>
           {(payload?.brief?.recommendations || []).map((item) => <Text key={item} style={styles.muted}>• {item}</Text>)}
         </Card>
 
@@ -180,7 +213,7 @@ export default function MissionControlScreen() {
           {(payload?.runs || []).slice(0, 10).map((run) => <View key={run.id} style={local.item}><View style={styles.rowBetween}><View><Text style={styles.value}>{new Date(run.started_at).toLocaleString()}</Text><Text style={styles.muted}>{run.candidate_count} candidates · {run.saved_count} saved · {money(run.total_stake)}</Text></View><Text style={run.status === "success" ? local.runGood : run.status === "deferred" ? local.runDeferred : local.runBad}>{run.status.toUpperCase()}</Text></View>{run.error ? <Text style={local.errorText}>{run.error}</Text> : null}</View>)}
         </Card>
 
-        <Card><Text style={styles.cardTitle}>{tr({ fi: "Turvasopimus", en: "Safety contract", es: "Contrato de seguridad" })}</Text><Text style={styles.muted}>{tr({ fi: "Vain paperitila. Ei vedonvälittäjätiliä, talletuksia, oikean rahan vetoja tai automaattista mallipromootiota.", en: "Paper mode only. No bookmaker account, deposits, real-money bets or automatic model promotion.", es: "Solo modo simulado. Sin cuentas, depósitos, dinero real ni promoción automática." })}</Text></Card>
+        <Card><Text style={styles.cardTitle}>{tr({ fi: "Turvasopimus", en: "Safety contract", es: "Contrato de seguridad" })}</Text><Text style={styles.muted}>{tr({ fi: "Vain paperitila. Pysyvä UTC-päiväkiintiö, kovat 1 % / 5 % / 2,5 % katot, ei vedonvälittäjätiliä, talletuksia, oikean rahan vetoja tai automaattista mallipromootiota.", en: "Paper mode only. Persistent UTC daily quota, hard 1% / 5% / 2.5% caps, no bookmaker account, deposits, real-money bets or automatic model promotion.", es: "Solo modo simulado, cuota UTC persistente, límites duros y sin dinero real ni promoción automática." })}</Text></Card>
       </> : null}
     </ScrollView>
   );
