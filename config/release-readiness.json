@@ -13,7 +13,8 @@
     "/autonomous-agent",
     "/polymarket-intelligence",
     "/diagnostics-v2",
-    "/provider-health"
+    "/provider-health",
+    "/data-layer"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -75,6 +76,16 @@
     {
       "id": "diagnostics-history-worker",
       "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production",
+      "blocking": true
+    },
+    {
+      "id": "unified-data-provider-activation",
+      "title": "Secondary odds, team context, lineup, injury, weather and news providers verified with real production events and explicit missing-data fallbacks",
+      "blocking": true
+    },
+    {
+      "id": "unified-data-ai-provenance",
+      "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures",
       "blocking": true
     },
     {
