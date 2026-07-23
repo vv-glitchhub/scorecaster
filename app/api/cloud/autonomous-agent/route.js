@@ -26,7 +26,21 @@ const DEFAULT_SETTINGS = {
   daily_pick_limit: 3,
   min_priority_score: 0.62,
   min_odds: 1.2,
-  max_odds: 5
+  max_odds: 5,
+  min_data_coverage: 0.6,
+  min_provider_count: 1,
+  max_provider_disagreement: 0.12,
+  max_drawdown_percent: 12,
+  max_daily_loss_percent: 4,
+  pause_after_losses: 5,
+  cooldown_hours: 12,
+  max_open_picks: 12,
+  minimum_minutes_before_start: 20,
+  maximum_hours_before_start: 72,
+  auto_pause_on_incident: true,
+  require_unified_data: true,
+  adaptive_cadence: true,
+  shadow_learning_enabled: true
 };
 
 function missingTable(error) {
@@ -40,10 +54,32 @@ function normalizeSports(value) {
     .slice(0, 6);
 }
 
+function booleanValue(value, fallback) {
+  return typeof value === "boolean" ? value : fallback;
+}
+
 async function requireAuth(request, requestId) {
   const auth = await getAuthenticatedContext(request);
   if (!auth.ok) return { response: jsonResponse({ ok: false, error: auth.error }, auth.status, requestId) };
   return { auth };
+}
+
+function readiness(configuration, settings, state, bankroll) {
+  const blockers = [];
+  if (!configuration.enabledFlag) blockers.push("worker_disabled");
+  if (!configuration.configured) blockers.push("production_configuration_incomplete");
+  if (!settings.enabled) blockers.push("user_opt_in_disabled");
+  if (bankroll && bankroll.paper_trading_mode === false) blockers.push("paper_mode_disabled");
+  if (Number(bankroll?.bankroll || 0) <= 0) blockers.push("virtual_bankroll_missing");
+  if (state?.paused_until && Date.parse(state.paused_until) > Date.now()) blockers.push("safety_cooldown_active");
+  if (state?.health_status === "blocked" || state?.health_status === "paused") blockers.push(`health_${state.health_status}`);
+  return {
+    ready: blockers.length === 0,
+    blockers,
+    healthStatus: state?.health_status || "learning",
+    healthScore: Number(state?.health_score ?? 50),
+    paperOnly: true
+  };
 }
 
 export async function GET(request) {
@@ -58,36 +94,58 @@ export async function GET(request) {
   });
   if (limited) return limited;
 
-  const [settingsResult, stateResult, runsResult] = await Promise.all([
+  const [settingsResult, stateResult, runsResult, auditResult, briefsResult, bankrollResult] = await Promise.all([
     auth.supabase.from("autonomous_agent_settings")
-      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
+      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at")
       .eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("autonomous_agent_state")
-      .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,updated_at")
+      .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,paused_until,pause_reason,health_status,health_score,resolved_sample,consecutive_losses,drawdown_percent,roi,average_clv,last_brief,updated_at")
       .eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("autonomous_agent_runs")
-      .select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,error,started_at,completed_at,created_at")
+      .select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,guard_summary,health_status,health_score,next_check_minutes,error,started_at,completed_at,created_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false })
-      .limit(20)
+      .limit(30),
+    auth.supabase.from("autonomous_agent_decision_audit")
+      .select("id,run_id,event_id,match,selection,sport,league,allowed,reasons,warnings,quality_score,priority_score,odds,edge,confidence,data_coverage,provider_count,provider_disagreement,context_impact,minutes_before_start,proposed_stake,saved_bet_id,created_at")
+      .eq("user_id", auth.user.id)
+      .order("created_at", { ascending: false })
+      .limit(100),
+    auth.supabase.from("autonomous_agent_daily_briefs")
+      .select("id,brief_date,brief,created_at,updated_at")
+      .eq("user_id", auth.user.id)
+      .order("brief_date", { ascending: false })
+      .limit(14),
+    auth.supabase.from("bankroll_settings")
+      .select("bankroll,paper_trading_mode,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence")
+      .eq("user_id", auth.user.id).maybeSingle()
   ]);
 
-  const error = settingsResult.error || stateResult.error || runsResult.error;
+  const error = settingsResult.error || stateResult.error || runsResult.error || auditResult.error || briefsResult.error || bankrollResult.error;
   const configuration = autonomousAgentConfiguration();
+  const configurationSummary = {
+    enabledFlag: configuration.enabledFlag,
+    configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured,
+    version: configuration.version,
+    intervalMinutes: configuration.intervalMinutes,
+    adaptiveCadence: configuration.adaptiveCadence,
+    shadowLearningOnly: configuration.shadowLearningOnly
+  };
   if (error && missingTable(error)) {
     return jsonResponse({
       ok: true,
       available: false,
-      warning: "Autonomous Agent migration is not active",
+      warning: "Autonomous Agent V2 migration is not active",
       paperOnly: true,
       agentActive: false,
-      configuration: {
-        enabledFlag: configuration.enabledFlag,
-        configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured
-      },
+      configuration: configurationSummary,
       settings: DEFAULT_SETTINGS,
       state: null,
       runs: [],
+      audit: [],
+      briefs: [],
+      bankroll: bankrollResult.data || null,
+      readiness: { ready: false, blockers: ["migration_inactive"], healthStatus: "blocked", healthScore: 0, paperOnly: true },
       supportedSports: SUPPORTED
     }, 200, requestId);
   }
@@ -95,23 +153,29 @@ export async function GET(request) {
     return jsonResponse({ ok: false, error: publicError(error, "Autonomous Agent status could not be loaded") }, 500, requestId);
   }
 
+  const settings = { ...DEFAULT_SETTINGS, ...(settingsResult.data || {}) };
+  const state = stateResult.data || null;
   return jsonResponse({
     ok: true,
+    version: "autonomous-paper-agent-api-v2",
     available: true,
     paperOnly: true,
     realMoneyBetting: false,
+    learningMode: "shadow-only",
+    productionProbabilityChangedByLearning: false,
     agentActive: configuration.agentActive,
     schedulingManagedExternally: configuration.schedulingManagedExternally,
     intervalMinutes: configuration.intervalMinutes,
-    configuration: {
-      enabledFlag: configuration.enabledFlag,
-      configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured
-    },
-    settings: { ...DEFAULT_SETTINGS, ...(settingsResult.data || {}) },
-    state: stateResult.data || null,
+    configuration: configurationSummary,
+    settings,
+    state,
     runs: runsResult.data || [],
+    audit: auditResult.data || [],
+    briefs: briefsResult.data || [],
+    bankroll: bankrollResult.data || null,
+    readiness: readiness(configurationSummary, settings, state, bankrollResult.data || null),
     supportedSports: SUPPORTED,
-    limits: { dailyPickLimit: 3, sports: 6, maxOdds: 20 }
+    limits: { dailyPickLimit: 3, sports: 6, maxOdds: 20, maxProviderCount: 5, maximumCooldownHours: 168 }
   }, 200, requestId);
 }
 
@@ -128,7 +192,7 @@ export async function PUT(request) {
   });
   if (limited) return limited;
 
-  const body = await readJsonBody(request, 16 * 1024);
+  const body = await readJsonBody(request, 24 * 1024);
   if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
   if (typeof body.data?.enabled !== "boolean") {
     return jsonResponse({ ok: false, error: "Autonomous Agent enabled state is required" }, 400, requestId);
@@ -144,23 +208,29 @@ export async function PUT(request) {
     user_id: auth.user.id,
     enabled: body.data.enabled,
     sports: normalizeSports(body.data?.sports),
-    daily_pick_limit: Math.trunc(boundedNumber(body.data?.dailyPickLimit ?? body.data?.daily_pick_limit, {
-      min: 1,
-      max: 3,
-      fallback: 3
-    })),
-    min_priority_score: boundedNumber(body.data?.minPriorityScore ?? body.data?.min_priority_score, {
-      min: 0.5,
-      max: 1,
-      fallback: 0.62
-    }),
+    daily_pick_limit: Math.trunc(boundedNumber(body.data?.dailyPickLimit ?? body.data?.daily_pick_limit, { min: 1, max: 3, fallback: 3 })),
+    min_priority_score: boundedNumber(body.data?.minPriorityScore ?? body.data?.min_priority_score, { min: 0.5, max: 1, fallback: 0.62 }),
     min_odds: minOdds,
-    max_odds: maxOdds
+    max_odds: maxOdds,
+    min_data_coverage: boundedNumber(body.data?.minDataCoverage ?? body.data?.min_data_coverage, { min: 0, max: 1, fallback: 0.6 }),
+    min_provider_count: Math.trunc(boundedNumber(body.data?.minProviderCount ?? body.data?.min_provider_count, { min: 1, max: 5, fallback: 1 })),
+    max_provider_disagreement: boundedNumber(body.data?.maxProviderDisagreement ?? body.data?.max_provider_disagreement, { min: 0.01, max: 0.5, fallback: 0.12 }),
+    max_drawdown_percent: boundedNumber(body.data?.maxDrawdownPercent ?? body.data?.max_drawdown_percent, { min: 2, max: 50, fallback: 12 }),
+    max_daily_loss_percent: boundedNumber(body.data?.maxDailyLossPercent ?? body.data?.max_daily_loss_percent, { min: 1, max: 25, fallback: 4 }),
+    pause_after_losses: Math.trunc(boundedNumber(body.data?.pauseAfterLosses ?? body.data?.pause_after_losses, { min: 2, max: 20, fallback: 5 })),
+    cooldown_hours: Math.trunc(boundedNumber(body.data?.cooldownHours ?? body.data?.cooldown_hours, { min: 1, max: 168, fallback: 12 })),
+    max_open_picks: Math.trunc(boundedNumber(body.data?.maxOpenPicks ?? body.data?.max_open_picks, { min: 1, max: 100, fallback: 12 })),
+    minimum_minutes_before_start: Math.trunc(boundedNumber(body.data?.minimumMinutesBeforeStart ?? body.data?.minimum_minutes_before_start, { min: 5, max: 240, fallback: 20 })),
+    maximum_hours_before_start: Math.trunc(boundedNumber(body.data?.maximumHoursBeforeStart ?? body.data?.maximum_hours_before_start, { min: 2, max: 168, fallback: 72 })),
+    auto_pause_on_incident: booleanValue(body.data?.autoPauseOnIncident ?? body.data?.auto_pause_on_incident, true),
+    require_unified_data: booleanValue(body.data?.requireUnifiedData ?? body.data?.require_unified_data, true),
+    adaptive_cadence: booleanValue(body.data?.adaptiveCadence ?? body.data?.adaptive_cadence, true),
+    shadow_learning_enabled: booleanValue(body.data?.shadowLearningEnabled ?? body.data?.shadow_learning_enabled, true)
   };
 
   const { data, error } = await auth.supabase.from("autonomous_agent_settings")
     .upsert(row, { onConflict: "user_id" })
-    .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
+    .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at")
     .single();
   if (error) {
     return jsonResponse({
@@ -168,7 +238,7 @@ export async function PUT(request) {
       error: publicError(error, "Autonomous Agent settings could not be saved")
     }, missingTable(error) ? 503 : 500, requestId);
   }
-  return jsonResponse({ ok: true, paperOnly: true, settings: data }, 200, requestId);
+  return jsonResponse({ ok: true, version: "autonomous-paper-agent-api-v2", paperOnly: true, settings: data }, 200, requestId);
 }
 
 export async function POST(request) {
@@ -191,11 +261,11 @@ export async function POST(request) {
       error: publicError(error, "Autonomous Agent run could not be requested")
     }, missingTable(error) ? 503 : 500, requestId);
   }
-  if (!data) return jsonResponse({ ok: false, error: "Enable Autonomous Agent before requesting a run" }, 409, requestId);
+  if (!data) return jsonResponse({ ok: false, error: "Enable Autonomous Agent and wait for any active safety cooldown to end before requesting a run" }, 409, requestId);
   return jsonResponse({
     ok: true,
     accepted: true,
     paperOnly: true,
-    message: "Autonomous Agent run was queued for the next protected worker cycle"
+    message: "Autonomous Agent V2 run was queued for the next protected worker cycle"
   }, 202, requestId);
 }

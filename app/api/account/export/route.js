@@ -33,9 +33,11 @@ export async function GET(request) {
     auth.supabase.from("bets").select("id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,raw_pick,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(5000),
     auth.supabase.from("paper_settlement_monitor_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_open_count,last_settled_count,last_pending_count,last_provider_warnings_count,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("bankroll_settings").select("bankroll,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence,paper_trading_mode,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("autonomous_agent_settings").select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("autonomous_agent_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("autonomous_agent_runs").select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,error,started_at,completed_at,created_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000),
+    auth.supabase.from("autonomous_agent_settings").select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,paused_until,pause_reason,health_status,health_score,resolved_sample,consecutive_losses,drawdown_percent,roi,average_clv,last_brief,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_runs").select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,guard_summary,health_status,health_score,next_check_minutes,error,started_at,completed_at,created_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000),
+    auth.supabase.from("autonomous_agent_decision_audit").select("id,run_id,event_id,match,selection,sport,league,allowed,reasons,warnings,quality_score,priority_score,odds,edge,confidence,data_coverage,provider_count,provider_disagreement,context_impact,minutes_before_start,proposed_stake,saved_bet_id,created_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(5000),
+    auth.supabase.from("autonomous_agent_daily_briefs").select("id,brief_date,brief,created_at,updated_at").eq("user_id", auth.user.id).order("brief_date", { ascending: false }).limit(1000),
     auth.supabase.from("watchlist_items").select("id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(500),
     auth.supabase.from("watchlist_monitor_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_items_count,last_alerts_count,last_snapshots_count,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("alert_inbox").select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,dismissed_at,first_seen_at,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(500),
@@ -45,13 +47,13 @@ export async function GET(request) {
     auth.supabase.from("notification_deliveries").select("id,alert_id,device_id,status,attempt_count,next_attempt_at,expo_ticket_id,ticket_status,receipt_status,error_code,error_message,queued_at,sent_at,receipt_checked_at,provider_accepted_at,failed_at,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000)
   ]);
 
-  let [profileResult, betsResult, settlementMonitorResult, bankrollResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
+  let [profileResult, betsResult, settlementMonitorResult, bankrollResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
   if (alertInboxResult.error && isMissingColumn(alertInboxResult.error)) {
     alertInboxResult = await auth.supabase.from("alert_inbox").select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(500);
   }
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
-  for (const result of [settlementMonitorResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
+  for (const result of [settlementMonitorResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
     if (result.error && !isMissingTable(result.error)) errors.push(result.error);
   }
   if (errors.length) {
@@ -62,10 +64,10 @@ export async function GET(request) {
     ok: true,
     exportedAt: new Date().toISOString(),
     product: "Scorecaster",
-    dataClassification: "paper-tracking, autonomous paper decision audit, automatic settlement metadata, model-audit snapshots, verified watchlist, background monitor metadata, market timeline, alert inbox, notification metadata and account data; no payment data",
+    dataClassification: "paper-tracking, autonomous V2 settings, safety health, candidate decision audit, daily autonomous briefs, automatic settlement metadata, model-audit snapshots, verified watchlist, background monitor metadata, market timeline, alert inbox, notification metadata and account data; no payment data",
     notificationDeliveryTokensExported: false,
     notificationReceiptMeaning: "provider acceptance only; not proof that the user saw the notification",
-    autonomousAgentBoundary: "virtual paper decisions only; no deposits, money movement, bookmaker access or real-money betting",
+    autonomousAgentBoundary: "virtual paper decisions and shadow-only learning; no deposits, money movement, bookmaker access or real-money betting",
     account: {
       id: auth.user.id,
       email: auth.user.email || null,
@@ -78,6 +80,8 @@ export async function GET(request) {
     autonomousAgentSettings: autonomousSettingsResult.error ? null : autonomousSettingsResult.data || null,
     autonomousAgentState: autonomousStateResult.error ? null : autonomousStateResult.data || null,
     autonomousAgentRuns: autonomousRunsResult.error ? [] : autonomousRunsResult.data || [],
+    autonomousAgentDecisionAudit: autonomousAuditResult.error ? [] : autonomousAuditResult.data || [],
+    autonomousAgentDailyBriefs: autonomousBriefsResult.error ? [] : autonomousBriefsResult.data || [],
     watchlist: watchlistResult.error ? [] : watchlistResult.data || [],
     watchlistMonitor: watchlistMonitorResult.error ? null : watchlistMonitorResult.data || null,
     alertInbox: alertInboxResult.error ? [] : (alertInboxResult.data || []).map((item) => ({ dismissed_at: null, ...item })),
