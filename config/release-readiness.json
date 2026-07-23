@@ -57,6 +57,7 @@
     "supabase/scorecaster_watchlist_monitor.sql",
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
+    "supabase/scorecaster_autonomous_intelligence_v12.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql"
   ],
@@ -65,65 +66,20 @@
     "googlePlay": ["fi-FI", "en-US", "es-ES"]
   },
   "manualReleaseChecks": [
-    {
-      "id": "two-user-isolation",
-      "title": "Two-user RLS isolation on web and mobile",
-      "blocking": true
-    },
-    {
-      "id": "autonomous-agent-paper-safety",
-      "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users",
-      "blocking": true
-    },
-    {
-      "id": "diagnostics-history-worker",
-      "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-provider-activation",
-      "title": "Secondary odds, team context, lineup, injury, weather and news providers verified with real production events and explicit missing-data fallbacks",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-ai-provenance",
-      "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-history-worker",
-      "title": "Unified Data migration, service role, 30-minute capture schedule, provider observations, incidents and closing-line finalization verified in production",
-      "blocking": true
-    },
-    {
-      "id": "unified-data-closing-line",
-      "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage",
-      "blocking": true
-    },
-    {
-      "id": "physical-push",
-      "title": "Physical iOS and Android push delivery test",
-      "blocking": true
-    },
-    {
-      "id": "multilingual-device-flow",
-      "title": "Authentication, paper save, settlement, export and deletion in FI, EN and ES",
-      "blocking": true
-    },
-    {
-      "id": "eas-project-and-assets",
-      "title": "EAS project linkage, final icon, splash and signed builds",
-      "blocking": true
-    },
-    {
-      "id": "legal-support-identity",
-      "title": "Final support contact, legal controller identity and store disclosures",
-      "blocking": true
-    },
-    {
-      "id": "external-security-review",
-      "title": "Independent production security review",
-      "blocking": true
-    }
+    { "id": "two-user-isolation", "title": "Two-user RLS isolation on web and mobile", "blocking": true },
+    { "id": "autonomous-agent-paper-safety", "title": "Autonomous Agent opt-in, duplicate prevention and paper-risk enforcement with two users", "blocking": true },
+    { "id": "autonomous-v12-control-plane", "title": "Autonomous Intelligence V12 operating modes, health score, adaptive interval and kill switch verified with controlled production data", "blocking": true },
+    { "id": "autonomous-v12-model-governance", "title": "Champion-challenger promotion requires 300 settled samples, two ready snapshots, stable drift, provider health and acceptable ROI/CLV while published probability remains unchanged", "blocking": true },
+    { "id": "autonomous-v12-recovery", "title": "Provider outage, critical drift, drawdown and loss-streak incidents freeze paper exposure and recover only after safety gates clear", "blocking": true },
+    { "id": "diagnostics-history-worker", "title": "Decision Diagnostics migration, service role and hourly cron capture verified in production", "blocking": true },
+    { "id": "unified-data-provider-activation", "title": "Secondary odds, team context, lineup, injury, weather and news providers verified with real production events and explicit missing-data fallbacks", "blocking": true },
+    { "id": "unified-data-ai-provenance", "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures", "blocking": true },
+    { "id": "unified-data-history-worker", "title": "Unified Data migration, service role, 30-minute capture schedule, provider observations, incidents and closing-line finalization verified in production", "blocking": true },
+    { "id": "unified-data-closing-line", "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage", "blocking": true },
+    { "id": "physical-push", "title": "Physical iOS and Android push delivery test", "blocking": true },
+    { "id": "multilingual-device-flow", "title": "Authentication, paper save, settlement, export and deletion in FI, EN and ES", "blocking": true },
+    { "id": "eas-project-and-assets", "title": "EAS project linkage, final icon, splash and signed builds", "blocking": true },
+    { "id": "legal-support-identity", "title": "Final support contact, legal controller identity and store disclosures", "blocking": true },
+    { "id": "external-security-review", "title": "Independent production security review", "blocking": true }
   ]
 }
