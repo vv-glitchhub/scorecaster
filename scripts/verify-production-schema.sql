@@ -1,6 +1,6 @@
 \set ON_ERROR_STOP on
 
--- Scorecaster Production Schema Verification V2
+-- Scorecaster Production Schema Verification V3
 -- Read-only checks. Any failed assertion aborts the activation workflow.
 
 do $$
@@ -27,6 +27,9 @@ begin
     'autonomous_agent_runs',
     'autonomous_agent_decision_audit',
     'autonomous_agent_daily_briefs',
+    'shadow_learning_samples',
+    'shadow_learning_state',
+    'shadow_learning_cycles',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -68,6 +71,9 @@ begin
       'autonomous_agent_runs',
       'autonomous_agent_decision_audit',
       'autonomous_agent_daily_briefs',
+      'shadow_learning_samples',
+      'shadow_learning_state',
+      'shadow_learning_cycles',
       'market_timeline_snapshots',
       'alert_inbox',
       'notification_preferences',
@@ -106,6 +112,9 @@ begin
     'autonomous_agent_runs',
     'autonomous_agent_decision_audit',
     'autonomous_agent_daily_briefs',
+    'shadow_learning_samples',
+    'shadow_learning_state',
+    'shadow_learning_cycles',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -150,6 +159,15 @@ begin
   if to_regprocedure('public.request_autonomous_agent_run()') is null then
     raise exception 'Autonomous Agent user request function is missing';
   end if;
+  if to_regprocedure('public.claim_shadow_learning_users(integer)') is null then
+    raise exception 'Shadow Learning claim function is missing';
+  end if;
+  if to_regprocedure('public.complete_shadow_learning_user(uuid,text,uuid,integer,integer,boolean,text,jsonb)') is null then
+    raise exception 'Shadow Learning completion function is missing';
+  end if;
+  if to_regprocedure('public.sync_shadow_learning_sample(uuid)') is null then
+    raise exception 'Shadow Learning sample synchronization function is missing';
+  end if;
 end;
 $$;
 
@@ -166,6 +184,15 @@ begin
   end if;
   if not has_function_privilege('service_role', 'public.complete_autonomous_agent_user_v2(uuid,text,uuid,integer,integer,integer,integer,numeric,text,integer,text,numeric,integer,integer,numeric,numeric,numeric,integer,text,jsonb)', 'EXECUTE') then
     raise exception 'service_role cannot complete Autonomous Agent V2 users';
+  end if;
+  if not has_function_privilege('service_role', 'public.claim_shadow_learning_users(integer)', 'EXECUTE') then
+    raise exception 'service_role cannot claim Shadow Learning users';
+  end if;
+  if not has_function_privilege('service_role', 'public.complete_shadow_learning_user(uuid,text,uuid,integer,integer,boolean,text,jsonb)', 'EXECUTE') then
+    raise exception 'service_role cannot complete Shadow Learning users';
+  end if;
+  if not has_function_privilege('service_role', 'public.sync_shadow_learning_sample(uuid)', 'EXECUTE') then
+    raise exception 'service_role cannot synchronize Shadow Learning samples';
   end if;
   if not has_function_privilege('authenticated', 'public.request_autonomous_agent_run()', 'EXECUTE') then
     raise exception 'authenticated users cannot request their own Autonomous Agent run';
@@ -184,6 +211,21 @@ begin
   end if;
   if has_table_privilege('authenticated', 'public.autonomous_agent_daily_briefs', 'UPDATE') then
     raise exception 'authenticated users must not update Autonomous Agent V2 daily briefs';
+  end if;
+  if not has_table_privilege('service_role', 'public.shadow_learning_samples', 'INSERT') then
+    raise exception 'service_role cannot write Shadow Learning samples';
+  end if;
+  if not has_table_privilege('service_role', 'public.shadow_learning_cycles', 'INSERT') then
+    raise exception 'service_role cannot write Shadow Learning cycles';
+  end if;
+  if has_table_privilege('authenticated', 'public.shadow_learning_samples', 'INSERT') then
+    raise exception 'authenticated users must not write Shadow Learning samples';
+  end if;
+  if has_table_privilege('authenticated', 'public.shadow_learning_samples', 'UPDATE') then
+    raise exception 'authenticated users must not alter immutable Shadow Learning samples';
+  end if;
+  if has_table_privilege('authenticated', 'public.shadow_learning_cycles', 'INSERT') then
+    raise exception 'authenticated users must not write Shadow Learning cycles';
   end if;
   if not has_table_privilege('service_role', 'public.decision_diagnostic_snapshots', 'INSERT') then
     raise exception 'service_role cannot write Decision Diagnostics snapshots';
@@ -221,11 +263,41 @@ begin
     join pg_class c on c.oid = t.tgrelid
     join pg_namespace n on n.oid = c.relnamespace
     where n.nspname = 'public'
+      and c.relname = 'bets'
+      and t.tgname = 'bets_capture_shadow_learning'
+      and not t.tgisinternal
+  ) then
+    raise exception 'Shadow Learning capture trigger is missing';
+  end if;
+
+  if not exists (
+    select 1
+    from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
       and c.relname = 'autonomous_agent_settings'
       and t.tgname = 'autonomous_agent_settings_schedule'
       and not t.tgisinternal
   ) then
     raise exception 'Autonomous Agent scheduling trigger is missing';
+  end if;
+end;
+$$;
+
+do $$
+declare
+  unsafe_shadow_rows integer;
+begin
+  select count(*) into unsafe_shadow_rows
+  from public.shadow_learning_samples
+  where learning_mode <> 'shadow-only'
+     or shadow_only is not true
+     or production_probability_changed is not false
+     or real_money_execution is not false;
+
+  if unsafe_shadow_rows > 0 then
+    raise exception 'Shadow Learning contains % row(s) outside the paper-only safety boundary', unsafe_shadow_rows;
   end if;
 end;
 $$;
@@ -253,6 +325,9 @@ begin
     'autonomous_agent_runs',
     'autonomous_agent_decision_audit',
     'autonomous_agent_daily_briefs',
+    'shadow_learning_samples',
+    'shadow_learning_state',
+    'shadow_learning_cycles',
     'market_timeline_snapshots',
     'alert_inbox',
     'notification_preferences',
@@ -269,7 +344,7 @@ $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'production-schema-verification-v2',
+  'version', 'production-schema-verification-v3',
   'paperOnly', true,
   'rlsVerified', true,
   'workerFunctionsVerified', true,
@@ -277,5 +352,7 @@ select json_build_object(
   'diagnosticsVerified', true,
   'unifiedDataVerified', true,
   'autonomousAgentV2Verified', true,
+  'shadowLearningVerified', true,
+  'realMoneyBetting', false,
   'verifiedAt', now()
 ) as scorecaster_production_schema;
