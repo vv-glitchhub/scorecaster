@@ -23,19 +23,23 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
   assert.ok(manifest.publicPages.length >= 10);
+  assert.ok(manifest.publicPages.includes("/mission-control"));
   assert.ok(manifest.publicPages.includes("/polymarket-intelligence"));
   assert.ok(manifest.publicPages.includes("/diagnostics-v2"));
   assert.ok(manifest.publicPages.includes("/provider-health"));
   assert.ok(manifest.publicPages.includes("/data-layer"));
+  assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/autonomy-mission-control" && item.method === "GET"));
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 17);
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 18);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
-  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v2-governance" && item.blocking === true));
-  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v2-audit" && item.blocking === true));
-  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v2-emergency-stop" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-circuit-breakers" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-mission-control" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-governance" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-audit" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-emergency-stop" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
