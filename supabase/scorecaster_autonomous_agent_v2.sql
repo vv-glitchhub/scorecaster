@@ -106,6 +106,18 @@ alter table public.autonomous_agent_runs add column if not exists health_status 
 alter table public.autonomous_agent_runs add column if not exists health_score numeric;
 alter table public.autonomous_agent_runs add column if not exists guard_summary jsonb not null default '{}'::jsonb;
 alter table public.autonomous_agent_runs add column if not exists next_check_minutes integer;
+alter table public.autonomous_agent_runs drop constraint if exists autonomous_agent_run_status_allowed;
+alter table public.autonomous_agent_runs add constraint autonomous_agent_run_status_allowed
+  check (status in ('running', 'success', 'error', 'deferred', 'paused')) not valid;
+alter table public.autonomous_agent_runs drop constraint if exists autonomous_agent_v2_run_health_status_allowed;
+alter table public.autonomous_agent_runs add constraint autonomous_agent_v2_run_health_status_allowed
+  check (health_status is null or health_status in ('healthy', 'learning', 'watch', 'paused', 'blocked')) not valid;
+alter table public.autonomous_agent_runs drop constraint if exists autonomous_agent_v2_run_health_values;
+alter table public.autonomous_agent_runs add constraint autonomous_agent_v2_run_health_values
+  check (
+    (health_score is null or health_score between 0 and 100) and
+    (next_check_minutes is null or next_check_minutes between 15 and 10080)
+  ) not valid;
 
 create index if not exists idx_autonomous_agent_audit_user_created
   on public.autonomous_agent_decision_audit(user_id, created_at desc);
