@@ -136,6 +136,21 @@ test("user-defined daily loss, drawdown and streak limits are real circuit break
   assert.equal(circuit.metrics.userLimits.lossStreakStop, 3);
 });
 
+test("unverified provider, freshness or capture metrics fail closed", () => {
+  const circuit = applyAutonomousV12UserCircuitControls({
+    circuit: { paused: false, state: "RUNNING", reasons: [], warnings: [], metrics: { providerScore: null, staleRate: null, captureAgeMinutes: null } },
+    controls: { max_daily_loss_percent: 4, max_drawdown_percent: 15, max_loss_streak: 10 },
+    learning: { performance: { maxDrawdown: 0, currentLosingStreak: 0 } },
+    bankroll: { bankroll: 1000 },
+    todayRows: []
+  });
+  assert.equal(circuit.paused, true);
+  assert.ok(circuit.reasons.includes("provider_health_unverified"));
+  assert.ok(circuit.reasons.includes("market_freshness_unverified"));
+  assert.ok(circuit.reasons.includes("unified_data_freshness_unverified"));
+  assert.equal(circuit.metrics.healthVerified, false);
+});
+
 test("policy only tightens risk and never upgrades decisions", () => {
   const policy = buildAutonomousV12Policy({
     settings: { daily_pick_limit: 3, min_priority_score: 0.62, min_odds: 1.2, max_odds: 5 },
@@ -201,16 +216,17 @@ test("paused policy produces no paper selections and next check is bounded", () 
   assert.equal(next, "2026-07-23T11:00:00.000Z");
 });
 
-test("V12 ships protected storage, worker, web, mobile and release gates", async () => {
+test("V12 ships protected storage, worker, health aliases, web, mobile and release gates", async () => {
   const root = new URL("../", import.meta.url);
   const source = (path) => readFile(new URL(path, root), "utf8");
-  const [sql, engine, userCircuit, worker, route, api, web, mobile, more, workflow, manifest] = await Promise.all([
+  const [sql, engine, userCircuit, worker, route, api, health, web, mobile, more, workflow, manifest] = await Promise.all([
     source("supabase/scorecaster_autonomous_v12.sql"),
     source("lib/autonomous-scorecaster-v12.mjs"),
     source("lib/autonomous-v12-user-circuit.mjs"),
     source("lib/autonomous-scorecaster-v12-worker.js"),
     source("app/api/internal/autonomous-v12/route.js"),
     source("app/api/cloud/autonomous-agent/route.js"),
+    source("app/api/data-layer/health/route.js"),
     source("app/autonomous-agent/AutonomousV12Panel.jsx"),
     source("mobile/src/screens/AutonomousV12Screen.tsx"),
     source("mobile/src/screens/MoreScreen.tsx"),
@@ -225,11 +241,15 @@ test("V12 ships protected storage, worker, web, mobile and release gates", async
   assert.match(userCircuit, /max_daily_loss_percent/);
   assert.match(userCircuit, /max_drawdown_percent/);
   assert.match(userCircuit, /max_loss_streak/);
+  assert.match(userCircuit, /provider_health_unverified/);
   assert.match(worker, /applyAutonomousV12UserCircuitControls/);
   assert.match(worker, /scorecaster-autonomous-v12/);
   assert.match(worker, /paperOnly: true/);
   assert.match(route, /autonomousAgentAuthorizationValid/);
   assert.match(api, /v12Available/);
+  assert.match(health, /migrationActive: storage\.migrationActive/);
+  assert.match(health, /captureAgeMinutes/);
+  assert.match(health, /captureFresh/);
   assert.match(web, /Champion \/ Challenger/);
   assert.match(web, /Circuit breakers/);
   assert.match(mobile, /AUTONOMOUS SCORECASTER V12/);
