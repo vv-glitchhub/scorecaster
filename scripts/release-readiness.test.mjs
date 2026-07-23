@@ -11,10 +11,11 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 14);
+  assert.equal(manifest.supabaseMigrations.length, 15);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_v12.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
@@ -29,9 +30,13 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 17);
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/autonomous-v12" && item.method === "GET"));
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 18);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-closed-loop" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-circuit-breakers" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-no-risk-relaxation" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
