@@ -170,9 +170,11 @@ test("daily brief explains saved and blocked candidates without claiming live-mo
 });
 
 test("V13 layers V2 governance over V12 Mission Control and ships complete privacy coverage", async () => {
-  const [migration, worker, runner, internal, cloud, web, page, mobile, more, accountExport, account, manifest] = await Promise.all([
+  const [migration, worker, dailyWorker, riskGovernor, runner, internal, cloud, web, page, mobile, more, accountExport, account, manifest] = await Promise.all([
     source("supabase/scorecaster_autonomous_agent_v2.sql"),
+    source("lib/autonomous-paper-agent-governed-v13.js"),
     source("lib/autonomous-paper-agent-v2.js"),
+    source("lib/autonomous-risk-governor.mjs"),
     source("lib/autonomous-scorecaster-v12-runner.js"),
     source("app/api/internal/autonomous-agent/route.js"),
     source("app/api/cloud/autonomous-agent/route.js"),
@@ -197,8 +199,12 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(worker, /scorecaster-autonomous-v2/);
   assert.match(worker, /productionProbabilityChangedByLearning: false/);
   assert.match(worker, /realMoneyBetting: false/);
-  assert.match(runner, /runAutonomousPaperAgentV2/);
+  assert.match(dailyWorker, /buildAutonomousRiskGovernor/);
+  assert.match(dailyWorker, /applyAutonomousSystemCaps/);
+  assert.match(riskGovernor, /systemMaxStakePercent/);
+  assert.match(runner, /runGovernedAutonomousPaperAgentV13/);
   assert.match(runner, /autonomous-scorecaster-v13/);
+  assert.match(runner, /persistentUtcDailyPickLimit/);
   assert.match(runner, /v12_preflight/);
   assert.match(internal, /runAutonomousScorecasterV12/);
   assert.match(cloud, /autonomous_agent_decision_audit/);
@@ -224,7 +230,9 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
 test("V13 source contains no bookmaker credentials, payments or real-money execution path", async () => {
   const sourceText = [
     await source("lib/autonomous-agent-v2.mjs"),
+    await source("lib/autonomous-paper-agent-governed-v13.js"),
     await source("lib/autonomous-paper-agent-v2.js"),
+    await source("lib/autonomous-risk-governor.mjs"),
     await source("lib/autonomous-scorecaster-v12-runner.js"),
     await source("app/api/cloud/autonomous-agent/route.js")
   ].join("\n");
