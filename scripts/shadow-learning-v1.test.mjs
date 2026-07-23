@@ -1,0 +1,85 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import {
+  buildShadowLearningCycle,
+  normalizeShadowLearningSamples
+} from "../lib/shadow-learning-v1.mjs";
+
+function sample(index, {
+  probability = 0.72,
+  outcome = index % 5 < 3 ? "win" : "loss",
+  clv = 0.02,
+  stake = 5,
+  odds = 1.9,
+  closingOdds = 1.84
+} = {}) {
+  return {
+    id: `sample-${index}`,
+    result: outcome,
+    original_probability: probability,
+    odds_at_selection: odds,
+    closing_odds: closingOdds,
+    clv,
+    stake,
+    profit: outcome === "win" ? stake * (odds - 1) : -stake,
+    sport: index % 2 ? "soccer_epl" : "basketball_nba",
+    market: "h2h",
+    model_version: "V11-model-lab-shadow",
+    settled_at: new Date(Date.UTC(2026, 0, 1 + index)).toISOString()
+  };
+}
+
+test("normalizes only settled binary observations with valid original probabilities", () => {
+  const rows = normalizeShadowLearningSamples([
+    sample(0),
+    { ...sample(1), result: "push" },
+    { ...sample(2), original_probability: 1.2 },
+    { ...sample(3), result: null }
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].id, "sample-0");
+  assert.equal(rows[0].probability, 0.72);
+});
+
+test("keeps small samples in evidence collection and never enables automatic promotion", () => {
+  const report = buildShadowLearningCycle(
+    Array.from({ length: 120 }, (_, index) => sample(index))
+  );
+  assert.equal(report.status, "collecting-evidence");
+  assert.equal(report.mode, "shadow-only");
+  assert.equal(report.promotion.reviewReady, false);
+  assert.equal(report.promotion.automaticPromotionAllowed, false);
+  assert.equal(report.safety.productionProbabilityChanged, false);
+  assert.equal(report.safety.automaticRealMoneyExecution, false);
+});
+
+test("negative CLV blocks review even with a large resolved sample", () => {
+  const report = buildShadowLearningCycle(
+    Array.from({ length: 360 }, (_, index) => sample(index, { clv: -0.03, closingOdds: 2.0 }))
+  );
+  assert.equal(report.gates.settledSample, true);
+  assert.equal(report.gates.clvSample, true);
+  assert.equal(report.gates.positiveAverageClv, false);
+  assert.equal(report.promotion.reviewReady, false);
+  assert.equal(report.promotion.automaticPromotionAllowed, false);
+});
+
+test("a review-ready challenger remains shadow-only and requires human approval", () => {
+  const rows = Array.from({ length: 360 }, (_, index) => sample(index, {
+    probability: 0.82,
+    outcome: index % 5 < 3 ? "win" : "loss",
+    clv: 0.025
+  }));
+  const report = buildShadowLearningCycle(rows);
+  assert.equal(report.sampleSize, 360);
+  assert.equal(report.clvSample, 360);
+  assert.equal(report.metrics.averageClv, 0.025);
+  assert.equal(report.promotion.automaticPromotionAllowed, false);
+  assert.equal(report.safety.originalProbabilityImmutable, true);
+  assert.equal(report.safety.contextCanUpgradeToPlay, false);
+  if (report.promotion.reviewReady) {
+    assert.equal(report.status, "challenger-review-ready");
+  } else {
+    assert.ok(["challenger-rejected", "frozen-drift"].includes(report.status));
+  }
+});
