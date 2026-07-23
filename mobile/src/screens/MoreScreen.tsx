@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
 import { ActionButton, Card, styles } from "../ui";
+import AutonomousAgentScreen from "./AutonomousAgentScreen";
 import DataLayerScreen from "./DataLayerScreen";
 import DiagnosticsScreen from "./DiagnosticsScreen";
 import MissionControlScreen from "./MissionControlScreen";
@@ -16,14 +17,15 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
   const [missionControlOpen, setMissionControlOpen] = useState(false);
+  const [autonomousOpen, setAutonomousOpen] = useState(false);
 
-  if (diagnosticsOpen || dataLayerOpen || missionControlOpen) {
+  if (diagnosticsOpen || dataLayerOpen || missionControlOpen || autonomousOpen) {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
-          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setMissionControlOpen(false); }} tone="secondary" compact />
+          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setMissionControlOpen(false); setAutonomousOpen(false); }} tone="secondary" compact />
         </View>
-        {diagnosticsOpen ? <DiagnosticsScreen /> : dataLayerOpen ? <DataLayerScreen /> : <MissionControlScreen />}
+        {diagnosticsOpen ? <DiagnosticsScreen /> : dataLayerOpen ? <DataLayerScreen /> : autonomousOpen ? <AutonomousAgentScreen /> : <MissionControlScreen />}
       </View>
     );
   }
@@ -60,17 +62,26 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <View style={styles.mobileHero}>
-        <Text style={styles.kicker}>{tr({ fi: "SCORECASTER MOBILE", en: "SCORECASTER MOBILE", es: "SCORECASTER MOBILE" })}</Text>
+        <Text style={styles.kicker}>SCORECASTER MOBILE</Text>
         <Text style={styles.title}>{tr({ fi: "Lisää työkalut ilman ahdasta alapalkkia", en: "More tools without a crowded tab bar", es: "Más herramientas sin una barra saturada" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Mission Control, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Mission Control, tracking, analytics, diagnostics, the data layer and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Mission Control, seguimiento, analítica, diagnóstico, datos y perfil están aquí." })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Mission Control, V13-autonomia, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily actions stay in the tab bar. Mission Control, V13 autonomy, tracking, analytics, diagnostics, the data layer and profile live here.", es: "Las acciones diarias quedan en la barra. Mission Control, autonomía V13, seguimiento, analítica, diagnóstico y perfil están aquí." })}</Text>
       </View>
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa autonominen Mission Control", en: "Open Autonomous Mission Control", es: "Abrir Mission Control autónomo" })} accessibilityRole="button" onPress={() => setMissionControlOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
-          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "AUTONOMIA & RISKI", en: "AUTONOMY & RISK", es: "AUTONOMÍA & RIESGO" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V12</Text></View></View>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "MISSION CONTROL", en: "MISSION CONTROL", es: "MISSION CONTROL" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V12</Text></View></View>
           <Text style={styles.cardTitle}>{tr({ fi: "Autonomous Mission Control", en: "Autonomous Mission Control", es: "Mission Control autónomo" })}</Text>
-          <Text style={styles.muted}>{tr({ fi: "Näe autonomiatila, circuit breakerit, drawdown, CLV, mallidrift, provider-data, ehdokkaat ja worker-ajot.", en: "See autonomy mode, circuit breakers, drawdown, CLV, model drift, provider data, candidates and worker cycles.", es: "Consulta el modo, límites, drawdown, CLV, deriva, datos, candidatos y ciclos." })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Autonomiatila, circuit breakerit, mallidrift, provider-data, ehdokkaat ja worker-ajot.", en: "Autonomy mode, circuit breakers, model drift, provider data, candidates and worker cycles.", es: "Modo, límites, deriva, datos, candidatos y ciclos." })}</Text>
           <Text style={styles.openLabel}>{tr({ fi: "Avaa ohjaamo", en: "Open cockpit", es: "Abrir centro" })} →</Text>
+        </Card>
+      </Pressable>
+
+      <Pressable accessibilityLabel={tr({ fi: "Avaa V13-autonomian hallinta", en: "Open V13 autonomy governance", es: "Abrir control autónomo V13" })} accessibilityRole="button" onPress={() => setAutonomousOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
+        <Card>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "AUTONOMIA & RISKI", en: "AUTONOMY & RISK", es: "AUTONOMÍA & RIESGO" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V13</Text></View></View>
+          <Text style={styles.cardTitle}>{tr({ fi: "Autonomous Governance", en: "Autonomous Governance", es: "Gobierno autónomo" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Readiness, hätäpysäytys, Unified Data -portit, drawdown/CLV-jarru, daily brief ja täydellinen päätösaudit.", en: "Readiness, emergency stop, Unified Data gates, drawdown/CLV brake, daily brief and complete decision audit.", es: "Preparación, parada, datos, drawdown/CLV, resumen y auditoría." })}</Text>
+          <Text style={styles.openLabel}>{tr({ fi: "Avaa V13-hallinta", en: "Open V13 governance", es: "Abrir V13" })} →</Text>
         </Card>
       </Pressable>
 
@@ -85,8 +96,8 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa yhdistetty datakerros", en: "Open unified data layer", es: "Abrir capa de datos" })} accessibilityRole="button" onPress={() => setDataLayerOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
-          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "DATA & AI", en: "DATA & AI", es: "DATOS & IA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
-          <Text style={styles.cardTitle}>{tr({ fi: "Unified Sports Data", en: "Unified Sports Data", es: "Datos deportivos unificados" })}</Text>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>DATA & AI</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
+          <Text style={styles.cardTitle}>Unified Sports Data</Text>
           <Text style={styles.muted}>{tr({ fi: "Näe mitä odds-, kokoonpano-, loukkaantumis-, vire-, lepo-, matka-, sää- ja uutisdataa AI käytti sekä mihin se vaikutti.", en: "See which odds, lineup, injury, form, rest, travel, weather and news data AI used and how it affected the analysis.", es: "Consulta qué datos utilizó la IA y cómo afectaron al análisis." })}</Text>
           <Text style={styles.openLabel}>{tr({ fi: "Avaa data-audit", en: "Open data audit", es: "Abrir auditoría" })} →</Text>
         </Card>
@@ -103,7 +114,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
         </Pressable>
       ))}
 
-      <Card><Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text><Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets.", es: "La app no gestiona depósitos, cuentas de apuestas ni apuestas con dinero real." })}</Text></Card>
+      <Card><Text style={styles.cardTitle}>{tr({ fi: "Paperitila säilyy kaikkialla", en: "Paper mode stays everywhere", es: "El modo simulado permanece" })}</Text><Text style={styles.muted}>{tr({ fi: "Mobiilisovellus ei käsittele talletuksia, vedonvälittäjätilejä tai oikean rahan vetoja. V13:n oppiminen pysyy shadow-tilassa.", en: "The mobile app does not handle deposits, bookmaker accounts or real-money bets. V13 learning remains shadow-only.", es: "La app no gestiona dinero real y el aprendizaje V13 permanece en sombra." })}</Text></Card>
     </ScrollView>
   );
 }
