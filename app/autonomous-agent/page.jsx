@@ -1,8 +1,8 @@
 import AutonomousAgentClient from "./AutonomousAgentClient";
 
 export const metadata = {
-  title: "Autonomous Paper Agent | Scorecaster",
-  description: "Configure Scorecaster's opt-in autonomous virtual paper decision agent."
+  title: "Autonomous Intelligence V12 | Scorecaster",
+  description: "Configure Scorecaster's autonomous paper-learning control plane, kill switch, provider gates and champion-challenger model governance."
 };
 
 export default function AutonomousAgentPage() {
