@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import {
+  applyAutonomousSystemCaps,
+  buildAutonomousRiskGovernor,
+  buildDailyPaperUsage
+} from "../lib/autonomous-risk-governor.mjs";
 
 const root = new URL("../", import.meta.url);
 async function source(path) { return readFile(new URL(path, root), "utf8"); }
@@ -21,26 +26,73 @@ test("autonomous agent schema is opt-in, leased, RLS isolated and service-role c
   assert.match(sql, /grant execute on function public\.request_autonomous_agent_run\(\) to authenticated/);
 });
 
-test("worker uses verified Top Picks, V11 governance and bounded paper-only decisions", async () => {
-  const worker = await source("lib/autonomous-paper-agent.js");
+test("worker v2 uses verified Top Picks, shadow learning and bounded paper-only decisions", async () => {
+  const worker = await source("lib/autonomous-paper-agent-v2.js");
   assert.match(worker, /GET as getTopPicks/);
   assert.match(worker, /buildAgentV9Portfolio/);
   assert.match(worker, /applyModelLabSafety/);
   assert.match(worker, /buildSelfLearningReport/);
+  assert.match(worker, /buildAutonomousRiskGovernor/);
   assert.match(worker, /MAX_USERS_PER_RUN = 10/);
   assert.match(worker, /MAX_SPORTS_PER_USER = 6/);
   assert.match(worker, /MAX_PICKS_PER_USER = 3/);
   assert.match(worker, /MAX_SAVED_PICKS_PER_RUN = 30/);
   assert.match(worker, /decision\.decision !== "PLAY"/);
-  assert.match(worker, /event_already_exposed/);
+  assert.match(worker, /event_already_exposed_today/);
   assert.match(worker, /database_risk_limit/);
-  assert.match(worker, /scorecaster-autonomous-v1/);
+  assert.match(worker, /scorecaster-autonomous-v2/);
+  assert.match(worker, /decisionTicket: contextAudit/);
   assert.match(worker, /realMoneyBetting: false/);
   assert.doesNotMatch(worker, /bookmaker.*password|payment.*card|bank.*credential/i);
 });
 
+test("daily limits and exposure are enforced across worker runs", async () => {
+  const worker = await source("lib/autonomous-paper-agent-v2.js");
+  assert.match(worker, /\.gte\("created_at", dayStart\)/);
+  assert.match(worker, /settings\.dailyPickLimit - daily\.pickCount/);
+  assert.match(worker, /daily_pick_limit_reached/);
+  assert.match(worker, /daily\.totalStake >= dailyCap/);
+  assert.match(worker, /hardMaxStakePercent: 1/);
+  assert.match(worker, /hardMaxDailyExposurePercent: 5/);
+  assert.match(worker, /hardMaxLeagueExposurePercent: 2\.5/);
+
+  const usage = buildDailyPaperUsage([
+    { stake: 7.5, match: "A vs B", raw_pick: { source: "scorecaster-autonomous-v2", eventId: "event-a" } },
+    { stake: 5, match: "C vs D", raw_pick: { source: "manual" } }
+  ]);
+  assert.equal(usage.pickCount, 1);
+  assert.equal(usage.totalStake, 7.5);
+  assert.equal(usage.events.has("event-a"), true);
+});
+
+test("risk governor caps stakes and pauses new exposure when paper performance becomes unsafe", () => {
+  const capped = applyAutonomousSystemCaps({
+    maxStakePercent: 4,
+    maxTotalExposurePercent: 20,
+    maxLeagueExposurePercent: 10
+  });
+  assert.equal(capped.maxStakePercent, 1);
+  assert.equal(capped.maxTotalExposurePercent, 5);
+  assert.equal(capped.maxLeagueExposurePercent, 2.5);
+
+  const history = Array.from({ length: 6 }, (_, index) => ({
+    id: `loss-${index}`,
+    result: "loss",
+    createdAt: new Date(Date.UTC(2026, 6, 23, 10 - index)).toISOString(),
+    stake: 10,
+    odds: 2,
+    closingOdds: 1.9,
+    modelProbability: 0.6
+  }));
+  const governor = buildAutonomousRiskGovernor(history);
+  assert.equal(governor.mode, "paused");
+  assert.equal(governor.allowNewExposure, false);
+  assert.equal(governor.stakeMultiplier, 0);
+  assert.ok(governor.hardReasons.includes("loss_streak_6"));
+});
+
 test("source and per-user failures are isolated, audited and retried", async () => {
-  const worker = await source("lib/autonomous-paper-agent.js");
+  const worker = await source("lib/autonomous-paper-agent-v2.js");
   assert.match(worker, /const sourceFailures = new Map\(\)/);
   assert.match(worker, /recordSourceFailure/);
   assert.match(worker, /failureStage: "source_loading"/);
@@ -50,13 +102,16 @@ test("source and per-user failures are isolated, audited and retried", async () 
   assert.match(worker, /failedSourceGroups: sourceFailures\.size/);
 });
 
-test("autonomous paper rows are deterministic and database-risk guarded", async () => {
-  const worker = await source("lib/autonomous-paper-agent.js");
+test("autonomous paper rows are deterministic, auditable and database-risk guarded", async () => {
+  const worker = await source("lib/autonomous-paper-agent-v2.js");
   const riskSql = await source("supabase/scorecaster_paper_risk_limits.sql");
   assert.match(worker, /createHash\("sha256"\)/);
-  assert.match(worker, /autonomous-v1-\$\{day\}-\$\{digest\}/);
+  assert.match(worker, /autonomous-v2-\$\{day\}-\$\{digest\}/);
   assert.match(worker, /onConflict: "user_id,client_ref", ignoreDuplicates: true/);
   assert.match(worker, /status: "open"/);
+  assert.match(worker, /usedDataSources/);
+  assert.match(worker, /unusedOrMissingData/);
+  assert.match(worker, /contextSignals/);
   assert.match(riskSql, /v_source like 'scorecaster%'/);
   assert.match(riskSql, /Open paper exposure exceeds/);
   assert.match(riskSql, /Open paper league exposure exceeds/);
@@ -74,6 +129,7 @@ test("cloud and internal routes fail closed and never expose worker credentials"
   assert.match(cloud, /request_autonomous_agent_run/);
   assert.match(internal, /maxDuration = 60/);
   assert.match(internal, /autonomousAgentAuthorizationValid/);
+  assert.match(internal, /runAutonomousPaperAgentV2/);
   assert.match(internal, /Unauthorized/);
   assert.match(config, /cronSecret\.length >= 16/);
   assert.match(config, /secret\.length < 16/);
