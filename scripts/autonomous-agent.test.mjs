@@ -67,6 +67,7 @@ test("autonomous paper rows are deterministic and database-risk guarded", async 
 test("cloud and internal routes fail closed and never expose worker credentials", async () => {
   const cloud = await source("app/api/cloud/autonomous-agent/route.js");
   const internal = await source("app/api/internal/autonomous-agent/route.js");
+  const v12Internal = await source("app/api/internal/autonomous-v12/route.js");
   const config = await source("lib/autonomous-agent-config.js");
   assert.match(cloud, /getAuthenticatedContext\(request\)/);
   assert.match(cloud, /mutationOriginAllowed\(request\)/);
@@ -74,17 +75,19 @@ test("cloud and internal routes fail closed and never expose worker credentials"
   assert.match(cloud, /request_autonomous_agent_run/);
   assert.match(internal, /maxDuration = 60/);
   assert.match(internal, /autonomousAgentAuthorizationValid/);
-  assert.match(internal, /Unauthorized/);
+  assert.match(v12Internal, /maxDuration = 60/);
+  assert.match(v12Internal, /autonomousAgentAuthorizationValid/);
+  assert.match(v12Internal, /Unauthorized/);
   assert.match(config, /cronSecret\.length >= 16/);
   assert.match(config, /secret\.length < 16/);
   assert.doesNotMatch(cloud, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 });
 
-test("scheduler is explicit opt-in and autonomous worker is independent", async () => {
+test("scheduler is explicit opt-in and Autonomous V12 replaces the scheduled V1 cycle", async () => {
   const workflow = await source(".github/workflows/notification-delivery.yml");
   assert.match(workflow, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
-  assert.match(workflow, /api\/internal\/autonomous-agent/);
-  assert.match(workflow, /Run Autonomous Paper Agent cycle/);
+  assert.match(workflow, /api\/internal\/autonomous-v12/);
+  assert.match(workflow, /Run Autonomous Scorecaster V12 cycle/);
   assert.match(workflow, /--max-time 55/);
   assert.doesNotMatch(workflow, /needs: autonomous/);
 });
@@ -116,6 +119,8 @@ test("operations, export, deletion and release manifest include autonomous audit
   assert.match(account, /"autonomous_agent_state"/);
   assert.match(account, /"autonomous_agent_settings"/);
   assert.match(manifest, /scorecaster_autonomous_agent\.sql/);
+  assert.match(manifest, /scorecaster_autonomous_v12\.sql/);
   assert.match(manifest, /api\/internal\/autonomous-agent/);
+  assert.match(manifest, /api\/internal\/autonomous-v12/);
   assert.match(manifest, /api\/cloud\/autonomous-agent/);
 });
