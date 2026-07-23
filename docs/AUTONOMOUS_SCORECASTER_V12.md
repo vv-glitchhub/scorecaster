@@ -80,14 +80,16 @@ V12 pauses itself when one or more critical conditions are true:
 - paper mode disabled
 - primary odds provider unavailable
 - Top Picks unavailable
-- provider health critical
-- stale market data
-- stale Unified Data capture
+- provider health critical or unverifiable
+- stale or unverifiable market data
+- stale or unverifiable Unified Data capture
 - critical settlement backlog
 - critical learning drift
 - daily virtual loss stop
 - maximum loss streak
 - maximum drawdown
+
+The persisted user values for daily loss, drawdown and loss streak are authoritative inside their reviewed allowed ranges. Default-engine values are removed and rebuilt from the user's controls on every cycle, so a saved control is never merely cosmetic.
 
 Watch conditions place V12 in `CAUTION` and reduce risk instead of fully stopping it.
 
@@ -142,6 +144,32 @@ All tables use forced RLS:
 
 Learning-cycle retention is bounded by the protected `trim_autonomous_v12_learning_cycles` function.
 
+## Verified health contract
+
+V12 consumes stable health fields from `/api/data-layer/health`:
+
+```text
+migrationActive
+captureFresh
+captureAgeMinutes
+```
+
+The same values remain available in the detailed `storage` and `worker` objects. Provider score, market stale rate and capture age must all be numeric before a virtual paper selection can be saved. Missing health values are interpreted as unverified and pause V12 instead of being treated as healthy.
+
+## Privacy, export and deletion
+
+V12 stores only virtual-paper operations and model-audit data. It stores no payment credentials, bookmaker passwords or real-money balances.
+
+The authenticated account export includes:
+
+- V12 controls
+- runtime state and effective policy
+- learning cycles and calibration summaries
+- decision audit rows
+- ordinary autonomous run history and virtual paper bets
+
+Account deletion removes the four V12 user tables before deleting the profile and authentication account. Operations monitoring exposes only the authenticated user's V12 state and aggregate activity counts.
+
 ## Protected worker
 
 Endpoint:
@@ -189,15 +217,16 @@ Both surfaces show:
 2. Configure the production Supabase URL and service-role key in Vercel.
 3. Configure the same strong worker secret in Vercel and GitHub Actions.
 4. Configure the primary odds provider.
-5. Set the GitHub variable `SCORECASTER_AUTONOMOUS_AGENT_ENABLED=true` only after schema verification.
-6. Run Production Activation action `schema`.
-7. Run Production Activation action `probe`.
-8. Enable V12 for one test user in `observe` mode.
-9. Verify multiple worker, settlement and Unified Data capture cycles.
-10. Switch the test user to `conservative` mode and verify a virtual paper save.
-11. Trigger every circuit breaker with controlled test data.
-12. Verify two-user RLS isolation on web and mobile.
-13. Keep real-money integrations absent.
+5. Verify `/api/data-layer/health` returns an active migration, fresh capture and numeric capture age.
+6. Set the GitHub variable `SCORECASTER_AUTONOMOUS_AGENT_ENABLED=true` only after schema verification.
+7. Run Production Activation action `schema`.
+8. Run Production Activation action `probe`.
+9. Enable V12 for one test user in `observe` mode.
+10. Verify multiple worker, settlement and Unified Data capture cycles.
+11. Switch the test user to `conservative` mode and verify a virtual paper save.
+12. Trigger every circuit breaker with controlled test data.
+13. Verify two-user RLS isolation, account export and account deletion on web and mobile.
+14. Keep real-money integrations absent.
 
 ## Required environment and GitHub configuration
 
@@ -226,13 +255,15 @@ Optional Unified Sports Data providers improve evidence coverage but are not rep
 Required automated checks include:
 
 - Autonomous V12 learning metrics
-- circuit-breaker behavior
+- circuit-breaker behavior and user-owned limits
+- fail-closed provider, market-freshness and capture health
 - tightening-only policy
 - no decision upgrades
 - event duplicate prevention
 - Kelly and exposure caps
 - shadow-only champion–challenger governance
 - forced RLS and service-role write checks
+- account export and deletion coverage
 - protected worker authorization
 - web and native control centers
 - full Scorecaster regression suite
