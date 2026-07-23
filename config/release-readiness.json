@@ -34,7 +34,8 @@
     { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] }
+    { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/unified-data", "method": "GET", "allowedStatuses": [401, 503] }
   ],
   "requiredSecurityHeaders": {
     "x-content-type-options": "nosniff",
@@ -55,6 +56,7 @@
     "supabase/scorecaster_notification_delivery.sql",
     "supabase/scorecaster_watchlist_monitor.sql",
     "supabase/scorecaster_decision_diagnostics.sql",
+    "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql"
   ],
@@ -86,6 +88,16 @@
     {
       "id": "unified-data-ai-provenance",
       "title": "AI data-used, data-not-used, bounded-impact, downgrade-only and closing-odds leakage controls verified on production fixtures",
+      "blocking": true
+    },
+    {
+      "id": "unified-data-history-worker",
+      "title": "Unified Data migration, service role, 30-minute capture schedule, provider observations, incidents and closing-line finalization verified in production",
+      "blocking": true
+    },
+    {
+      "id": "unified-data-closing-line",
+      "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage",
       "blocking": true
     },
     {
