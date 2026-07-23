@@ -11,31 +11,32 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 14);
+  assert.equal(manifest.supabaseMigrations.length, 15);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent_v2.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
-  assert.ok(manifest.publicPages.length >= 10);
-  assert.ok(manifest.publicPages.includes("/polymarket-intelligence"));
-  assert.ok(manifest.publicPages.includes("/diagnostics-v2"));
-  assert.ok(manifest.publicPages.includes("/provider-health"));
-  assert.ok(manifest.publicPages.includes("/data-layer"));
-  assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
-  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
+  assert.ok(manifest.publicPages.includes("/mission-control"));
+  assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/autonomy-mission-control" && item.method === "GET"));
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/autonomous-agent" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 17);
-  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
-  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 18);
+  for (const id of [
+    "autonomous-v13-system-guard",
+    "autonomous-v13-candidate-audit",
+    "autonomous-v13-adaptive-cooldown",
+    "autonomous-v13-daily-brief"
+  ]) assert.ok(manifest.manualReleaseChecks.some((item) => item.id === id && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
-test("repository release audit verifies routes, SQL order, headers and store metadata", async () => {
+test("repository release audit verifies V13 SQL order, routes, headers and store metadata", async () => {
   const audit = await source("scripts/release-readiness.mjs");
   for (const token of [
     "config/release-readiness.json",
@@ -43,6 +44,8 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "apiCandidates",
     "supabaseMigrations",
     "scorecaster_autonomous_agent.sql",
+    "scorecaster_autonomous_agent_v2.sql",
+    "autonomousV2Index === autonomousIndex + 1",
     "requiredSecurityHeaders",
     "mobile/store.config.json",
     "mobile/store/google-play-listing.json",
