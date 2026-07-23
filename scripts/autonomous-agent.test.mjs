@@ -105,19 +105,39 @@ test("web console is trilingual and preserves the paper-only boundary", async ()
   assert.match(shell, /Autonomous Agent/);
 });
 
-test("operations, export, deletion and release manifest include autonomous audit data", async () => {
+test("operations, export, deletion and release manifest include Autonomous V12 data", async () => {
   const operations = await source("app/api/operations/route.js");
   const exportRoute = await source("app/api/account/export/route.js");
   const account = await source("app/api/account/route.js");
   const manifest = await source("config/release-readiness.json");
-  for (const token of ["autonomous_agent_state", "autonomous_agent_settings", "autonomous_agent_runs", "autonomousAgentRuns24h"]) {
-    assert.match(operations, new RegExp(token));
-  }
+  for (const token of [
+    "autonomous_agent_state",
+    "autonomous_agent_settings",
+    "autonomous_agent_runs",
+    "autonomous_agent_v12_controls",
+    "autonomous_agent_v12_state",
+    "autonomous_agent_v12_learning_cycles",
+    "autonomous_agent_v12_audit",
+    "autonomousAgentRuns24h",
+    "autonomousV12LearningCycles24h",
+    "autonomousV12AuditRows24h"
+  ]) assert.match(operations, new RegExp(token));
+  assert.match(operations, /intervalMinutes: 15/);
   assert.match(exportRoute, /autonomousAgentSettings/);
   assert.match(exportRoute, /autonomousAgentRuns/);
-  assert.match(account, /"autonomous_agent_runs"/);
-  assert.match(account, /"autonomous_agent_state"/);
-  assert.match(account, /"autonomous_agent_settings"/);
+  assert.match(exportRoute, /autonomousV12Controls/);
+  assert.match(exportRoute, /autonomousV12State/);
+  assert.match(exportRoute, /autonomousV12LearningCycles/);
+  assert.match(exportRoute, /autonomousV12Audit/);
+  for (const table of [
+    "autonomous_agent_runs",
+    "autonomous_agent_state",
+    "autonomous_agent_settings",
+    "autonomous_agent_v12_controls",
+    "autonomous_agent_v12_state",
+    "autonomous_agent_v12_learning_cycles",
+    "autonomous_agent_v12_audit"
+  ]) assert.match(account, new RegExp(`"${table}"`));
   assert.match(manifest, /scorecaster_autonomous_agent\.sql/);
   assert.match(manifest, /scorecaster_autonomous_v12\.sql/);
   assert.match(manifest, /api\/internal\/autonomous-agent/);
