@@ -27,6 +27,7 @@ const report = {
   status: "running",
   migrations: [],
   schemaVerified: false,
+  autonomousV13HardCapsVerified: false,
   probes: [],
   health: null,
   error: null
@@ -103,12 +104,14 @@ function runPsql(args, label) {
 async function verifySchema() {
   runPsql(["--file=scripts/verify-production-schema.sql"], "Production schema verification");
   report.schemaVerified = true;
+  runPsql(["--file=scripts/verify-autonomous-v13-hard-caps.sql"], "Autonomous V13 hard-cap verification");
+  report.autonomousV13HardCapsVerified = true;
 }
 
 async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
-  assert(migrations.length >= 15, "Release manifest does not contain the complete production rollout");
+  assert(migrations.length >= 16, "Release manifest does not contain the complete production rollout");
 
   for (const migration of migrations) {
     assert(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path: ${migration}`);
