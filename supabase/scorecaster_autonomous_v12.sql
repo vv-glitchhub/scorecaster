@@ -122,6 +122,37 @@ begin
 end;
 $$;
 
+create or replace function public.trim_autonomous_v12_learning_cycles(
+  p_user_id uuid,
+  p_keep integer default 180
+)
+returns integer
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+declare
+  v_deleted integer := 0;
+  v_keep integer := greatest(30, least(coalesce(p_keep, 180), 365));
+begin
+  if p_user_id is null then
+    raise exception 'Autonomous V12 retention requires a user id';
+  end if;
+
+  delete from public.autonomous_agent_v12_learning_cycles cycle
+  where cycle.user_id = p_user_id
+    and cycle.id in (
+      select old_cycle.id
+      from public.autonomous_agent_v12_learning_cycles old_cycle
+      where old_cycle.user_id = p_user_id
+      order by old_cycle.created_at desc, old_cycle.id desc
+      offset v_keep
+    );
+  get diagnostics v_deleted = row_count;
+  return v_deleted;
+end;
+$$;
+
 drop trigger if exists autonomous_v12_controls_set_updated_at on public.autonomous_agent_v12_controls;
 create trigger autonomous_v12_controls_set_updated_at
 before update on public.autonomous_agent_v12_controls
@@ -165,6 +196,7 @@ revoke all on public.autonomous_agent_v12_controls from anon;
 revoke all on public.autonomous_agent_v12_state from anon;
 revoke all on public.autonomous_agent_v12_learning_cycles from anon;
 revoke all on public.autonomous_agent_v12_audit from anon;
+revoke all on function public.trim_autonomous_v12_learning_cycles(uuid, integer) from public, anon, authenticated;
 
 grant select, insert, update on public.autonomous_agent_v12_controls to authenticated;
 grant select on public.autonomous_agent_v12_state to authenticated;
@@ -175,5 +207,6 @@ grant select, insert, update, delete on public.autonomous_agent_v12_controls to 
 grant select, insert, update, delete on public.autonomous_agent_v12_state to service_role;
 grant select, insert, update, delete on public.autonomous_agent_v12_learning_cycles to service_role;
 grant select, insert, update, delete on public.autonomous_agent_v12_audit to service_role;
+grant execute on function public.trim_autonomous_v12_learning_cycles(uuid, integer) to service_role;
 
 -- Production probability and real-money actions are intentionally absent from this migration.
