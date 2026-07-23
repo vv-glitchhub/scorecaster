@@ -1,0 +1,49 @@
+name: Scorecaster Autonomous Intelligence V12.1
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  autonomous-v12-1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Existing Autonomous V12 and Daily Governor regressions
+        run: npm run test:autonomous-v12
+
+      - name: Autonomous Intelligence V12.1 regressions
+        run: npm run test:autonomous-v12-1
+
+      - name: Autonomous Agent lifecycle regressions
+        run: npm run test:autonomous-agent
+
+      - name: Production activation regressions
+        run: npm run test:production-activation
+
+      - name: Release readiness audit
+        run: npm run release:audit
+
+      - name: Native TypeScript check
+        run: npm --prefix mobile run typecheck
+
+      - name: Production build
+        run: npm run build
