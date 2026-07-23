@@ -67,10 +67,15 @@ jobs:
           set -o pipefail
           npm run test:production-activation 2>&1 | tee production-activation.log
 
-      - name: Autonomous Paper Agent V1 tests
+      - name: Autonomous Paper Agent V1 and V2 tests
         run: |
           set -o pipefail
           npm run test:autonomous-agent 2>&1 | tee autonomous-agent.log
+
+      - name: Governed Shadow Learning tests
+        run: |
+          set -o pipefail
+          npm run test:shadow-learning 2>&1 | tee shadow-learning.log
 
       - name: Betting Agent and Simulator regression tests
         run: npm run test:apps
@@ -190,6 +195,7 @@ jobs:
             release-readiness.log
             production-activation.log
             autonomous-agent.log
+            shadow-learning.log
             settlement-monitor.log
             operations-dashboard.log
             agent-v9.log
