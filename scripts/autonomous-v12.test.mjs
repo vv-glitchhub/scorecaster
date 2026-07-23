@@ -8,6 +8,7 @@ import {
   nextAutonomousV12Check,
   selectAutonomousV12Picks
 } from "../lib/autonomous-scorecaster-v12.mjs";
+import { applyAutonomousV12UserCircuitControls } from "../lib/autonomous-v12-user-circuit.mjs";
 
 function settledRows(count = 220) {
   return Array.from({ length: count }, (_, index) => {
@@ -97,6 +98,44 @@ test("critical data and risk conditions pause autonomy", () => {
   assert.ok(circuit.reasons.includes("settlement_backlog_critical"));
 });
 
+test("user-defined daily loss, drawdown and streak limits are real circuit breakers", () => {
+  const base = evaluateAutonomousV12CircuitBreakers({
+    learning: { status: "healthy", performance: { maxDrawdown: 60, currentLosingStreak: 3 } },
+    system: {
+      killSwitch: false,
+      paperTradingMode: true,
+      oddsProviderConfigured: true,
+      topPicksAvailable: true,
+      providerScore: 90,
+      staleRate: 0,
+      captureAgeMinutes: 15,
+      settlementBacklog: 0
+    },
+    bankroll: { bankroll: 1000 },
+    todayRows: [],
+    openBets: []
+  });
+  const circuit = applyAutonomousV12UserCircuitControls({
+    circuit: base,
+    controls: {
+      max_daily_loss_percent: 1,
+      max_drawdown_percent: 5,
+      max_loss_streak: 3
+    },
+    learning: { performance: { maxDrawdown: 60, currentLosingStreak: 3 } },
+    bankroll: { bankroll: 1000 },
+    todayRows: [{ status: "lost", stake: 15, odds: 2 }]
+  });
+  assert.equal(circuit.paused, true);
+  assert.equal(circuit.state, "PAUSED");
+  assert.ok(circuit.reasons.includes("daily_loss_stop"));
+  assert.ok(circuit.reasons.includes("drawdown_stop"));
+  assert.ok(circuit.reasons.includes("loss_streak_stop"));
+  assert.equal(circuit.metrics.userLimits.dailyLossStopRate, 0.01);
+  assert.equal(circuit.metrics.userLimits.drawdownStopRate, 0.05);
+  assert.equal(circuit.metrics.userLimits.lossStreakStop, 3);
+});
+
 test("policy only tightens risk and never upgrades decisions", () => {
   const policy = buildAutonomousV12Policy({
     settings: { daily_pick_limit: 3, min_priority_score: 0.62, min_odds: 1.2, max_odds: 5 },
@@ -165,9 +204,10 @@ test("paused policy produces no paper selections and next check is bounded", () 
 test("V12 ships protected storage, worker, web, mobile and release gates", async () => {
   const root = new URL("../", import.meta.url);
   const source = (path) => readFile(new URL(path, root), "utf8");
-  const [sql, engine, worker, route, api, web, mobile, more, workflow, manifest] = await Promise.all([
+  const [sql, engine, userCircuit, worker, route, api, web, mobile, more, workflow, manifest] = await Promise.all([
     source("supabase/scorecaster_autonomous_v12.sql"),
     source("lib/autonomous-scorecaster-v12.mjs"),
+    source("lib/autonomous-v12-user-circuit.mjs"),
     source("lib/autonomous-scorecaster-v12-worker.js"),
     source("app/api/internal/autonomous-v12/route.js"),
     source("app/api/cloud/autonomous-agent/route.js"),
@@ -182,6 +222,10 @@ test("V12 ships protected storage, worker, web, mobile and release gates", async
   assert.match(sql, /force row level security/);
   assert.match(engine, /automaticRelaxationAllowed: false/);
   assert.match(engine, /canUpgradeDecision: false/);
+  assert.match(userCircuit, /max_daily_loss_percent/);
+  assert.match(userCircuit, /max_drawdown_percent/);
+  assert.match(userCircuit, /max_loss_streak/);
+  assert.match(worker, /applyAutonomousV12UserCircuitControls/);
   assert.match(worker, /scorecaster-autonomous-v12/);
   assert.match(worker, /paperOnly: true/);
   assert.match(route, /autonomousAgentAuthorizationValid/);
