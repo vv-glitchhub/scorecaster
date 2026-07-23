@@ -1,3 +1,4 @@
+import Link from "next/link";
 import DiagnosticsV2Client from "./DiagnosticsV2Client";
 import DiagnosticsV21Enhancements from "./DiagnosticsV21Enhancements";
 
@@ -7,5 +8,5 @@ export const metadata = {
 };
 
 export default function DiagnosticsV2Page() {
-  return <div className="space-y-10"><DiagnosticsV21Enhancements /><DiagnosticsV2Client /></div>;
+  return <div className="space-y-10"><div className="flex justify-end"><Link href="/data-layer" className="sc-button-secondary">Unified Sports Data</Link></div><DiagnosticsV21Enhancements /><DiagnosticsV2Client /></div>;
 }
