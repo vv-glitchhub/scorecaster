@@ -20,8 +20,8 @@ import {
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-function missingTable(error) {
-  return error?.code === "42P01" || /does not exist|schema cache/i.test(error?.message || "");
+function missingSchema(error) {
+  return error?.code === "42P01" || error?.code === "42703" || /does not exist|schema cache/i.test(error?.message || "");
 }
 
 function historyRow(row = {}) {
@@ -51,21 +51,16 @@ function utcDayStart(now = new Date()) {
 async function currentPicks(request) {
   try {
     const target = new URL("/api/top-picks", request.url);
-    const response = await fetch(target, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(30_000)
-    });
+    const response = await fetch(target, { cache: "no-store", signal: AbortSignal.timeout(30_000) });
     const payload = await response.json();
-    if (!response.ok || payload?.ok === false) {
-      return { picks: [], warning: payload?.error || payload?.reason || "Current Top Picks unavailable" };
-    }
+    if (!response.ok || payload?.ok === false) return { picks: [], warning: payload?.error || payload?.reason || "Current Top Picks unavailable" };
     return { picks: Array.isArray(payload?.data) ? payload.data : [], warning: null };
   } catch {
     return { picks: [], warning: "Current Top Picks unavailable" };
   }
 }
 
-function buildBrief(state, settings, workerState, picksWarning, daily) {
+function buildBrief(state, settings, workerState, picksWarning, daily, persistentControl) {
   const recommendations = [];
   if (!settings?.enabled) recommendations.push("Enable Autonomous Agent for this account before requesting protected paper cycles.");
   if (state.mode === "FROZEN") recommendations.push(...state.resumeConditions.map((item) => item.condition));
@@ -73,21 +68,23 @@ function buildBrief(state, settings, workerState, picksWarning, daily) {
   if (state.mode === "BOOTSTRAP") recommendations.push("Keep exposure minimal while the first 30 settled observations are collected.");
   if (state.mode === "GUARDED") recommendations.push("Continue collecting settled outcomes and positive closing-line evidence under reduced sizing.");
   if (state.mode === "ACTIVE") recommendations.push("All primary autonomy gates are healthy; continue monitoring drift, CLV and provider incidents.");
+  if (persistentControl?.killSwitchActive) recommendations.push(`V12.1 persistent kill switch is active: ${persistentControl.killSwitchReason || "safety gate"}.`);
   if (daily.picksRemaining <= 0) recommendations.push("The persistent UTC daily pick limit is full. No more autonomous paper selections may be added today.");
   if (daily.exposureRemaining < 0.01) recommendations.push("The persistent UTC daily virtual-exposure budget is full.");
   if (picksWarning) recommendations.push(picksWarning);
 
   return {
-    headline: state.reason,
-    mode: state.mode,
+    headline: persistentControl?.killSwitchActive ? "Autonomous Intelligence V12.1 has frozen new paper exposure." : state.reason,
+    mode: persistentControl?.mode || state.mode,
     canCreateNewPaperExposure: Boolean(
       settings?.enabled &&
       state.mode !== "FROZEN" &&
+      !persistentControl?.killSwitchActive &&
       daily.picksRemaining > 0 &&
       daily.exposureRemaining >= 0.01
     ),
     nextCheckAt: workerState?.next_check_at || null,
-    recommendations: [...new Set(recommendations)].slice(0, 8),
+    recommendations: [...new Set(recommendations)].slice(0, 10),
     proof: {
       settledSample: state.history.settledCount,
       currentCandidates: state.dataReadiness.candidateCount,
@@ -96,6 +93,8 @@ function buildBrief(state, settings, workerState, picksWarning, daily) {
       averageClv: state.history.clv.average,
       recentBankrollImpact: state.history.recent30.bankrollImpact,
       modelDrift: state.modelLab.driftStatus,
+      persistentHealthScore: persistentControl?.healthScore ?? null,
+      providerHealth: persistentControl?.provider?.score ?? null,
       dailyPicksUsed: daily.picksUsed,
       dailyPicksRemaining: daily.picksRemaining,
       dailyStakeUsed: daily.stakeUsed,
@@ -108,66 +107,41 @@ export async function GET(request) {
   const requestId = getRequestId(request);
   const auth = await getAuthenticatedContext(request);
   if (!auth.ok) return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
-  const limited = await enforceRateLimit(auth, requestId, {
-    bucket: "autonomy_mission_control_read",
-    limit: 30,
-    windowSeconds: 60
-  });
+  const limited = await enforceRateLimit(auth, requestId, { bucket: "autonomy_mission_control_read", limit: 30, windowSeconds: 60 });
   if (limited) return limited;
 
   const dayStart = utcDayStart().toISOString();
-  const [settingsResult, stateResult, runsResult, bankrollResult, historyResult, openResult, todayResult, picksResult] = await Promise.all([
-    auth.supabase.from("autonomous_agent_settings")
-      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,created_at,updated_at")
-      .eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("autonomous_agent_state")
-      .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,updated_at")
-      .eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("autonomous_agent_runs")
-      .select("id,status,candidate_count,selected_count,saved_count,skipped_count,total_stake,sports,summary,error,started_at,completed_at,created_at")
-      .eq("user_id", auth.user.id)
-      .order("created_at", { ascending: false })
-      .limit(30),
-    auth.supabase.from("bankroll_settings")
-      .select("bankroll,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence,paper_trading_mode")
-      .eq("user_id", auth.user.id).maybeSingle(),
-    auth.supabase.from("bets")
-      .select("id,status,created_at,updated_at,stake,odds,profit,closing_odds,clv,sport,league,market,raw_pick")
-      .eq("user_id", auth.user.id)
-      .neq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(500),
-    auth.supabase.from("bets")
-      .select("id,label,match,market,bookmaker,sport,league,odds,stake,edge,ev,confidence,status,raw_pick,created_at")
-      .eq("user_id", auth.user.id)
-      .eq("status", "open")
-      .order("created_at", { ascending: false })
-      .limit(200),
-    auth.supabase.from("bets")
-      .select("id,created_at,stake,match,raw_pick")
-      .eq("user_id", auth.user.id)
-      .gte("created_at", dayStart)
-      .order("created_at", { ascending: true })
-      .limit(100),
+  const [settingsResult, stateResult, runsResult, bankrollResult, historyResult, openResult, todayResult, learningResult, modelsResult, incidentsResult, picksResult] = await Promise.all([
+    auth.supabase.from("autonomous_agent_settings").select("*").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_state").select("*").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("autonomous_agent_runs").select("*").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(30),
+    auth.supabase.from("bankroll_settings").select("bankroll,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence,paper_trading_mode").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("bets").select("id,status,created_at,updated_at,stake,odds,profit,closing_odds,clv,sport,league,market,raw_pick").eq("user_id", auth.user.id).neq("status", "open").order("created_at", { ascending: false }).limit(1000),
+    auth.supabase.from("bets").select("id,label,match,market,bookmaker,sport,league,odds,stake,edge,ev,confidence,status,raw_pick,created_at").eq("user_id", auth.user.id).eq("status", "open").order("created_at", { ascending: false }).limit(200),
+    auth.supabase.from("bets").select("id,created_at,stake,match,raw_pick").eq("user_id", auth.user.id).gte("created_at", dayStart).order("created_at", { ascending: true }).limit(100),
+    auth.supabase.from("autonomous_agent_learning_snapshots").select("id,operating_mode,health_score,sample_size,champion_model_key,challenger_model_key,promotion_action,performance,provider_health,model_lab,control_plane,captured_at").eq("user_id", auth.user.id).order("captured_at", { ascending: false }).limit(30),
+    auth.supabase.from("autonomous_agent_models").select("id,model_key,model_type,parameters,status,sample_size,train_metrics,holdout_metrics,promotion_evidence,probability_applied_to_published_model,paper_risk_policy_only,promoted_at,retired_at,updated_at").eq("user_id", auth.user.id).order("updated_at", { ascending: false }).limit(20),
+    auth.supabase.from("autonomous_agent_incidents").select("id,fingerprint,incident_type,severity,title,message,details,active,first_seen_at,last_seen_at,resolved_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(50),
     currentPicks(request)
   ]);
 
   const error = settingsResult.error || stateResult.error || runsResult.error || bankrollResult.error || historyResult.error || openResult.error || todayResult.error;
   const configuration = autonomousAgentConfiguration();
-  if (error && missingTable(error)) {
+  if (error && missingSchema(error)) {
     return jsonResponse({
       ok: true,
       available: false,
       warning: "Autonomous Agent production migration is not active",
       paperOnly: true,
       realMoneyBetting: false,
-      configuration: {
-        enabledFlag: configuration.enabledFlag,
-        configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured
-      }
+      configuration: { enabledFlag: configuration.enabledFlag, configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured }
     }, 200, requestId);
   }
   if (error) return jsonResponse({ ok: false, error: publicError(error, "Autonomy Mission Control could not be loaded") }, 500, requestId);
+
+  const v121Error = learningResult.error || modelsResult.error || incidentsResult.error;
+  const v121Active = !v121Error;
+  if (v121Error && !missingSchema(v121Error)) return jsonResponse({ ok: false, error: publicError(v121Error, "V12.1 persistent control could not be loaded") }, 500, requestId);
 
   const settings = settingsResult.data || { enabled: false, sports: [], daily_pick_limit: 3 };
   const bankroll = applyAutonomousSystemCaps({
@@ -196,24 +170,24 @@ export async function GET(request) {
   const history = (historyResult.data || []).map(historyRow);
   const modelLab = buildSelfLearningReport(history);
   const picks = picksResult.picks || [];
-  const autonomy = buildAutonomyState({
-    history,
-    decisions: picks,
-    modelLab,
-    bankroll,
-    openBets: openResult.data || [],
-    now: new Date()
-  });
+  const autonomy = buildAutonomyState({ history, decisions: picks, modelLab, bankroll, openBets: openResult.data || [], now: new Date() });
   const runs = runsResult.data || [];
   const state = stateResult.data || null;
   const latestRun = runs[0] || null;
+  const learning = v121Active ? learningResult.data || [] : [];
+  const models = v121Active ? modelsResult.data || [] : [];
+  const incidents = v121Active ? incidentsResult.data || [] : [];
+  const persistentControl = learning[0]?.control_plane || null;
 
   return jsonResponse({
     ok: true,
     available: true,
-    version: "autonomy-mission-control-v12-daily-governor",
+    version: v121Active ? "autonomy-mission-control-v12.1" : "autonomy-mission-control-v12-daily-governor",
+    v121Active,
+    warning: v121Active ? null : "V12.1 persistence is not active; Mission Control is using the reviewed V12 Daily Governor.",
     paperOnly: true,
     realMoneyBetting: false,
+    publishedProbabilityChangedByLearning: false,
     configuration: {
       enabledFlag: configuration.enabledFlag,
       configured: configuration.adminConfigured && configuration.cronSecretConfigured && configuration.oddsProviderConfigured,
@@ -226,9 +200,13 @@ export async function GET(request) {
     daily,
     state,
     autonomy,
+    persistentControl,
+    learning,
+    models,
+    incidents,
     currentDataReadiness: summarizeAutonomousDataReadiness(picks),
     modelLab,
-    brief: buildBrief(autonomy, settings, state, picksResult.warning, daily),
+    brief: buildBrief(autonomy, settings, state, picksResult.warning, daily, persistentControl),
     currentCandidates: picks.slice(0, 20).map((pick) => ({
       eventId: pick.gameId || pick.eventId || pick.id || null,
       match: pick.match || `${pick.homeTeam || "Home"} vs ${pick.awayTeam || "Away"}`,
