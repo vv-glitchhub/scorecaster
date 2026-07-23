@@ -108,7 +108,31 @@ test("daily worker is wired behind V12 and stores bounded decision tickets", asy
   assert.match(worker, /unifiedSportsData: decision\.unifiedSportsData/);
   assert.match(runner, /runAutonomousPaperAgentV2/);
   assert.match(runner, /persistentUtcDailyPickLimit: true/);
+  assert.match(runner, /persistentDailyExposureCap: true/);
+  assert.match(runner, /sameEventDailyDuplicateBlock: true/);
   assert.match(runner, /hardMaxStakePercent: 1/);
   assert.match(route, /runAutonomousScorecasterV12/);
   assert.match(packageJson, /autonomous-daily-governor\.test\.mjs/);
+});
+
+test("Mission Control exposes the same persistent budget on web and native mobile", async () => {
+  const root = new URL("../", import.meta.url);
+  const source = (path) => readFile(new URL(path, root), "utf8");
+  const [api, web, mobile] = await Promise.all([
+    source("app/api/cloud/autonomy-mission-control/route.js"),
+    source("app/mission-control/MissionControlClient.jsx"),
+    source("mobile/src/screens/MissionControlScreen.tsx")
+  ]);
+  for (const token of ["picksUsed", "picksRemaining", "stakeUsed", "exposureCap", "exposureRemaining", "hardLimits"]) {
+    assert.match(api, new RegExp(token));
+    assert.match(web, new RegExp(token));
+    assert.match(mobile, new RegExp(token));
+  }
+  assert.match(api, /gte\("created_at", dayStart\)/);
+  assert.match(api, /autonomy-mission-control-v12-daily-governor/);
+  assert.match(web, /persistent UTC/);
+  assert.match(web, /1% \/ 5% \/ 2\.5%/);
+  assert.match(mobile, /PERSISTENT UTC DAILY BUDGET/);
+  assert.match(mobile, /maxStakePercent/);
+  assert.doesNotMatch(api, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 });
