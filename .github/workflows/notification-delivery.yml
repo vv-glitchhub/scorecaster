@@ -49,7 +49,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Validate autonomous agent configuration
+      - name: Validate Autonomous Scorecaster V12 configuration
         env:
           APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
@@ -63,7 +63,7 @@ jobs:
           esac
           test "${#CRON_SECRET}" -ge 16
 
-      - name: Run Autonomous Paper Agent cycle
+      - name: Run Autonomous Scorecaster V12 cycle
         env:
           APP_URL: ${{ secrets.SCORECASTER_NOTIFICATION_DELIVERY_URL }}
           CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
@@ -73,7 +73,7 @@ jobs:
             --max-time 55 \
             --header "Authorization: Bearer ${CRON_SECRET}" \
             --header "Accept: application/json" \
-            "${APP_URL%/}/api/internal/autonomous-agent"
+            "${APP_URL%/}/api/internal/autonomous-v12"
 
   settle:
     if: ${{ vars.SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true' }}
