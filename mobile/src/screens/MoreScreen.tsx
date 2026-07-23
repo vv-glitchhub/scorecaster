@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
 import { ActionButton, Card, styles } from "../ui";
+import AutonomousV12Screen from "./AutonomousV12Screen";
 import DataLayerScreen from "./DataLayerScreen";
 import DiagnosticsScreen from "./DiagnosticsScreen";
 
@@ -14,14 +15,15 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   const { tr } = useLanguage();
   const [diagnosticsOpen, setDiagnosticsOpen] = useState(false);
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
+  const [autonomousOpen, setAutonomousOpen] = useState(false);
 
-  if (diagnosticsOpen || dataLayerOpen) {
+  if (diagnosticsOpen || dataLayerOpen || autonomousOpen) {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
-          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); }} tone="secondary" compact />
+          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setAutonomousOpen(false); }} tone="secondary" compact />
         </View>
-        {diagnosticsOpen ? <DiagnosticsScreen /> : <DataLayerScreen />}
+        {diagnosticsOpen ? <DiagnosticsScreen /> : dataLayerOpen ? <DataLayerScreen /> : <AutonomousV12Screen />}
       </View>
     );
   }
@@ -60,8 +62,17 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
       <View style={styles.mobileHero}>
         <Text style={styles.kicker}>{tr({ fi: "SCORECASTER MOBILE", en: "SCORECASTER MOBILE", es: "SCORECASTER MOBILE" })}</Text>
         <Text style={styles.title}>{tr({ fi: "Lisää työkalut ilman ahdasta alapalkkia", en: "More tools without a crowded tab bar", es: "Más herramientas sin una barra saturada" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Tracking, analytics, diagnostics, the data layer and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Seguimiento, analítica, diagnóstico, datos y perfil están aquí." })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Autonomia, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily primary actions stay in the tab bar. Autonomy, tracking, analytics, diagnostics, the data layer and profile live in this hub.", es: "Las acciones diarias quedan en la barra. Autonomía, seguimiento, analítica, diagnóstico y datos están aquí." })}</Text>
       </View>
+
+      <Pressable accessibilityLabel={tr({ fi: "Avaa Autonomous Scorecaster V12", en: "Open Autonomous Scorecaster V12", es: "Abrir Autonomous Scorecaster V12" })} accessibilityRole="button" onPress={() => setAutonomousOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
+        <Card>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "AUTONOMIA & OPPIMINEN", en: "AUTONOMY & LEARNING", es: "AUTONOMÍA & APRENDIZAJE" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V12</Text></View></View>
+          <Text style={styles.cardTitle}>{tr({ fi: "Autonomous Scorecaster", en: "Autonomous Scorecaster", es: "Scorecaster autónomo" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Paperivalinnat, virtuaalipanostus, CLV- ja kalibrointioppiminen, champion–challenger, riskin automaattinen kiristys ja hätäjarru.", en: "Paper picks, virtual staking, CLV and calibration learning, champion–challenger, automatic risk tightening and a kill switch.", es: "Selecciones simuladas, aprendizaje CLV, champion–challenger y freno de emergencia." })}</Text>
+          <Text style={styles.openLabel}>{tr({ fi: "Avaa autonomiakeskus", en: "Open autonomy center", es: "Abrir centro autónomo" })} →</Text>
+        </Card>
+      </Pressable>
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa päätösdiagnostiikka", en: "Open decision diagnostics", es: "Abrir diagnóstico de decisiones" })} accessibilityRole="button" onPress={() => setDiagnosticsOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
@@ -74,7 +85,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa yhdistetty datakerros", en: "Open unified data layer", es: "Abrir capa de datos" })} accessibilityRole="button" onPress={() => setDataLayerOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
-          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "DATA & AI", en: "DATA & AI", es: "DATOS & IA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V1</Text></View></View>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>{tr({ fi: "DATA & AI", en: "DATA & AI", es: "DATOS & IA" })}</Text><View style={styles.badge}><Text style={styles.badgeText}>V2</Text></View></View>
           <Text style={styles.cardTitle}>{tr({ fi: "Unified Sports Data", en: "Unified Sports Data", es: "Datos deportivos unificados" })}</Text>
           <Text style={styles.muted}>{tr({ fi: "Näe mitä odds-, kokoonpano-, loukkaantumis-, vire-, lepo-, matka-, sää- ja uutisdataa AI käytti sekä mihin se vaikutti.", en: "See which odds, lineup, injury, form, rest, travel, weather and news data AI used and how it affected the analysis.", es: "Consulta qué datos utilizó la IA y cómo afectaron al análisis." })}</Text>
           <Text style={styles.openLabel}>{tr({ fi: "Avaa data-audit", en: "Open data audit", es: "Abrir auditoría" })} →</Text>
