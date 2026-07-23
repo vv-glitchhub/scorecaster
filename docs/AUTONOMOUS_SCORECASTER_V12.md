@@ -142,7 +142,7 @@ All tables use forced RLS:
 - only `service_role` writes runtime state, learning cycles and audit rows
 - anonymous access is revoked
 
-Learning-cycle retention is bounded by the protected `trim_autonomous_v12_learning_cycles` function.
+Learning-cycle retention is bounded by the protected `trim_autonomous_v12_learning_cycles` function. Decision-audit retention is enforced after every insert and preserves only the 5,000 newest rows per user.
 
 ## Verified health contract
 
@@ -263,6 +263,7 @@ Required automated checks include:
 - Kelly and exposure caps
 - shadow-only champion–challenger governance
 - forced RLS and service-role write checks
+- bounded learning and audit retention
 - account export and deletion coverage
 - protected worker authorization
 - web and native control centers
