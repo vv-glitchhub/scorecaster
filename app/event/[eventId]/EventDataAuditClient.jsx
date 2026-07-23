@@ -1,0 +1,33 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import UnifiedDataLedger from "../../components/UnifiedDataLedger";
+import { EmptyState } from "../../components/ProductUI";
+import { useLanguage } from "../../components/LanguageProvider";
+
+export default function EventDataAuditClient({ eventId, sport }) {
+  const { tr } = useLanguage();
+  const [state, setState] = useState({ loading: true, ledger: null, error: "" });
+
+  useEffect(() => {
+    let active = true;
+    async function load() {
+      try {
+        const query = new URLSearchParams({ eventId });
+        if (sport) query.set("sports", sport);
+        const response = await fetch(`/api/data-layer?${query}`, { cache: "no-store" });
+        const payload = await response.json();
+        if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Data audit unavailable");
+        if (active) setState({ loading: false, ledger: payload.data?.[0]?.ledger || null, error: "" });
+      } catch (error) {
+        if (active) setState({ loading: false, ledger: null, error: error instanceof Error ? error.message : "Data audit unavailable" });
+      }
+    }
+    void load();
+    return () => { active = false; };
+  }, [eventId, sport]);
+
+  if (state.loading) return <div className="sc-surface rounded-[1.5rem] p-6 text-sm text-[var(--sc-muted)]">{tr({ fi: "Kootaan AI:n data-auditointia…", en: "Building the AI data audit…", es: "Preparando la auditoría de datos…" })}</div>;
+  if (!state.ledger) return <EmptyState title={tr({ fi: "Yhdistettyä data-auditointia ei ole saatavilla", en: "Unified data audit is unavailable", es: "La auditoría unificada no está disponible" })} description={state.error || tr({ fi: "Puuttuvaa provider-dataa ei korvata arvauksilla.", en: "Missing provider data is not replaced with guesses.", es: "Los datos faltantes no se sustituyen con suposiciones." })} />;
+  return <UnifiedDataLedger ledger={state.ledger} />;
+}

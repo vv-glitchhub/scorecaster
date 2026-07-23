@@ -1,0 +1,68 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useLanguage } from "../components/LanguageProvider";
+import UnifiedDataLedger from "../components/UnifiedDataLedger";
+import { DecisionBadge, EmptyState, MetricTile, PageHero, SectionHeader, TrustBar } from "../components/ProductUI";
+
+export default function UnifiedDataLayerClient() {
+  const { tr } = useLanguage();
+  const [state, setState] = useState({ loading: true, error: "", data: [], meta: null });
+  const [selectedId, setSelectedId] = useState("");
+
+  async function load() {
+    setState((value) => ({ ...value, loading: true, error: "" }));
+    try {
+      const response = await fetch("/api/data-layer", { cache: "no-store" });
+      const payload = await response.json();
+      if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Unified data unavailable");
+      setState({ loading: false, error: "", data: payload.data || [], meta: payload });
+      setSelectedId((current) => current || payload.data?.[0]?.eventId || "");
+    } catch (error) {
+      setState({ loading: false, error: error instanceof Error ? error.message : "Unified data unavailable", data: [], meta: null });
+    }
+  }
+
+  useEffect(() => { void load(); }, []);
+  const selected = useMemo(() => state.data.find((row) => row.eventId === selectedId) || state.data[0] || null, [state.data, selectedId]);
+  const coverage = state.data.reduce((sum, row) => sum + Number(row.ledger?.coverage?.verifiedCoverageRate || 0), 0) / Math.max(1, state.data.length);
+  const multiProvider = state.data.filter((row) => Number(row.ledger?.coverage?.independentOddsProviders || 1) >= 2).length;
+  const usedSignals = state.data.reduce((sum, row) => sum + Number(row.ledger?.coverage?.usedFamilies || 0), 0);
+
+  return (
+    <div className="space-y-8">
+      <PageHero
+        tone="blue"
+        eyebrow="Unified Sports Data V1"
+        title={tr({ fi: "Yksi varmennettu datakerros markkinalle, kontekstille ja AI:lle", en: "One verified data layer for market, context and AI", es: "Una capa verificada de datos para mercado, contexto e IA" })}
+        description={tr({
+          fi: "Useat odds-providerit, kokoonpanot, loukkaantumiset, aloittajat, lepo, matkustus, vire, sää, markkinaliikkeet, closing odds ja uutislähteiden luotettavuus näkyvät samassa ledgerissä.",
+          en: "Multiple odds providers, lineups, injuries, starters, rest, travel, form, weather, market movement, closing odds and news reliability appear in one ledger.",
+          es: "Proveedores de cuotas, alineaciones, lesiones, descanso, viajes, forma, clima, movimientos y fiabilidad de noticias en un solo registro."
+        })}
+        actions={<><button type="button" className="sc-button-primary" onClick={() => void load()} disabled={state.loading}>{state.loading ? "…" : tr({ fi: "Päivitä data", en: "Refresh data", es: "Actualizar" })}</button><Link href="/diagnostics-v2" className="sc-button-secondary">Decision Diagnostics</Link></>}
+        aside={<div className="grid grid-cols-2 gap-2"><MetricTile compact label={tr({ fi: "Kohteita", en: "Selections", es: "Selecciones" })} value={state.data.length} /><MetricTile compact label={tr({ fi: "Varmennettu", en: "Verified", es: "Verificado" })} value={`${Math.round(coverage * 100)}%`} tone="blue" /><MetricTile compact label={tr({ fi: "Multi-provider", en: "Multi-provider", es: "Multi-proveedor" })} value={multiProvider} tone="green" /><MetricTile compact label={tr({ fi: "AI-signaaleja", en: "AI signals", es: "Señales IA" })} value={usedSignals} tone="purple" /></div>}
+      />
+
+      <TrustBar items={[
+        { label: tr({ fi: "Todennäköisyys", en: "Probability", es: "Probabilidad" }), value: "no-vig market consensus", tone: "info" },
+        { label: tr({ fi: "Konteksti", en: "Context", es: "Contexto" }), value: tr({ fi: "rajattu ja jäljitettävä", en: "bounded and traceable", es: "limitado y trazable" }), tone: "good" },
+        { label: tr({ fi: "Korotus", en: "Upgrade", es: "Mejora" }), value: tr({ fi: "estetty", en: "disabled", es: "desactivada" }), tone: "warning" },
+        { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: "paper-only", tone: "warning" }
+      ]} />
+
+      {state.error && <div className="rounded-[1.2rem] border border-rose-400/30 bg-rose-400/10 p-5 text-rose-200">{state.error}</div>}
+      {!state.loading && !state.error && state.data.length === 0 && <EmptyState title={tr({ fi: "Nykyisiä kohteita ei ole", en: "No current selections", es: "No hay selecciones" })} description={tr({ fi: "Datakerros täyttyy Top Picks -kohteista.", en: "The data layer is populated from Top Picks.", es: "La capa se llena desde Top Picks." })} />}
+
+      {state.data.length > 0 && <section className="space-y-4">
+        <SectionHeader eyebrow={tr({ fi: "Kohteet", en: "Selections", es: "Selecciones" })} title={tr({ fi: "Valitse tarkastettava data-audit", en: "Choose a data audit", es: "Elige una auditoría" })} />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {state.data.map((row) => <button type="button" key={row.eventId} onClick={() => setSelectedId(row.eventId)} className={`rounded-[1.3rem] border p-5 text-left transition ${selected?.eventId === row.eventId ? "border-blue-300 bg-blue-300/10" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-blue-300/40"}`}><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{row.match}</div><div className="mt-1 text-sm text-[var(--sc-muted)]">{row.selection} · {Number(row.odds || 0).toFixed(2)}</div></div><DecisionBadge decision={row.decision} /></div><div className="mt-4 flex flex-wrap gap-2 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-faint)]"><span>{row.ledger?.coverage?.usedFamilies || 0} used</span><span>{Math.round(Number(row.ledger?.coverage?.verifiedCoverageRate || 0) * 100)}% verified</span><span>{row.ledger?.coverage?.independentOddsProviders || 1} odds providers</span></div></button>)}
+        </div>
+      </section>}
+
+      {selected?.ledger && <UnifiedDataLedger ledger={selected.ledger} />}
+    </div>
+  );
+}
