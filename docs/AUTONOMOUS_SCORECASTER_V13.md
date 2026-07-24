@@ -95,8 +95,8 @@ Published probability remains the no-vig market consensus. Context and learning 
 
 ## Production activation
 
-1. Apply all 15 migrations from `config/release-readiness.json` in order.
-2. Verify `scorecaster_autonomous_agent_v2.sql` is the final migration.
+1. Apply all 17 migrations from `config/release-readiness.json` in order.
+2. Verify `scorecaster_shadow_learning_v1.sql` is the final migration.
 3. Configure the existing Supabase admin, odds-provider and protected worker secrets.
 4. Run production schema verification.
 5. Run protected worker probes.
