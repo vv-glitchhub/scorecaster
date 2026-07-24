@@ -1,15 +1,27 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import { LanguageProvider } from "./components/LanguageProvider";
+import PwaRegister from "./components/PwaRegister";
 
 export const metadata = {
+  metadataBase: new URL("https://scorecaster.vercel.app"),
   title: {
     default: "Scorecaster",
     template: "%s | Scorecaster"
   },
   description: "Sports decision intelligence, risk control and virtual paper tracking in Finnish, English and Spanish.",
   applicationName: "Scorecaster",
-  category: "sports"
+  category: "sports",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.svg",
+    apple: "/icon.svg"
+  },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Scorecaster"
+  }
 };
 
 export const viewport = {
@@ -39,6 +51,7 @@ export default function RootLayout({ children }) {
       <body>
         <LanguageProvider>
           <AppShell>{children}</AppShell>
+          <PwaRegister />
         </LanguageProvider>
       </body>
     </html>
