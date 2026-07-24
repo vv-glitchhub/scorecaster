@@ -62,6 +62,8 @@ Exit criteria:
 
 ### P1 — Data quality, observability and outcome measurement
 
+Related issue: [#75](https://github.com/vv-glitchhub/scorecaster/issues/75)
+
 Work:
 
 1. Build a production provider scorecard by sport and league: availability, freshness, fixture match rate, bookmaker coverage, disagreement and incident rate.
@@ -81,6 +83,8 @@ Proposed beta targets:
 - zero live-data API responses served from the PWA cache
 
 ### P2 — Product clarity and repeat use
+
+Related issue: [#76](https://github.com/vv-glitchhub/scorecaster/issues/76)
 
 Work:
 
@@ -141,11 +145,11 @@ Exit criteria:
 
 1. Merge this roadmap and use it as the single planning reference.
 2. Complete issue #73 and consolidate duplicate production-activation tasks from issue #9.
-3. Produce a machine-readable production evidence artifact from the existing activation tooling.
+3. Implement the production evidence and provider scorecard in issue #75.
 4. Run controlled two-user and hard-cap tests in production-safe accounts.
 5. Enable Shadow Learning only after every P0 gate passes.
-6. Establish the provider/closing-line scorecard before expanding league coverage.
-7. Move to mobile internal testing only after web production proof is stable.
+6. Complete the quick-use and daily-brief consolidation in issue #76.
+7. Move to mobile internal testing in issue #12 only after web production proof is stable.
 
 ## Delivery rules
 
