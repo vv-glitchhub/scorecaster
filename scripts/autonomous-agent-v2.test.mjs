@@ -74,7 +74,7 @@ test("performance guard pauses after the configured loss streak and keeps learni
   assert.equal(guard.shadowLearningOnly, true);
 });
 
-test("performance guard learns conservatively before the minimum sample", () => {
+test("performance guard stays conservative before the minimum sample", () => {
   const guard = buildPerformanceGuard({
     history: [
       settled("win", 10, 2, 1.9, "2026-07-21T10:00:00.000Z"),
@@ -82,7 +82,7 @@ test("performance guard learns conservatively before the minimum sample", () => 
     ],
     bankroll: 1000
   });
-  assert.equal(guard.status, "learning");
+  assert.equal(guard.status, "watch");
   assert.equal(guard.stakeMultiplier, 0.5);
   assert.equal(guard.resolvedSample, 2);
 });
