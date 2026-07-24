@@ -11,11 +11,13 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 15);
+  assert.equal(manifest.supabaseMigrations.length, 17);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
@@ -32,14 +34,19 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 18);
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/shadow-learning" && item.method === "GET"));
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 19);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-circuit-breakers" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-mission-control" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-governance" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-database-hard-caps" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-audit" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-emergency-stop" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-storage" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-two-user-isolation" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-promotion-boundary" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
 });
 
@@ -52,12 +59,16 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "supabaseMigrations",
     "scorecaster_autonomous_agent.sql",
     "scorecaster_autonomous_agent_v2.sql",
+    "scorecaster_autonomous_v13_hard_caps.sql",
+    "scorecaster_shadow_learning_v1.sql",
     "requiredSecurityHeaders",
     "mobile/store.config.json",
     "mobile/store/google-play-listing.json",
     ".github/workflows/production-smoke.yml"
   ]) assert.match(audit, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(audit, /Autonomous Agent V2 must run immediately after V1/);
+  assert.match(audit, /Autonomous V13 hard caps must run immediately after V2/);
+  assert.match(audit, /Shadow Learning must run immediately after V13 hard caps/);
   assert.match(audit, /API responses must remain no-store/);
   assert.match(audit, /External verification still required/);
   assert.match(audit, /example\\\.com/);

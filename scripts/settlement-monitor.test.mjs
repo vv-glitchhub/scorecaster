@@ -63,16 +63,21 @@ test("internal settlement route is secret protected and fail closed", async () =
   assert.doesNotMatch(route, /ODDS_API_KEY|SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET\s*:/);
 });
 
-test("scheduler keeps settlement independent from watchlist and notification workers", async () => {
+test("scheduler keeps settlement independent and runs Shadow Learning after it", async () => {
   const workflow = await source(".github/workflows/notification-delivery.yml");
   const settleStart = workflow.indexOf("  settle:");
+  const shadowStart = workflow.indexOf("  shadow-learning:");
   const deliverStart = workflow.indexOf("  deliver:");
-  assert.ok(settleStart >= 0 && deliverStart > settleStart);
-  const settleBlock = workflow.slice(settleStart, deliverStart);
+  assert.ok(settleStart >= 0 && shadowStart > settleStart && deliverStart > shadowStart);
+  const settleBlock = workflow.slice(settleStart, shadowStart);
+  const shadowBlock = workflow.slice(shadowStart, deliverStart);
   assert.match(settleBlock, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED/);
   assert.match(settleBlock, /Run Settlement Monitor cycle/);
   assert.match(settleBlock, /\/api\/internal\/settlement-monitor/);
   assert.doesNotMatch(settleBlock, /needs:/);
+  assert.match(shadowBlock, /needs: settle/);
+  assert.match(shadowBlock, /SCORECASTER_SHADOW_LEARNING_ENABLED/);
+  assert.match(shadowBlock, /\/api\/internal\/shadow-learning/);
   assert.match(workflow, /Authorization: Bearer \$\{CRON_SECRET\}/);
 });
 

@@ -74,9 +74,15 @@ test("performance guard pauses after the configured loss streak and keeps learni
   assert.equal(guard.shadowLearningOnly, true);
 });
 
-test("performance guard learns conservatively before the minimum sample", () => {
-  const guard = buildPerformanceGuard({ history: [settled("win"), settled("loss")], bankroll: 1000 });
-  assert.equal(guard.status, "learning");
+test("performance guard stays conservative before the minimum sample", () => {
+  const guard = buildPerformanceGuard({
+    history: [
+      settled("win", 10, 2, 1.9, "2026-07-21T10:00:00.000Z"),
+      settled("win", 10, 2, 1.9, "2026-07-22T10:00:00.000Z")
+    ],
+    bankroll: 1000
+  });
+  assert.equal(guard.status, "watch");
   assert.equal(guard.stakeMultiplier, 0.5);
   assert.equal(guard.resolvedSample, 2);
 });
@@ -201,7 +207,7 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(worker, /realMoneyBetting: false/);
   assert.match(dailyWorker, /buildAutonomousRiskGovernor/);
   assert.match(dailyWorker, /applyAutonomousSystemCaps/);
-  assert.match(riskGovernor, /systemMaxStakePercent/);
+  assert.match(riskGovernor, /HARD_MAX_STAKE_PERCENT/);
   assert.match(runner, /runGovernedAutonomousPaperAgentV13/);
   assert.match(runner, /autonomous-scorecaster-v13/);
   assert.match(runner, /persistentUtcDailyPickLimit/);
