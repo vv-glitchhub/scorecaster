@@ -108,7 +108,7 @@ test("daily worker is wired behind V12 and stores bounded decision tickets", asy
   assert.match(worker, /unifiedSportsData: decision\.unifiedSportsData/);
   assert.match(runner, /runAutonomousPaperAgentV2/);
   assert.match(runner, /persistentUtcDailyPickLimit: true/);
-  assert.match(runner, /persistentDailyExposureCap: true/);
+  assert.match(runner, /persistentUtcDailyStakeCap: true/);
   assert.match(runner, /sameEventDailyDuplicateBlock: true/);
   assert.match(runner, /hardMaxStakePercent: 1/);
   assert.match(route, /runAutonomousScorecasterV12/);
