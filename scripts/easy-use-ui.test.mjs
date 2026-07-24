@@ -140,7 +140,7 @@ test("autonomous console exposes status first and keeps safety language intact",
   assert.match(autonomous, /PageHero/);
   assert.match(autonomous, /TrustBar/);
   assert.match(autonomous, /MetricTile/);
-  assert.match(autonomous, /Rajattu automaatio, selkeä tila/);
+  assert.match(autonomous, /Autonominen, mutta aina valvottu/);
   assert.match(autonomous, /Vain PLAY-päätös voidaan tallentaa/);
   assert.match(autonomous, /Ei talletuksia/);
   assert.match(autonomous, /fetch\("\/api\/cloud\/autonomous-agent"/);
