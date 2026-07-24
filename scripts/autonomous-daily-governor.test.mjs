@@ -109,8 +109,8 @@ test("daily worker is wired behind V12 and stores bounded decision tickets", asy
   assert.match(runner, /runAutonomousPaperAgentV2/);
   assert.match(runner, /persistentUtcDailyPickLimit: true/);
   assert.match(runner, /persistentUtcDailyStakeCap: true/);
-  assert.match(runner, /sameEventDailyDuplicateBlock: true/);
-  assert.match(runner, /hardMaxStakePercent: 1/);
+  assert.match(runner, /persistentSameEventDailyDeduplication: true/);
+  assert.match(runner, /systemMaxStakePercent: 1/);
   assert.match(route, /runAutonomousScorecasterV12/);
   assert.match(packageJson, /autonomous-daily-governor\.test\.mjs/);
 });
