@@ -7,6 +7,7 @@ import {
   summarizeSportsAnalyticsSnapshots
 } from "../../../lib/sports-analytics-ingestion.mjs";
 import { buildSportsAnalyticsInsights } from "../../../lib/sports-analytics-insights.mjs";
+import { buildSportsAnalyticsActivationPlan } from "../../../lib/sports-analytics-activation.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -201,6 +202,7 @@ export async function GET(request) {
     const now = Date.now();
     const summary = summarizeSportsAnalyticsSnapshots(data.rawSnapshots);
     const insights = buildSportsAnalyticsInsights({ snapshots: data.rawSnapshots, observations: data.observations, now });
+    const activationPlan = buildSportsAnalyticsActivationPlan(data.rawSnapshots);
     return response({
       ok: true,
       version: "sports-analytics-api-v2",
@@ -217,6 +219,7 @@ export async function GET(request) {
       filters: { sport: sport || null, eventId: eventId || null, hours, limit },
       summary,
       insights,
+      activationPlan,
       snapshots: data.snapshots,
       observations: data.observations,
       export: {
