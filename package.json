@@ -32,7 +32,7 @@
     "test:market-timeline": "node --test scripts/market-timeline.test.mjs",
     "test:intelligence": "node --test scripts/intelligence-readiness.test.mjs",
     "test:sports-intelligence": "node --test scripts/sports-intelligence-v1.test.mjs",
-    "test:sports-analytics": "node --test scripts/sports-analytics-catalog.test.mjs scripts/sports-analytics-ingestion.test.mjs scripts/sports-analytics-insights.test.mjs scripts/sports-analytics-activation.test.mjs",
+    "test:sports-analytics": "node --test scripts/sports-analytics-catalog.test.mjs scripts/sports-analytics-ingestion.test.mjs scripts/sports-analytics-insights.test.mjs scripts/sports-analytics-activation.test.mjs scripts/sports-analytics-quality.test.mjs",
     "test:unified-data": "node --test scripts/unified-sports-data-v1.test.mjs scripts/unified-sports-data-v2.test.mjs scripts/sportsgameodds-provider-v2.test.mjs scripts/unified-data-calibration.test.mjs scripts/unified-data-ui-v2.test.mjs",
     "test:provider-firewall": "node --test scripts/provider-firewall.test.mjs",
     "test:form-rest": "node --test scripts/form-rest-shadow.test.mjs",
