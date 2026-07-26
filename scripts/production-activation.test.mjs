@@ -45,12 +45,15 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
+  assert.match(runner, /verify-sports-analytics-schema\.sql/);
   assert.match(runner, /verify-autonomous-v13-hard-caps\.sql/);
+  assert.match(runner, /sportsAnalyticsVerified/);
   assert.match(runner, /sha256/);
 });
 
-test("schema verifier checks RLS, Sports Analytics, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
+test("schema verifiers check RLS, Sports Analytics, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
+  const sportsVerification = await source("scripts/verify-sports-analytics-schema.sql");
   const hardCapVerification = await source("scripts/verify-autonomous-v13-hard-caps.sql");
   const hardCapMigration = await source("supabase/scorecaster_autonomous_v13_hard_caps.sql");
   const unified = await source("supabase/scorecaster_unified_data.sql");
@@ -63,8 +66,6 @@ test("schema verifier checks RLS, Sports Analytics, V13 hard caps, Shadow Learni
   assert.match(sql, /has_table_privilege\('anon'/);
   assert.match(sql, /decision_diagnostic_snapshots/);
   assert.match(sql, /decision_diagnostic_alerts/);
-  assert.match(sql, /sports_analytics_snapshots/);
-  assert.match(sql, /sports_analytics_observations/);
   assert.match(sql, /autonomous_agent_decision_audit/);
   assert.match(sql, /autonomous_agent_daily_briefs/);
   assert.match(sql, /shadow_learning_samples/);
@@ -89,6 +90,10 @@ test("schema verifier checks RLS, Sports Analytics, V13 hard caps, Shadow Learni
   assert.match(sportsAnalytics, /sports_analytics_snapshots/);
   assert.match(sportsAnalytics, /sports_analytics_observations/);
   assert.match(sportsAnalytics, /force row level security/);
+  assert.match(sportsVerification, /sports_analytics_snapshots/);
+  assert.match(sportsVerification, /sports_analytics_observations/);
+  assert.match(sportsVerification, /directClientAccessDisabled/);
+  assert.match(sportsVerification, /paperOnly/);
   assert.match(autonomousV2, /status in \('running', 'success', 'error', 'deferred', 'paused'\)/);
   assert.match(autonomousV2, /force row level security/);
   assert.match(autonomousV2, /service_role/);
@@ -119,6 +124,7 @@ test("protected worker probes are bounded and activation reports exclude credent
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
   assert.match(runner, /autonomousV13HardCapsVerified/);
+  assert.match(runner, /sportsAnalyticsVerified/);
   assert.match(runner, /shadowLearningVerified/);
   assert.match(runner, /unexpectedly contains the database connection string/);
   assert.match(runner, /unexpectedly contains the worker secret/);
