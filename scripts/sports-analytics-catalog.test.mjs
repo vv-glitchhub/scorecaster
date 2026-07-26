@@ -59,6 +59,8 @@ test("golf proximity profile groups shots by starting distance", () => {
 
 test("generic expected-value helpers are deterministic", () => {
   assert.equal(calculateExpectedPoints({ probability: 0.38, points: 3 }), 1.14);
+  assert.equal(calculateExpectedPoints({ probability: null, points: 3 }), null);
+  assert.equal(golfDistanceBucket(null), null);
   assert.deepEqual(calculateExpectedDecisionValue({ chosenValue: 0.06, alternatives: [0.25, 0.12] }), {
     chosenValue: 0.06,
     bestAlternativeValue: 0.25,
