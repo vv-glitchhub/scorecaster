@@ -6,8 +6,8 @@ import { useLanguage } from "../components/LanguageProvider";
 import { EmptyState, MetricTile, PageHero, SectionHeader, TrustBar } from "../components/ProductUI";
 
 function pct(value, digits = 0) {
-  const number = Number(value);
-  return Number.isFinite(number) ? `${(number * 100).toFixed(digits)}%` : "–";
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(digits)}%` : "–";
 }
 
 function number(value, digits = 2) {
@@ -72,6 +72,46 @@ function ProviderCard({ name, provider }) {
   );
 }
 
+function Sparkline({ points = [] }) {
+  if (!points.length) return <div className="h-20 rounded-xl bg-[var(--sc-surface-soft)]" />;
+  const values = points.map((point) => Number(point.value)).filter(Number.isFinite);
+  const minimum = Math.min(...values);
+  const maximum = Math.max(...values);
+  const range = maximum - minimum || 1;
+  const coordinates = points.map((point, index) => {
+    const x = points.length === 1 ? 50 : index / (points.length - 1) * 100;
+    const y = 40 - ((Number(point.value) - minimum) / range) * 34;
+    return `${x},${y}`;
+  }).join(" ");
+  return (
+    <svg viewBox="0 0 100 44" role="img" aria-label="Metric trend" className="h-24 w-full overflow-visible">
+      <polyline points={coordinates} fill="none" stroke="var(--sc-brand)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+      {points.map((point, index) => {
+        const x = points.length === 1 ? 50 : index / (points.length - 1) * 100;
+        const y = 40 - ((Number(point.value) - minimum) / range) * 34;
+        return <circle key={`${point.at}:${index}`} cx={x} cy={y} r="1.8" fill="var(--sc-brand)" />;
+      })}
+    </svg>
+  );
+}
+
+function TrendCard({ series }) {
+  const change = Number(series.absoluteChange);
+  const tone = change > 0 ? "text-emerald-300" : change < 0 ? "text-rose-300" : "text-[var(--sc-muted)]";
+  return (
+    <article className="rounded-[1.3rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5">
+      <div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{series.family} · {series.events} events</div><h3 className="mt-2 font-black text-[var(--sc-text)]">{series.metric}</h3></div><div className={`text-sm font-black ${tone}`}>{change > 0 ? "+" : ""}{number(change, 3)}</div></div>
+      <Sparkline points={series.points} />
+      <div className="grid grid-cols-3 gap-2 text-center text-xs"><div><div className="font-black text-[var(--sc-text)]">{number(series.latest, 3)}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">latest</div></div><div><div className="font-black text-[var(--sc-text)]">{series.samples}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">samples</div></div><div><div className="font-black text-[var(--sc-text)]">{series.providers}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">providers</div></div></div>
+    </article>
+  );
+}
+
+function IncidentCard({ incident }) {
+  const classes = incident.severity === "critical" ? "border-rose-400/30 bg-rose-400/10" : incident.severity === "warning" ? "border-amber-400/30 bg-amber-400/10" : "border-blue-400/25 bg-blue-400/10";
+  return <article className={`rounded-[1.2rem] border p-4 ${classes}`}><div className="text-[10px] font-black uppercase tracking-[0.16em] opacity-70">{incident.severity} · {incident.type}</div><div className="mt-2 font-black">{incident.title}</div><p className="mt-1 text-sm leading-6 opacity-80">{incident.message}</p></article>;
+}
+
 function GolfProfile({ rows = [], tr }) {
   if (!rows.length) return null;
   const maximum = Math.max(...rows.map((row) => Number(row.averageEndDistanceMeters || 0)), 1);
@@ -94,6 +134,7 @@ export default function SportsAnalyticsClient() {
   const [state, setState] = useState({ loading: true, error: "", payload: null, catalog: null });
   const [selectedSport, setSelectedSport] = useState("");
   const [definition, setDefinition] = useState(null);
+  const [selectedEventId, setSelectedEventId] = useState("");
 
   const load = useCallback(async () => {
     setState((current) => ({ ...current, loading: true, error: "" }));
@@ -154,15 +195,24 @@ export default function SportsAnalyticsClient() {
   }, [snapshots, payload]);
   const golfProfile = snapshots.find((row) => row.golfProfile?.length)?.golfProfile || [];
   const sportSummary = payload?.summary?.sports?.find((row) => row.sport === selectedSport) || {};
+  const metricSeries = useMemo(() => (payload?.insights?.metricSeries || []).filter((row) => row.sport === selectedSport).slice(0, 8), [payload, selectedSport]);
+  const leaderboards = useMemo(() => (payload?.insights?.leaderboards || []).filter((row) => row.sport === selectedSport).slice(0, 5), [payload, selectedSport]);
+  const eventDrilldowns = useMemo(() => (payload?.insights?.events || []).filter((row) => row.sport === selectedSport), [payload, selectedSport]);
+  const selectedEvent = eventDrilldowns.find((row) => row.eventId === selectedEventId) || eventDrilldowns[0] || null;
+  const csvHref = `/api/sports-analytics/export?sport=${encodeURIComponent(selectedSport)}&hours=168&limit=500`;
+
+  useEffect(() => {
+    setSelectedEventId(eventDrilldowns[0]?.eventId || "");
+  }, [selectedSport, eventDrilldowns]);
 
   return (
     <div className="space-y-10">
       <PageHero
         tone="purple"
-        eyebrow="Sports Analytics V1"
+        eyebrow="Sports Analytics V2"
         title={tr({ fi: "Automaattinen monilajinen datakeskus", en: "Automatic multi-sport data center", es: "Centro automático de datos multideporte" })}
         description={tr({ fi: "Scorecaster kerää jokaisesta varmennetusta tapahtumasta markkina-, laatu-, kokoonpano-, poissaolo-, lepo-, sää- ja kontekstihavainnot. Ulkoinen adapteri liittää samaan näkymään xG-, tracking-, pelaaja- ja golf-shot-datan.", en: "Scorecaster automatically captures market, quality, lineup, availability, workload, weather and context observations. One external adapter adds xG, tracking, player and golf-shot feeds.", es: "Scorecaster captura automáticamente datos de mercado, contexto, disponibilidad y rendimiento." })}
-        actions={<><button type="button" className="sc-button-primary" onClick={() => void load()} disabled={state.loading}>{state.loading ? "…" : tr({ fi: "Päivitä näkymä", en: "Refresh view", es: "Actualizar" })}</button><Link className="sc-button-secondary" href="/data-layer">Unified Data</Link><Link className="sc-button-ghost" href="/api/sports-analytics">API JSON</Link></>}
+        actions={<><button type="button" className="sc-button-primary" onClick={() => void load()} disabled={state.loading}>{state.loading ? "…" : tr({ fi: "Päivitä näkymä", en: "Refresh view", es: "Actualizar" })}</button><a className="sc-button-secondary" href={csvHref}>CSV</a><Link className="sc-button-secondary" href="/data-layer">Unified Data</Link><Link className="sc-button-ghost" href="/api/sports-analytics">API JSON</Link></>}
         aside={<div className="grid grid-cols-2 gap-2"><MetricTile compact label={tr({ fi: "Tapahtumia", en: "Events", es: "Eventos" })} value={payload?.summary?.eventCount || 0} /><MetricTile compact label={tr({ fi: "Havaintoja", en: "Observations", es: "Observaciones" })} value={payload?.summary?.observationCount || 0} tone="purple" /><MetricTile compact label={tr({ fi: "Providereita", en: "Providers", es: "Proveedores" })} value={payload?.summary?.providerCount || 0} tone="green" /><MetricTile compact label={tr({ fi: "Automaattinen", en: "Automatic", es: "Automático" })} value="30 min" tone="blue" /></div>}
       />
 
@@ -195,6 +245,10 @@ export default function SportsAnalyticsClient() {
         <div className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow="Coverage map" title={tr({ fi: "Dataperheiden kattavuus", en: "Data-family coverage", es: "Cobertura por familia" })} description={tr({ fi: "Operational-rivit näkyvät heti. Edistyneiden metriikoiden prosentti kasvaa vain, kun provider todella toimittaa kyseisen xG-, tracking- tai expected-mittarin.", en: "Operational rows appear immediately. Advanced coverage increases only when a provider actually supplies the xG, tracking or expected metric.", es: "La cobertura avanzada aumenta solo con métricas reales del proveedor." })} /><div className="mt-5 grid gap-3 sm:grid-cols-2">{familyRows.map((row) => <FamilyBar key={row.family} label={row.family} coverage={row.coverage} observedRows={row.observedRows} available={row.available} required={row.required} />)}</div></div>
       </section>
 
+      {(payload?.insights?.incidents || []).length > 0 && <section className="space-y-4"><SectionHeader eyebrow="Automatic audit" title={tr({ fi: "Datalaadun hälytykset", en: "Data-quality alerts", es: "Alertas de calidad" })} description={tr({ fi: "Hälytykset syntyvät tuoreudesta, kattavuudesta ja provider-laadusta. Ne eivät muuta tuotantotodennäköisyyttä.", en: "Alerts monitor freshness, coverage and provider quality. They never change the production probability.", es: "Las alertas supervisan actualidad y calidad sin cambiar probabilidades." })} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{payload.insights.incidents.map((incident) => <IncidentCard key={incident.id} incident={incident} />)}</div></section>}
+
+      <section className="space-y-4"><SectionHeader eyebrow="Metric trend" title={tr({ fi: "Mittareiden historiallinen kehitys", en: "Historical metric trends", es: "Tendencias históricas" })} description={tr({ fi: "Jokainen piste on 30 minuutin bucketin keskiarvo. Näet suunnan, otosmäärän, tapahtumat ja providerit.", en: "Each point is the average inside a 30-minute bucket, with direction, sample size, events and providers.", es: "Cada punto es el promedio de un intervalo de 30 minutos." })} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">{metricSeries.length ? metricSeries.map((series) => <TrendCard key={series.key} series={series} />) : <div className="col-span-full rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5 text-sm text-[var(--sc-muted)]">Historical trends appear after multiple automatic capture cycles.</div>}</div></section>
+
       <section className="grid gap-5 lg:grid-cols-2">
         <div className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Saatavilla", en: "Available", es: "Disponible" })} title={tr({ fi: "Automaattisesti kerätyt mittarit", en: "Automatically captured metrics", es: "Métricas capturadas" })} /><div className="mt-5 flex max-h-72 flex-wrap gap-2 overflow-y-auto">{availableMetrics.length ? availableMetrics.map((metric) => <span key={metric} className="rounded-full border border-emerald-400/25 bg-emerald-400/10 px-3 py-1.5 text-xs font-bold text-emerald-200">{metric}</span>) : <span className="text-sm text-[var(--sc-muted)]">No metrics yet.</span>}</div></div>
         <div className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Puuttuu", en: "Missing", es: "Falta" })} title={tr({ fi: "Seuraavaksi aktivoitavat mittarit", en: "Metrics to activate next", es: "Métricas por activar" })} /><div className="mt-5 flex max-h-72 flex-wrap gap-2 overflow-y-auto">{missingMetrics.slice(0, 120).map((metric) => <span key={metric} className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1.5 text-xs font-bold text-amber-100">{metric}</span>)}</div></div>
@@ -202,11 +256,17 @@ export default function SportsAnalyticsClient() {
 
       <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow="Providers" title={tr({ fi: "Automaattisten datalähteiden tila", en: "Automatic provider status", es: "Estado de proveedores" })} description={tr({ fi: "Scorecasterin sisäinen datakerros toimii ilman uutta avainta. Tracking- ja xG-provider aktivoituu palvelinympäristön asetuksilla.", en: "Scorecaster's internal layer works without a new key. The tracking/xG provider activates through server environment settings.", es: "La capa interna funciona sin clave adicional; el proveedor externo se activa en el servidor." })} /><div className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-3">{providers.map(([name, provider]) => <ProviderCard key={name} name={name} provider={provider} />)}</div></section>
 
+      <section className="space-y-4"><SectionHeader eyebrow="Provider quality" title={tr({ fi: "Providerien laatu ja tuoreus", en: "Provider quality and freshness", es: "Calidad y actualidad" })} description={tr({ fi: "Arvosana yhdistää luottamuksen, confidence-arvon, tuoreuden ja havaintomäärän.", en: "The grade combines trust, confidence, freshness and observation volume.", es: "La nota combina confianza, actualidad y volumen." })} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">{(payload?.insights?.providerQuality || []).map((provider) => <article key={provider.provider} className="rounded-[1.3rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5"><div className="flex items-start justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{provider.status}</div><div className="mt-2 font-black text-[var(--sc-text)]">{provider.provider}</div></div><div className="grid h-12 w-12 place-items-center rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] text-xl font-black">{provider.grade}</div></div><div className="mt-5 grid grid-cols-2 gap-2 text-xs text-[var(--sc-muted)]"><span>{provider.observations} rows</span><span>{provider.metrics} metrics</span><span>trust {pct(provider.averageTrust)}</span><span>confidence {pct(provider.averageConfidence)}</span></div><div className="mt-3 text-xs text-[var(--sc-faint)]">Latest {dateTime(provider.latestAt, locale)}</div></article>)}</div></section>
+
+      {leaderboards.length > 0 && <section className="space-y-4"><SectionHeader eyebrow="Participant comparison" title={tr({ fi: "Pelaaja- ja joukkuevertailut", en: "Player and team comparisons", es: "Comparaciones de participantes" })} description={tr({ fi: "Vertailu syntyy automaattisesti, kun samaa mittaria saadaan vähintään kahdelle osallistujalle.", en: "A comparison appears automatically when the same metric exists for at least two participants.", es: "La comparación aparece con al menos dos participantes." })} /><div className="grid gap-4 lg:grid-cols-2">{leaderboards.map((board) => <article key={`${board.sport}:${board.metric}`} className="sc-surface rounded-[1.5rem] p-5"><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{board.family}</div><h3 className="mt-2 text-lg font-black text-[var(--sc-text)]">{board.metric}</h3><div className="mt-5 space-y-2">{board.participants.map((participant, index) => <div key={participant.participantId} className="grid grid-cols-[2rem_1fr_auto] items-center gap-3 rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-3"><div className="text-center font-black text-[var(--sc-faint)]">{index + 1}</div><div><div className="font-black text-[var(--sc-text)]">{participant.participantId}</div><div className="text-xs text-[var(--sc-muted)]">{participant.samples} samples · {participant.providers} providers</div></div><div className="font-mono font-black text-[var(--sc-text)]">{number(participant.average, 3)} {board.unit}</div></div>)}</div></article>)}</div></section>}
+
       <GolfProfile rows={golfProfile} tr={tr} />
 
-      <section className="space-y-4"><SectionHeader eyebrow={tr({ fi: "Tapahtumat", en: "Events", es: "Eventos" })} title={tr({ fi: "Viimeisimmät analytiikkasnapshotit", en: "Latest analytics snapshots", es: "Últimos snapshots" })} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{snapshots.map((row) => <article key={`${row.eventId}:${row.captureBucket}`} className="rounded-[1.3rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5"><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{row.league || row.sportKey}</div><h3 className="mt-2 text-lg font-black text-[var(--sc-text)]">{row.match}</h3><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{row.observationCount}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">rows</div></div><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{row.providerCount}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">providers</div></div><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{pct(row.coverageScore)}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">coverage</div></div></div><div className="mt-3 text-xs text-[var(--sc-muted)]">{dateTime(row.capturedAt, locale)}</div></article>)}</div></section>
+      <section className="space-y-4"><SectionHeader eyebrow={tr({ fi: "Tapahtumat", en: "Events", es: "Eventos" })} title={tr({ fi: "Viimeisimmät analytiikkasnapshotit", en: "Latest analytics snapshots", es: "Últimos snapshots" })} /><div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">{snapshots.map((row) => <button type="button" onClick={() => setSelectedEventId(row.eventId)} key={`${row.eventId}:${row.captureBucket}`} className={`rounded-[1.3rem] border p-5 text-left transition ${selectedEvent?.eventId === row.eventId ? "border-[var(--sc-brand)] bg-[var(--sc-brand-soft)]" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-[var(--sc-brand-border)]"}`}><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{row.league || row.sportKey}</div><h3 className="mt-2 text-lg font-black text-[var(--sc-text)]">{row.match}</h3><div className="mt-4 grid grid-cols-3 gap-2 text-center"><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{row.observationCount}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">rows</div></div><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{row.providerCount}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">providers</div></div><div className="rounded-xl bg-[var(--sc-surface)] p-2"><div className="font-black">{pct(row.coverageScore)}</div><div className="text-[9px] uppercase text-[var(--sc-faint)]">coverage</div></div></div><div className="mt-3 text-xs text-[var(--sc-muted)]">{dateTime(row.capturedAt, locale)}</div></button>)}</div></section>
 
-      <section className="sc-surface overflow-hidden rounded-[1.65rem]"><div className="p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Havainnot", en: "Observations", es: "Observaciones" })} title={tr({ fi: "Viimeisin normalisoitu data", en: "Latest normalized data", es: "Datos normalizados recientes" })} description={tr({ fi: "Kaikki providerit muutetaan samaan muotoon: perhe, mittari, arvo, aika, luottamus ja confidence.", en: "Every provider is normalized into family, metric, value, time, trust and confidence.", es: "Todos los proveedores usan el mismo formato normalizado." })} /></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="border-y border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]"><tr><th className="px-5 py-3">Time</th><th className="px-5 py-3">Family</th><th className="px-5 py-3">Metric</th><th className="px-5 py-3">Value</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Trust</th><th className="px-5 py-3">Confidence</th></tr></thead><tbody>{observations.slice(0, 80).map((row, index) => <tr key={`${row.eventId}:${row.metric}:${row.observedAt}:${index}`} className="border-b border-[var(--sc-border)] text-[var(--sc-muted)]"><td className="px-5 py-3">{dateTime(row.observedAt, locale)}</td><td className="px-5 py-3 font-bold capitalize text-[var(--sc-text)]">{row.family}</td><td className="px-5 py-3">{row.metric}</td><td className="px-5 py-3 font-mono text-[var(--sc-text)]">{number(row.value, 3)} {row.unit || ""}</td><td className="px-5 py-3">{row.provider}</td><td className="px-5 py-3">{pct(row.sourceTrust)}</td><td className="px-5 py-3">{pct(row.confidence)}</td></tr>)}</tbody></table></div></section>
+      {selectedEvent && <section className="sc-surface overflow-hidden rounded-[1.65rem]"><div className="p-5 sm:p-6"><SectionHeader eyebrow="Event drilldown" title={selectedEvent.match} description={`${selectedEvent.league || selectedEvent.sport} · ${selectedEvent.observationCount} observations · ${selectedEvent.providerCount} providers`} /><div className="mt-5 grid gap-3 sm:grid-cols-4"><MetricTile label="Coverage" value={pct(selectedEvent.coverageScore)} tone="purple" /><MetricTile label="Available" value={selectedEvent.availableMetrics?.length || 0} tone="green" /><MetricTile label="Missing" value={selectedEvent.missingMetrics?.length || 0} tone="yellow" /><MetricTile label="Captured" value={dateTime(selectedEvent.capturedAt, locale)} /></div></div><div className="overflow-x-auto"><table className="w-full min-w-[980px] text-left text-sm"><thead className="border-y border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]"><tr><th className="px-5 py-3">Participant</th><th className="px-5 py-3">Family</th><th className="px-5 py-3">Metric</th><th className="px-5 py-3">Value</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Trust</th><th className="px-5 py-3">Confidence</th></tr></thead><tbody>{selectedEvent.metrics.map((row, index) => <tr key={`${row.participantId}:${row.metric}:${index}`} className="border-b border-[var(--sc-border)] text-[var(--sc-muted)]"><td className="px-5 py-3 font-bold text-[var(--sc-text)]">{row.participantId || "–"}</td><td className="px-5 py-3 capitalize">{row.family}</td><td className="px-5 py-3">{row.metric}</td><td className="px-5 py-3 font-mono text-[var(--sc-text)]">{number(row.value, 3)} {row.unit || ""}</td><td className="px-5 py-3">{row.provider}</td><td className="px-5 py-3">{pct(row.sourceTrust)}</td><td className="px-5 py-3">{pct(row.confidence)}</td></tr>)}</tbody></table></div></section>}
+
+      <section className="sc-surface overflow-hidden rounded-[1.65rem]"><div className="p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Havainnot", en: "Observations", es: "Observaciones" })} title={tr({ fi: "Viimeisin normalisoitu data", en: "Latest normalized data", es: "Datos normalizados recientes" })} description={tr({ fi: "Kaikki providerit muutetaan samaan muotoon: perhe, mittari, arvo, aika, luottamus ja confidence.", en: "Every provider is normalized into family, metric, value, time, trust and confidence.", es: "Todos los proveedores usan el mismo formato normalizado." })} /></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead className="border-y border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]"><tr><th className="px-5 py-3">Time</th><th className="px-5 py-3">Family</th><th className="px-5 py-3">Metric</th><th className="px-5 py-3">Value</th><th className="px-5 py-3">Provider</th><th className="px-5 py-3">Trust</th><th className="px-5 py-3">Confidence</th></tr></thead><tbody>{observations.slice(0, 120).map((row, index) => <tr key={`${row.eventId}:${row.metric}:${row.observedAt}:${index}`} className="border-b border-[var(--sc-border)] text-[var(--sc-muted)]"><td className="px-5 py-3">{dateTime(row.observedAt, locale)}</td><td className="px-5 py-3 font-bold capitalize text-[var(--sc-text)]">{row.family}</td><td className="px-5 py-3">{row.metric}</td><td className="px-5 py-3 font-mono text-[var(--sc-text)]">{number(row.value, 3)} {row.unit || ""}</td><td className="px-5 py-3">{row.provider}</td><td className="px-5 py-3">{pct(row.sourceTrust)}</td><td className="px-5 py-3">{pct(row.confidence)}</td></tr>)}</tbody></table></div></section>
     </div>
   );
 }
