@@ -27,6 +27,7 @@ const report = {
   status: "running",
   migrations: [],
   schemaVerified: false,
+  sportsAnalyticsVerified: false,
   autonomousV13HardCapsVerified: false,
   shadowLearningVerified: false,
   probes: [],
@@ -106,6 +107,8 @@ async function verifySchema() {
   runPsql(["--file=scripts/verify-production-schema.sql"], "Production schema verification");
   report.schemaVerified = true;
   report.shadowLearningVerified = true;
+  runPsql(["--file=scripts/verify-sports-analytics-schema.sql"], "Sports Analytics schema verification");
+  report.sportsAnalyticsVerified = true;
   runPsql(["--file=scripts/verify-autonomous-v13-hard-caps.sql"], "Autonomous V13 hard-cap verification");
   report.autonomousV13HardCapsVerified = true;
 }
