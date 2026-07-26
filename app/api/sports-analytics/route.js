@@ -6,6 +6,7 @@ import {
   canonicalSportFromKey,
   summarizeSportsAnalyticsSnapshots
 } from "../../../lib/sports-analytics-ingestion.mjs";
+import { buildSportsAnalyticsInsights } from "../../../lib/sports-analytics-insights.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -98,8 +99,9 @@ async function loadStored(admin, { sport, eventId, hours, limit }) {
       .in("event_id", eventIds.slice(0, 100))
       .gte("captured_at", since)
       .order("captured_at", { ascending: false })
-      .limit(Math.min(2000, limit * 20));
+      .limit(Math.min(5000, limit * 30));
     if (sport) observationQuery = observationQuery.eq("canonical_sport", sport);
+    if (eventId) observationQuery = observationQuery.eq("event_id", eventId);
     const { data, error } = await observationQuery;
     if (error) throw error;
     observationRows = data || [];
@@ -196,11 +198,13 @@ export async function GET(request) {
       liveFallback = true;
     }
 
+    const now = Date.now();
     const summary = summarizeSportsAnalyticsSnapshots(data.rawSnapshots);
+    const insights = buildSportsAnalyticsInsights({ snapshots: data.rawSnapshots, observations: data.observations, now });
     return response({
       ok: true,
-      version: "sports-analytics-api-v1",
-      generatedAt: new Date().toISOString(),
+      version: "sports-analytics-api-v2",
+      generatedAt: new Date(now).toISOString(),
       storageAvailable,
       liveFallback,
       migrationRequired: storageAvailable ? null : "supabase/scorecaster_sports_analytics.sql",
@@ -212,8 +216,12 @@ export async function GET(request) {
       externalProvider: sportsAnalyticsProviderConfiguration(),
       filters: { sport: sport || null, eventId: eventId || null, hours, limit },
       summary,
+      insights,
       snapshots: data.snapshots,
       observations: data.observations,
+      export: {
+        csv: `/api/sports-analytics/export?${new URLSearchParams({ ...(sport ? { sport } : {}), ...(eventId ? { eventId } : {}), hours: String(hours), limit: String(limit) }).toString()}`
+      },
       safety: {
         probabilitySource: "no-vig market consensus",
         analyticsCanUpgradeDecision: false,
