@@ -91,16 +91,20 @@ for (const endpoint of protectedApis) {
 }
 
 const migrations = manifest.supabaseMigrations || [];
-check(migrations.length >= 17, "Release manifest must list the complete ordered Supabase rollout");
+check(migrations.length >= 18, "Release manifest must list the complete ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
+const unifiedDataIndex = migrations.indexOf("supabase/scorecaster_unified_data.sql");
+const sportsAnalyticsIndex = migrations.indexOf("supabase/scorecaster_sports_analytics.sql");
 const settlementIndex = migrations.indexOf("supabase/scorecaster_settlement_monitor.sql");
 const autonomousV1Index = migrations.indexOf("supabase/scorecaster_autonomous_agent.sql");
 const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_agent_v2.sql");
 const autonomousV13HardCapsIndex = migrations.indexOf("supabase/scorecaster_autonomous_v13_hard_caps.sql");
 const shadowLearningIndex = migrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
-check(settlementIndex >= 0, "Settlement Monitor migration must be listed");
+check(unifiedDataIndex >= 0, "Unified Data migration must be listed");
+check(sportsAnalyticsIndex === unifiedDataIndex + 1, "Sports Analytics must run immediately after Unified Data");
+check(settlementIndex === sportsAnalyticsIndex + 1, "Settlement Monitor must run immediately after Sports Analytics");
 check(autonomousV1Index === settlementIndex + 1, "Autonomous Agent V1 must run immediately after Settlement Monitor");
 check(autonomousV2Index === autonomousV1Index + 1, "Autonomous Agent V2 must run immediately after V1");
 check(autonomousV13HardCapsIndex === autonomousV2Index + 1, "Autonomous V13 hard caps must run immediately after V2");
@@ -159,7 +163,8 @@ for (const requiredFile of [
   "scripts/verify-autonomous-v13-hard-caps.sql",
   ".github/workflows/production-activation.yml",
   "docs/PRODUCTION_ACTIVATION_V1.md",
-  "docs/SHADOW_LEARNING_V1.md"
+  "docs/SHADOW_LEARNING_V1.md",
+  "docs/SPORTS_ANALYTICS_EXPANSION_V1.md"
 ]) {
   check(await exists(requiredFile), `${requiredFile} is required for release verification`);
 }
