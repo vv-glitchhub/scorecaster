@@ -113,7 +113,7 @@ async function verifySchema() {
 async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
-  assert(migrations.length >= 17, "Release manifest does not contain the complete production rollout");
+  assert(migrations.length >= 18, "Release manifest does not contain the complete production rollout");
 
   for (const migration of migrations) {
     assert(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path: ${migration}`);
@@ -160,7 +160,8 @@ async function probeWorkers() {
     "/api/internal/shadow-learning",
     "/api/internal/notification-delivery",
     "/api/internal/decision-diagnostics",
-    "/api/internal/unified-data"
+    "/api/internal/unified-data",
+    "/api/internal/sports-analytics"
   ];
 
   for (const workerPath of workers) {
