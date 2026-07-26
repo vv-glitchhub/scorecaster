@@ -1,0 +1,39 @@
+name: Scorecaster Sports Analytics Maintenance
+
+on:
+  schedule:
+    - cron: "23 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  maintain:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate maintenance secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Apply bounded analytics retention
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/sports-analytics-maintenance?retentionDays=180"
+
+      - name: Verify analytics health
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            "$SCORECASTER_URL/api/sports-analytics/health"
