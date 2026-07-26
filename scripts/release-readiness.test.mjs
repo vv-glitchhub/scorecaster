@@ -11,7 +11,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 17);
+  assert.equal(manifest.supabaseMigrations.length, 18);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
@@ -22,22 +22,28 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
-  assert.ok(manifest.publicPages.length >= 10);
+  assert.ok(manifest.publicPages.length >= 11);
   assert.ok(manifest.publicPages.includes("/mission-control"));
   assert.ok(manifest.publicPages.includes("/polymarket-intelligence"));
   assert.ok(manifest.publicPages.includes("/diagnostics-v2"));
   assert.ok(manifest.publicPages.includes("/provider-health"));
   assert.ok(manifest.publicPages.includes("/data-layer"));
+  assert.ok(manifest.publicPages.includes("/sports-analytics"));
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/autonomy-mission-control" && item.method === "GET"));
   assert.ok(manifest.protectedApis.some((item) => item.path === "/api/cloud/polymarket-intelligence" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/decision-diagnostics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/sports-analytics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/shadow-learning" && item.method === "GET"));
-  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 19);
+  assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 20);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "sports-analytics-storage-worker" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "sports-analytics-external-provider" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "sports-analytics-visual-audit" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-circuit-breakers" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-v12-mission-control" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-governance" && item.blocking === true));
@@ -57,6 +63,7 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "pageCandidates",
     "apiCandidates",
     "supabaseMigrations",
+    "scorecaster_sports_analytics.sql",
     "scorecaster_autonomous_agent.sql",
     "scorecaster_autonomous_agent_v2.sql",
     "scorecaster_autonomous_v13_hard_caps.sql",
@@ -116,6 +123,7 @@ test("release readiness UI is trilingual and separates automated and manual evid
   assert.match(client, /href="\/operations"/);
   assert.match(shell, /href: "\/release-readiness"/);
   assert.match(shell, /href: "\/polymarket-intelligence"/);
+  assert.match(shell, /href: "\/sports-analytics"/);
   assert.match(production, /href="\/release-readiness"/);
   assert.doesNotMatch(client, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY|expo_push_token/);
 });
