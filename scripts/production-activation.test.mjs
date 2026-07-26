@@ -30,17 +30,18 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 17);
+  assert.equal(manifest.supabaseMigrations.length, 18);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
   assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent_v2.sql");
   assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
-  assert.match(runner, /migrations\.length >= 17/);
+  assert.match(runner, /migrations\.length >= 18/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
@@ -48,11 +49,12 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.match(runner, /sha256/);
 });
 
-test("schema verifier checks RLS, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
+test("schema verifier checks RLS, Sports Analytics, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
   const hardCapVerification = await source("scripts/verify-autonomous-v13-hard-caps.sql");
   const hardCapMigration = await source("supabase/scorecaster_autonomous_v13_hard_caps.sql");
   const unified = await source("supabase/scorecaster_unified_data.sql");
+  const sportsAnalytics = await source("supabase/scorecaster_sports_analytics.sql");
   const autonomousV2 = await source("supabase/scorecaster_autonomous_agent_v2.sql");
   const shadow = await source("supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(sql, /relrowsecurity/);
@@ -61,6 +63,8 @@ test("schema verifier checks RLS, V13 hard caps, Shadow Learning and database ri
   assert.match(sql, /has_table_privilege\('anon'/);
   assert.match(sql, /decision_diagnostic_snapshots/);
   assert.match(sql, /decision_diagnostic_alerts/);
+  assert.match(sql, /sports_analytics_snapshots/);
+  assert.match(sql, /sports_analytics_observations/);
   assert.match(sql, /autonomous_agent_decision_audit/);
   assert.match(sql, /autonomous_agent_daily_briefs/);
   assert.match(sql, /shadow_learning_samples/);
@@ -82,6 +86,9 @@ test("schema verifier checks RLS, V13 hard caps, Shadow Learning and database ri
   assert.match(unified, /unified_data_provider_observations/);
   assert.match(unified, /unified_data_closing_records/);
   assert.match(unified, /unified_data_incidents/);
+  assert.match(sportsAnalytics, /sports_analytics_snapshots/);
+  assert.match(sportsAnalytics, /sports_analytics_observations/);
+  assert.match(sportsAnalytics, /force row level security/);
   assert.match(autonomousV2, /status in \('running', 'success', 'error', 'deferred', 'paused'\)/);
   assert.match(autonomousV2, /force row level security/);
   assert.match(autonomousV2, /service_role/);
@@ -107,7 +114,8 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/shadow-learning",
     "/api/internal/notification-delivery",
     "/api/internal/decision-diagnostics",
-    "/api/internal/unified-data"
+    "/api/internal/unified-data",
+    "/api/internal/sports-analytics"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
   assert.match(runner, /autonomousV13HardCapsVerified/);
@@ -133,4 +141,5 @@ test("production activation remains separate from recurring workers", async () =
   assert.match(diagnostics, /cron: "12 \* \* \* \*"/);
   assert.match(unified, /cron: "17,47 \* \* \* \*"/);
   assert.match(unified, /\/api\/internal\/unified-data/);
+  assert.match(unified, /\/api\/internal\/sports-analytics/);
 });
