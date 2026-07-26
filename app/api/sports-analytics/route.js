@@ -8,6 +8,7 @@ import {
 } from "../../../lib/sports-analytics-ingestion.mjs";
 import { buildSportsAnalyticsInsights } from "../../../lib/sports-analytics-insights.mjs";
 import { buildSportsAnalyticsActivationPlan } from "../../../lib/sports-analytics-activation.mjs";
+import { buildSportsAnalyticsQualityReport } from "../../../lib/sports-analytics-quality.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -203,9 +204,10 @@ export async function GET(request) {
     const summary = summarizeSportsAnalyticsSnapshots(data.rawSnapshots);
     const insights = buildSportsAnalyticsInsights({ snapshots: data.rawSnapshots, observations: data.observations, now });
     const activationPlan = buildSportsAnalyticsActivationPlan(data.rawSnapshots);
+    const quality = buildSportsAnalyticsQualityReport(data.observations, { now });
     return response({
       ok: true,
-      version: "sports-analytics-api-v2",
+      version: "sports-analytics-api-v3",
       generatedAt: new Date(now).toISOString(),
       storageAvailable,
       liveFallback,
@@ -213,13 +215,15 @@ export async function GET(request) {
       automaticCapture: {
         enabledByWorkflow: true,
         intervalMinutes: 30,
-        worker: "/api/internal/sports-analytics"
+        worker: "/api/internal/sports-analytics",
+        maintenanceWorker: "/api/internal/sports-analytics-maintenance"
       },
       externalProvider: sportsAnalyticsProviderConfiguration(),
       filters: { sport: sport || null, eventId: eventId || null, hours, limit },
       summary,
       insights,
       activationPlan,
+      quality,
       snapshots: data.snapshots,
       observations: data.observations,
       export: {
@@ -229,6 +233,7 @@ export async function GET(request) {
         probabilitySource: "no-vig market consensus",
         analyticsCanUpgradeDecision: false,
         productionProbabilityChanged: false,
+        outliersAreWarningsOnly: true,
         paperOnly: true
       }
     });
