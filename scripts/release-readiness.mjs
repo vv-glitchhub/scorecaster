@@ -160,11 +160,13 @@ for (const requiredFile of [
   "docs/RELEASE_READINESS_V1.md",
   "scripts/production-activation.mjs",
   "scripts/verify-production-schema.sql",
+  "scripts/verify-sports-analytics-schema.sql",
   "scripts/verify-autonomous-v13-hard-caps.sql",
   ".github/workflows/production-activation.yml",
   "docs/PRODUCTION_ACTIVATION_V1.md",
   "docs/SHADOW_LEARNING_V1.md",
-  "docs/SPORTS_ANALYTICS_EXPANSION_V1.md"
+  "docs/SPORTS_ANALYTICS_EXPANSION_V1.md",
+  "docs/SPORTS_ANALYTICS_AUTOMATION_V1.md"
 ]) {
   check(await exists(requiredFile), `${requiredFile} is required for release verification`);
 }
