@@ -41,6 +41,7 @@ jobs:
       SCORECASTER_PRODUCTION_DB_URL: ${{ secrets.SCORECASTER_PRODUCTION_DB_URL }}
       SCORECASTER_CRON_SECRET: ${{ secrets.SCORECASTER_CRON_SECRET }}
       SCORECASTER_ACTIVATION_REPORT_PATH: artifacts/production-activation.json
+      SCORECASTER_COLLECTOR_ACTIVATION_REPORT_PATH: artifacts/collector-production-activation.json
 
     steps:
       - name: Checkout reviewed release
@@ -67,11 +68,16 @@ jobs:
       - name: Run fail-closed production action
         run: node scripts/production-activation.mjs
 
+      - name: Verify Scorecaster Collector activation
+        run: node scripts/collector-production-activation.mjs
+
       - name: Upload activation evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: scorecaster-production-activation-${{ github.run_id }}
-          path: artifacts/production-activation.json
+          path: |
+            artifacts/production-activation.json
+            artifacts/collector-production-activation.json
           if-no-files-found: error
           retention-days: 90
