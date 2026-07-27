@@ -16,7 +16,8 @@
     "/diagnostics-v2",
     "/provider-health",
     "/data-layer",
-    "/sports-analytics"
+    "/sports-analytics",
+    "/data-collector"
   ],
   "protectedApis": [
     { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
@@ -40,7 +41,8 @@
     { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] },
     { "path": "/api/internal/unified-data", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/sports-analytics", "method": "GET", "allowedStatuses": [401, 503] }
+    { "path": "/api/internal/sports-analytics", "method": "GET", "allowedStatuses": [401, 503] },
+    { "path": "/api/internal/collector", "method": "GET", "allowedStatuses": [401, 503] }
   ],
   "requiredSecurityHeaders": {
     "x-content-type-options": "nosniff",
@@ -63,6 +65,7 @@
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_sports_analytics.sql",
+    "supabase/scorecaster_collector_v1.sql",
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql",
     "supabase/scorecaster_autonomous_agent_v2.sql",
@@ -167,6 +170,21 @@
     {
       "id": "sports-analytics-visual-audit",
       "title": "Sports Analytics web page shows provider status, available and missing metrics, family coverage, event snapshots and golf proximity profiles without invented data",
+      "blocking": true
+    },
+    {
+      "id": "collector-rights-registry",
+      "title": "Every Collector source has recorded license, commercial-use, redistribution, training and attribution status; unknown sources fail closed",
+      "blocking": true
+    },
+    {
+      "id": "collector-storage-worker",
+      "title": "Collector migration, forced RLS, 30-minute worker, health endpoint and publishable-only API are verified in production",
+      "blocking": true
+    },
+    {
+      "id": "collector-research-boundary",
+      "title": "Research-only datasets remain excluded from public APIs and cannot alter production probability or paper decisions",
       "blocking": true
     },
     {
