@@ -13,35 +13,42 @@ test("production activation is manual, environment-gated and never scheduled", a
   assert.match(workflow, /environment: production/);
   assert.match(workflow, /SCORECASTER_PRODUCTION_DB_URL/);
   assert.match(workflow, /SCORECASTER_CRON_SECRET/);
+  assert.match(workflow, /collector-production-activation\.mjs/);
+  assert.match(workflow, /collector-production-activation\.json/);
   assert.match(workflow, /permissions:\s+contents: read/s);
   assert.match(workflow, /retention-days: 90/);
 });
 
 test("activation runner requires exact confirmations and supports only bounded actions", async () => {
   const runner = await source("scripts/production-activation.mjs");
+  const collectorRunner = await source("scripts/collector-production-activation.mjs");
   assert.match(runner, /new Set\(\["schema", "migrate", "probe"\]\)/);
   assert.match(runner, /VERIFY SCORECASTER PRODUCTION/);
   assert.match(runner, /APPLY SCORECASTER PRODUCTION MIGRATIONS/);
   assert.match(runner, /PROBE SCORECASTER PRODUCTION WORKERS/);
   assert.match(runner, /Confirmation must exactly match/);
   assert.match(runner, /realMoneyBetting: false/);
+  assert.match(collectorRunner, /collector-production-activation-v1/);
+  assert.match(collectorRunner, /\["schema", "migrate", "probe"\]/);
 });
 
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 18);
+  assert.equal(manifest.supabaseMigrations.length, 19);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
+  assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
   assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent_v2.sql");
   assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
-  assert.match(runner, /migrations\.length >= 18/);
+  assert.match(runner, /migrations\.length >= 19/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
@@ -51,8 +58,10 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.match(runner, /sha256/);
 });
 
-test("schema verifiers check RLS, Sports Analytics, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
+test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Shadow Learning and database risk enforcement", async () => {
   const sql = await source("scripts/verify-production-schema.sql");
+  const collectorVerification = await source("scripts/verify-collector-schema.sql");
+  const collectorMigration = await source("supabase/scorecaster_collector_v1.sql");
   const sportsVerification = await source("scripts/verify-sports-analytics-schema.sql");
   const hardCapVerification = await source("scripts/verify-autonomous-v13-hard-caps.sql");
   const hardCapMigration = await source("supabase/scorecaster_autonomous_v13_hard_caps.sql");
@@ -83,6 +92,12 @@ test("schema verifiers check RLS, Sports Analytics, V13 hard caps, Shadow Learni
   assert.match(sql, /bets_capture_shadow_learning/);
   assert.match(sql, /autonomous_agent_settings_schedule/);
   assert.match(sql, /authenticated users must not delete Autonomous Agent settings directly/);
+  assert.match(collectorMigration, /collector_runs/);
+  assert.match(collectorMigration, /collector_records/);
+  assert.match(collectorMigration, /force row level security/);
+  assert.match(collectorVerification, /collector_runs/);
+  assert.match(collectorVerification, /collector_records/);
+  assert.match(collectorVerification, /has_table_privilege\('anon'/);
   assert.match(unified, /unified_data_snapshots/);
   assert.match(unified, /unified_data_provider_observations/);
   assert.match(unified, /unified_data_closing_records/);
@@ -112,6 +127,7 @@ test("schema verifiers check RLS, Sports Analytics, V13 hard caps, Shadow Learni
 
 test("protected worker probes are bounded and activation reports exclude credentials", async () => {
   const runner = await source("scripts/production-activation.mjs");
+  const collectorRunner = await source("scripts/collector-production-activation.mjs");
   for (const route of [
     "/api/internal/watchlist-monitor",
     "/api/internal/settlement-monitor",
@@ -122,7 +138,10 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/unified-data",
     "/api/internal/sports-analytics"
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  assert.match(collectorRunner, /\/api\/internal\/collector/);
+  assert.match(collectorRunner, /\/api\/collector\/health/);
   assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
+  assert.match(collectorRunner, /AbortSignal\.timeout\(90_000\)/);
   assert.match(runner, /autonomousV13HardCapsVerified/);
   assert.match(runner, /sportsAnalyticsVerified/);
   assert.match(runner, /shadowLearningVerified/);
@@ -136,6 +155,7 @@ test("production activation remains separate from recurring workers", async () =
   const workers = await source(".github/workflows/notification-delivery.yml");
   const diagnostics = await source(".github/workflows/decision-diagnostics.yml");
   const unified = await source(".github/workflows/unified-data-capture.yml");
+  const collector = await source(".github/workflows/collector.yml");
   assert.doesNotMatch(activation, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED\s*==\s*'true'/);
   assert.match(workers, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
   assert.match(workers, /api\/internal\/autonomous-agent/);
@@ -148,4 +168,7 @@ test("production activation remains separate from recurring workers", async () =
   assert.match(unified, /cron: "17,47 \* \* \* \*"/);
   assert.match(unified, /\/api\/internal\/unified-data/);
   assert.match(unified, /\/api\/internal\/sports-analytics/);
+  assert.match(collector, /cron: "7,37 \* \* \* \*"/);
+  assert.match(collector, /\/api\/internal\/collector/);
+  assert.match(collector, /\/api\/collector\/health/);
 });
