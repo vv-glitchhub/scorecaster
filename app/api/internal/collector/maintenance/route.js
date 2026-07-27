@@ -40,8 +40,8 @@ export async function GET(request) {
     const [oldRecords, oldRuns, missingEventIds, missingMetrics] = await Promise.all([
       admin.from("collector_records").select("id", { count: "exact", head: true }).lt("collected_at", cutoff),
       admin.from("collector_runs").select("id", { count: "exact", head: true }).lt("started_at", cutoff),
-      admin.from("collector_records").select("id", { count: "exact", head: true }).or("event_id.is.null,event_id.eq."),
-      admin.from("collector_records").select("id", { count: "exact", head: true }).or("metric.is.null,metric.eq.")
+      admin.from("collector_records").select("id", { count: "exact", head: true }).is("event_id", null),
+      admin.from("collector_records").select("id", { count: "exact", head: true }).is("metric", null)
     ]);
     for (const result of [oldRecords, oldRuns, missingEventIds, missingMetrics]) if (result.error) throw result.error;
 
