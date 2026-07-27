@@ -3,7 +3,6 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { collectorRegistrySummary, getCollectorSource, sourceCanCollect, sourceCanPublish } from "../lib/collector-source-registry.mjs";
 import { normalizeCollectorBatch, normalizeCollectorRecord, scorecasterPicksToCollectorRecords } from "../lib/collector-normalize.mjs";
-import { collectorJsonProviderConfiguration } from "../lib/collector-json-provider.js";
 
 const root = new URL("../", import.meta.url);
 const file = (path) => readFile(new URL(path, root), "utf8");
@@ -28,10 +27,11 @@ test("configured API cannot enter production without explicit rights flags", () 
     COLLECTOR_JSON_ACCESS_MODE: "production",
     COLLECTOR_JSON_COMMERCIAL_ALLOWED: "false"
   };
-  const config = collectorJsonProviderConfiguration(env);
-  assert.equal(config.configured, true);
-  assert.equal(config.productionAllowed, false);
-  assert.equal(config.blockedReason, "commercial-rights-not-confirmed");
+  const source = getCollectorSource("configured_json_api", env);
+  const permission = sourceCanCollect(source, { production: true });
+  assert.equal(Boolean(source?.baseUrl), true);
+  assert.equal(permission.allowed, false);
+  assert.equal(permission.reason, "commercial-rights-not-confirmed");
 });
 
 test("collector normalizes, fingerprints and deduplicates records", () => {
@@ -82,23 +82,28 @@ test("Scorecaster picks become first-party publishable records", () => {
 });
 
 test("collector storage and APIs retain security boundaries", async () => {
-  const [sql, worker, api, health, sources, workflow, client] = await Promise.all([
+  const [sql, worker, importer, api, health, sources, workflow, client, provider] = await Promise.all([
     file("supabase/scorecaster_collector_v1.sql"),
     file("app/api/internal/collector/route.js"),
+    file("app/api/internal/collector/import/route.js"),
     file("app/api/collector/route.js"),
     file("app/api/collector/health/route.js"),
     file("app/api/collector/sources/route.js"),
     file(".github/workflows/collector.yml"),
-    file("app/data-collector/DataCollectorClient.jsx")
+    file("app/data-collector/DataCollectorClient.jsx"),
+    file("lib/collector-json-provider.js")
   ]);
   assert.match(sql, /force row level security/i);
   assert.match(sql, /revoke all.*anon, authenticated/i);
   assert.match(worker, /Authorization|authorization/);
   assert.match(worker, /probabilityChanged: false/);
+  assert.match(importer, /rightsConfirmed/);
+  assert.match(importer, /licenseReference/);
   assert.match(api, /\.eq\("publishable", true\)/);
   assert.match(api, /researchDataExcluded: true/);
   assert.match(health, /scorecaster-collector-health-v1/);
   assert.match(sources, /productionCollectionFailsClosed: true/);
   assert.match(workflow, /api\/internal\/collector/);
   assert.match(client, /fail-closed licensing/);
+  assert.match(provider, /https-required/);
 });
