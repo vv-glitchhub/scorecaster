@@ -140,6 +140,11 @@ jobs:
           set -o pipefail
           npm run test:sports-intelligence 2>&1 | tee sports-intelligence.log
 
+      - name: Sports Analytics Expansion V1 tests
+        run: |
+          set -o pipefail
+          npm run test:sports-analytics 2>&1 | tee sports-analytics.log
+
       - name: Unified Sports Data V1 tests
         run: |
           set -o pipefail
@@ -210,6 +215,7 @@ jobs:
             market-timeline.log
             intelligence.log
             sports-intelligence.log
+            sports-analytics.log
             unified-sports-data.log
             provider-firewall.log
             form-rest-shadow.log
