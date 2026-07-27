@@ -1,0 +1,35 @@
+name: Scorecaster Collector CI
+
+on:
+  pull_request:
+    paths:
+      - "app/api/collector/**"
+      - "app/api/internal/collector/**"
+      - "app/data-collector/**"
+      - "lib/collector-*"
+      - "scripts/collector-v1.test.mjs"
+      - "scripts/verify-collector-schema.sql"
+      - "supabase/scorecaster_collector_v1.sql"
+      - ".github/workflows/collector*.yml"
+      - "package.json"
+      - "config/release-readiness.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Collector regression tests
+        run: npm run test:collector
+      - name: Production build
+        run: npm run build
