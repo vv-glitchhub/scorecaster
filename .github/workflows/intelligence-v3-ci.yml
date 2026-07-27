@@ -1,0 +1,32 @@
+name: Scorecaster Intelligence V3 CI
+
+on:
+  pull_request:
+    paths:
+      - "app/api/intelligence-v3/**"
+      - "app/intelligence-v3/**"
+      - "lib/intelligence-v3.mjs"
+      - "scripts/intelligence-v3.test.mjs"
+      - "docs/INTELLIGENCE_V3.md"
+      - "package.json"
+      - ".github/workflows/intelligence-v3-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Intelligence V3 regression tests
+        run: npm run test:intelligence-v3
+      - name: Production build
+        run: npm run build
