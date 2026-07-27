@@ -7,7 +7,7 @@ on:
       - "app/api/internal/collector/**"
       - "app/data-collector/**"
       - "lib/collector-*"
-      - "scripts/collector-v1.test.mjs"
+      - "scripts/collector-*.test.mjs"
       - "scripts/verify-collector-schema.sql"
       - "supabase/scorecaster_collector_v1.sql"
       - ".github/workflows/collector*.yml"

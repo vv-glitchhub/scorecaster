@@ -1,0 +1,39 @@
+name: Scorecaster Collector Maintenance
+
+on:
+  schedule:
+    - cron: "29 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate collector secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Audit retention and record integrity
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/collector/maintenance?retentionDays=730&apply=false"
+
+      - name: Verify Collector V2 health
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            "$SCORECASTER_URL/api/collector/health"
