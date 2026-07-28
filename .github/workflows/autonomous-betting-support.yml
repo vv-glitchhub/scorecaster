@@ -1,0 +1,30 @@
+name: Scorecaster Autonomous Betting Support CI
+
+on:
+  pull_request:
+    paths:
+      - "lib/autonomous-betting-support.mjs"
+      - "app/api/autonomous-betting-support/**"
+      - "app/autonomous-betting-support/**"
+      - "scripts/autonomous-betting-support.test.mjs"
+      - ".github/workflows/autonomous-betting-support.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Autonomous betting support tests
+        run: node --test scripts/autonomous-betting-support.test.mjs
+      - name: Production build
+        run: npm run build
