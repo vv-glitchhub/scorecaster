@@ -13,7 +13,7 @@ test("home page uses the unified ready app", async () => {
 test("unified API is publishable-only and bounded", async () => {
   const route = await file("app/api/scorecaster-app/route.js");
   assert.match(route, /\.eq\("publishable", true\)/);
-  assert.match(route, /limit\), 10000, 100, 10000/);
+  assert.match(route, /clampInt\(url\.searchParams\.get\("limit"\), 10000, 100, 10000\)/);
   assert.match(route, /buildProductionControlCenter/);
   assert.match(route, /buildIntelligenceBundle/);
   assert.match(route, /buildIntelligenceV4/);
