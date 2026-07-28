@@ -1,0 +1,35 @@
+name: Scorecaster Production Control Center CI
+
+on:
+  pull_request:
+    paths:
+      - "app/api/production-control-center/**"
+      - "app/production-control-center/**"
+      - "lib/production-control-center.mjs"
+      - "scripts/production-control-center.test.mjs"
+      - "package.json"
+      - ".github/workflows/production-control-center-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+      - name: Production Control Center regression tests
+        run: npm run test:production-control-center
+      - name: Production build
+        run: npm run build
