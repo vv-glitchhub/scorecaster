@@ -1,5 +1,5 @@
-import DashboardClient from "./DashboardClient";
+import ScorecasterReadyClient from "./ScorecasterReadyClient";
 
 export default function DashboardPage() {
-  return <DashboardClient />;
+  return <ScorecasterReadyClient />;
 }
