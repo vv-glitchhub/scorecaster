@@ -18,13 +18,14 @@ const rows=[
  {eventId:"game-1",sourceId:"stats",metric:"pace",value:1,observedAt:"2026-07-28T11:30:00Z",confidence:.8,sourceTrust:.85}
 ];
 
-test("creates a betting decision with price and stake controls",()=>{
+test("creates a human decision-support recommendation with price controls",()=>{
  const d=buildBetDecision(rows,{bankroll:1000,now});
  assert.equal(d.eventId,"game-1");
  assert.equal(d.decision,"PLAY");
  assert.ok(d.minimumOdds>1);
  assert.ok(d.expectedValue>0);
- assert.ok(d.recommendedPaperStake>0&&d.recommendedPaperStake<=10);
+ assert.ok(d.suggestedStake>0&&d.suggestedStake<=10);
+ assert.equal(d.safety.humanActionRequired,true);
  assert.equal(d.safety.automaticRealMoneyExecution,false);
 });
 
@@ -34,9 +35,10 @@ test("blocks weak or stale betting evidence",()=>{
  assert.ok(d.blockers.length>0);
 });
 
-test("autonomous board stays shadow until learning evidence is sufficient",()=>{
+test("board remains human decision support while exposing learning blockers",()=>{
  const board=buildAutonomousBettingBoard({records:rows,bankroll:1000,settled:[],collectorHealth:{status:"healthy"},now});
- assert.equal(board.mode,"shadow");
+ assert.equal(board.mode,"human-decision-support");
  assert.ok(board.globalBlockers.includes("learning-sample-below-300"));
+ assert.equal(board.safety.humanActionRequired,true);
  assert.equal(board.safety.realMoneyExecution,false);
 });
