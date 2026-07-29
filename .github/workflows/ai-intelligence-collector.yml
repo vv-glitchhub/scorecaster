@@ -1,0 +1,25 @@
+name: AI Intelligence Collector CI
+on:
+  pull_request:
+    paths:
+      - 'lib/ai-intelligence-collector.mjs'
+      - 'lib/autonomous-betting-support.mjs'
+      - 'app/api/ai-intelligence/**'
+      - 'app/ai-intelligence/**'
+      - 'scripts/ai-intelligence-collector.test.mjs'
+      - '.github/workflows/ai-intelligence-collector.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/ai-intelligence-collector.mjs'
+      - 'lib/autonomous-betting-support.mjs'
+      - 'scripts/ai-intelligence-collector.test.mjs'
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: node scripts/ai-intelligence-collector.test.mjs
