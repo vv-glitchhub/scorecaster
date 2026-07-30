@@ -22,7 +22,7 @@ export async function GET() {
     return response({
       ok: false,
       status: "not-configured",
-      version: "scorecaster-collector-health-v2",
+      version: "scorecaster-collector-health-v3",
       databaseConfigured: false,
       registry: { total: registry.total, productionApproved: registry.productionApproved }
     }, 503);
@@ -31,7 +31,7 @@ export async function GET() {
   try {
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const [latestRun, recentRuns, runCount, recordCount, publishableCount, recentRecords] = await Promise.all([
-      admin.from("collector_runs").select("id,status,started_at,completed_at,accepted_count,rejected_count,publishable_count,research_only_count,source_status").order("started_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("collector_runs").select("id,status,started_at,completed_at,accepted_count,rejected_count,publishable_count,research_only_count,source_status,errors").order("started_at", { ascending: false }).limit(1).maybeSingle(),
       admin.from("collector_runs").select("status,accepted_count,rejected_count,publishable_count,started_at").gte("started_at", since).order("started_at", { ascending: false }).limit(100),
       admin.from("collector_runs").select("id", { count: "exact", head: true }).gte("started_at", since),
       admin.from("collector_records").select("id", { count: "exact", head: true }).gte("collected_at", since),
@@ -62,7 +62,7 @@ export async function GET() {
     return response({
       ok: status === "healthy",
       status,
-      version: "scorecaster-collector-health-v2",
+      version: "scorecaster-collector-health-v3",
       checkedAt: new Date().toISOString(),
       databaseConfigured: true,
       migrationActive: true,
@@ -76,7 +76,8 @@ export async function GET() {
         rejected: Number(latestRun.data.rejected_count || 0),
         publishable: Number(latestRun.data.publishable_count || 0),
         researchOnly: Number(latestRun.data.research_only_count || 0),
-        sources: latestRun.data.source_status || []
+        sources: latestRun.data.source_status || [],
+        errors: latestRun.data.errors || []
       } : null,
       last24Hours: {
         runs: Number(runCount.count || 0),
@@ -105,7 +106,7 @@ export async function GET() {
     return response({
       ok: false,
       status: migrationMissing(error) ? "not-activated" : "error",
-      version: "scorecaster-collector-health-v2",
+      version: "scorecaster-collector-health-v3",
       migrationActive: false,
       migrationRequired: migrationMissing(error) ? "supabase/scorecaster_collector_v1.sql" : undefined,
       error: process.env.NODE_ENV === "production" ? "Collector health check failed" : String(error)
