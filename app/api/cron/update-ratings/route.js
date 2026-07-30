@@ -48,11 +48,35 @@ async function runCollector(req, cronSecret) {
     signal: AbortSignal.timeout(110_000),
   });
 
-  const payload = await response.json().catch(() => null);
-  if (!response.ok) {
-    throw new Error(payload?.error || `Collector failed with HTTP ${response.status}`);
+  const responseText = await response.text();
+  let payload = null;
+
+  if (responseText) {
+    try {
+      payload = JSON.parse(responseText);
+    } catch {
+      payload = { rawResponse: responseText.slice(0, 1000) };
+    }
   }
+
+  if (!response.ok) {
+    const detail = payload?.error || payload?.message || `HTTP ${response.status}`;
+    throw new Error(`Collector failed: ${detail}`);
+  }
+
   return payload;
+}
+
+function settledResult(result) {
+  return result.status === "fulfilled"
+    ? { ok: true, data: result.value }
+    : {
+        ok: false,
+        error:
+          result.reason instanceof Error
+            ? result.reason.message
+            : String(result.reason),
+      };
 }
 
 export async function GET(req) {
@@ -60,6 +84,7 @@ export async function GET(req) {
   const cronSecret = process.env.CRON_SECRET;
 
   if (!cronSecret) {
+    console.error("[daily-maintenance] CRON_SECRET is not configured");
     return Response.json(
       { ok: false, error: "CRON_SECRET is not configured" },
       { status: 503 }
@@ -67,27 +92,42 @@ export async function GET(req) {
   }
 
   if (authHeader !== `Bearer ${cronSecret}`) {
+    console.error("[daily-maintenance] Unauthorized cron request");
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
+
+  console.log("[daily-maintenance] Starting ratings update and collector");
 
   const [ratingsResult, collectorResult] = await Promise.allSettled([
     runRatingsUpdate(),
     runCollector(req, cronSecret),
   ]);
 
-  const ratings = ratingsResult.status === "fulfilled"
-    ? { ok: true, data: ratingsResult.value }
-    : { ok: false, error: String(ratingsResult.reason) };
+  const ratings = settledResult(ratingsResult);
+  const collector = settledResult(collectorResult);
 
-  const collector = collectorResult.status === "fulfilled"
-    ? { ok: true, data: collectorResult.value }
-    : { ok: false, error: String(collectorResult.reason) };
+  if (!ratings.ok) {
+    console.error("[daily-maintenance] Ratings update failed:", ratings.error);
+  } else {
+    console.log("[daily-maintenance] Ratings update completed");
+  }
 
-  const ok = ratings.ok || collector.ok;
+  if (!collector.ok) {
+    console.error("[daily-maintenance] Collector failed:", collector.error);
+  } else {
+    console.log("[daily-maintenance] Collector completed", {
+      runId: collector.data?.runId ?? collector.data?.run?.id ?? null,
+      accepted: collector.data?.accepted ?? null,
+      records: collector.data?.records ?? collector.data?.recordsStored ?? null,
+    });
+  }
+
+  const ok = ratings.ok && collector.ok;
+
   return Response.json(
     {
       ok,
-      version: "scorecaster-daily-maintenance-v2",
+      version: "scorecaster-daily-maintenance-v3",
       ratings,
       collector,
     },
