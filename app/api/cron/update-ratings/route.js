@@ -39,12 +39,18 @@ async function runRatingsUpdate() {
 
 async function runCollector(req, cronSecret) {
   const origin = new URL(req.url).origin;
-  const response = await fetch(`${origin}/api/internal/collector`, {
+  const collectorUrl = `${origin}/api/internal/collector`;
+
+  console.log("[daily-maintenance] Calling collector", { collectorUrl });
+
+  const response = await fetch(collectorUrl, {
     method: "GET",
     headers: {
       Authorization: `Bearer ${cronSecret}`,
+      Accept: "application/json",
     },
     cache: "no-store",
+    redirect: "manual",
     signal: AbortSignal.timeout(110_000),
   });
 
@@ -59,9 +65,29 @@ async function runCollector(req, cronSecret) {
     }
   }
 
+  console.log("[daily-maintenance] Collector HTTP response", {
+    status: response.status,
+    contentType: response.headers.get("content-type"),
+    location: response.headers.get("location"),
+    payload,
+  });
+
   if (!response.ok) {
     const detail = payload?.error || payload?.message || `HTTP ${response.status}`;
     throw new Error(`Collector failed: ${detail}`);
+  }
+
+  if (!payload || payload.ok !== true) {
+    const detail = payload?.error || payload?.status || payload?.rawResponse || "invalid collector response";
+    throw new Error(`Collector returned an unsuccessful response: ${detail}`);
+  }
+
+  if (!payload.runId) {
+    throw new Error("Collector returned HTTP 200 without a runId");
+  }
+
+  if (!["success", "partial"].includes(payload.status)) {
+    throw new Error(`Collector returned invalid status: ${payload.status || "missing"}`);
   }
 
   return payload;
@@ -116,9 +142,10 @@ export async function GET(req) {
     console.error("[daily-maintenance] Collector failed:", collector.error);
   } else {
     console.log("[daily-maintenance] Collector completed", {
-      runId: collector.data?.runId ?? collector.data?.run?.id ?? null,
-      accepted: collector.data?.accepted ?? null,
-      records: collector.data?.records ?? collector.data?.recordsStored ?? null,
+      runId: collector.data.runId,
+      status: collector.data.status,
+      recordsStored: collector.data.recordsStored,
+      publishable: collector.data.publishable,
     });
   }
 
@@ -127,7 +154,7 @@ export async function GET(req) {
   return Response.json(
     {
       ok,
-      version: "scorecaster-daily-maintenance-v3",
+      version: "scorecaster-daily-maintenance-v4",
       ratings,
       collector,
     },
