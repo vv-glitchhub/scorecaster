@@ -20,6 +20,7 @@ const FALLBACK_LEAGUES = [
   "soccer_finland_veikkausliiga",
   "soccer_sweden_allsvenskan",
   "soccer_norway_eliteserien",
+  "americanfootball_nfl",
 ];
 
 function response(payload, status = 200) {
@@ -56,46 +57,66 @@ async function collectFixtureSnapshots(origin, collectedAt) {
   const rows = [];
   const diagnostics = [];
 
-  for (const league of FALLBACK_LEAGUES) {
-    try {
+  const results = await Promise.allSettled(
+    FALLBACK_LEAGUES.map(async (league) => {
       const oddsResponse = await fetch(
         `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=h2h`,
         { cache: "no-store", signal: AbortSignal.timeout(15_000) }
       );
       const payload = await oddsResponse.json().catch(() => null);
       const games = oddsResponse.ok && payload?.ok !== false ? gamesFromPayload(payload) : [];
-
-      diagnostics.push({
+      return {
         league,
         ok: oddsResponse.ok && payload?.ok !== false,
         status: oddsResponse.status,
-        games: games.length,
+        mode: payload?.mode || payload?.source || null,
+        reason: payload?.reason || null,
+        providerCount: Number(payload?.count || games.length || 0),
+        games,
+      };
+    })
+  );
+
+  for (let index = 0; index < results.length; index += 1) {
+    const result = results[index];
+    const league = FALLBACK_LEAGUES[index];
+    if (result.status === "rejected") {
+      diagnostics.push({ league, ok: false, error: String(result.reason) });
+      continue;
+    }
+
+    const value = result.value;
+    diagnostics.push({
+      league,
+      ok: value.ok,
+      status: value.status,
+      mode: value.mode,
+      reason: value.reason,
+      games: value.games.length,
+      providerCount: value.providerCount,
+    });
+
+    for (const game of value.games.slice(0, 50)) {
+      const eventId = game?.id || game?.gameId || game?.eventId;
+      if (!eventId) continue;
+
+      rows.push({
+        eventId,
+        sport: game?.sport_key || game?.sportKey || league,
+        league: game?.sport_title || game?.sportTitle || league,
+        observedAt: game?.last_update || game?.lastUpdate || collectedAt,
+        metric: "fixture_snapshot",
+        confidence: 0.75,
+        sourceTrust: 0.9,
+        payload: {
+          homeTeam: game?.home_team || game?.homeTeam || null,
+          awayTeam: game?.away_team || game?.awayTeam || null,
+          commenceTime: game?.commence_time || game?.commenceTime || null,
+          bookmakerCount: Array.isArray(game?.bookmakers) ? game.bookmakers.length : 0,
+          market: "h2h",
+          fallbackObservation: true,
+        },
       });
-
-      for (const game of games.slice(0, 30)) {
-        const eventId = game?.id || game?.gameId || game?.eventId;
-        if (!eventId) continue;
-
-        rows.push({
-          eventId,
-          sport: game?.sport_key || game?.sportKey || league,
-          league: game?.sport_title || game?.sportTitle || league,
-          observedAt: game?.last_update || game?.lastUpdate || collectedAt,
-          metric: "fixture_snapshot",
-          confidence: 0.75,
-          sourceTrust: 0.9,
-          payload: {
-            homeTeam: game?.home_team || game?.homeTeam || null,
-            awayTeam: game?.away_team || game?.awayTeam || null,
-            commenceTime: game?.commence_time || game?.commenceTime || null,
-            bookmakerCount: Array.isArray(game?.bookmakers) ? game.bookmakers.length : 0,
-            market: "h2h",
-            fallbackObservation: true,
-          },
-        });
-      }
-    } catch (error) {
-      diagnostics.push({ league, ok: false, error: String(error) });
     }
   }
 
@@ -136,6 +157,7 @@ export async function GET(request) {
     const origin = new URL(request.url).origin;
     const sourceStatus = [];
     const errors = [];
+    let diagnostics = [];
     let internal = { records: [], received: 0, accepted: 0, rejectedCount: 0, publishable: 0, researchOnly: 0 };
     let eventIds = [];
     let sports = [];
@@ -156,9 +178,10 @@ export async function GET(request) {
       if (!internal.records.length) {
         const fallback = await collectFixtureSnapshots(origin, startedAt);
         internal = fallback.normalized;
+        diagnostics = fallback.diagnostics;
         console.log("[collector] Top Picks empty; fixture fallback used", {
           records: internal.records.length,
-          diagnostics: fallback.diagnostics,
+          diagnostics,
         });
       }
 
@@ -167,11 +190,20 @@ export async function GET(request) {
       sourceStatus.push({
         sourceId: "scorecaster_internal",
         mode: internal.records.length ? "live" : "live-empty",
-        ok: true,
+        ok: internal.records.length > 0,
         records: internal.records.length,
+        diagnostics,
       });
+
+      if (!internal.records.length) {
+        errors.push({
+          sourceId: "scorecaster_internal",
+          error: "no-live-records",
+          diagnostics,
+        });
+      }
     } catch (error) {
-      errors.push({ sourceId: "scorecaster_internal", error: "internal-source-unavailable" });
+      errors.push({ sourceId: "scorecaster_internal", error: "internal-source-unavailable", detail: String(error) });
       sourceStatus.push({ sourceId: "scorecaster_internal", mode: "error", ok: false, records: 0 });
       console.error("[collector] Internal source failed", error);
     }
@@ -203,7 +235,7 @@ export async function GET(request) {
     const rejected = Number(internal.rejectedCount || 0) + Number(external.rejectedCount || 0);
     const publishable = records.filter((record) => record.publishable).length;
     const researchOnly = records.length - publishable;
-    const status = errors.length ? (records.length ? "partial" : "failed") : "success";
+    const status = records.length ? (errors.length ? "partial" : "success") : "failed";
     const completedAt = new Date().toISOString();
 
     await finishRun(admin, runId, {
@@ -223,7 +255,7 @@ export async function GET(request) {
     return response(
       {
         ok: status !== "failed",
-        version: "scorecaster-collector-v2",
+        version: "scorecaster-collector-v3",
         runId,
         startedAt,
         completedAt,
@@ -233,6 +265,7 @@ export async function GET(request) {
         researchOnly,
         rejected,
         sources: sourceStatus,
+        diagnostics,
         registry: collectorRegistrySummary(),
         genericProvider: collectorJsonProviderConfiguration(),
         probabilityChanged: false,
