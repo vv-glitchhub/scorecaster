@@ -270,12 +270,15 @@ async function loadLeague(origin, league, now) {
       filterUpcomingPicks([{ commenceTime: game.commence_time }], ANALYSIS_WINDOW_HOURS, now).length === 1
     );
 
+    // Keep all consensus-backed selections with at least two bookmakers.
+    // The decision gate below is responsible for classifying weak edges as SKIP,
+    // while the collector can still preserve the underlying market observation.
     const picks = createTopPicksFromGames({
       games: nearTermGames,
       marketKey: "h2h",
       bankroll: 1000,
       kellyMode: "quarter",
-      minEdge: 0.005,
+      minEdge: -1,
       limit: 12
     }).map((pick) => ({
       ...pick,
