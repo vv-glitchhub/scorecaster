@@ -8,6 +8,7 @@ import {
   collectorJsonProviderConfiguration,
   fetchCollectorJsonRecords,
 } from "../../../../lib/collector-json-provider";
+import { GET as getOddsRoute } from "../../odds/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -47,31 +48,60 @@ function mergeRecords(groups = []) {
 
 function gamesFromPayload(payload) {
   if (Array.isArray(payload)) return payload;
-  if (Array.isArray(payload?.data)) return payload.data;
-  if (Array.isArray(payload?.games)) return payload.games;
-  if (Array.isArray(payload?.events)) return payload.events;
+  for (const key of ["data", "games", "events"]) {
+    if (Array.isArray(payload?.[key])) return payload[key];
+  }
   return [];
+}
+
+async function fetchLeagueOdds(origin, league) {
+  const url = `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=h2h`;
+  const request = new Request(url, {
+    method: "GET",
+    headers: { Accept: "application/json", "x-collector-request": "1" },
+  });
+
+  // Call the route handler directly. This avoids deployment-alias, CDN-cache and
+  // self-fetch inconsistencies inside Vercel cron functions.
+  try {
+    const directResponse = await getOddsRoute(request);
+    const payload = await directResponse.json().catch(() => null);
+    return { response: directResponse, payload, transport: "direct-route" };
+  } catch (directError) {
+    const httpResponse = await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json", "x-collector-request": "1" },
+      signal: AbortSignal.timeout(15_000),
+    });
+    const payload = await httpResponse.json().catch(() => null);
+    return {
+      response: httpResponse,
+      payload,
+      transport: "http-fallback",
+      directError: String(directError),
+    };
+  }
 }
 
 async function collectFixtureSnapshots(origin, collectedAt) {
   const rows = [];
   const diagnostics = [];
-
   const results = await Promise.allSettled(
     FALLBACK_LEAGUES.map(async (league) => {
-      const oddsResponse = await fetch(
-        `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=h2h`,
-        { cache: "no-store", signal: AbortSignal.timeout(15_000) }
-      );
-      const payload = await oddsResponse.json().catch(() => null);
-      const games = oddsResponse.ok && payload?.ok !== false ? gamesFromPayload(payload) : [];
+      const result = await fetchLeagueOdds(origin, league);
+      const games = result.response.ok && result.payload?.ok !== false
+        ? gamesFromPayload(result.payload)
+        : [];
       return {
         league,
-        ok: oddsResponse.ok && payload?.ok !== false,
-        status: oddsResponse.status,
-        mode: payload?.mode || payload?.source || null,
-        reason: payload?.reason || null,
-        providerCount: Number(payload?.count || games.length || 0),
+        ok: result.response.ok && result.payload?.ok !== false,
+        status: result.response.status,
+        mode: result.payload?.mode || result.payload?.source || null,
+        reason: result.payload?.reason || result.payload?.error || null,
+        providerCount: Number(result.payload?.count ?? games.length),
+        providerHeaders: result.payload?.providerHeaders || null,
+        transport: result.transport,
+        directError: result.directError || null,
         games,
       };
     })
@@ -94,25 +124,28 @@ async function collectFixtureSnapshots(origin, collectedAt) {
       reason: value.reason,
       games: value.games.length,
       providerCount: value.providerCount,
+      providerHeaders: value.providerHeaders,
+      transport: value.transport,
+      directError: value.directError,
     });
 
     for (const game of value.games.slice(0, 50)) {
       const eventId = game?.id || game?.gameId || game?.eventId;
       if (!eventId) continue;
-
+      const bookmakerCount = Array.isArray(game?.bookmakers) ? game.bookmakers.length : 0;
       rows.push({
         eventId,
         sport: game?.sport_key || game?.sportKey || league,
         league: game?.sport_title || game?.sportTitle || league,
-        observedAt: game?.last_update || game?.lastUpdate || collectedAt,
+        observedAt: collectedAt,
         metric: "fixture_snapshot",
-        confidence: 0.75,
+        confidence: bookmakerCount >= 2 ? 0.9 : 0.75,
         sourceTrust: 0.9,
         payload: {
           homeTeam: game?.home_team || game?.homeTeam || null,
           awayTeam: game?.away_team || game?.awayTeam || null,
           commenceTime: game?.commence_time || game?.commenceTime || null,
-          bookmakerCount: Array.isArray(game?.bookmakers) ? game.bookmakers.length : 0,
+          bookmakerCount,
           market: "h2h",
           fallbackObservation: true,
         },
@@ -159,8 +192,6 @@ export async function GET(request) {
     const errors = [];
     let diagnostics = [];
     let internal = { records: [], received: 0, accepted: 0, rejectedCount: 0, publishable: 0, researchOnly: 0 };
-    let eventIds = [];
-    let sports = [];
 
     try {
       const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
@@ -168,25 +199,16 @@ export async function GET(request) {
         signal: AbortSignal.timeout(75_000),
       });
       const topPicks = await topPicksResponse.json().catch(() => null);
-      if (!topPicksResponse.ok || topPicks?.ok === false) {
-        throw new Error(topPicks?.error || topPicks?.reason || "Top Picks unavailable");
+      if (topPicksResponse.ok && topPicks?.ok !== false) {
+        internal = scorecasterPicksToCollectorRecords(Array.isArray(topPicks?.data) ? topPicks.data : [], startedAt);
       }
-
-      const picks = Array.isArray(topPicks?.data) ? topPicks.data : [];
-      internal = scorecasterPicksToCollectorRecords(picks, startedAt);
 
       if (!internal.records.length) {
         const fallback = await collectFixtureSnapshots(origin, startedAt);
         internal = fallback.normalized;
         diagnostics = fallback.diagnostics;
-        console.log("[collector] Top Picks empty; fixture fallback used", {
-          records: internal.records.length,
-          diagnostics,
-        });
       }
 
-      eventIds = [...new Set(internal.records.map((record) => record.event_id))];
-      sports = [...new Set(internal.records.map((record) => record.sport))];
       sourceStatus.push({
         sourceId: "scorecaster_internal",
         mode: internal.records.length ? "live" : "live-empty",
@@ -194,20 +216,14 @@ export async function GET(request) {
         records: internal.records.length,
         diagnostics,
       });
-
-      if (!internal.records.length) {
-        errors.push({
-          sourceId: "scorecaster_internal",
-          error: "no-live-records",
-          diagnostics,
-        });
-      }
+      if (!internal.records.length) errors.push({ sourceId: "scorecaster_internal", error: "no-live-records", diagnostics });
     } catch (error) {
       errors.push({ sourceId: "scorecaster_internal", error: "internal-source-unavailable", detail: String(error) });
       sourceStatus.push({ sourceId: "scorecaster_internal", mode: "error", ok: false, records: 0 });
-      console.error("[collector] Internal source failed", error);
     }
 
+    const eventIds = [...new Set(internal.records.map((record) => record.event_id))];
+    const sports = [...new Set(internal.records.map((record) => record.sport))];
     const external = await fetchCollectorJsonRecords({
       eventIds,
       sports,
@@ -225,9 +241,10 @@ export async function GET(request) {
     const records = mergeRecords([internal.records, external.records]);
     if (records.length) {
       const rows = records.map((record) => ({ ...record, run_id: runId }));
-      const { error } = await admin
-        .from("collector_records")
-        .upsert(rows, { onConflict: "fingerprint", ignoreDuplicates: true });
+      const { error } = await admin.from("collector_records").upsert(rows, {
+        onConflict: "fingerprint",
+        ignoreDuplicates: true,
+      });
       if (error) throw error;
     }
 
@@ -252,46 +269,38 @@ export async function GET(request) {
       paper_only: true,
     });
 
-    return response(
-      {
-        ok: status !== "failed",
-        version: "scorecaster-collector-v3",
-        runId,
-        startedAt,
-        completedAt,
-        status,
-        recordsStored: records.length,
-        publishable,
-        researchOnly,
-        rejected,
-        sources: sourceStatus,
-        diagnostics,
-        registry: collectorRegistrySummary(),
-        genericProvider: collectorJsonProviderConfiguration(),
-        probabilityChanged: false,
-        paperOnly: true,
-      },
-      status === "failed" ? 503 : 200
-    );
+    return response({
+      ok: status !== "failed",
+      version: "scorecaster-collector-v4",
+      runId,
+      startedAt,
+      completedAt,
+      status,
+      recordsStored: records.length,
+      publishable,
+      researchOnly,
+      rejected,
+      sources: sourceStatus,
+      diagnostics,
+      registry: collectorRegistrySummary(),
+      genericProvider: collectorJsonProviderConfiguration(),
+      probabilityChanged: false,
+      paperOnly: true,
+    }, status === "failed" ? 503 : 200);
   } catch (error) {
     if (runId) {
       await finishRun(admin, runId, {
         completed_at: new Date().toISOString(),
         status: "failed",
-        errors: [{ error: migrationMissing(error) ? "migration-not-active" : "collector-failed" }],
+        errors: [{ error: migrationMissing(error) ? "migration-not-active" : "collector-failed", detail: String(error) }],
       }).catch(() => null);
     }
-    return response(
-      {
-        ok: false,
-        error: migrationMissing(error)
-          ? "Collector migration is not active"
-          : process.env.NODE_ENV === "production"
-            ? "Collector capture failed"
-            : String(error),
-        migrationRequired: migrationMissing(error) ? "supabase/scorecaster_collector_v1.sql" : undefined,
-      },
-      migrationMissing(error) ? 503 : 500
-    );
+    return response({
+      ok: false,
+      error: migrationMissing(error)
+        ? "Collector migration is not active"
+        : process.env.NODE_ENV === "production" ? "Collector capture failed" : String(error),
+      migrationRequired: migrationMissing(error) ? "supabase/scorecaster_collector_v1.sql" : undefined,
+    }, migrationMissing(error) ? 503 : 500);
   }
 }
