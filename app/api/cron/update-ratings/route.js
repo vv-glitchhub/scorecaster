@@ -1,5 +1,6 @@
 import { normalizeFootballPlayersFromFeed } from "../../../../lib/data-normalizers/football";
 import { updateFootballRatingsFromStructuredPlayers } from "../../../../lib/rating-update-engine";
+import { GET as runCollectorRoute } from "../../internal/collector/route";
 
 async function fetchStructuredStatsFeed() {
   const url = process.env.STATS_FEED_URL;
@@ -37,23 +38,10 @@ async function runRatingsUpdate() {
   return updateFootballRatingsFromStructuredPlayers(players, "vercel_cron");
 }
 
-async function runCollector(req, cronSecret) {
-  const origin = new URL(req.url).origin;
-  const collectorUrl = `${origin}/api/internal/collector`;
+async function runCollector(req) {
+  console.log("[daily-maintenance] Running collector directly");
 
-  console.log("[daily-maintenance] Calling collector", { collectorUrl });
-
-  const response = await fetch(collectorUrl, {
-    method: "GET",
-    headers: {
-      Authorization: `Bearer ${cronSecret}`,
-      Accept: "application/json",
-    },
-    cache: "no-store",
-    redirect: "manual",
-    signal: AbortSignal.timeout(110_000),
-  });
-
+  const response = await runCollectorRoute(req);
   const responseText = await response.text();
   let payload = null;
 
@@ -65,10 +53,8 @@ async function runCollector(req, cronSecret) {
     }
   }
 
-  console.log("[daily-maintenance] Collector HTTP response", {
+  console.log("[daily-maintenance] Direct collector response", {
     status: response.status,
-    contentType: response.headers.get("content-type"),
-    location: response.headers.get("location"),
     payload,
   });
 
@@ -122,11 +108,11 @@ export async function GET(req) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log("[daily-maintenance] Starting ratings update and collector");
+  console.log("[daily-maintenance] Starting ratings update and direct collector");
 
   const [ratingsResult, collectorResult] = await Promise.allSettled([
     runRatingsUpdate(),
-    runCollector(req, cronSecret),
+    runCollector(req),
   ]);
 
   const ratings = settledResult(ratingsResult);
@@ -154,7 +140,7 @@ export async function GET(req) {
   return Response.json(
     {
       ok,
-      version: "scorecaster-daily-maintenance-v4",
+      version: "scorecaster-daily-maintenance-v5",
       ratings,
       collector,
     },
