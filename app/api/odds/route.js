@@ -50,7 +50,7 @@ export async function GET(request) {
   const apiKey = process.env.ODDS_API_KEY;
   if (!apiKey) {
     return json(
-      { ok: false, source: "unavailable", reason: "Live odds are not configured", data: [] },
+      { ok: false, source: "unavailable", reason: "Live odds are not configured", sport, markets, count: 0, data: [] },
       503,
       { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" }
     );
@@ -65,11 +65,16 @@ export async function GET(request) {
     url.searchParams.set("dateFormat", "iso");
 
     const response = await fetch(url.toString(), {
-      next: { revalidate: 120 },
-      signal: AbortSignal.timeout(10000)
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000)
     });
 
     const data = await response.json().catch(() => null);
+    const providerHeaders = {
+      requestsRemaining: response.headers.get("x-requests-remaining"),
+      requestsUsed: response.headers.get("x-requests-used"),
+      requestsLast: response.headers.get("x-requests-last")
+    };
 
     if (!response.ok || !Array.isArray(data)) {
       const upstreamStatus = response.status >= 400 && response.status < 500 ? 502 : 503;
@@ -77,9 +82,12 @@ export async function GET(request) {
         {
           ok: false,
           source: "upstream_error",
-          reason: "Live odds provider is temporarily unavailable",
+          reason: data?.message || "Live odds provider is temporarily unavailable",
+          upstreamStatus: response.status,
           sport,
           markets,
+          count: 0,
+          providerHeaders,
           data: []
         },
         upstreamStatus,
@@ -90,10 +98,12 @@ export async function GET(request) {
     return json({
       ok: true,
       source: "live",
+      mode: data.length ? "live" : "live-empty",
       sport,
       markets,
       regions: "eu",
       count: data.length,
+      providerHeaders,
       data
     });
   } catch (error) {
@@ -105,6 +115,7 @@ export async function GET(request) {
         reason: timedOut ? "Live odds request timed out" : "Live odds request failed",
         sport,
         markets,
+        count: 0,
         data: []
       },
       503,
