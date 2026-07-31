@@ -31,6 +31,7 @@ export default function AppShell({ children }) {
   ], [tr]);
 
   const secondaryItems = useMemo(() => [
+    { href: "/brief", label: tr({ fi: "Päivän briefi", en: "Daily Brief", es: "Informe diario" }) },
     ...groups,
     { href: "/autonomous-agent", label: "Autonomous Agent" },
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
