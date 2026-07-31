@@ -5,9 +5,14 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const file = (path) => readFile(new URL(path, root), "utf8");
 
-test("home page uses the unified ready app", async () => {
+test("home page uses the simplified Today experience", async () => {
   const page = await file("app/page.jsx");
-  assert.match(page, /ScorecasterReadyClient/);
+  const today = await file("app/components/TodayPageClient.jsx");
+  assert.match(page, /TodayPageClient/);
+  assert.match(today, /\/api\/scorecaster-app/);
+  assert.match(today, /Päivän pitkäveto/);
+  assert.match(today, /AI Feed/);
+  assert.match(today, /paper-only/);
 });
 
 test("unified API is publishable-only and bounded", async () => {
@@ -19,13 +24,25 @@ test("unified API is publishable-only and bounded", async () => {
   assert.match(route, /buildIntelligenceV4/);
 });
 
-test("ready app exposes all core production views", async () => {
+test("ready app still exposes all core production views", async () => {
   const client = await file("app/ScorecasterReadyClient.jsx");
   for (const marker of ["Daily Top 3", "AI Coach", "Closing line", "All data", "paper-only", "calibration", "riskSignals"]) {
     assert.ok(client.includes(marker), `missing ${marker}`);
   }
   assert.match(client, /\/api\/scorecaster-app/);
   assert.match(client, /Näytä kaikki data/);
+});
+
+test("AI Feed has automatic refresh and authenticated community comments", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  const route = await file("app/api/community/comments/route.js");
+  const migration = await file("supabase/scorecaster_community_feed_v1.sql");
+  assert.match(feed, /setInterval/);
+  assert.match(feed, /\/api\/community\/comments/);
+  assert.match(route, /getAuthenticatedContext/);
+  assert.match(route, /enforceRateLimit/);
+  assert.match(migration, /enable row level security/);
+  assert.match(migration, /auth\.uid\(\) = user_id/);
 });
 
 test("ready app keeps real-money execution disabled", async () => {
