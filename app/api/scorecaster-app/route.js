@@ -8,6 +8,7 @@ import {
   publicRecord,
   publicSourceCatalogue
 } from "../../../lib/decision-transparency.mjs";
+import { buildVisibleObservations, withVisibleDailyTop3 } from "../../../lib/visible-observations.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -153,11 +154,13 @@ export async function GET(request) {
         }
       : { status: "not-activated", lastRun: null };
 
-    const controlCenter = buildProductionControlCenter({
+    const strictControlCenter = buildProductionControlCenter({
       records,
       settledSamples: settledSamples(records),
       collectorHealth
     });
+    const visibleObservations = buildVisibleObservations(events, { now: Date.now(), limit: 12 });
+    const controlCenter = withVisibleDailyTop3(strictControlCenter, visibleObservations);
     const intelligenceV4 = buildIntelligenceV4(events, { iterations: 10000, bankroll: 1000 });
     const selected = events.find((event) => event.eventId === selectedEventId) || events[0] || null;
     const intelligenceV3 = selected
@@ -205,6 +208,9 @@ export async function GET(request) {
       filters: { hours, sport: sport || null, limit },
       collectorHealth,
       controlCenter,
+      visibleObservations,
+      strictDailyTop3Count: strictControlCenter.dailyTop3?.length || 0,
+      fallbackActive: Boolean(controlCenter.fallbackActive),
       intelligenceV4,
       intelligenceV3,
       selectedTransparency,
