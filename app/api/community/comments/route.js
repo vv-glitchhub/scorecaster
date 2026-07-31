@@ -1,18 +1,16 @@
 import { createClient } from "../../../../lib/supabase/server";
-import { enforceRateLimit, getAuthenticatedContext } from "../../../../lib/api-security";
+import {
+  boundedNumber,
+  cleanText,
+  enforceRateLimit,
+  getAuthenticatedContext,
+  getRequestId,
+  jsonResponse,
+  mutationOriginAllowed,
+  readJsonBody
+} from "../../../../lib/api-security";
 
 export const dynamic = "force-dynamic";
-
-function response(payload, status = 200) {
-  return Response.json(payload, {
-    status,
-    headers: { "Cache-Control": "no-store" }
-  });
-}
-
-function clean(value, maxLength) {
-  return String(value || "").replace(/[<>]/g, "").replace(/\s+/g, " ").trim().slice(0, maxLength);
-}
 
 function migrationMissing(error) {
   const message = String(error?.message || error || "").toLowerCase();
@@ -20,11 +18,18 @@ function migrationMissing(error) {
 }
 
 export async function GET(request) {
+  const requestId = getRequestId(request);
+
   try {
     const supabase = await createClient();
     const url = new URL(request.url);
-    const eventId = clean(url.searchParams.get("eventId"), 180);
-    const limit = Math.min(200, Math.max(1, Number(url.searchParams.get("limit") || 100)));
+    const unknown = [...url.searchParams.keys()].filter((key) => !["eventId", "limit"].includes(key));
+    if (unknown.length) {
+      return jsonResponse({ ok: false, error: "Unsupported query parameter" }, 400, requestId);
+    }
+
+    const eventId = cleanText(url.searchParams.get("eventId"), 180);
+    const limit = boundedNumber(url.searchParams.get("limit"), { min: 1, max: 200, fallback: 100 });
 
     let query = supabase
       .from("community_comments")
@@ -37,41 +42,47 @@ export async function GET(request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return response({ ok: true, comments: data || [] });
+    return jsonResponse({ ok: true, comments: data || [] }, 200, requestId);
   } catch (error) {
-    return response({
+    const missing = migrationMissing(error);
+    return jsonResponse({
       ok: false,
-      error: migrationMissing(error) ? "Community comments are not active yet" : "Comments unavailable",
-      migrationRequired: migrationMissing(error) ? "supabase/scorecaster_community_feed_v1.sql" : undefined
-    }, migrationMissing(error) ? 503 : 500);
+      error: missing ? "Community comments are not active yet" : "Comments unavailable",
+      migrationRequired: missing ? "supabase/scorecaster_community_feed_v1.sql" : undefined
+    }, missing ? 503 : 500, requestId);
   }
 }
 
 export async function POST(request) {
-  const auth = await getAuthenticatedContext(request);
-  if (!auth.ok) return response({ ok: false, error: auth.error }, auth.status);
+  const requestId = getRequestId(request);
+  if (!mutationOriginAllowed(request)) {
+    return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
+  }
 
-  const rateLimit = await enforceRateLimit(auth, crypto.randomUUID(), {
-    bucket: `community-comment:${auth.user.id}`,
+  const auth = await getAuthenticatedContext(request);
+  if (!auth.ok) return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "community_comment_write",
     limit: 20,
     windowSeconds: 300
   });
-  if (rateLimit) return rateLimit;
+  if (limited) return limited;
 
-  let body;
-  try {
-    body = await request.json();
-  } catch {
-    return response({ ok: false, error: "Invalid JSON body" }, 400);
-  }
+  const body = await readJsonBody(request, 4096);
+  if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
 
-  const eventId = clean(body?.eventId, 180);
-  const message = clean(body?.message, 500);
-  if (!eventId || eventId.length < 2) return response({ ok: false, error: "Event is required" }, 400);
-  if (message.length < 2) return response({ ok: false, error: "Comment is too short" }, 400);
+  const eventId = cleanText(body.data?.eventId, 180);
+  const message = cleanText(body.data?.message, 500);
+  if (eventId.length < 2) return jsonResponse({ ok: false, error: "Event is required" }, 400, requestId);
+  if (message.length < 2) return jsonResponse({ ok: false, error: "Comment is too short" }, 400, requestId);
 
   const metadata = auth.user.user_metadata || {};
-  const authorName = clean(metadata.display_name || metadata.full_name || metadata.name || auth.user.email?.split("@")[0] || "Scorecaster user", 60);
+  const authorName = cleanText(
+    metadata.display_name || metadata.full_name || metadata.name || auth.user.email?.split("@")[0] || "Scorecaster user",
+    60,
+    "Scorecaster user"
+  );
 
   const { data, error } = await auth.supabase
     .from("community_comments")
@@ -85,12 +96,13 @@ export async function POST(request) {
     .single();
 
   if (error) {
-    return response({
+    const missing = migrationMissing(error);
+    return jsonResponse({
       ok: false,
-      error: migrationMissing(error) ? "Community comments are not active yet" : "Comment could not be saved",
-      migrationRequired: migrationMissing(error) ? "supabase/scorecaster_community_feed_v1.sql" : undefined
-    }, migrationMissing(error) ? 503 : 500);
+      error: missing ? "Community comments are not active yet" : "Comment could not be saved",
+      migrationRequired: missing ? "supabase/scorecaster_community_feed_v1.sql" : undefined
+    }, missing ? 503 : 500, requestId);
   }
 
-  return response({ ok: true, comment: data }, 201);
+  return jsonResponse({ ok: true, comment: data }, 201, requestId);
 }
