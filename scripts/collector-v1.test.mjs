@@ -101,7 +101,7 @@ test("collector storage and APIs retain security boundaries", async () => {
   assert.match(importer, /licenseReference/);
   assert.match(api, /\.eq\("publishable", true\)/);
   assert.match(api, /researchDataExcluded: true/);
-  assert.match(health, /scorecaster-collector-health-v2/);
+  assert.match(health, /scorecaster-collector-health-v3/);
   assert.match(sources, /productionCollectionFailsClosed: true/);
   assert.match(workflow, /api\/internal\/collector/);
   assert.match(client, /publishable-only API/);
