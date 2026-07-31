@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
+import MarketPickExplanation from "../components/MarketPickExplanation";
+import { addTrackedBet } from "../../lib/tracking-storage";
 import {
   DecisionBadge,
   EmptyState,
@@ -47,6 +49,7 @@ export default function EventsClient() {
   const [error, setError] = useState("");
   const [generatedAt, setGeneratedAt] = useState(null);
   const [source, setSource] = useState("loading");
+  const [savedEventId, setSavedEventId] = useState("");
 
   const load = useCallback(async (selected = filter) => {
     setLoading(true);
@@ -105,6 +108,36 @@ export default function EventsClient() {
     ? new Date(generatedAt).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" });
 
+  function savePaperPick(event, pick) {
+    if (!pick || decision(pick) === "SKIP") return;
+    addTrackedBet({
+      eventId: event.id,
+      match: event.match,
+      homeTeam: event.homeTeam,
+      awayTeam: event.awayTeam,
+      selection: pick.selection || pick.label,
+      odds: Number(pick.odds || 0),
+      bookmaker: pick.bookmaker || "live-odds-provider",
+      sportKey: event.sportKey,
+      marketKey: pick.marketKey || "h2h",
+      edge: Number(pick.edge || 0),
+      ev: Number(pick.ev || 0),
+      confidence: Number(pick.confidence || 0),
+      modelProbability: Number(pick.consensusProbability || pick.modelProbability || 0),
+      marketProbability: Number(pick.marketProbability || 0),
+      fairOdds: Number(pick.fairOdds || 0),
+      stake: Number(pick.suggestedStake || 0),
+      decision: decision(pick),
+      decisionReason: pick.decisionReason,
+      source: "scorecaster-events",
+      modelMode: pick.modelMode || "market-consensus",
+      edgeType: pick.edgeType || "best-price-vs-no-vig-consensus",
+      paperOnly: true
+    });
+    setSavedEventId(event.id);
+    window.setTimeout(() => setSavedEventId(""), 2500);
+  }
+
   return (
     <div className="space-y-7">
       <PageHero
@@ -112,9 +145,9 @@ export default function EventsClient() {
         eyebrow="Daily Flow V3 · Event Detail V1"
         title={tr({ fi: "Valitse ottelu, tarkista päätös ja jatka oikeaan toimintoon", en: "Choose an event, verify the decision and continue to the right action", es: "Elige un evento, verifica la decisión y continúa con la acción adecuada" })}
         description={tr({
-          fi: "Hakemisto näyttää vain nykyisestä varmennetusta live-analyysistä löytyvät ottelut. Avaa ottelu nähdäksesi markkinan, evidenssin, vireen, levon ja paperitoiminnot yhdessä.",
-          en: "The directory shows only events found in the current verified live analysis. Open an event to review market data, evidence, form, rest and paper-only actions together.",
-          es: "El directorio muestra únicamente eventos del análisis en vivo verificado. Abre uno para revisar mercado, evidencia, forma, descanso y acciones simuladas."
+          fi: "Hakemisto näyttää varmennetut live-ottelut. Jokaisessa kortissa näkyvät paras valinta, päätös, laskelmat, lähteet ja suora paperiseuranta.",
+          en: "The directory shows verified live events. Every card exposes the best selection, verdict, calculations, sources and a direct paper-tracking action.",
+          es: "El directorio muestra eventos verificados. Cada tarjeta incluye selección, decisión, cálculos, fuentes y seguimiento simulado."
         })}
         actions={
           <>
@@ -131,14 +164,14 @@ export default function EventsClient() {
         { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: source },
         { label: tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" }), value: updated, tone: "info" },
         { label: tr({ fi: "Suodatin", en: "Filter", es: "Filtro" }), value: tr(filter.label), tone: "info" },
-        { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: tr({ fi: "vain varmennetut tapahtumat", en: "verified events only", es: "solo eventos verificados" }), tone: "warning" }
+        { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: "paper only", tone: "warning" }
       ]} />
 
       <section>
         <SectionHeader
           eyebrow={tr({ fi: "Otteluhakemisto", en: "Event directory", es: "Directorio de eventos" })}
           title={tr({ fi: "Lähiajan varmennetut ottelut", en: "Verified near-term events", es: "Eventos próximos verificados" })}
-          description={tr({ fi: "Suodata liigaa tai avaa ottelu suoraan yksityiskohtaiseen auditointiin.", en: "Filter by league or open an event directly into the detailed audit.", es: "Filtra por liga o abre un evento directamente en la auditoría detallada." })}
+          description={tr({ fi: "Suodata liigaa, avaa AI-selitys tai lisää hyväksytty kohde suoraan paperiseurantaan.", en: "Filter by league, open the AI explanation or add an accepted pick directly to paper tracking.", es: "Filtra por liga, abre la explicación IA o añade un pronóstico al seguimiento simulado." })}
         />
 
         <div className="mb-5 flex flex-wrap gap-2">
@@ -162,41 +195,47 @@ export default function EventsClient() {
               : tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" });
 
             return (
-              <Link key={event.id} href={href} className="sc-card-hover sc-surface group block rounded-[1.55rem] p-5 sm:p-6">
+              <article key={event.id} className="sc-card-hover sc-surface rounded-[1.55rem] p-5 sm:p-6">
                 <div className="flex items-start justify-between gap-4">
                   <MatchIdentity homeTeam={event.homeTeam} awayTeam={event.awayTeam} meta={`${kickoff} · ${event.league || "Sport"}`} />
                   <DecisionBadge decision={eventDecision} />
                 </div>
 
                 {best && (
-                  <div className="mt-5 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
-                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Paras nykyinen valinta", en: "Current best selection", es: "Mejor selección actual" })}</div>
-                        <div className="mt-1 text-lg font-black text-[var(--sc-text)]">{best.selection || best.label} <span className="text-[var(--sc-brand)]">@ {Number(best.odds || 0).toFixed(2)}</span></div>
+                  <>
+                    <div className="mt-5 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Paras nykyinen valinta", en: "Current best selection", es: "Mejor selección actual" })}</div>
+                          <div className="mt-1 text-lg font-black text-[var(--sc-text)]">{best.selection || best.label} <span className="text-[var(--sc-brand)]">@ {Number(best.odds || 0).toFixed(2)}</span></div>
+                        </div>
+                        <div className="text-xs font-bold text-[var(--sc-muted)]">{event.selections.length} {tr({ fi: "valintaa", en: "selections", es: "selecciones" })}</div>
                       </div>
-                      <div className="text-xs font-bold text-[var(--sc-muted)]">{event.selections.length} {tr({ fi: "valintaa", en: "selections", es: "selecciones" })}</div>
+                      <div className="mt-4 grid grid-cols-3 gap-2">
+                        <MetricTile compact label="Edge" value={percent(best.edge)} tone={Number(best.edge || 0) > 0 ? "green" : "default"} />
+                        <MetricTile compact label="EV" value={percent(best.ev)} tone={Number(best.ev || 0) > 0 ? "green" : "default"} />
+                        <MetricTile compact label={tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })} value={percent(best.confidence)} tone="blue" />
+                      </div>
                     </div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <MetricTile compact label="Edge" value={percent(best.edge)} tone={Number(best.edge || 0) > 0 ? "green" : "default"} />
-                      <MetricTile compact label="EV" value={percent(best.ev)} tone={Number(best.ev || 0) > 0 ? "green" : "default"} />
-                      <MetricTile compact label={tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })} value={percent(best.confidence)} tone="blue" />
-                    </div>
-                  </div>
+
+                    <div className="mt-4"><MarketPickExplanation pick={best} /></div>
+                  </>
                 )}
 
-                <div className="mt-5 flex items-center justify-between border-t border-[var(--sc-border)] pt-4 text-sm font-black">
-                  <span className="text-[var(--sc-muted)]">{tr({ fi: "Markkina + evidenssi + paperitoiminnot", en: "Market + evidence + paper actions", es: "Mercado + evidencia + acciones simuladas" })}</span>
-                  <span className="text-[var(--sc-brand)] transition group-hover:translate-x-1">{tr({ fi: "Avaa", en: "Open", es: "Abrir" })} →</span>
+                <div className="mt-5 grid gap-2 border-t border-[var(--sc-border)] pt-4 sm:grid-cols-2">
+                  <Link href={href} className="sc-button-secondary text-center">{tr({ fi: "Avaa syväanalyysi", en: "Open deep analysis", es: "Abrir análisis" })}</Link>
+                  <button type="button" disabled={!best || eventDecision === "SKIP"} onClick={() => savePaperPick(event, best)} className="sc-button-primary disabled:cursor-not-allowed disabled:opacity-40">
+                    {savedEventId === event.id ? tr({ fi: "Lisätty paperiseurantaan", en: "Added to paper tracking", es: "Añadido al seguimiento" }) : eventDecision === "SKIP" ? tr({ fi: "SKIP – ei tallenneta", en: "SKIP – not saved", es: "SKIP – no guardar" }) : tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento" })}
+                  </button>
                 </div>
-              </Link>
+              </article>
             );
           })}
         </div>
       </section>
 
       <div className="rounded-[1.25rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5 text-sm leading-6 text-[var(--sc-muted)]">
-        {tr({ fi: "Lista sisältää vain nykyisessä Top Picks -analyysissä olevat tapahtumat. Puuttuvaa tapahtumaa ei voi avata keksityillä asiakastiedoilla.", en: "The directory contains only events in the current Top Picks analysis. A missing event cannot be opened with invented client data.", es: "La lista contiene solo eventos del análisis Top Picks actual. No se puede abrir un evento ausente con datos inventados por el cliente." })}
+        {tr({ fi: "Lista sisältää vain nykyisessä Top Picks -analyysissä olevat tapahtumat. AI-selitys näyttää käytetyt markkinaluvut ja kaavat, mutta ei muuta päätöstä jälkikäteen.", en: "The directory contains only events in the current Top Picks analysis. The AI explanation exposes market inputs and formulas without changing the decision afterwards.", es: "La lista contiene solo eventos del análisis actual. La explicación muestra entradas y fórmulas sin cambiar la decisión después." })}
       </div>
     </div>
   );
