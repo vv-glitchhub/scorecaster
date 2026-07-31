@@ -41,6 +41,7 @@ export default function AppShell({ children }) {
     { href: "/sports-analytics", label: "Sports Analytics" },
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
+    { href: "/transparency", label: tr({ fi: "Avoin AI: kaavat ja lähteet", en: "Open AI: formulas and sources", es: "IA abierta: fórmulas y fuentes" }) },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
     { href: "/responsible-use", label: tr({ fi: "Vastuullinen käyttö", en: "Responsible use", es: "Uso responsable" }) }
   ], [groups, tr]);
