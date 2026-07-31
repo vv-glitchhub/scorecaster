@@ -20,7 +20,8 @@ test("web shell exposes five core user tasks and keeps advanced tools in More", 
   assert.match(shell, /href: "\/agent"/);
   assert.match(shell, /grid-cols-5/);
   assert.match(shell, /NavIcon name="more"/);
-  assert.match(shell, /Advanced \/ operator/);
+  assert.match(shell, /Developer and operator tools|Advanced \/ operator/);
+  assert.match(shell, /<details className="mt-4 border-t/);
   assert.match(shell, /ContextHelp/);
   assert.match(shell, /LanguageSwitcher/);
   assert.match(shell, /t\("mode\.paper"\)/);
@@ -189,7 +190,9 @@ test("Daily Flow V3 connects events, verified watchlist and alert inbox with sha
   }
   assert.match(events, /MatchIdentity/);
   assert.match(events, /DecisionBadge/);
-  assert.match(events, /verified events only/);
+  assert.match(events, /verified live events|verified events only/);
+  assert.match(events, /MarketPickExplanation/);
+  assert.match(events, /addTrackedBet/);
   assert.match(watchlist, /Watchlist Monitor V1/);
   assert.match(watchlist, /\/api\/cloud\/watchlist-monitor/);
   assert.match(watchlist, /Muokkaa hälytysrajoja/);
