@@ -45,6 +45,24 @@ test("AI Feed has automatic refresh and authenticated community comments", async
   assert.match(migration, /auth\.uid\(\) = user_id/);
 });
 
+test("community comments hide user UUIDs and allow deletion only by the owner", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  const route = await file("app/api/community/comments/route.js");
+
+  assert.match(route, /function publicComment/);
+  assert.match(route, /ownedByViewer/);
+  assert.match(route, /export async function DELETE/);
+  assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
+  assert.match(route, /Comment was not found or is not owned by this user/);
+  assert.match(route, /Links and email addresses are not allowed in comments/);
+  assert.doesNotMatch(route, /comments:\s*data\s*\|\|\s*\[\]/);
+
+  assert.match(feed, /comment\.ownedByViewer/);
+  assert.match(feed, /method: "DELETE"/);
+  assert.match(feed, /Poistetaanko oma kommenttisi pysyvästi/);
+  assert.match(feed, /Näytä kaikki \$\{postComments\.length\} kommenttia/);
+});
+
 test("ready app keeps real-money execution disabled", async () => {
   const client = await file("app/ScorecasterReadyClient.jsx");
   const route = await file("app/api/scorecaster-app/route.js");
