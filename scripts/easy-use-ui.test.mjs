@@ -4,18 +4,20 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("web shell exposes four primary tasks plus a dedicated More action", async () => {
+test("web shell exposes five core user tasks and keeps advanced tools in More", async () => {
   const shell = await read("app/components/AppShell.jsx");
   const primaryBlock = shell.slice(shell.indexOf("const primaryItems"), shell.indexOf("const groups"));
 
-  for (const path of ["/", "/betting", "/agent", "/tracking"]) {
-    assert.match(primaryBlock, new RegExp(`href: \\"${path.replace("/", "\\/")}\\"`));
+  for (const path of ["/", "/feed", "/events", "/tracking", "/profile"]) {
+    assert.ok(primaryBlock.includes(`href: "${path}"`), `missing primary route ${path}`);
   }
 
-  for (const path of ["/analytics", "/simulator", "/operations", "/release-readiness"]) {
-    assert.doesNotMatch(primaryBlock, new RegExp(`href: \\"${path.replace("/", "\\/")}\\"`));
+  for (const path of ["/betting", "/agent", "/analytics", "/simulator", "/operations", "/release-readiness"]) {
+    assert.ok(!primaryBlock.includes(`href: "${path}"`), `${path} should not be a primary tab`);
   }
 
+  assert.match(shell, /href: "\/betting"/);
+  assert.match(shell, /href: "\/agent"/);
   assert.match(shell, /grid-cols-5/);
   assert.match(shell, /NavIcon name="more"/);
   assert.match(shell, /Advanced \/ operator/);
