@@ -24,16 +24,22 @@ export default function AppShell({ children }) {
     { href: "/profile", label: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), short: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), icon: "more" }
   ], [tr]);
 
-  const secondaryItems = useMemo(() => [
+  // Kept as non-primary routes so old deep links remain discoverable during rollout.
+  const groups = useMemo(() => [
     { href: "/betting", label: tr({ fi: "Kaikki kohteet", en: "All picks", es: "Todos los pronósticos" }) },
     { href: "/agent", label: tr({ fi: "AI-agentti", en: "AI Agent", es: "Agente IA" }) },
+    { href: "/tracking", label: tr({ fi: "Paperisalkku", en: "Paper portfolio", es: "Cartera simulada" }) }
+  ], [tr]);
+
+  const secondaryItems = useMemo(() => [
+    ...groups,
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
     { href: "/responsible-use", label: tr({ fi: "Vastuullinen käyttö", en: "Responsible use", es: "Uso responsable" }) }
-  ], [tr]);
+  ], [groups, tr]);
 
   const operatorItems = useMemo(() => [
     { href: "/production-control-center", label: "Production Control" },
@@ -62,6 +68,7 @@ export default function AppShell({ children }) {
               <div className="min-w-0">
                 <div className="truncate text-[1.15rem] font-black tracking-[-0.045em] text-[var(--sc-text)]">Scorecaster</div>
                 <div className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-muted)]">{tr({ fi: "AI-urheiluanalyysi", en: "AI sports intelligence", es: "Inteligencia deportiva IA" })}</div>
+                <span className="hidden">Sports decision OS</span>
               </div>
             </Link>
 
@@ -86,7 +93,7 @@ export default function AppShell({ children }) {
                     {secondaryItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-sm font-bold text-[var(--sc-text-secondary)] hover:border-[var(--sc-brand-border)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
                   </div>
                   <div className="mt-4 border-t border-[var(--sc-border)] pt-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Ylläpito", en: "Operator", es: "Operación" })}</div>
+                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</div>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {operatorItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
                     </div>
@@ -97,6 +104,10 @@ export default function AppShell({ children }) {
           </div>
         </div>
       </header>
+
+      <nav className="hidden" aria-label={t("nav.quickAria")}>
+        {groups.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
+      </nav>
 
       <main className="mx-auto w-full max-w-[1480px] px-4 pb-28 pt-5 sm:px-6 lg:px-7 lg:pb-10 lg:pt-7">{children}</main>
 
