@@ -12,9 +12,28 @@ import {
 
 export const dynamic = "force-dynamic";
 
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LINK_PATTERN = /(?:https?:\/\/|www\.)/i;
+const EMAIL_PATTERN = /\b[^\s@]+@[^\s@]+\.[^\s@]+\b/i;
+
 function migrationMissing(error) {
   const message = String(error?.message || error || "").toLowerCase();
   return message.includes("community_comments") || message.includes("does not exist") || message.includes("relation");
+}
+
+function publicComment(row, viewerId = null) {
+  return {
+    id: row.id,
+    event_id: row.event_id,
+    author_name: row.author_name,
+    message: row.message,
+    created_at: row.created_at,
+    ownedByViewer: Boolean(viewerId && row.user_id === viewerId)
+  };
+}
+
+function unsafeCommunityText(message) {
+  return LINK_PATTERN.test(message) || EMAIL_PATTERN.test(message);
 }
 
 export async function GET(request) {
@@ -30,6 +49,8 @@ export async function GET(request) {
 
     const eventId = cleanText(url.searchParams.get("eventId"), 180);
     const limit = boundedNumber(url.searchParams.get("limit"), { min: 1, max: 200, fallback: 100 });
+    const { data: authData } = await supabase.auth.getUser();
+    const viewerId = authData?.user?.id || null;
 
     let query = supabase
       .from("community_comments")
@@ -42,7 +63,10 @@ export async function GET(request) {
     const { data, error } = await query;
     if (error) throw error;
 
-    return jsonResponse({ ok: true, comments: data || [] }, 200, requestId);
+    return jsonResponse({
+      ok: true,
+      comments: (data || []).map((row) => publicComment(row, viewerId))
+    }, 200, requestId);
   } catch (error) {
     const missing = migrationMissing(error);
     return jsonResponse({
@@ -76,6 +100,9 @@ export async function POST(request) {
   const message = cleanText(body.data?.message, 500);
   if (eventId.length < 2) return jsonResponse({ ok: false, error: "Event is required" }, 400, requestId);
   if (message.length < 2) return jsonResponse({ ok: false, error: "Comment is too short" }, 400, requestId);
+  if (unsafeCommunityText(message)) {
+    return jsonResponse({ ok: false, error: "Links and email addresses are not allowed in comments" }, 400, requestId);
+  }
 
   const metadata = auth.user.user_metadata || {};
   const authorName = cleanText(
@@ -104,5 +131,53 @@ export async function POST(request) {
     }, missing ? 503 : 500, requestId);
   }
 
-  return jsonResponse({ ok: true, comment: data }, 201, requestId);
+  return jsonResponse({ ok: true, comment: publicComment(data, auth.user.id) }, 201, requestId);
+}
+
+export async function DELETE(request) {
+  const requestId = getRequestId(request);
+  if (!mutationOriginAllowed(request)) {
+    return jsonResponse({ ok: false, error: "Invalid request origin" }, 403, requestId);
+  }
+
+  const auth = await getAuthenticatedContext(request);
+  if (!auth.ok) return jsonResponse({ ok: false, error: auth.error }, auth.status, requestId);
+
+  const limited = await enforceRateLimit(auth, requestId, {
+    bucket: "community_comment_delete",
+    limit: 20,
+    windowSeconds: 300
+  });
+  if (limited) return limited;
+
+  const body = await readJsonBody(request, 2048);
+  if (!body.ok) return jsonResponse({ ok: false, error: body.error }, body.status, requestId);
+
+  const id = cleanText(body.data?.id, 80);
+  if (!UUID_PATTERN.test(id)) {
+    return jsonResponse({ ok: false, error: "Valid comment id is required" }, 400, requestId);
+  }
+
+  const { data, error } = await auth.supabase
+    .from("community_comments")
+    .delete()
+    .eq("id", id)
+    .eq("user_id", auth.user.id)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    const missing = migrationMissing(error);
+    return jsonResponse({
+      ok: false,
+      error: missing ? "Community comments are not active yet" : "Comment could not be deleted",
+      migrationRequired: missing ? "supabase/scorecaster_community_feed_v1.sql" : undefined
+    }, missing ? 503 : 500, requestId);
+  }
+
+  if (!data?.id) {
+    return jsonResponse({ ok: false, error: "Comment was not found or is not owned by this user" }, 404, requestId);
+  }
+
+  return jsonResponse({ ok: true, deletedId: data.id }, 200, requestId);
 }
