@@ -33,6 +33,7 @@ export default function AppShell({ children }) {
 
   const secondaryItems = useMemo(() => [
     ...groups,
+    { href: "/autonomous-agent", label: "Autonomous Agent" },
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
