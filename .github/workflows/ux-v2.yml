@@ -1,0 +1,37 @@
+name: Scorecaster UX V2
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ux-v2:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: UX V2 regression tests
+        run: npm run test:ux-v2
+
+      - name: Production build
+        run: npm run build
