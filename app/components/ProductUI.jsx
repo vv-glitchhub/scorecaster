@@ -38,19 +38,19 @@ export function PageHero({ eyebrow, title, description, actions, aside, tone = "
       : "bg-[var(--sc-brand-soft)]";
 
   return (
-    <section className="sc-surface relative isolate overflow-hidden rounded-[2.15rem] p-6 md:p-9 lg:p-10">
+    <section className="sc-surface relative isolate overflow-hidden rounded-[1.75rem] p-5 sm:rounded-[2.15rem] sm:p-6 md:p-9 lg:p-10">
       <div className={`pointer-events-none absolute -left-24 -top-32 h-80 w-80 rounded-full blur-3xl ${toneGlow}`} />
       <div className="pointer-events-none absolute -right-24 -top-32 h-80 w-80 rounded-full bg-sky-400/10 blur-3xl" />
       <div className="pointer-events-none absolute inset-0 opacity-[0.045] [background-image:linear-gradient(var(--sc-text)_1px,transparent_1px),linear-gradient(90deg,var(--sc-text)_1px,transparent_1px)] [background-size:42px_42px]" />
       <div className="pointer-events-none absolute bottom-0 left-0 h-px w-full bg-gradient-to-r from-transparent via-[var(--sc-brand)] to-transparent opacity-45" />
-      <div className="relative grid gap-8 xl:grid-cols-[minmax(0,1fr)_330px] xl:items-end">
+      <div className="relative grid gap-6 sm:gap-8 xl:grid-cols-[minmax(0,1fr)_330px] xl:items-end">
         <div className="max-w-4xl">
           {eyebrow && <div className="sc-kicker">{eyebrow}</div>}
-          <h1 className="mt-5 text-balance text-[clamp(2.35rem,6vw,4.6rem)] font-black leading-[0.98] tracking-[-0.055em] text-[var(--sc-text)]">{title}</h1>
-          {description && <p className="mt-5 max-w-3xl text-base leading-7 text-[var(--sc-text-secondary)] md:text-lg md:leading-8">{description}</p>}
-          {actions && <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">{actions}</div>}
+          <h1 className="mt-4 text-balance text-[clamp(2rem,8vw,4.6rem)] font-black leading-[1.02] tracking-[-0.05em] text-[var(--sc-text)] sm:mt-5 sm:leading-[0.98] sm:tracking-[-0.055em]">{title}</h1>
+          {description && <p className="mt-4 max-w-3xl text-sm leading-6 text-[var(--sc-text-secondary)] sm:mt-5 sm:text-base sm:leading-7 md:text-lg md:leading-8">{description}</p>}
+          {actions && <div className="mt-6 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:flex-wrap">{actions}</div>}
         </div>
-        {aside && <div className="rounded-[1.45rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5 shadow-inner backdrop-blur-xl">{aside}</div>}
+        {aside && <div className="rounded-[1.35rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 shadow-inner backdrop-blur-xl sm:rounded-[1.45rem] sm:p-5">{aside}</div>}
       </div>
     </section>
   );
