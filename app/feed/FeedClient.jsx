@@ -38,6 +38,8 @@ export default function FeedClient() {
   const [liked, setLiked] = useState([]);
   const [saved, setSaved] = useState([]);
   const [sort, setSort] = useState("latest");
+  const [deletingCommentId, setDeletingCommentId] = useState("");
+  const [expandedComments, setExpandedComments] = useState([]);
 
   async function loadFeed({ silent = false } = {}) {
     if (!silent) setLoading(true);
@@ -102,6 +104,12 @@ export default function FeedClient() {
     localStorage.setItem(key, JSON.stringify(next));
   }
 
+  function toggleCommentExpansion(eventId) {
+    setExpandedComments((current) => current.includes(eventId)
+      ? current.filter((id) => id !== eventId)
+      : [...current, eventId]);
+  }
+
   async function submitComment(eventId) {
     const message = String(drafts[eventId] || "").trim();
     if (message.length < 2) return;
@@ -120,6 +128,34 @@ export default function FeedClient() {
       setCommentStatus((current) => ({ ...current, [eventId]: tr({ fi: "Kommentti julkaistu", en: "Comment published", es: "Comentario publicado" }) }));
     } catch (cause) {
       setCommentStatus((current) => ({ ...current, [eventId]: cause?.message || "Comment failed" }));
+    }
+  }
+
+  async function deleteComment(comment) {
+    const confirmed = window.confirm(tr({
+      fi: "Poistetaanko oma kommenttisi pysyvästi?",
+      en: "Delete your comment permanently?",
+      es: "¿Eliminar tu comentario permanentemente?"
+    }));
+    if (!confirmed) return;
+
+    setDeletingCommentId(comment.id);
+    setCommentStatus((current) => ({ ...current, [comment.event_id]: tr({ fi: "Poistetaan…", en: "Deleting…", es: "Eliminando…" }) }));
+
+    try {
+      const response = await fetch("/api/community/comments", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: comment.id })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload.error || "Comment could not be deleted");
+      setComments((current) => current.filter((item) => item.id !== payload.deletedId));
+      setCommentStatus((current) => ({ ...current, [comment.event_id]: tr({ fi: "Kommentti poistettu", en: "Comment deleted", es: "Comentario eliminado" }) }));
+    } catch (cause) {
+      setCommentStatus((current) => ({ ...current, [comment.event_id]: cause?.message || "Comment could not be deleted" }));
+    } finally {
+      setDeletingCommentId("");
     }
   }
 
@@ -152,6 +188,10 @@ export default function FeedClient() {
           const postComments = commentsByEvent[post.eventId] || [];
           const isLiked = liked.includes(post.eventId);
           const isSaved = saved.includes(post.eventId);
+          const commentsExpanded = expandedComments.includes(post.eventId);
+          const visibleComments = commentsExpanded ? postComments : postComments.slice(0, 5);
+          const draftLength = String(drafts[post.eventId] || "").length;
+
           return (
             <article key={post.eventId} className="overflow-hidden rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)]">
               <div className="p-5 sm:p-6">
@@ -184,11 +224,46 @@ export default function FeedClient() {
 
               <div className="border-t border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5 sm:p-6">
                 <div className="space-y-3">
-                  {postComments.slice(0, 5).map((comment) => <div key={comment.id} className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-4"><div className="flex items-center justify-between gap-3"><div className="text-sm font-black text-[var(--sc-text)]">{comment.author_name}</div><div className="text-[10px] text-[var(--sc-faint)]">{new Date(comment.created_at).toLocaleString(locale)}</div></div><p className="mt-2 text-sm leading-6 text-[var(--sc-text-secondary)]">{comment.message}</p></div>)}
+                  {visibleComments.map((comment) => (
+                    <div key={comment.id} className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-4">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <div className="text-sm font-black text-[var(--sc-text)]">{comment.author_name}</div>
+                          <div className="mt-1 text-[10px] text-[var(--sc-faint)]">{new Date(comment.created_at).toLocaleString(locale)}</div>
+                        </div>
+                        {comment.ownedByViewer && (
+                          <button
+                            type="button"
+                            disabled={deletingCommentId === comment.id}
+                            onClick={() => deleteComment(comment)}
+                            className="rounded-lg px-2 py-1 text-[11px] font-black text-red-300 hover:bg-red-500/10 disabled:opacity-50"
+                          >
+                            {deletingCommentId === comment.id
+                              ? tr({ fi: "Poistetaan…", en: "Deleting…", es: "Eliminando…" })
+                              : tr({ fi: "Poista", en: "Delete", es: "Eliminar" })}
+                          </button>
+                        )}
+                      </div>
+                      <p className="mt-2 whitespace-pre-wrap break-words text-sm leading-6 text-[var(--sc-text-secondary)]">{comment.message}</p>
+                    </div>
+                  ))}
                 </div>
+
+                {postComments.length > 5 && (
+                  <button type="button" onClick={() => toggleCommentExpansion(post.eventId)} className="mt-3 text-xs font-black text-[var(--sc-brand)] hover:underline">
+                    {commentsExpanded
+                      ? tr({ fi: "Näytä vähemmän", en: "Show fewer", es: "Mostrar menos" })
+                      : tr({ fi: `Näytä kaikki ${postComments.length} kommenttia`, en: `Show all ${postComments.length} comments`, es: `Mostrar los ${postComments.length} comentarios` })}
+                  </button>
+                )}
+
                 <div className="mt-4 flex gap-2">
                   <input value={drafts[post.eventId] || ""} onChange={(event) => setDrafts((current) => ({ ...current, [post.eventId]: event.target.value }))} onKeyDown={(event) => { if (event.key === "Enter") void submitComment(post.eventId); }} maxLength={500} placeholder={tr({ fi: "Kirjoita kommentti…", en: "Write a comment…", es: "Escribe un comentario…" })} className="min-w-0 flex-1 rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] px-4 py-3 text-sm text-[var(--sc-text)] outline-none focus:border-[var(--sc-brand-border)]" />
-                  <button type="button" onClick={() => submitComment(post.eventId)} className="rounded-xl bg-[var(--sc-brand)] px-4 py-3 text-sm font-black text-[var(--sc-brand-ink)]">{tr({ fi: "Lähetä", en: "Send", es: "Enviar" })}</button>
+                  <button type="button" disabled={draftLength < 2} onClick={() => submitComment(post.eventId)} className="rounded-xl bg-[var(--sc-brand)] px-4 py-3 text-sm font-black text-[var(--sc-brand-ink)] disabled:cursor-not-allowed disabled:opacity-40">{tr({ fi: "Lähetä", en: "Send", es: "Enviar" })}</button>
+                </div>
+                <div className="mt-2 flex items-start justify-between gap-3 text-[11px] text-[var(--sc-faint)]">
+                  <span>{tr({ fi: "Linkit ja sähköpostiosoitteet eivät ole sallittuja.", en: "Links and email addresses are not allowed.", es: "No se permiten enlaces ni correos electrónicos." })}</span>
+                  <span className="shrink-0">{draftLength}/500</span>
                 </div>
                 {commentStatus[post.eventId] && <div className="mt-2 text-xs text-[var(--sc-muted)]">{commentStatus[post.eventId]} {commentStatus[post.eventId].toLowerCase().includes("auth") && <Link href="/profile" className="font-black text-[var(--sc-brand)]">{tr({ fi: "Kirjaudu profiilissa", en: "Sign in from Profile", es: "Inicia sesión en Perfil" })}</Link>}</div>}
               </div>
