@@ -24,7 +24,6 @@ export default function AppShell({ children }) {
     { href: "/profile", label: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), short: tr({ fi: "Profiili", en: "Profile", es: "Perfil" }), icon: "more" }
   ], [tr]);
 
-  // Kept as non-primary routes so old deep links remain discoverable during rollout.
   const groups = useMemo(() => [
     { href: "/betting", label: tr({ fi: "Kaikki kohteet", en: "All picks", es: "Todos los pronósticos" }) },
     { href: "/agent", label: tr({ fi: "AI-agentti", en: "AI Agent", es: "Agente IA" }) },
@@ -97,12 +96,15 @@ export default function AppShell({ children }) {
                   <div className="mt-3 grid gap-2 sm:grid-cols-2">
                     {secondaryItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-sm font-bold text-[var(--sc-text-secondary)] hover:border-[var(--sc-brand-border)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
                   </div>
-                  <div className="mt-4 border-t border-[var(--sc-border)] pt-4">
-                    <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Ylläpito", en: "Advanced / operator", es: "Avanzado / operación" })}</div>
-                    <div className="mt-2 flex flex-wrap gap-2">
+                  <details className="mt-4 border-t border-[var(--sc-border)] pt-4">
+                    <summary className="cursor-pointer list-none rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-muted)]">
+                      {tr({ fi: "Kehittäjä- ja ylläpitotyökalut", en: "Developer and operator tools", es: "Herramientas de desarrollo y operación" })}
+                    </summary>
+                    <p className="mt-3 text-xs leading-5 text-[var(--sc-faint)]">{tr({ fi: "Nämä näkymät eivät kuulu tavalliseen päivittäiseen käyttöön.", en: "These views are not part of the normal daily user flow.", es: "Estas vistas no forman parte del uso diario normal." })}</p>
+                    <div className="mt-3 flex flex-wrap gap-2">
                       {operatorItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
                     </div>
-                  </div>
+                  </details>
                 </div>
               )}
             </div>
