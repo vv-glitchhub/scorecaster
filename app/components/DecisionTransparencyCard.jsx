@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useLanguage } from "./LanguageProvider";
 
-const number = (value, digits = 4) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
-const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
+const isNumeric = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+const number = (value, digits = 4) => isNumeric(value) ? Number(value).toFixed(digits) : "–";
+const percent = (value, digits = 1) => isNumeric(value) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
 
 export default function DecisionTransparencyCard({ explanation, compact = false }) {
   const { tr } = useLanguage();
@@ -38,7 +39,7 @@ export default function DecisionTransparencyCard({ explanation, compact = false 
           {factors.slice(0, compact ? 4 : 6).map((factor) => (
             <div key={factor.id} className="flex items-center justify-between gap-4 rounded-xl bg-[var(--sc-surface)] px-3 py-2 text-xs">
               <span className="font-bold text-[var(--sc-text-secondary)]">{factor.label}</span>
-              <span className="font-black text-[var(--sc-text)]">{Number.isFinite(Number(factor.value)) ? number(factor.value) : factor.direction}</span>
+              <span className="font-black text-[var(--sc-text)]">{isNumeric(factor.value) ? number(factor.value) : factor.direction}</span>
             </div>
           ))}
         </div>
