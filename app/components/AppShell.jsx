@@ -36,6 +36,8 @@ export default function AppShell({ children }) {
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
+    { href: "/sports-analytics", label: "Sports Analytics" },
+    { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
     { href: "/responsible-use", label: tr({ fi: "Vastuullinen käyttö", en: "Responsible use", es: "Uso responsable" }) }
