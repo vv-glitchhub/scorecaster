@@ -7,5 +7,5 @@
 - [x] Operator links are collapsed outside the normal user flow
 - [x] Narrow-screen hero typography reduced
 - [x] Dedicated regression suite and production-build workflow added
-- [ ] GitHub Actions green
-- [ ] Vercel production deployment green
+- [x] GitHub Actions green
+- [x] Vercel production deployment green
