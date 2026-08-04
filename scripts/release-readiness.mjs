@@ -91,10 +91,13 @@ for (const endpoint of protectedApis) {
 }
 
 const migrations = manifest.supabaseMigrations || [];
-check(migrations.length >= 18, "Release manifest must list the complete ordered Supabase rollout");
+check(migrations.length >= 21, "Release manifest must list the complete ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
+const communityFeedIndex = migrations.indexOf("supabase/scorecaster_community_feed_v1.sql");
+const aiIntelligenceIndex = migrations.indexOf("supabase/scorecaster_ai_intelligence_v1.sql");
+const collectorIndex = migrations.indexOf("supabase/scorecaster_collector_v1.sql");
 const unifiedDataIndex = migrations.indexOf("supabase/scorecaster_unified_data.sql");
 const sportsAnalyticsIndex = migrations.indexOf("supabase/scorecaster_sports_analytics.sql");
 const settlementIndex = migrations.indexOf("supabase/scorecaster_settlement_monitor.sql");
@@ -102,7 +105,9 @@ const autonomousV1Index = migrations.indexOf("supabase/scorecaster_autonomous_ag
 const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_agent_v2.sql");
 const autonomousV13HardCapsIndex = migrations.indexOf("supabase/scorecaster_autonomous_v13_hard_caps.sql");
 const shadowLearningIndex = migrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
-check(unifiedDataIndex >= 0, "Unified Data migration must be listed");
+check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
+check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
+check(unifiedDataIndex === aiIntelligenceIndex + 1, "Unified Data must run immediately after AI Intelligence");
 check(sportsAnalyticsIndex === unifiedDataIndex + 1, "Sports Analytics must run immediately after Unified Data");
 check(settlementIndex === sportsAnalyticsIndex + 1, "Settlement Monitor must run immediately after Sports Analytics");
 check(autonomousV1Index === settlementIndex + 1, "Autonomous Agent V1 must run immediately after Settlement Monitor");
