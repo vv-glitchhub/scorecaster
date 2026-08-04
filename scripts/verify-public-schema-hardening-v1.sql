@@ -1,5 +1,3 @@
-\set ON_ERROR_STOP on
-
 -- Read-only verification for Scorecaster public-schema hardening V1.
 
 do $$
