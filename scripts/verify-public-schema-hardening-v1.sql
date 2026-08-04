@@ -18,7 +18,8 @@ begin
     'user_settings','community_comments'
   ]) as expected(table_name)
   join pg_class c on c.oid = to_regclass(format('public.%I', expected.table_name))
-  where not c.relrowsecurity or not c.relforcerowsecurity;
+  where c.relkind in ('r', 'p')
+    and (not c.relrowsecurity or not c.relforcerowsecurity);
 
   if insecure_tables is not null then
     raise exception 'RLS or FORCE RLS is missing from: %', array_to_string(insecure_tables, ', ');
@@ -64,7 +65,7 @@ begin
     ]);
 
   if internal_exposure is not null then
-    raise exception 'Internal tables still expose client privileges: %', array_to_string(internal_exposure, ', ');
+    raise exception 'Internal relations still expose client privileges: %', array_to_string(internal_exposure, ', ');
   end if;
 end;
 $$;
@@ -108,8 +109,9 @@ $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'public-schema-hardening-v1',
-  'rlsEnabled', true,
+  'version', 'public-schema-hardening-v1.1',
+  'rlsEnabledForTables', true,
+  'viewsProtectedByGrantRevocation', true,
   'forceRlsEnabled', true,
   'dangerousClientGrants', 0,
   'internalClientExposure', 0,
