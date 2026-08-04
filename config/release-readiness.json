@@ -20,29 +20,176 @@
     "/data-collector"
   ],
   "protectedApis": [
-    { "path": "/api/operations", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/account", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/account/export", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/bets", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/watchlist", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/alerts", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/notifications", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/settlement-monitor", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/autonomous-agent", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/autonomy-mission-control", "method": "GET", "allowedStatuses": [401, 403] },
-    { "path": "/api/cloud/polymarket-intelligence", "method": "GET", "allowedStatuses": [401, 403] }
+    {
+      "path": "/api/operations",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/account",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/account/export",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/bets",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/watchlist",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/alerts",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/notifications",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/watchlist-monitor",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/settlement-monitor",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/autonomous-agent",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/autonomy-mission-control",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
+      "path": "/api/cloud/polymarket-intelligence",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    }
   ],
   "internalWorkers": [
-    { "path": "/api/internal/watchlist-monitor", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/settlement-monitor", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/autonomous-agent", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/shadow-learning", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/notification-delivery", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/decision-diagnostics", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/unified-data", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/sports-analytics", "method": "GET", "allowedStatuses": [401, 503] },
-    { "path": "/api/internal/collector", "method": "GET", "allowedStatuses": [401, 503] }
+    {
+      "path": "/api/internal/watchlist-monitor",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/settlement-monitor",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/autonomous-agent",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/shadow-learning",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/notification-delivery",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/decision-diagnostics",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/unified-data",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/sports-analytics",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
+      "path": "/api/internal/collector",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    }
   ],
   "requiredSecurityHeaders": {
     "x-content-type-options": "nosniff",
@@ -54,6 +201,7 @@
   "supabaseMigrations": [
     "supabase/scorecaster_schema.sql",
     "supabase/scorecaster_auth_cloud.sql",
+    "supabase/scorecaster_community_feed_v1.sql",
     "supabase/scorecaster_paper_risk_limits.sql",
     "supabase/scorecaster_api_rate_limits.sql",
     "supabase/scorecaster_watchlist_alerts.sql",
@@ -64,6 +212,7 @@
     "supabase/scorecaster_watchlist_monitor.sql",
     "supabase/scorecaster_decision_diagnostics.sql",
     "supabase/scorecaster_collector_v1.sql",
+    "supabase/scorecaster_ai_intelligence_v1.sql",
     "supabase/scorecaster_unified_data.sql",
     "supabase/scorecaster_sports_analytics.sql",
     "supabase/scorecaster_settlement_monitor.sql",
@@ -73,8 +222,16 @@
     "supabase/scorecaster_shadow_learning_v1.sql"
   ],
   "mobileLocales": {
-    "apple": ["fi", "en-US", "es-ES"],
-    "googlePlay": ["fi-FI", "en-US", "es-ES"]
+    "apple": [
+      "fi",
+      "en-US",
+      "es-ES"
+    ],
+    "googlePlay": [
+      "fi-FI",
+      "en-US",
+      "es-ES"
+    ]
   },
   "manualReleaseChecks": [
     {
