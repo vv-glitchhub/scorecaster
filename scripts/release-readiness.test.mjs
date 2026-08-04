@@ -11,7 +11,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 19);
+  assert.equal(manifest.supabaseMigrations.length, 21);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
@@ -22,6 +22,8 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_collector_v1.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_community_feed_v1.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_ai_intelligence_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
@@ -70,6 +72,8 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "pageCandidates",
     "apiCandidates",
     "supabaseMigrations",
+    "scorecaster_community_feed_v1.sql",
+    "scorecaster_ai_intelligence_v1.sql",
     "scorecaster_sports_analytics.sql",
     "scorecaster_autonomous_agent.sql",
     "scorecaster_autonomous_agent_v2.sql",
