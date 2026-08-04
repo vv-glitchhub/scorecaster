@@ -5,13 +5,14 @@
 
 begin;
 
--- Server-internal and legacy data surfaces. All application access must go
--- through Scorecaster server routes or protected workers using service_role.
+-- Server-internal and legacy data surfaces. Ordinary tables receive RLS and
+-- FORCE RLS. Views cannot use RLS, so their browser grants are revoked instead.
 do $$
 declare
-  target_table text;
+  target_relation text;
+  target_kind "char";
 begin
-  foreach target_table in array array[
+  foreach target_relation in array array[
     'bankroll_entries',
     'bookmakers',
     'live_player_stats',
@@ -46,11 +47,21 @@ begin
     'value_bets'
   ]
   loop
-    if to_regclass(format('public.%I', target_table)) is not null then
-      execute format('alter table public.%I enable row level security', target_table);
-      execute format('alter table public.%I force row level security', target_table);
-      execute format('revoke all privileges on table public.%I from public, anon, authenticated', target_table);
-      execute format('grant all privileges on table public.%I to service_role', target_table);
+    select c.relkind
+      into target_kind
+    from pg_class c
+    where c.oid = to_regclass(format('public.%I', target_relation));
+
+    if target_kind in ('r', 'p') then
+      execute format('alter table public.%I enable row level security', target_relation);
+      execute format('alter table public.%I force row level security', target_relation);
+      execute format('revoke all privileges on table public.%I from public, anon, authenticated', target_relation);
+      execute format('grant all privileges on table public.%I to service_role', target_relation);
+    elsif target_kind in ('v', 'm') then
+      execute format('revoke all privileges on table public.%I from public, anon, authenticated', target_relation);
+      execute format('grant select on table public.%I to service_role', target_relation);
+    elsif target_kind is not null then
+      raise exception 'Unsupported relation kind % for public.%', target_kind, target_relation;
     end if;
   end loop;
 end;
