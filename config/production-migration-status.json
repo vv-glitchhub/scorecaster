@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "environment": "production",
+  "updatedAt": null,
+  "updatedBy": null,
+  "notes": "Repository file presence never proves production application. Mark a migration applied only after object-level verification and attach non-secret evidence.",
+  "migrations": [
+    { "path": "supabase/scorecaster_schema.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_auth_cloud.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_community_feed_v1.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": "The community_comments table was manually observed in production, but the canonical evidence record is still required." },
+    { "path": "supabase/scorecaster_paper_risk_limits.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_api_rate_limits.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_watchlist_alerts.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_market_timeline.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_alert_inbox.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_notification_registry.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_notification_delivery.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_watchlist_monitor.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_decision_diagnostics.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_collector_v1.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_ai_intelligence_v1.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_unified_data.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_sports_analytics.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_settlement_monitor.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_autonomous_agent.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_autonomous_agent_v2.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_autonomous_v13_hard_caps.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null },
+    { "path": "supabase/scorecaster_shadow_learning_v1.sql", "status": "unverified", "verifiedAt": null, "verifiedBy": null, "evidence": null, "notes": null }
+  ]
+}

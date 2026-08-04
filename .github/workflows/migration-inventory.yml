@@ -1,0 +1,49 @@
+name: Scorecaster Migration Inventory
+
+on:
+  pull_request:
+    paths:
+      - "supabase/**"
+      - "config/release-readiness.json"
+      - "config/production-migration-status.json"
+      - "scripts/migration-inventory.mjs"
+      - "scripts/migration-inventory.test.mjs"
+      - "scripts/export-production-migration-evidence.sql"
+      - "docs/PRODUCTION_MIGRATION_INVENTORY_V1.md"
+      - ".github/workflows/migration-inventory.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/**"
+      - "config/release-readiness.json"
+      - "config/production-migration-status.json"
+      - "scripts/migration-inventory.mjs"
+      - "scripts/migration-inventory.test.mjs"
+      - "scripts/export-production-migration-evidence.sql"
+      - "docs/PRODUCTION_MIGRATION_INVENTORY_V1.md"
+      - ".github/workflows/migration-inventory.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  inventory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Validate migration inventory
+        run: node scripts/migration-inventory.mjs --check --write
+      - name: Run migration inventory tests
+        run: node --test scripts/migration-inventory.test.mjs
+      - name: Upload inventory evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-production-migration-inventory
+          path: |
+            artifacts/production-migration-inventory.json
+            artifacts/production-migration-inventory.md
+          if-no-files-found: error
