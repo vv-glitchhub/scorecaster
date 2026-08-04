@@ -1,5 +1,3 @@
-\set ON_ERROR_STOP on
-
 -- Scorecaster public-schema hardening V1
 -- Idempotent production patch based on the 2026-08-04 Supabase privilege export.
 -- This script does not drop tables, columns, rows or existing policies.
