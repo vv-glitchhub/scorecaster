@@ -1,0 +1,35 @@
+name: Scorecaster Public Schema Hardening
+
+on:
+  pull_request:
+    paths:
+      - "scripts/apply-public-schema-hardening-v1.sql"
+      - "scripts/verify-public-schema-hardening-v1.sql"
+      - "scripts/public-schema-hardening.test.mjs"
+      - "docs/PUBLIC_SCHEMA_HARDENING_V1.md"
+      - ".github/workflows/public-schema-hardening.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run hardening regression tests
+        run: node --test scripts/public-schema-hardening.test.mjs
+
+      - name: Confirm SQL scripts are present
+        run: |
+          test -s scripts/apply-public-schema-hardening-v1.sql
+          test -s scripts/verify-public-schema-hardening-v1.sql
