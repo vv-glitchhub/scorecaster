@@ -16,6 +16,13 @@ const internalTables = [
   "intelligence_items", "intelligence_reports", "value_bets"
 ];
 
+function executableSql(sql) {
+  return sql
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith("--"))
+    .join("\n");
+}
+
 test("hardening migration is idempotent and fail closed", async () => {
   const sql = await source("scripts/apply-public-schema-hardening-v1.sql");
   assert.match(sql, /begin;/i);
@@ -26,7 +33,7 @@ test("hardening migration is idempotent and fail closed", async () => {
   assert.match(sql, /revoke all privileges .* from public, anon, authenticated/i);
   assert.match(sql, /grant all privileges .* to service_role/i);
   assert.match(sql, /notify pgrst, 'reload schema'/i);
-  assert.doesNotMatch(sql, /drop\s+(table|column)|truncate\s+table|delete\s+from/i);
+  assert.doesNotMatch(executableSql(sql), /drop\s+(table|column)|truncate\s+table|delete\s+from/i);
 
   for (const table of internalTables) assert.match(sql, new RegExp(`'${table}'`));
 });
@@ -37,7 +44,7 @@ test("only reviewed client grant matrices remain", async () => {
   assert.match(sql, /grant select, insert, update on table public\.user_settings to authenticated/i);
   assert.match(sql, /grant select on table public\.community_comments to anon, authenticated/i);
   assert.match(sql, /grant insert, update, delete on table public\.community_comments to authenticated/i);
-  assert.doesNotMatch(sql, /grant\s+(truncate|trigger|references)/i);
+  assert.doesNotMatch(executableSql(sql), /grant\s+(truncate|trigger|references)/i);
 });
 
 test("verification rejects missing RLS and dangerous client privileges", async () => {
