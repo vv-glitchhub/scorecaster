@@ -1,0 +1,43 @@
+name: Scorecaster Context Ingestion
+
+on:
+  schedule:
+    - cron: "22,52 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-context-ingestion
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate worker secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Collect licensed pre-match context
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 150 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/context-ingestion"
+
+      - name: Verify public context health
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            "$SCORECASTER_URL/api/context/health"
