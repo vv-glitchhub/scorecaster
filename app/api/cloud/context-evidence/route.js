@@ -145,7 +145,7 @@ export async function POST(request) {
     if (insertRows.length) {
       const { data, error } = await admin
         .from("context_evidence_v1")
-        .insert(insertRows)
+        .upsert(insertRows, { onConflict: "id", ignoreDuplicates: true })
         .select("id,event_id,source_id,source_reference");
       if (error) throw error;
       inserted = data || [];
