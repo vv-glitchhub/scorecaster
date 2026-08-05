@@ -135,7 +135,7 @@ test("missing context remains visible and lowers evidence quality", () => {
 });
 
 test("SQL storage is service-only, timestamped and bounded", async () => {
-  const sql = await source("supabase/scorecaster_context_engine_v1.sql");
+  const sql = await source("scripts/apply-context-engine-v1.sql");
   assert.match(sql, /create table if not exists public\.context_evidence_v1/);
   assert.match(sql, /observed_at timestamptz not null/);
   assert.match(sql, /observed_at < kickoff_at/);
