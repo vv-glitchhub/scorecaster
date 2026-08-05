@@ -43,6 +43,7 @@ export default function AppShell({ children }) {
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
     { href: "/transparency", label: tr({ fi: "Avoin AI: kaavat ja lähteet", en: "Open AI: formulas and sources", es: "IA abierta: fórmulas y fuentes" }) },
+    { href: "/sources", label: tr({ fi: "Lähderekisteri ja lisenssit", en: "Source registry and licences", es: "Registro de fuentes y licencias" }) },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
     { href: "/responsible-use", label: tr({ fi: "Vastuullinen käyttö", en: "Responsible use", es: "Uso responsable" }) }
   ], [groups, tr]);
