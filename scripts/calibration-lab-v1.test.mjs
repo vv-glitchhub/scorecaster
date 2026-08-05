@@ -5,7 +5,6 @@ import {
   binaryBrierScore,
   binaryLogLoss,
   buildCalibrationReport,
-  calibrationBins,
   multiclassBrierScore,
   multiclassLogLoss,
   priceClv,
@@ -71,11 +70,12 @@ test("binary and multiclass Brier and log loss are exact and bounded", () => {
 test("Wilson interval and calibration bins expose denominators", () => {
   const interval = wilsonInterval(6, 10);
   assert.ok(interval.lower < 0.6 && interval.upper > 0.6);
-  const bins = calibrationBins([
+  const report = buildCalibrationReport([
     observation({ model_probability: 0.55, outcome_value: 1 }),
     observation({ id: "obs-2", bet_id: "bet-2", model_probability: 0.58, outcome_value: 0 })
   ]);
-  const populated = bins.find((bin) => bin.count === 2);
+  const populated = report.calibrationBins.find((bin) => bin.count === 2);
+  assert.ok(populated);
   assert.equal(populated.count, 2);
   assert.equal(populated.observed, 0.5);
   assert.ok(populated.observedInterval);
