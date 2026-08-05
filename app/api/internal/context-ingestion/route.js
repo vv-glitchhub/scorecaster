@@ -57,7 +57,6 @@ function uniqueEvents(picks = []) {
 
 async function loadUpcomingEvents(request) {
   const url = new URL("/api/top-picks", request.url);
-  url.searchParams.set("limit", "250");
   const topPicksResponse = await getTopPicks(new Request(url, { method: "GET" }));
   const payload = await topPicksResponse.json().catch(() => null);
   if (!topPicksResponse.ok || payload?.ok === false) {
