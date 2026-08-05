@@ -35,7 +35,7 @@ jobs:
       - name: Context and probability boundary regressions
         run: |
           node --test scripts/context-engine-v1.test.mjs
-          node --test scripts/transparent-1x2.test.mjs
+          node --test scripts/transparent-1x2-baseline.test.mjs
 
       - name: Secret and repository security check
         run: npm run security:check
