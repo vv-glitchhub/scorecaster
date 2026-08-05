@@ -88,7 +88,7 @@ export async function GET(request) {
       homeTeam: teamInput(homeRow),
       awayTeam: teamInput(awayRow),
       neutralVenue: boolean(url.searchParams.get("neutral")),
-      marketOdds: Object.values(marketOdds).every(Boolean) ? marketOdds : null,
+      marketOdds: Object.values(marketOdds).every(Boolean) ? marketOdds : undefined,
       trainingEvidence: {
         sampleScore: 0,
         calibrationScore: 0
