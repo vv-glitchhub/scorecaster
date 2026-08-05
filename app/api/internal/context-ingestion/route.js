@@ -133,7 +133,7 @@ export async function GET(request) {
     if (rows.length) {
       const { data, error } = await admin
         .from("context_evidence_v1")
-        .insert(rows.slice(0, 2000))
+        .upsert(rows.slice(0, 2000), { onConflict: "id", ignoreDuplicates: true })
         .select("id,event_id,source_id,source_reference");
       if (error) throw error;
       inserted = data || [];
