@@ -45,6 +45,7 @@ export default function AppShell({ children }) {
     { href: "/probabilities", label: tr({ fi: "Avoin 1X2-malli", en: "Open 1X2 model", es: "Modelo 1X2 abierto" }) },
     { href: "/xray", label: tr({ fi: "Match X-Ray", en: "Match X-Ray", es: "Match X-Ray" }) },
     { href: "/context", label: tr({ fi: "Kontekstimoottori", en: "Context Engine", es: "Motor de contexto" }) },
+    { href: "/market-microstructure", label: tr({ fi: "Markkinan mikrorakenne", en: "Market Microstructure", es: "Microestructura de mercado" }) },
     { href: "/transparency", label: tr({ fi: "Avoin AI: kaavat ja lähteet", en: "Open AI: formulas and sources", es: "IA abierta: fórmulas y fuentes" }) },
     { href: "/sources", label: tr({ fi: "Lähderekisteri ja lisenssit", en: "Source registry and licences", es: "Registro de fuentes y licencias" }) },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
@@ -55,6 +56,8 @@ export default function AppShell({ children }) {
     { href: "/production-control-center", label: "Production Control" },
     { href: "/operations", label: "Operations" },
     { href: "/provider-health", label: "Provider Health" },
+    { href: "/context-operations", label: "Context Operations" },
+    { href: "/api/market-microstructure/health", label: "Market Microstructure Health" },
     { href: "/release-readiness", label: tr({ fi: "Julkaisuvalmius", en: "Release readiness", es: "Preparación" }) },
     { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
   ], [tr]);
