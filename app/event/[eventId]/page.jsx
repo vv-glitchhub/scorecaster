@@ -1,9 +1,10 @@
+import EventContextPanel from "./EventContextPanel";
 import EventDataAuditClient from "./EventDataAuditClient";
 import EventDetailClient from "./EventDetailClient";
 
 export const metadata = {
   title: "Event Detail",
-  description: "Verified market, Unified Sports Data, AI provenance and paper-only event analysis."
+  description: "Verified market, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
 };
 
 export default async function EventDetailPage({ params, searchParams }) {
@@ -18,6 +19,7 @@ export default async function EventDetailPage({ params, searchParams }) {
         sport={sport}
         initialSelection={String(resolvedSearch?.selection || "")}
       />
+      <EventContextPanel eventId={eventId} sport={sport} />
       <EventDataAuditClient eventId={eventId} sport={sport} />
     </div>
   );
