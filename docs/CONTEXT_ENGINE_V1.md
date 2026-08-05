@@ -67,11 +67,13 @@ Example query:
 
 ## Database
 
-Migration:
+Manual production patch:
 
 ```text
-supabase/scorecaster_context_engine_v1.sql
+scripts/apply-context-engine-v1.sql
 ```
+
+The patch is intentionally separate from the current canonical 21-migration rollout. Repository deployment therefore cannot be mistaken for proof that the production table exists. Run the patch in Supabase SQL Editor and verify the resulting table before enabling live context ingestion.
 
 `context_evidence_v1` is server-only. RLS and FORCE RLS are enabled, browser roles receive no direct privileges, and service routes use `service_role`.
 
