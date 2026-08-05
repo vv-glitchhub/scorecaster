@@ -119,8 +119,8 @@ export async function GET(request) {
       if (missingRelation) {
         return json({
           ok: false,
-          error: "Context Engine production migration is not applied",
-          requiredMigration: "supabase/scorecaster_context_engine_v1.sql",
+          error: "Context Engine production patch is not applied",
+          requiredMigration: "scripts/apply-context-engine-v1.sql",
           paperOnly: true
         }, 503);
       }
