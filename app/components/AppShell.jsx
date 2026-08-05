@@ -38,6 +38,7 @@ export default function AppShell({ children }) {
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
+    { href: "/calibration", label: tr({ fi: "CLV ja kalibraatio", en: "CLV & Calibration", es: "CLV y calibración" }) },
     { href: "/diagnostics", label: tr({ fi: "Päätösdiagnostiikka", en: "Decision diagnostics", es: "Diagnóstico de decisiones" }) },
     { href: "/sports-analytics", label: "Sports Analytics" },
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
@@ -58,6 +59,7 @@ export default function AppShell({ children }) {
     { href: "/provider-health", label: "Provider Health" },
     { href: "/context-operations", label: "Context Operations" },
     { href: "/api/market-microstructure/health", label: "Market Microstructure Health" },
+    { href: "/api/calibration/health", label: "Calibration Health" },
     { href: "/release-readiness", label: tr({ fi: "Julkaisuvalmius", en: "Release readiness", es: "Preparación" }) },
     { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
   ], [tr]);

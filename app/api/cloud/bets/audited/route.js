@@ -20,6 +20,18 @@ function normalized(value) {
   return cleanText(value, 240).toLowerCase().replace(/\s+/g, " ");
 }
 
+function finiteProbability(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) && number > 0 && number < 1 ? number : null;
+}
+
+function iso(value) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isFinite(date.getTime()) ? date.toISOString() : null;
+}
+
 function eventId(value = {}) {
   return cleanText(value.eventId || value.event_id || value.gameId || value.id, 180);
 }
@@ -53,7 +65,13 @@ async function loadCurrentPicks(request, bets) {
   if (!response.ok) {
     return { ok: false, status: response.status, error: payload?.error || "Current analysis could not be loaded" };
   }
-  return { ok: true, picks: Array.isArray(payload.data) ? payload.data : [] };
+  return {
+    ok: true,
+    generatedAt: iso(payload?.generatedAt) || new Date().toISOString(),
+    agentVersion: cleanText(payload?.agentVersion, 120),
+    modelMode: cleanText(payload?.modelMode, 120),
+    picks: Array.isArray(payload.data) ? payload.data : []
+  };
 }
 
 function forwardedRequest(request, bets) {
@@ -66,6 +84,39 @@ function forwardedRequest(request, bets) {
     headers,
     body: JSON.stringify({ bets })
   });
+}
+
+function decisionEvidence(item, current) {
+  const pick = item.pick || {};
+  const modelProbability = finiteProbability(
+    pick.modelProbability ?? pick.consensusProbability ?? pick.probability
+  );
+  const entryMarketProbability = finiteProbability(
+    pick.marketProbability ?? pick.impliedProbability ?? pick.consensusProbability
+  );
+  return {
+    auditVersion: "scorecaster-paper-decision-audit-v1",
+    eventId: eventId(pick),
+    selection: selection(pick),
+    modelProbability,
+    entryMarketProbability,
+    impliedProbability: entryMarketProbability,
+    modelVersion: cleanText(
+      pick.modelVersion || pick.agentVersion || current.agentVersion || current.modelMode || "unknown",
+      120
+    ) || "unknown",
+    modelMode: cleanText(pick.modelMode || current.modelMode, 120) || null,
+    decision: cleanText(pick.productDecision || pick.decision, 30).toUpperCase() || null,
+    analysisGeneratedAt: current.generatedAt,
+    commenceTime: iso(pick.commenceTime ?? pick.commence_time),
+    fixtureSource: cleanText(pick.fixtureSource, 120) || null,
+    bookmakerCount: Number.isFinite(Number(pick.bookmakerCount)) ? Number(pick.bookmakerCount) : null,
+    closingEvidencePolicy: "final-eligible-prestart-market-microstructure-consensus-only",
+    manuallyEnteredClosingAcceptedForCalibration: false,
+    currentOddsFallbackAcceptedForCalibration: false,
+    simulatedClosingAcceptedForCalibration: false,
+    automaticModelPromotion: false
+  };
 }
 
 export async function POST(request) {
@@ -130,11 +181,14 @@ export async function POST(request) {
     const featureSnapshot = compactFormRestFeatureSnapshot(
       item.pick.formRestShadow || item.pick.featureSnapshot || {}
     );
+    const storedAt = new Date().toISOString();
     const nextRaw = {
       ...currentRaw,
+      ...decisionEvidence(item, current),
       featureSnapshot,
       featureSnapshotSource: "server-top-picks",
-      featureSnapshotStoredAt: new Date().toISOString()
+      featureSnapshotStoredAt: storedAt,
+      decisionAuditStoredAt: storedAt
     };
     const { data, error } = await auth.supabase
       .from("bets")
@@ -145,7 +199,7 @@ export async function POST(request) {
       .single();
 
     return error
-      ? { ok: false, clientRef: item.clientRef, error: publicError(error, "Feature snapshot could not be attached") }
+      ? { ok: false, clientRef: item.clientRef, error: publicError(error, "Decision audit could not be attached") }
       : { ok: true, clientRef: item.clientRef, data };
   }));
 
@@ -157,7 +211,13 @@ export async function POST(request) {
       auditFailures: failures.map((item) => ({ clientRef: item.clientRef, error: item.error })),
       data: updates.filter((item) => item.ok).map((item) => item.data),
       featureSnapshotSource: "server-top-picks",
-      independentProbabilityApplied: false
+      decisionAuditVersion: "scorecaster-paper-decision-audit-v1",
+      closingEvidencePolicy: "final-eligible-prestart-market-microstructure-consensus-only",
+      manuallyEnteredClosingAcceptedForCalibration: false,
+      currentOddsFallbackAcceptedForCalibration: false,
+      simulatedClosingAcceptedForCalibration: false,
+      independentProbabilityApplied: false,
+      automaticModelPromotion: false
     },
     failures.length ? 207 : 200,
     requestId
