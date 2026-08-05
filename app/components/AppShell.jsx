@@ -39,6 +39,7 @@ export default function AppShell({ children }) {
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
     { href: "/calibration", label: tr({ fi: "CLV ja kalibraatio", en: "CLV & Calibration", es: "CLV y calibración" }) },
+    { href: "/risk-lab", label: tr({ fi: "Riskilaboratorio", en: "Risk Lab", es: "Laboratorio de riesgo" }) },
     { href: "/diagnostics", label: tr({ fi: "Päätösdiagnostiikka", en: "Decision diagnostics", es: "Diagnóstico de decisiones" }) },
     { href: "/sports-analytics", label: "Sports Analytics" },
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
