@@ -9,7 +9,13 @@ import { addTrackedBet } from "../../lib/tracking-storage";
 import { getSettings, saveSettings } from "../../lib/settings-storage";
 import { formatPercent } from "../../lib/analysis-engine";
 import { analyzeBetRisk } from "../../lib/risk-engine";
-import { analyzeBettingGames } from "../../lib/betting-excellence-engine.mjs";
+import {
+  BOOKMAKER_ALL,
+  analyzeBettingGames,
+  rankBettingSelections,
+  sortBettingGames
+} from "../../lib/betting-excellence-engine.mjs";
+import { getBookmakerCatalog } from "../../lib/market-consensus-engine.mjs";
 import { getOddsMovement, saveOddsSnapshots } from "../../lib/odds-movement";
 import { saveMovementSnapshot, getSelectionMovementHistory, detectMovementSignal } from "../../lib/movement-history";
 import {
@@ -49,6 +55,8 @@ export default function BettingClient() {
   const [selectedSport, setSelectedSport] = useState(SPORTS[0].group);
   const [selectedLeague, setSelectedLeague] = useState(SPORTS[0].leagues[0].key);
   const [selectedMarket, setSelectedMarket] = useState("h2h");
+  const [selectedBookmaker, setSelectedBookmaker] = useState(BOOKMAKER_ALL);
+  const [sortMode, setSortMode] = useState("ev");
   const [rawGames, setRawGames] = useState([]);
   const [loading, setLoading] = useState(false);
   const [source, setSource] = useState("not-loaded");
@@ -66,13 +74,31 @@ export default function BettingClient() {
     setBankroll(Number(settings.bankroll || 1000));
     setKellyMode(settings.kellyMode || "quarter");
     setMaxStakePercent(Number(settings.maxStakePercent || 2));
+    setSelectedBookmaker(settings.bookmakerKey || BOOKMAKER_ALL);
+    setSortMode(settings.bookmakerSort || "ev");
   }, []);
+
+  const bookmakerCatalog = useMemo(
+    () => getBookmakerCatalog(rawGames, selectedMarket),
+    [rawGames, selectedMarket]
+  );
 
   const games = useMemo(() => analyzeBettingGames(rawGames, selectedMarket, {
     bankroll,
     kellyMode,
-    maxStakePercent
-  }), [rawGames, selectedMarket, bankroll, kellyMode, maxStakePercent]);
+    maxStakePercent,
+    bookmakerKey: selectedBookmaker
+  }), [rawGames, selectedMarket, bankroll, kellyMode, maxStakePercent, selectedBookmaker]);
+
+  const sortedGames = useMemo(
+    () => sortBettingGames(games, sortMode),
+    [games, sortMode]
+  );
+
+  const rankedSelections = useMemo(
+    () => rankBettingSelections(games, sortMode),
+    [games, sortMode]
+  );
 
   useEffect(() => {
     void loadOdds();
@@ -86,6 +112,19 @@ export default function BettingClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoRefresh, selectedLeague, selectedMarket]);
 
+  useEffect(() => {
+    if (selectedBookmaker === BOOKMAKER_ALL || rawGames.length === 0) return;
+    if (!bookmakerCatalog.some((bookmaker) => bookmaker.key === selectedBookmaker)) {
+      setSelectedBookmaker(BOOKMAKER_ALL);
+      saveLocalSettings({ bookmakerKey: BOOKMAKER_ALL });
+    }
+  }, [bookmakerCatalog, rawGames.length, selectedBookmaker]);
+
+  useEffect(() => {
+    setSelectedBet(null);
+    setSavedMessage("");
+  }, [selectedBookmaker, sortMode]);
+
   async function loadOdds() {
     setLoading(true);
     setReason("");
@@ -98,7 +137,12 @@ export default function BettingClient() {
       if (!res.ok) throw new Error(data?.reason || data?.error || tr({ fi: "Kertoimia ei voitu ladata.", en: "Odds could not be loaded.", es: "No se pudieron cargar las cuotas." }));
 
       const nextRawGames = getGamesFromResponse(data);
-      const nextGames = analyzeBettingGames(nextRawGames, selectedMarket, { bankroll, kellyMode, maxStakePercent });
+      const nextGames = analyzeBettingGames(nextRawGames, selectedMarket, {
+        bankroll,
+        kellyMode,
+        maxStakePercent,
+        bookmakerKey: selectedBookmaker
+      });
       const movementGames = nextGames.map(movementShape);
 
       setRawGames(nextRawGames);
@@ -129,6 +173,16 @@ export default function BettingClient() {
     if (group?.leagues?.length) setSelectedLeague(group.leagues[0].key);
   }
 
+  function handleBookmakerChange(bookmakerKey) {
+    setSelectedBookmaker(bookmakerKey);
+    saveLocalSettings({ bookmakerKey });
+  }
+
+  function handleSortChange(nextSortMode) {
+    setSortMode(nextSortMode);
+    saveLocalSettings({ bookmakerSort: nextSortMode });
+  }
+
   function selectBet(game, selection) {
     const risk = analyzeBetRisk({ stake: selection.suggestedStake, bankroll, edge: selection.edge, ev: selection.ev, kellyMode });
     const shapedMatch = movementShape(game);
@@ -150,6 +204,10 @@ export default function BettingClient() {
       selection: selection.selection,
       odds: selection.odds,
       bookmaker: selection.bookmaker,
+      bookmakerKey: selection.bookmakerKey,
+      bestMarketOdds: selection.bestMarketOdds,
+      bestMarketBookmaker: selection.bestMarketBookmaker,
+      priceGapToBest: selection.priceGapToBest,
       sportKey: game.sportKey,
       marketKey: game.marketKey,
       edge: selection.edge,
@@ -184,12 +242,26 @@ export default function BettingClient() {
   const playCount = allSelections.filter((selection) => selection.decision === "PLAY").length;
   const cautionCount = allSelections.filter((selection) => selection.decision === "CAUTION").length;
   const skipCount = allSelections.filter((selection) => selection.decision === "SKIP").length;
+  const currentBookmaker = bookmakerCatalog.find((bookmaker) => bookmaker.key === selectedBookmaker);
+  const providerLabel = selectedBookmaker === BOOKMAKER_ALL
+    ? tr({ fi: "Kaikki yhtiöt – paras kerroin", en: "All bookmakers – best price", es: "Todas las casas – mejor cuota" })
+    : currentBookmaker?.title || selectedBookmaker;
   const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
   const riskLabel = (level) => level === "High"
     ? tr({ fi: "Korkea", en: "High", es: "Alto" })
     : level === "Medium"
       ? tr({ fi: "Keskitaso", en: "Medium", es: "Medio" })
       : tr({ fi: "Matala", en: "Low", es: "Bajo" });
+
+  const sortLabel = sortMode === "edge"
+    ? t("term.edge")
+    : sortMode === "confidence"
+      ? t("term.confidence")
+      : sortMode === "odds"
+        ? tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })
+        : sortMode === "kickoff"
+          ? tr({ fi: "Alkamisaika", en: "Kickoff", es: "Hora de inicio" })
+          : t("term.ev");
 
   const heroAside = (
     <div>
@@ -206,12 +278,12 @@ export default function BettingClient() {
     <div className="space-y-7">
       <PageHero
         tone="sky"
-        eyebrow={tr({ fi: "Live-markkinat", en: "Live markets", es: "Mercados en vivo" })}
-        title={tr({ fi: "Vertaa hinta, laatu ja riski yhdellä silmäyksellä", en: "Compare price, quality and risk at a glance", es: "Compara cuota, calidad y riesgo de un vistazo" })}
+        eyebrow={tr({ fi: "Bookmaker Hub", en: "Bookmaker Hub", es: "Centro de casas" })}
+        title={tr({ fi: "Valitse peliyhtiö tai etsi paras hinta koko markkinasta", en: "Choose a bookmaker or find the best price across the market", es: "Elige una casa o encuentra la mejor cuota del mercado" })}
         description={tr({
-          fi: "Valitse liiga ja markkina. Scorecaster poistaa vedonvälittäjän marginaalin, vertailee parhaat hinnat ja näyttää päätöksen ilman turhaa teknistä melua.",
-          en: "Choose a league and market. Scorecaster removes bookmaker margin, compares the best prices and shows the decision without unnecessary technical noise.",
-          es: "Elige liga y mercado. Scorecaster elimina el margen, compara las mejores cuotas y muestra la decisión sin ruido técnico innecesario."
+          fi: "Scorecaster laskee markkinakonsensuksen kaikista saatavilla olevista yhtiöistä, mutta arvioi EV:n ja päätöksen juuri sillä hinnalla, jonka käyttäjä on valinnut.",
+          en: "Scorecaster calculates consensus from every available bookmaker while evaluating EV and the decision at the exact price the user selected.",
+          es: "Scorecaster calcula el consenso con todas las casas disponibles y evalúa el EV y la decisión con la cuota exacta elegida."
         })}
         actions={
           <button onClick={() => void loadOdds()} disabled={loading} className="sc-button-primary">
@@ -222,10 +294,10 @@ export default function BettingClient() {
       />
 
       <Panel
-        title={tr({ fi: "Rajaa markkina", en: "Filter the market", es: "Filtrar mercado" })}
-        subtitle={tr({ fi: "Kolme valintaa riittää. Muut asetukset ovat Advanced-osiossa.", en: "Three choices are enough. Other settings are under Advanced.", es: "Tres opciones son suficientes. El resto está en Avanzado." })}
+        title={tr({ fi: "Rajaa ja järjestä markkina", en: "Filter and rank the market", es: "Filtrar y ordenar el mercado" })}
+        subtitle={tr({ fi: "Valitse laji, liiga, markkina, peliyhtiö ja järjestys. Valinta tallennetaan tähän laitteeseen.", en: "Choose sport, league, market, bookmaker and ranking. The choice is saved on this device.", es: "Elige deporte, liga, mercado, casa y orden. La selección se guarda en este dispositivo." })}
       >
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
           <label className="text-sm font-black text-slate-300">{tr({ fi: "Laji", en: "Sport", es: "Deporte" })}
             <select aria-label={tr({ fi: "Valitse laji", en: "Choose sport", es: "Elegir deporte" })} value={selectedSport} onChange={(event) => handleSportChange(event.target.value)} className="sc-input mt-2">
               {SPORTS.map((sport) => <option key={sport.group} value={sport.group}>{sport.group}</option>)}
@@ -241,11 +313,27 @@ export default function BettingClient() {
               {MARKETS.map((market) => <option key={market.key} value={market.key}>{market.title}</option>)}
             </select>
           </label>
+          <label className="text-sm font-black text-slate-300">{tr({ fi: "Peliyhtiö", en: "Bookmaker", es: "Casa" })}
+            <select aria-label={tr({ fi: "Valitse peliyhtiö", en: "Choose bookmaker", es: "Elegir casa" })} value={selectedBookmaker} onChange={(event) => handleBookmakerChange(event.target.value)} className="sc-input mt-2">
+              <option value={BOOKMAKER_ALL}>{tr({ fi: "Kaikki – paras kerroin", en: "All – best price", es: "Todas – mejor cuota" })}</option>
+              {bookmakerCatalog.map((bookmaker) => <option key={bookmaker.key} value={bookmaker.key}>{bookmaker.title} ({bookmaker.eventCount})</option>)}
+            </select>
+          </label>
+          <label className="text-sm font-black text-slate-300">{tr({ fi: "Järjestä", en: "Rank by", es: "Ordenar por" })}
+            <select aria-label={tr({ fi: "Valitse järjestys", en: "Choose ranking", es: "Elegir orden" })} value={sortMode} onChange={(event) => handleSortChange(event.target.value)} className="sc-input mt-2">
+              <option value="ev">{tr({ fi: "Paras EV", en: "Best EV", es: "Mejor EV" })}</option>
+              <option value="edge">{tr({ fi: "Suurin edge", en: "Largest edge", es: "Mayor ventaja" })}</option>
+              <option value="confidence">{tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })}</option>
+              <option value="odds">{tr({ fi: "Korkein kerroin", en: "Highest odds", es: "Cuota más alta" })}</option>
+              <option value="kickoff">{tr({ fi: "Alkamisaika", en: "Kickoff", es: "Hora de inicio" })}</option>
+            </select>
+          </label>
         </div>
 
         <TrustBar className="mt-5" items={[
-          { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: source },
-          { label: tr({ fi: "Ottelut", en: "Games", es: "Partidos" }), value: games.length, tone: "info" },
+          { label: tr({ fi: "Hintatila", en: "Price mode", es: "Modo de cuota" }), value: providerLabel, tone: "info" },
+          { label: tr({ fi: "Saatavilla olevat yhtiöt", en: "Available bookmakers", es: "Casas disponibles" }), value: bookmakerCatalog.length, tone: "info" },
+          { label: tr({ fi: "Järjestys", en: "Ranking", es: "Orden" }), value: sortLabel },
           { label: tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" }), value: lastUpdated ? lastUpdated.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) : "–", tone: "info" },
           { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: tr({ fi: "paper only", en: "paper only", es: "solo simulación" }), tone: "warning" }
         ]} />
@@ -275,22 +363,61 @@ export default function BettingClient() {
         </details>
       </Panel>
 
+      <Panel
+        title={tr({ fi: "Parhaat kohteet valitulla peliyhtiöllä", en: "Best picks at the selected bookmaker", es: "Mejores pronósticos en la casa elegida" })}
+        subtitle={tr({ fi: `Järjestetty mittarilla: ${sortLabel}. Konsensus käyttää silti koko markkinaa.`, en: `Ranked by ${sortLabel}. Consensus still uses the whole market.`, es: `Ordenado por ${sortLabel}. El consenso sigue usando todo el mercado.` })}
+      >
+        {rankedSelections.length === 0 ? (
+          <EmptyState
+            title={tr({ fi: "Valitulta yhtiöltä ei löytynyt koko markkinaa", en: "No complete market was found at this bookmaker", es: "No se encontró un mercado completo en esta casa" })}
+            description={tr({ fi: "Valitse toinen peliyhtiö tai Kaikki – paras kerroin. Scorecaster ei keksi puuttuvia hintoja.", en: "Choose another bookmaker or All – best price. Scorecaster does not invent missing prices.", es: "Elige otra casa o Todas – mejor cuota. Scorecaster no inventa cuotas faltantes." })}
+          />
+        ) : (
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            {rankedSelections.slice(0, 9).map(({ game, selection }, index) => (
+              <button
+                key={`${game.id}-${selection.selection}-${selection.point ?? ""}`}
+                type="button"
+                onClick={() => selectBet(game, selection)}
+                className="sc-card-hover rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-left"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">#{index + 1} · {selection.bookmaker}</div>
+                  <DecisionBadge decision={selection.decision} />
+                </div>
+                <div className="mt-3 text-sm font-black text-white">{game.homeTeam} vs {game.awayTeam}</div>
+                <div className="mt-1 text-sm text-slate-300">{selection.selection}</div>
+                <div className="mt-3 flex items-end justify-between gap-3">
+                  <div className="text-3xl font-black tracking-[-0.04em] text-white">{selection.odds.toFixed(2)}</div>
+                  <div className="text-right text-xs leading-5 text-slate-400">EV {formatPercent(selection.ev)}<br />Edge {formatPercent(selection.edge)}</div>
+                </div>
+                {!selection.isBestMarketPrice && (
+                  <div className="mt-3 text-xs leading-5 text-amber-200">
+                    {tr({ fi: "Markkinan paras", en: "Market best", es: "Mejor del mercado" })}: {selection.bestMarketOdds.toFixed(2)} · {selection.bestMarketBookmaker}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        )}
+      </Panel>
+
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_390px]">
         <div>
           <SectionHeader
             eyebrow={tr({ fi: "Valitse hinta", en: "Choose a price", es: "Elige una cuota" })}
-            title={tr({ fi: "Ottelut ja parhaat kertoimet", en: "Games and best prices", es: "Partidos y mejores cuotas" })}
-            description={tr({ fi: "Avaa yksi valinta nähdäksesi konsensuksen, EV:n, riskin ja paperipanoksen.", en: "Open one selection to see consensus, EV, risk and virtual stake.", es: "Abre una selección para ver consenso, EV, riesgo e importe simulado." })}
+            title={tr({ fi: "Ottelut ja valitun tarjoajan hinnat", en: "Games and selected-provider prices", es: "Partidos y cuotas del proveedor elegido" })}
+            description={tr({ fi: "Jokainen valinta käyttää valitun yhtiön todellista hintaa ja koko markkinan no-vig-konsensusta.", en: "Every selection uses the selected bookmaker's real price and the whole market's no-vig consensus.", es: "Cada selección usa la cuota real de la casa elegida y el consenso sin margen de todo el mercado." })}
           />
 
           <div className="space-y-4">
-            {!loading && games.length === 0 && (
+            {!loading && sortedGames.length === 0 && (
               <EmptyState
                 title={tr({ fi: "Markkinasta ei löytynyt käyttökelpoisia kohteita", en: "No usable picks were found", es: "No se encontraron pronósticos utilizables" })}
-                description={tr({ fi: "Kokeile toista liigaa tai markkinaa. SKIP on hyväksytty tulos.", en: "Try another league or market. SKIP is a valid outcome.", es: "Prueba otra liga o mercado. SKIP es válido." })}
+                description={tr({ fi: "Kokeile toista peliyhtiötä, liigaa tai markkinaa. SKIP ja puuttuva hinta ovat hyväksyttyjä tuloksia.", en: "Try another bookmaker, league or market. SKIP and a missing price are valid outcomes.", es: "Prueba otra casa, liga o mercado. SKIP y una cuota ausente son resultados válidos." })}
               />
             )}
-            {games.map((game) => {
+            {sortedGames.map((game) => {
               const shapedMatch = movementShape(game);
               return (
                 <article key={game.id} className="rounded-3xl border border-white/10 bg-slate-950/52 p-5 shadow-[0_18px_48px_rgba(0,0,0,0.22)] sm:p-6">
@@ -298,7 +425,7 @@ export default function BettingClient() {
                     <div>
                       <div className="text-xs font-black uppercase tracking-[0.14em] text-sky-300">{game.sportTitle || game.sportKey}</div>
                       <h2 className="mt-2 text-xl font-black tracking-tight text-white sm:text-2xl">{game.homeTeam} vs {game.awayTeam}</h2>
-                      <p className="mt-1 text-sm text-slate-500">{game.marketKey} · {game.bookmakerCount} {tr({ fi: "vedonvälittäjää", en: "bookmakers", es: "casas" })}</p>
+                      <p className="mt-1 text-sm text-slate-500">{game.marketKey} · {game.bookmakerCount} {tr({ fi: "yhtiötä konsensuksessa", en: "bookmakers in consensus", es: "casas en el consenso" })}</p>
                     </div>
                     {game.commenceTime && <time className="text-xs font-bold text-slate-500">{new Date(game.commenceTime).toLocaleString(locale)}</time>}
                   </div>
@@ -320,7 +447,12 @@ export default function BettingClient() {
                             </div>
                             <DecisionBadge decision={selection.decision} />
                           </div>
-                          <div className="mt-2 truncate text-xs font-bold text-emerald-300">{selection.bookmaker || tr({ fi: "Paras hinta", en: "Best price", es: "Mejor cuota" })}</div>
+                          <div className="mt-2 truncate text-xs font-bold text-emerald-300">{selection.bookmaker}</div>
+                          {!selection.isBestMarketPrice && (
+                            <div className="mt-2 rounded-xl border border-amber-300/15 bg-amber-300/7 px-3 py-2 text-xs leading-5 text-amber-100">
+                              {tr({ fi: "Paras muualla", en: "Better elsewhere", es: "Mejor en otra casa" })}: {selection.bestMarketOdds.toFixed(2)} · {selection.bestMarketBookmaker}
+                            </div>
+                          )}
                           <div className="mt-4 grid grid-cols-2 gap-2">
                             <MetricTile compact label={t("term.edge")} value={formatPercent(selection.edge)} tone={Number(selection.edge || 0) > 0 ? "green" : "default"} />
                             <MetricTile compact label={t("term.ev")} value={formatPercent(selection.ev)} tone={Number(selection.ev || 0) > 0 ? "green" : "default"} />
@@ -339,11 +471,11 @@ export default function BettingClient() {
         </div>
 
         <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start">
-          <Panel title={tr({ fi: "Valittu paperikohde", en: "Selected paper pick", es: "Pronóstico simulado elegido" })} subtitle={tr({ fi: "Yksi päätös kerrallaan", en: "One decision at a time", es: "Una decisión cada vez" })}>
+          <Panel title={tr({ fi: "Valittu paperikohde", en: "Selected paper pick", es: "Pronóstico simulado elegido" })} subtitle={providerLabel}>
             {!selectedBet ? (
               <EmptyState
-                title={tr({ fi: "Valitse kerroin vasemmalta", en: "Choose a price on the left", es: "Elige una cuota a la izquierda" })}
-                description={tr({ fi: "Näet tässä päätöksen, riskin ja paperipanoksen.", en: "The decision, risk and virtual stake will appear here.", es: "Aquí aparecerán decisión, riesgo e importe simulado." })}
+                title={tr({ fi: "Valitse kerroin tai ranking-kortti", en: "Choose a price or ranking card", es: "Elige una cuota o tarjeta del ranking" })}
+                description={tr({ fi: "Näet tässä päätöksen, riskin, hintavertailun ja paperipanoksen.", en: "The decision, risk, price comparison and virtual stake will appear here.", es: "Aquí aparecerán decisión, riesgo, comparación de cuota e importe simulado." })}
               />
             ) : (
               <div className="space-y-4">
@@ -367,10 +499,18 @@ export default function BettingClient() {
                   <MetricTile label={tr({ fi: "Riskitaso", en: "Risk level", es: "Nivel de riesgo" })} value={riskLabel(selectedBet.risk.level)} tone={selectedBet.risk.level === "High" ? "red" : selectedBet.risk.level === "Medium" ? "yellow" : "green"} />
                 </div>
 
+                {!selectedBet.selection.isBestMarketPrice && (
+                  <div className="rounded-2xl border border-amber-300/20 bg-amber-300/8 p-4 text-sm leading-6 text-amber-100">
+                    {tr({ fi: "Valittu yhtiö ei tarjoa markkinan parasta hintaa.", en: "The selected bookmaker does not offer the market's best price.", es: "La casa elegida no ofrece la mejor cuota del mercado." })}<br />
+                    {selectedBet.selection.bestMarketBookmaker}: <strong>{selectedBet.selection.bestMarketOdds.toFixed(2)}</strong>
+                  </div>
+                )}
+
                 <div className="rounded-2xl border border-sky-300/20 bg-sky-300/8 p-4 text-sm leading-6 text-slate-200">{selectedBet.selection.decisionReason}</div>
                 <TrustBar items={[
                   { label: tr({ fi: "Hintaliike", en: "Movement", es: "Movimiento" }), value: selectedBet.movementSignal.signal, tone: "info" },
-                  { label: tr({ fi: "Lähteet", en: "Sources", es: "Fuentes" }), value: selectedBet.selection.bookmakerCount || 0 },
+                  { label: tr({ fi: "Konsensuslähteet", en: "Consensus sources", es: "Fuentes de consenso" }), value: selectedBet.selection.bookmakerCount || 0 },
+                  { label: tr({ fi: "Hintalähde", en: "Price source", es: "Fuente de cuota" }), value: selectedBet.selection.bookmaker, tone: "info" },
                   { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: "paper only", tone: "warning" }
                 ]} />
 
@@ -385,8 +525,10 @@ export default function BettingClient() {
           <Panel title={tr({ fi: "Tuoteraja", en: "Product boundary", es: "Límite del producto" })}>
             <div className="space-y-3 text-sm leading-6 text-slate-400">
               <p>✓ {tr({ fi: "Vertaa julkisia live-kertoimia.", en: "Compares public live odds.", es: "Compara cuotas públicas en vivo." })}</p>
+              <p>✓ {tr({ fi: "Peliyhtiön valinta muuttaa vain arvioitavaa hintaa.", en: "Bookmaker selection changes only the evaluated price.", es: "Elegir una casa solo cambia la cuota evaluada." })}</p>
+              <p>✓ {tr({ fi: "Konsensus lasketaan kaikista saatavilla olevista yhtiöistä.", en: "Consensus is calculated from every available bookmaker.", es: "El consenso se calcula con todas las casas disponibles." })}</p>
               <p>✓ {tr({ fi: "Tallentaa vain virtuaaliseen paperisalkkuun.", en: "Saves only to a virtual paper portfolio.", es: "Guarda solo en una cartera simulada." })}</p>
-              <p>✕ {tr({ fi: "Ei siirrä rahaa eikä aseta oikeaa vetoa.", en: "Does not move money or place a real bet.", es: "No mueve dinero ni realiza apuestas reales." })}</p>
+              <p>✕ {tr({ fi: "Ei kirjaudu peliyhtiöön, siirrä rahaa tai aseta oikeaa vetoa.", en: "Does not log in to a bookmaker, move money or place a real bet.", es: "No inicia sesión en una casa, mueve dinero ni realiza apuestas reales." })}</p>
             </div>
           </Panel>
         </aside>
