@@ -53,17 +53,30 @@ test("hard caps cannot be overridden by Kelly or client configuration", () => {
 });
 
 test("league and portfolio caps scale exposure proportionally", () => {
-  const picks = Array.from({ length: 8 }, (_, index) => pick({
-    id: `pick-${index}`,
-    eventId: `event-${index}`,
-    selection: `Selection ${index}`,
+  const leaguePicks = Array.from({ length: 4 }, (_, index) => pick({
+    id: `league-pick-${index}`,
+    eventId: `league-event-${index}`,
+    selection: `League selection ${index}`,
     odds: 3,
     modelProbability: 0.8
   }));
-  const plan = buildStakePlan({ picks, bankroll: 1000, kellyMode: "full", riskProfile: "balanced" });
-  assert.ok(plan.exposure.plannedFraction <= 0.0250001);
-  assert.ok(plan.exposure.plannedStake <= 25.01);
-  assert.ok(plan.picks.every((item) => item.capReasons.includes("league-cap")));
+  const leaguePlan = buildStakePlan({ picks: leaguePicks, bankroll: 1000, kellyMode: "full", riskProfile: "balanced" });
+  assert.ok(leaguePlan.exposure.plannedFraction <= 0.0250001);
+  assert.equal(leaguePlan.exposure.plannedStake, 25);
+  assert.ok(leaguePlan.picks.every((item) => item.capReasons.includes("league-cap")));
+
+  const portfolioPicks = Array.from({ length: 6 }, (_, index) => pick({
+    id: `portfolio-pick-${index}`,
+    eventId: `portfolio-event-${index}`,
+    league: `League ${index}`,
+    selection: `Portfolio selection ${index}`,
+    odds: 3,
+    modelProbability: 0.8
+  }));
+  const portfolioPlan = buildStakePlan({ picks: portfolioPicks, bankroll: 1000, kellyMode: "full", riskProfile: "balanced" });
+  assert.ok(portfolioPlan.exposure.plannedFraction <= 0.0500001);
+  assert.ok(portfolioPlan.exposure.plannedStake <= 50.01);
+  assert.ok(portfolioPlan.picks.every((item) => item.capReasons.includes("portfolio-cap")));
 });
 
 test("same-event and unknown correlation reduce rather than increase stake", () => {
