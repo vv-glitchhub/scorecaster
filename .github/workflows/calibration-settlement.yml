@@ -1,0 +1,43 @@
+name: Scorecaster Calibration Settlement
+
+on:
+  schedule:
+    - cron: "42 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-calibration-settlement
+  cancel-in-progress: false
+
+jobs:
+  settle:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate worker secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Build trusted CLV and calibration observations
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 150 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/calibration-settlement"
+
+      - name: Read redacted Calibration Lab health
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 60 \
+            "$SCORECASTER_URL/api/calibration/health"
