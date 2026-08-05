@@ -1,0 +1,42 @@
+name: Scorecaster Professional Model Lab V1
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  model-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Professional explanation regression tests
+        run: node --test scripts/professional-model-lab-v1.test.mjs
+
+      - name: Open transparency regression tests
+        run: node --test scripts/open-transparency.test.mjs
+
+      - name: Secret and repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build
