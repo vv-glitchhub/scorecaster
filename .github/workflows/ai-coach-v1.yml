@@ -1,0 +1,62 @@
+name: Scorecaster AI Coach V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/ai-coach-v1.mjs"
+      - "app/coach/**"
+      - "app/profile/**"
+      - "app/api/ai-coach/**"
+      - "app/api/account/**"
+      - "app/components/AppShell.jsx"
+      - "scripts/apply-ai-coach-v1.sql"
+      - "scripts/verify-ai-coach-v1.sql"
+      - "scripts/prove-ai-coach-two-user-isolation.mjs"
+      - "scripts/ai-coach-v1.test.mjs"
+      - "docs/AI_COACH_V1.md"
+      - ".github/workflows/ai-coach-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-ai-coach-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ai-coach:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: AI Coach regression tests
+        run: node --test scripts/ai-coach-v1.test.mjs
+
+      - name: Calibration evidence boundary regressions
+        run: node --test scripts/calibration-lab-v1.test.mjs
+
+      - name: Account and API security regressions
+        run: |
+          node --test scripts/api-security.test.mjs
+          node --test scripts/auth-cloud.test.mjs
+
+      - name: Secret and repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build
