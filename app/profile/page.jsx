@@ -40,7 +40,7 @@ export default async function ProfilePage() {
         <AccountMessage
           badge="Local mode"
           title="Pilvisynkronointi ei ole vielä määritetty."
-          text="Paikallinen paperiseuranta, tulokset, asetukset ja AI Coach toimivat silti normaalisti tällä laitteella. Supabase-ympäristömuuttujat tarvitaan vain pilvitoimintoihin."
+          text="Paikallinen paperiseuranta, tulokset ja asetukset toimivat tällä laitteella. Käyttäjäkohtainen AI Coach tarvitsee kirjautumisen sekä varmennetun paperi- ja closing-evidenssin."
           actionHref="/tracking"
           actionLabel="Avaa omat vedot"
         />
@@ -50,7 +50,7 @@ export default async function ProfilePage() {
         <AccountMessage
           badge="Signed out"
           title="Kirjautuminen on vapaaehtoinen paikalliseen käyttöön."
-          text={authError?.message || "Kirjaudu sisään vasta, kun haluat pilvisynkronoinnin, kommentoinnin tai käyttäjäkohtaiset verkkotoiminnot."}
+          text={authError?.message || "Kirjaudu sisään, kun haluat pilvisynkronoinnin, käyttäjäkohtaisen AI Coachin tai muut omiin paperitietoihin perustuvat verkkotoiminnot."}
           actionHref="/login"
           actionLabel="Kirjaudu tai luo tili"
         />
@@ -77,6 +77,22 @@ export default async function ProfilePage() {
                 <Link href="/privacy" className="sc-button-secondary text-center">Tietosuoja ja turvallisuus</Link>
                 <form action="/auth/signout" method="post"><button className="w-full rounded-2xl border border-red-400/20 bg-red-400/10 px-5 py-4 font-black text-red-100">Kirjaudu ulos</button></form>
               </div>
+            </div>
+          </section>
+
+          <section className="rounded-[1.75rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-6 md:p-8">
+            <div className="text-xs font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">AI Coach V1 · paper-only</div>
+            <h2 className="mt-3 text-3xl font-black tracking-[-0.04em] text-[var(--sc-text)]">Päätösprosessin valmentaja</h2>
+            <p className="mt-3 max-w-4xl leading-7 text-[var(--sc-text-secondary)]">AI Coach analysoi vain sinun oman paperihistoriasi, varmennetun closing-line-evidenssin ja näkyvät turvallisuuspäätökset. Se tunnistaa esimerkiksi myöhäiset sisääntulot, heikot hintavalinnat, korreloituneet kohteet ja hyvät päätökset, jotka päättyivät yksittäiseen tappioon.</p>
+            <div className="mt-4 flex flex-wrap gap-2 text-xs font-black text-[var(--sc-muted)]">
+              <span className="rounded-full border border-[var(--sc-border)] px-3 py-1.5">ei tappioiden jahtaamista</span>
+              <span className="rounded-full border border-[var(--sc-border)] px-3 py-1.5">ei automaattista panosmuutosta</span>
+              <span className="rounded-full border border-[var(--sc-border)] px-3 py-1.5">omat tiedot vain</span>
+            </div>
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link href="/coach" className="sc-button-primary">Avaa AI Coach</Link>
+              <Link href="/calibration" className="sc-button-secondary">CLV ja kalibraatio</Link>
+              <Link href="/risk-lab" className="sc-button-secondary">Riskilaboratorio</Link>
             </div>
           </section>
 
