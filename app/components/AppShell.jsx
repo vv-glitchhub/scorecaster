@@ -57,6 +57,7 @@ export default function AppShell({ children }) {
   ], [groups, tr]);
 
   const operatorItems = useMemo(() => [
+    { href: "/production-evidence", label: "Production Evidence" },
     { href: "/production-control-center", label: "Production Control" },
     { href: "/operations", label: "Operations" },
     { href: "/provider-health", label: "Provider Health" },
