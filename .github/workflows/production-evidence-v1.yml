@@ -1,0 +1,57 @@
+name: Scorecaster Production Evidence V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/production-evidence-v1.mjs"
+      - "app/api/production-evidence/**"
+      - "app/production-evidence/**"
+      - "app/components/AppShell.jsx"
+      - "scripts/production-evidence-v1.test.mjs"
+      - "docs/PRODUCTION_EVIDENCE_V1.md"
+      - "config/release-readiness.json"
+      - "package.json"
+      - ".github/workflows/production-evidence-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-production-evidence-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  production-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Production evidence regression tests
+        run: node --test scripts/production-evidence-v1.test.mjs
+
+      - name: Unified data chronology regressions
+        run: node --test scripts/unified-data-calibration.test.mjs scripts/calibration-lab-v1.test.mjs
+
+      - name: Release manifest regressions
+        run: node --test scripts/release-readiness.test.mjs
+
+      - name: Secret and repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build

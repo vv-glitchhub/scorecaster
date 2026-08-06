@@ -15,6 +15,7 @@
     "/polymarket-intelligence",
     "/diagnostics-v2",
     "/provider-health",
+    "/production-evidence",
     "/data-layer",
     "/sports-analytics",
     "/data-collector"
@@ -312,6 +313,11 @@
     {
       "id": "unified-data-closing-line",
       "title": "Opening and final pre-start snapshots produce closing odds and price CLV without any pregame closing-line leakage",
+      "blocking": true
+    },
+    {
+      "id": "production-evidence-league-readiness",
+      "title": "Production Evidence classifies every reviewed league as enabled, degraded or disabled using visible fixture, provider, worker and closing-line denominators",
       "blocking": true
     },
     {
