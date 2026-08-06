@@ -12,6 +12,12 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
   assert.equal(manifest.supabaseMigrations.length, 21);
+  assert.deepEqual(manifest.productionPatches, [
+    "scripts/apply-market-microstructure-v2.sql",
+    "scripts/apply-calibration-lab-v1.sql",
+    "scripts/apply-ai-coach-v1.sql",
+    "scripts/apply-verified-live-monitor-v1.sql"
+  ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
@@ -72,6 +78,11 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "pageCandidates",
     "apiCandidates",
     "supabaseMigrations",
+    "productionPatches",
+    "apply-market-microstructure-v2.sql",
+    "apply-calibration-lab-v1.sql",
+    "apply-ai-coach-v1.sql",
+    "apply-verified-live-monitor-v1.sql",
     "scorecaster_community_feed_v1.sql",
     "scorecaster_ai_intelligence_v1.sql",
     "scorecaster_sports_analytics.sql",
