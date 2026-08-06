@@ -6,6 +6,8 @@ import { useEffect, useMemo, useState } from "react";
 import ContextHelp from "./ContextHelp";
 import { LanguageSwitcher, useLanguage } from "./LanguageProvider";
 import { AppIcon, BrandMark, ThemeToggle } from "./BrandUI";
+import ProfessionalPreferenceControls from "./ProfessionalPreferenceControls";
+import { useProfessionalPreferences } from "./ProfessionalPreferencesProvider";
 
 function NavIcon({ name, size = 19 }) {
   return <AppIcon name={name} size={size} />;
@@ -14,6 +16,7 @@ function NavIcon({ name, size = 19 }) {
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const { t, tr } = useLanguage();
+  const { bookmakerLabel, proMode } = useProfessionalPreferences();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const primaryItems = useMemo(() => [
@@ -39,7 +42,7 @@ export default function AppShell({ children }) {
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/live-monitor", label: tr({ fi: "Varmennettu live-seuranta", en: "Verified Live Monitor", es: "Monitor en vivo verificado" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
-    { href: "/coach", label: tr({ fi: "AI Coach", en: "AI Coach", es: "AI Coach" }) },
+    { href: "/coach", label: "AI Coach" },
     { href: "/calibration", label: tr({ fi: "CLV ja kalibraatio", en: "CLV & Calibration", es: "CLV y calibración" }) },
     { href: "/risk-lab", label: tr({ fi: "Riskilaboratorio", en: "Risk Lab", es: "Laboratorio de riesgo" }) },
     { href: "/model-lab", label: tr({ fi: "Selitys- ja mallilaboratorio", en: "Explanation & Model Lab", es: "Laboratorio de explicación y modelo" }) },
@@ -48,7 +51,7 @@ export default function AppShell({ children }) {
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
     { href: "/probabilities", label: tr({ fi: "Avoin 1X2-malli", en: "Open 1X2 model", es: "Modelo 1X2 abierto" }) },
-    { href: "/xray", label: tr({ fi: "Match X-Ray", en: "Match X-Ray", es: "Match X-Ray" }) },
+    { href: "/xray", label: "Match X-Ray" },
     { href: "/context", label: tr({ fi: "Kontekstimoottori", en: "Context Engine", es: "Motor de contexto" }) },
     { href: "/market-microstructure", label: tr({ fi: "Markkinan mikrorakenne", en: "Market Microstructure", es: "Microestructura de mercado" }) },
     { href: "/transparency", label: tr({ fi: "Avoin AI: kaavat ja lähteet", en: "Open AI: formulas and sources", es: "IA abierta: fórmulas y fuentes" }) },
@@ -70,9 +73,7 @@ export default function AppShell({ children }) {
     { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
   ], [tr]);
 
-  useEffect(() => {
-    setMenuOpen(false);
-  }, [pathname]);
+  useEffect(() => setMenuOpen(false), [pathname]);
 
   function isActive(item) {
     if (item.href === "/") return pathname === "/";
@@ -89,38 +90,29 @@ export default function AppShell({ children }) {
               <div className="min-w-0">
                 <div className="truncate text-[1.15rem] font-black tracking-[-0.045em] text-[var(--sc-text)]">Scorecaster</div>
                 <div className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-muted)]">{tr({ fi: "AI-urheiluanalyysi", en: "AI sports intelligence", es: "Inteligencia deportiva IA" })}</div>
-                <span className="hidden">Sports decision OS</span>
               </div>
             </Link>
 
             <nav className="hidden items-center gap-1.5 lg:flex" aria-label={t("nav.mainAria")}>
-              {primaryItems.map((item) => (
-                <Link key={item.href} href={item.href} className={`flex min-h-11 items-center gap-2 rounded-[0.9rem] px-4 text-sm font-black transition ${isActive(item) ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)] shadow-[var(--sc-brand-shadow)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)] hover:text-[var(--sc-text)]"}`}>
-                  <NavIcon name={item.icon} size={17} />{item.label}
-                </Link>
-              ))}
+              {primaryItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-11 items-center gap-2 rounded-[0.9rem] px-4 text-sm font-black transition ${isActive(item) ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)] shadow-[var(--sc-brand-shadow)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)] hover:text-[var(--sc-text)]"}`}><NavIcon name={item.icon} size={17} />{item.label}</Link>)}
             </nav>
 
             <div className="relative flex items-center gap-2">
-              <div className="hidden items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.13em] text-[var(--sc-text-secondary)] sm:flex"><AppIcon name="shield" size={14} />{t("mode.paper")}</div>
+              <div className="hidden max-w-[220px] items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em] text-[var(--sc-text-secondary)] xl:flex" title={`${bookmakerLabel} · ${proMode ? "Pro Mode" : "Simple mode"}`}><AppIcon name="shield" size={14} /><span className="truncate">{bookmakerLabel}</span><span aria-hidden="true">·</span><span>{proMode ? "PRO" : "SIMPLE"}</span></div>
               <ThemeToggle labelDark={tr({ fi: "Tumma tila", en: "Dark mode", es: "Modo oscuro" })} labelLight={tr({ fi: "Vaalea tila", en: "Light mode", es: "Modo claro" })} />
               <LanguageSwitcher compact />
-              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="sc-icon-button" aria-expanded={menuOpen} aria-label={tr({ fi: "Avaa lisävalikko", en: "Open more menu", es: "Abrir menú" })}><NavIcon name="more" /></button>
+              <button type="button" onClick={() => setMenuOpen((value) => !value)} className="sc-icon-button" aria-expanded={menuOpen} aria-controls="scorecaster-more-menu" aria-label={tr({ fi: "Avaa lisävalikko", en: "Open more menu", es: "Abrir menú" })}><NavIcon name="more" /></button>
 
               {menuOpen && (
-                <div className="sc-menu-surface absolute right-0 top-14 z-50 w-[min(92vw,520px)] rounded-[1.5rem] p-4 backdrop-blur-2xl">
-                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Lisätoiminnot", en: "More tools", es: "Más herramientas" })}</div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2">
-                    {secondaryItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-sm font-bold text-[var(--sc-text-secondary)] hover:border-[var(--sc-brand-border)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
-                  </div>
+                <div id="scorecaster-more-menu" className="sc-menu-surface absolute right-0 top-14 z-50 max-h-[min(78vh,760px)] w-[min(92vw,560px)] overflow-y-auto rounded-[1.5rem] p-4 backdrop-blur-2xl">
+                  <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Yhteiset ammattiasetukset", en: "Shared professional settings", es: "Ajustes profesionales compartidos" })}</div>
+                  <ProfessionalPreferenceControls compact className="mt-3" />
+                  <div className="mt-5 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-faint)]">{tr({ fi: "Lisätoiminnot", en: "More tools", es: "Más herramientas" })}</div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2">{secondaryItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-sm font-bold text-[var(--sc-text-secondary)] hover:border-[var(--sc-brand-border)] hover:text-[var(--sc-text)]">{item.label}</Link>)}</div>
                   <details className="mt-4 border-t border-[var(--sc-border)] pt-4">
-                    <summary className="cursor-pointer list-none rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-muted)]">
-                      {tr({ fi: "Kehittäjä- ja ylläpitotyökalut", en: "Developer and operator tools", es: "Herramientas de desarrollo y operación" })}
-                    </summary>
+                    <summary className="cursor-pointer list-none rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-3 py-3 text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-muted)]">{tr({ fi: "Kehittäjä- ja ylläpitotyökalut", en: "Developer and operator tools", es: "Herramientas de desarrollo y operación" })}</summary>
                     <p className="mt-3 text-xs leading-5 text-[var(--sc-faint)]">{tr({ fi: "Nämä näkymät eivät kuulu tavalliseen päivittäiseen käyttöön.", en: "These views are not part of the normal daily user flow.", es: "Estas vistas no forman parte del uso diario normal." })}</p>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      {operatorItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)] hover:text-[var(--sc-text)]">{item.label}</Link>)}
-                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">{operatorItems.map((item) => <Link key={item.href} href={item.href} className="rounded-xl border border-[var(--sc-border)] px-3 py-2 text-xs font-bold text-[var(--sc-muted)] hover:text-[var(--sc-text)]">{item.label}</Link>)}</div>
                   </details>
                 </div>
               )}
@@ -129,22 +121,12 @@ export default function AppShell({ children }) {
         </div>
       </header>
 
-      <nav className="hidden" aria-label={t("nav.quickAria")}>
-        {groups.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
-      </nav>
-
+      <nav className="hidden" aria-label={t("nav.quickAria")}>{groups.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}</nav>
       <main className="mx-auto w-full max-w-[1480px] px-4 pb-28 pt-5 sm:px-6 lg:px-7 lg:pb-10 lg:pt-7">{children}</main>
 
       <nav className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--sc-border)] bg-[var(--sc-bg)]/95 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 backdrop-blur-2xl lg:hidden" aria-label={t("nav.mainAria")}>
-        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">
-          {primaryItems.map((item) => (
-            <Link key={item.href} href={item.href} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[10px] font-black transition ${isActive(item) ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)]"}`}>
-              <NavIcon name={item.icon} size={19} /><span className="max-w-full truncate">{item.short}</span>
-            </Link>
-          ))}
-        </div>
+        <div className="mx-auto grid max-w-xl grid-cols-5 gap-1">{primaryItems.map((item) => <Link key={item.href} href={item.href} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-center text-[10px] font-black transition ${isActive(item) ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)]"}`}><NavIcon name={item.icon} size={19} /><span className="max-w-full truncate">{item.short}</span></Link>)}</div>
       </nav>
-
       <ContextHelp />
     </div>
   );
