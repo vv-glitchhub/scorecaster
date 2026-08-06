@@ -38,6 +38,7 @@ export default function AppShell({ children }) {
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
+    { href: "/coach", label: tr({ fi: "AI Coach", en: "AI Coach", es: "AI Coach" }) },
     { href: "/calibration", label: tr({ fi: "CLV ja kalibraatio", en: "CLV & Calibration", es: "CLV y calibración" }) },
     { href: "/risk-lab", label: tr({ fi: "Riskilaboratorio", en: "Risk Lab", es: "Laboratorio de riesgo" }) },
     { href: "/model-lab", label: tr({ fi: "Selitys- ja mallilaboratorio", en: "Explanation & Model Lab", es: "Laboratorio de explicación y modelo" }) },
@@ -62,6 +63,7 @@ export default function AppShell({ children }) {
     { href: "/context-operations", label: "Context Operations" },
     { href: "/api/market-microstructure/health", label: "Market Microstructure Health" },
     { href: "/api/calibration/health", label: "Calibration Health" },
+    { href: "/api/ai-coach/health", label: "AI Coach Health" },
     { href: "/release-readiness", label: tr({ fi: "Julkaisuvalmius", en: "Release readiness", es: "Preparación" }) },
     { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
   ], [tr]);

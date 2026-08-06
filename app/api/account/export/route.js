@@ -31,6 +31,8 @@ export async function GET(request) {
   const results = await Promise.all([
     auth.supabase.from("profiles").select("id,email,display_name,created_at,updated_at").eq("id", auth.user.id).maybeSingle(),
     auth.supabase.from("bets").select("id,client_ref,label,match,market,bookmaker,sport,league,home_team,away_team,odds,stake,edge,ev,confidence,status,result,profit,closing_odds,clv,raw_pick,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(5000),
+    auth.supabase.from("ai_coach_preferences_v1").select("enabled,notifications_enabled,quiet_start,quiet_end,max_notifications_per_week,minimum_sample,paper_only,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
+    auth.supabase.from("ai_coach_reports_v1").select("id,report_version,window_days,evidence_count,report,generated_at,paper_only,created_at").eq("user_id", auth.user.id).order("generated_at", { ascending: false }).limit(1000),
     auth.supabase.from("paper_settlement_monitor_state").select("next_check_at,last_started_at,last_completed_at,last_status,last_error,last_open_count,last_settled_count,last_pending_count,last_provider_warnings_count,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("bankroll_settings").select("bankroll,max_stake_percent,max_daily_exposure_percent,max_single_league_exposure_percent,min_edge,min_confidence,paper_trading_mode,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("autonomous_agent_settings").select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at").eq("user_id", auth.user.id).maybeSingle(),
@@ -50,13 +52,13 @@ export async function GET(request) {
     auth.supabase.from("notification_deliveries").select("id,alert_id,device_id,status,attempt_count,next_attempt_at,expo_ticket_id,ticket_status,receipt_status,error_code,error_message,queued_at,sent_at,receipt_checked_at,provider_accepted_at,failed_at,created_at,updated_at").eq("user_id", auth.user.id).order("created_at", { ascending: false }).limit(1000)
   ]);
 
-  let [profileResult, betsResult, settlementMonitorResult, bankrollResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, shadowSamplesResult, shadowStateResult, shadowCyclesResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
+  let [profileResult, betsResult, aiCoachPreferencesResult, aiCoachReportsResult, settlementMonitorResult, bankrollResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, shadowSamplesResult, shadowStateResult, shadowCyclesResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult] = results;
   if (alertInboxResult.error && isMissingColumn(alertInboxResult.error)) {
     alertInboxResult = await auth.supabase.from("alert_inbox").select("id,watchlist_id,fingerprint,alert_type,severity,title,message,match,selection,details,active,read_at,resolved_at,first_seen_at,last_seen_at,created_at,updated_at").eq("user_id", auth.user.id).order("last_seen_at", { ascending: false }).limit(500);
   }
 
   const errors = [profileResult.error, betsResult.error, bankrollResult.error].filter(Boolean);
-  for (const result of [settlementMonitorResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, shadowSamplesResult, shadowStateResult, shadowCyclesResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
+  for (const result of [aiCoachPreferencesResult, aiCoachReportsResult, settlementMonitorResult, autonomousSettingsResult, autonomousStateResult, autonomousRunsResult, autonomousAuditResult, autonomousBriefsResult, shadowSamplesResult, shadowStateResult, shadowCyclesResult, watchlistResult, watchlistMonitorResult, alertInboxResult, timelineResult, preferencesResult, devicesResult, deliveriesResult]) {
     if (result.error && !isMissingTable(result.error)) errors.push(result.error);
   }
   if (errors.length) {
@@ -67,9 +69,10 @@ export async function GET(request) {
     ok: true,
     exportedAt: new Date().toISOString(),
     product: "Scorecaster",
-    dataClassification: "paper-tracking, Autonomous Scorecaster V13 settings, safety health, candidate decision audit, daily autonomous briefs, immutable Shadow Learning observations, evaluation cycles, automatic settlement metadata, model-audit snapshots, verified watchlist, background monitor metadata, market timeline, alert inbox, notification metadata and account data; no payment data",
+    dataClassification: "paper-tracking, AI Coach preferences and evidence reports, Autonomous Scorecaster V13 settings, safety health, candidate decision audit, daily autonomous briefs, immutable Shadow Learning observations, evaluation cycles, automatic settlement metadata, model-audit snapshots, verified watchlist, background monitor metadata, market timeline, alert inbox, notification metadata and account data; no payment data",
     notificationDeliveryTokensExported: false,
     notificationReceiptMeaning: "provider acceptance only; not proof that the user saw the notification",
+    aiCoachBoundary: "evidence-based coaching from the user's own paper records; no model, decision or stake modification, loss chasing, real-money execution or profit guarantee",
     autonomousAgentBoundary: "virtual paper decisions and shadow-only learning; no deposits, money movement, bookmaker access, automatic model promotion or real-money betting",
     account: {
       id: auth.user.id,
@@ -79,6 +82,8 @@ export async function GET(request) {
     profile: profileResult.data || null,
     bankroll: bankrollResult.data || null,
     paperBets: betsResult.data || [],
+    aiCoachPreferences: aiCoachPreferencesResult.error ? null : aiCoachPreferencesResult.data || null,
+    aiCoachReports: aiCoachReportsResult.error ? [] : aiCoachReportsResult.data || [],
     settlementMonitor: settlementMonitorResult.error ? null : settlementMonitorResult.data || null,
     autonomousAgentSettings: autonomousSettingsResult.error ? null : autonomousSettingsResult.data || null,
     autonomousAgentState: autonomousStateResult.error ? null : autonomousStateResult.data || null,
