@@ -34,7 +34,7 @@ export default function EventVerifiedLiveMonitorPanel({ eventId }) {
           <h2 className="mt-1 text-2xl font-black text-[var(--sc-text)]">Live state integrity</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--sc-muted)]">Live score, clock, provider freshness and corrections are separate from the pre-match model. No stake or entry instruction is generated.</p>
         </div>
-        <Link href={`/live-monitor?eventId=${encodeURIComponent(eventId)}`} className="sc-button-secondary">Open live audit</Link>
+        <Link href={`/live-monitor/${encodeURIComponent(eventId)}`} className="sc-button-secondary">Open live audit</Link>
       </div>
 
       {error && <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">{error}</div>}
