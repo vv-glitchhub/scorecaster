@@ -17,6 +17,12 @@ const expectedConfirmations = {
   migrate: "APPLY SCORECASTER PRODUCTION MIGRATIONS",
   probe: "PROBE SCORECASTER PRODUCTION WORKERS"
 };
+const expectedProductionPatches = [
+  "scripts/apply-market-microstructure-v2.sql",
+  "scripts/apply-calibration-lab-v1.sql",
+  "scripts/apply-ai-coach-v1.sql",
+  "scripts/apply-verified-live-monitor-v1.sql"
+];
 
 const report = {
   version: "production-activation-v1",
@@ -30,6 +36,10 @@ const report = {
   sportsAnalyticsVerified: false,
   autonomousV13HardCapsVerified: false,
   shadowLearningVerified: false,
+  marketMicrostructureVerified: false,
+  calibrationLabVerified: false,
+  aiCoachVerified: false,
+  verifiedLiveMonitorVerified: false,
   probes: [],
   health: null,
   error: null
@@ -111,15 +121,30 @@ async function verifySchema() {
   report.sportsAnalyticsVerified = true;
   runPsql(["--file=scripts/verify-autonomous-v13-hard-caps.sql"], "Autonomous V13 hard-cap verification");
   report.autonomousV13HardCapsVerified = true;
+  runPsql(["--file=scripts/verify-market-microstructure-v2.sql"], "Market Microstructure verification");
+  report.marketMicrostructureVerified = true;
+  runPsql(["--file=scripts/verify-calibration-lab-v1.sql"], "Calibration Lab verification");
+  report.calibrationLabVerified = true;
+  runPsql(["--file=scripts/verify-ai-coach-v1.sql"], "AI Coach verification");
+  report.aiCoachVerified = true;
+  runPsql(["--file=scripts/verify-verified-live-monitor-v1.sql"], "Verified Live Monitor verification");
+  report.verifiedLiveMonitorVerified = true;
 }
 
 async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
-  assert(migrations.length >= 21, "Release manifest does not contain the complete production rollout");
+  const productionPatches = Array.isArray(manifest.productionPatches) ? manifest.productionPatches : [];
+  assert(migrations.length === 21, "Release manifest does not contain the complete canonical rollout");
+  assert(
+    JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
+    "Release manifest does not contain the reviewed production patches"
+  );
 
-  for (const migration of migrations) {
-    assert(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path: ${migration}`);
+  for (const migration of [...migrations, ...productionPatches]) {
+    const isCanonical = /^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration);
+    const isReviewedPatch = expectedProductionPatches.includes(migration);
+    assert(isCanonical || isReviewedPatch, `Unexpected migration path: ${migration}`);
     const digest = await fileDigest(migration);
     runPsql(["--single-transaction", `--file=${migration}`], `Migration ${migration}`);
     report.migrations.push({ path: migration, sha256: digest, status: "applied" });
