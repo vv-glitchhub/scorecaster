@@ -37,6 +37,7 @@ export default function AppShell({ children }) {
     { href: "/autonomous-agent", label: "Autonomous Agent" },
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
     { href: "/alerts", label: tr({ fi: "Hälytykset", en: "Alerts", es: "Alertas" }) },
+    { href: "/live-monitor", label: tr({ fi: "Varmennettu live-seuranta", en: "Verified Live Monitor", es: "Monitor en vivo verificado" }) },
     { href: "/analytics", label: tr({ fi: "Tulokset", en: "Results", es: "Resultados" }) },
     { href: "/coach", label: tr({ fi: "AI Coach", en: "AI Coach", es: "AI Coach" }) },
     { href: "/calibration", label: tr({ fi: "CLV ja kalibraatio", en: "CLV & Calibration", es: "CLV y calibración" }) },
@@ -65,6 +66,7 @@ export default function AppShell({ children }) {
     { href: "/api/market-microstructure/health", label: "Market Microstructure Health" },
     { href: "/api/calibration/health", label: "Calibration Health" },
     { href: "/api/ai-coach/health", label: "AI Coach Health" },
+    { href: "/api/verified-live-monitor/health", label: "Verified Live Monitor Health" },
     { href: "/release-readiness", label: tr({ fi: "Julkaisuvalmius", en: "Release readiness", es: "Preparación" }) },
     { href: "/security", label: tr({ fi: "Turvallisuus", en: "Security", es: "Seguridad" }) }
   ], [tr]);
