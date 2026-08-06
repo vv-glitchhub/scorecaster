@@ -222,6 +222,12 @@
     "supabase/scorecaster_autonomous_v13_hard_caps.sql",
     "supabase/scorecaster_shadow_learning_v1.sql"
   ],
+  "productionPatches": [
+    "scripts/apply-market-microstructure-v2.sql",
+    "scripts/apply-calibration-lab-v1.sql",
+    "scripts/apply-ai-coach-v1.sql",
+    "scripts/apply-verified-live-monitor-v1.sql"
+  ],
   "mobileLocales": {
     "apple": [
       "fi",
