@@ -1,6 +1,7 @@
 import "./globals.css";
 import AppShell from "./components/AppShell";
 import { LanguageProvider } from "./components/LanguageProvider";
+import { ProfessionalPreferencesProvider } from "./components/ProfessionalPreferencesProvider";
 import PwaRegister from "./components/PwaRegister";
 
 export const metadata = {
@@ -50,8 +51,10 @@ export default function RootLayout({ children }) {
       <head><script dangerouslySetInnerHTML={{ __html: appearanceScript }} /></head>
       <body>
         <LanguageProvider>
-          <AppShell>{children}</AppShell>
-          <PwaRegister />
+          <ProfessionalPreferencesProvider>
+            <AppShell>{children}</AppShell>
+            <PwaRegister />
+          </ProfessionalPreferencesProvider>
         </LanguageProvider>
       </body>
     </html>
