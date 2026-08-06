@@ -3,10 +3,11 @@ import EventContextPanel from "./EventContextPanel";
 import EventDataAuditClient from "./EventDataAuditClient";
 import EventDetailClient from "./EventDetailClient";
 import EventMarketMicrostructurePanel from "./EventMarketMicrostructurePanel";
+import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
 
 export const metadata = {
   title: "Event Detail",
-  description: "Verified market, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
+  description: "Verified market, live state integrity, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
 };
 
 export default async function EventDetailPage({ params, searchParams }) {
@@ -21,6 +22,7 @@ export default async function EventDetailPage({ params, searchParams }) {
         sport={sport}
         initialSelection={String(resolvedSearch?.selection || "")}
       />
+      <EventVerifiedLiveMonitorPanel eventId={eventId} />
       <ProfessionalExplanationCard eventId={eventId} />
       <EventMarketMicrostructurePanel eventId={eventId} />
       <EventContextPanel eventId={eventId} sport={sport} />

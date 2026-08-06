@@ -1,0 +1,43 @@
+name: Scorecaster Verified Live Monitor Worker
+
+on:
+  schedule:
+    - cron: "3,13,23,33,43,53 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-verified-live-monitor-worker
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    if: ${{ vars.LIVE_MONITOR_WORKER_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    env:
+      SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Validate worker secret
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+      - name: Capture verified live evidence
+        run: |
+          curl --fail --silent --show-error \
+            --retry 1 \
+            --max-time 120 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/verified-live-monitor"
+
+      - name: Verify redacted live monitor health
+        run: |
+          curl --fail --silent --show-error \
+            --max-time 30 \
+            "$SCORECASTER_URL/api/verified-live-monitor/health"
