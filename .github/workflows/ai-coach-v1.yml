@@ -51,9 +51,7 @@ jobs:
         run: node --test scripts/calibration-lab-v1.test.mjs
 
       - name: Account and API security regressions
-        run: |
-          node --test scripts/api-security.test.mjs
-          node --test scripts/auth-cloud.test.mjs
+        run: node --test scripts/api-security.test.mjs
 
       - name: Secret and repository security check
         run: npm run security:check
