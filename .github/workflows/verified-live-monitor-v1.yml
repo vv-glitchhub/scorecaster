@@ -1,0 +1,68 @@
+name: Scorecaster Verified Live Monitor V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/verified-live-monitor-core-v1.mjs"
+      - "lib/verified-live-monitor-v1.mjs"
+      - "lib/verified-live-monitor-v1.1.mjs"
+      - "lib/live-monitor-json-provider.js"
+      - "app/live-monitor/**"
+      - "app/event/[eventId]/**"
+      - "app/api/verified-live-monitor/**"
+      - "app/api/cloud/verified-live-monitor/**"
+      - "app/api/internal/verified-live-monitor/**"
+      - "app/api/live-betting/route.js"
+      - "app/api/account/**"
+      - "app/components/AppShell.jsx"
+      - "scripts/apply-verified-live-monitor-v1.sql"
+      - "scripts/verify-verified-live-monitor-v1.sql"
+      - "scripts/verified-live-monitor-v1.test.mjs"
+      - "docs/VERIFIED_LIVE_MONITOR_V1.md"
+      - ".github/workflows/verified-live-monitor-v1.yml"
+      - ".github/workflows/verified-live-monitor-worker.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-verified-live-monitor-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verified-live-monitor:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Verified Live Monitor regressions
+        run: node --test scripts/verified-live-monitor-v1.test.mjs
+
+      - name: Market Microstructure and Context chronology boundaries
+        run: |
+          node --test scripts/market-microstructure-v2.test.mjs
+          node --test scripts/context-engine-v1.test.mjs
+
+      - name: Account and API security regressions
+        run: node --test scripts/api-security.test.mjs
+
+      - name: Secret and repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build
