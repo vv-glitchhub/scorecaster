@@ -42,7 +42,34 @@ create table if not exists public.bets (
 alter table public.bets add column if not exists client_ref text;
 alter table public.bets add column if not exists match text;
 alter table public.bets add column if not exists confidence numeric;
+alter table public.bets add column if not exists profit numeric;
+alter table public.bets add column if not exists closing_odds numeric;
+alter table public.bets add column if not exists clv numeric;
 alter table public.bets add column if not exists updated_at timestamptz not null default now();
+
+-- A legacy prototype stored match as JSONB. Normalize only that known legacy
+-- shape; fresh installations already use text and are left untouched.
+do $
+begin
+  if exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'bets'
+      and column_name = 'match'
+      and data_type = 'jsonb'
+  ) then
+    execute $migration$
+      alter table public.bets alter column match type text
+      using case
+        when match is null then null
+        when jsonb_typeof(match) = 'string' then match #>> '{}'
+        else match::text
+      end
+    $migration$;
+  end if;
+end;
+$;
 
 create unique index if not exists idx_bets_user_client_ref
   on public.bets(user_id, client_ref);

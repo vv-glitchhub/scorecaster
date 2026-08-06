@@ -36,6 +36,12 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
   assert.equal(manifest.supabaseMigrations.length, 21);
+  assert.deepEqual(manifest.productionPatches, [
+    "scripts/apply-market-microstructure-v2.sql",
+    "scripts/apply-calibration-lab-v1.sql",
+    "scripts/apply-ai-coach-v1.sql",
+    "scripts/apply-verified-live-monitor-v1.sql"
+  ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_collector_v1.sql"));
@@ -50,13 +56,18 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
-  assert.match(runner, /migrations\.length >= 21/);
+  assert.match(runner, /manifest\.productionPatches/);
+  assert.match(runner, /migrations\.length === 21/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
   assert.match(runner, /verify-sports-analytics-schema\.sql/);
   assert.match(runner, /verify-autonomous-v13-hard-caps\.sql/);
   assert.match(runner, /sportsAnalyticsVerified/);
+  assert.match(runner, /verify-market-microstructure-v2\.sql/);
+  assert.match(runner, /verify-calibration-lab-v1\.sql/);
+  assert.match(runner, /verify-ai-coach-v1\.sql/);
+  assert.match(runner, /verify-verified-live-monitor-v1\.sql/);
   assert.match(runner, /sha256/);
 });
 
@@ -71,6 +82,8 @@ test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Sh
   const sportsAnalytics = await source("supabase/scorecaster_sports_analytics.sql");
   const autonomousV2 = await source("supabase/scorecaster_autonomous_agent_v2.sql");
   const shadow = await source("supabase/scorecaster_shadow_learning_v1.sql");
+  const schema = await source("supabase/scorecaster_schema.sql");
+  const auth = await source("supabase/scorecaster_auth_cloud.sql");
   assert.match(sql, /relrowsecurity/);
   assert.match(sql, /relforcerowsecurity/);
   assert.match(sql, /pg_policies/);
@@ -125,6 +138,12 @@ test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Sh
   assert.match(shadow, /automatic_promotion_allowed = false/);
   assert.match(shadow, /real_money_execution = false/);
   assert.match(shadow, /on conflict \(user_id, bet_id\) do update set/);
+  assert.match(schema, /add column if not exists tracked_bet_id/);
+  assert.match(schema, /legacy-odds-snapshot/);
+  assert.match(auth, /add column if not exists profit/);
+  assert.match(auth, /data_type = 'jsonb'/);
+  assert.match(unified, /truncate, references, trigger/);
+  assert.match(unified, /from public/);
 });
 
 test("protected worker probes are bounded and activation reports exclude credentials", async () => {

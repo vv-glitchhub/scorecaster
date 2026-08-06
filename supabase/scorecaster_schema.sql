@@ -126,6 +126,68 @@ create table if not exists public.risk_events (
   created_at timestamptz not null default now()
 );
 
+-- Older Scorecaster projects used odds_snapshots as a provider cache. Keep
+-- those rows and columns intact while adding the paper-tracking fields needed
+-- by the production schema. Every operation is additive and idempotent.
+alter table public.odds_snapshots add column if not exists user_id uuid;
+alter table public.odds_snapshots add column if not exists tracked_bet_id uuid references public.tracked_bets(id) on delete cascade;
+alter table public.odds_snapshots add column if not exists sport text;
+alter table public.odds_snapshots add column if not exists league text;
+alter table public.odds_snapshots add column if not exists match text;
+alter table public.odds_snapshots add column if not exists market text;
+alter table public.odds_snapshots add column if not exists selection text;
+alter table public.odds_snapshots add column if not exists source text;
+alter table public.odds_snapshots add column if not exists captured_at timestamptz;
+
+do $
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'sport_key'
+  ) then
+    execute 'update public.odds_snapshots set sport = coalesce(sport, sport_key) where sport is null';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'league_key'
+  ) then
+    execute 'update public.odds_snapshots set league = coalesce(league, league_key) where league is null';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'external_match_id'
+  ) then
+    execute 'update public.odds_snapshots set match = coalesce(match, external_match_id) where match is null';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'market_key'
+  ) then
+    execute 'update public.odds_snapshots set market = coalesce(market, market_key) where market is null';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'outcome_name'
+  ) then
+    execute 'update public.odds_snapshots set selection = coalesce(selection, outcome_name) where selection is null';
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'odds_snapshots' and column_name = 'snapshot_time'
+  ) then
+    execute 'update public.odds_snapshots set captured_at = coalesce(captured_at, snapshot_time, now()) where captured_at is null';
+  else
+    update public.odds_snapshots set captured_at = now() where captured_at is null;
+  end if;
+end;
+$;
+
+update public.odds_snapshots
+set source = 'legacy-odds-snapshot'
+where source is null;
+alter table public.odds_snapshots alter column captured_at set default now();
+alter table public.odds_snapshots alter column captured_at set not null;
+
 create index if not exists idx_tracked_bets_user_status on public.tracked_bets(user_id, status);
 create index if not exists idx_tracked_bets_league on public.tracked_bets(league);
 create index if not exists idx_odds_snapshots_tracked_bet on public.odds_snapshots(tracked_bet_id);

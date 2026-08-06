@@ -91,6 +91,13 @@ for (const endpoint of protectedApis) {
 }
 
 const migrations = manifest.supabaseMigrations || [];
+const productionPatches = manifest.productionPatches || [];
+const expectedProductionPatches = [
+  "scripts/apply-market-microstructure-v2.sql",
+  "scripts/apply-calibration-lab-v1.sql",
+  "scripts/apply-ai-coach-v1.sql",
+  "scripts/apply-verified-live-monitor-v1.sql"
+];
 check(migrations.length >= 21, "Release manifest must list the complete ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
@@ -119,6 +126,11 @@ for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);
 }
+check(
+  JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
+  "Release manifest must list the four reviewed production patches in dependency order"
+);
+for (const patch of productionPatches) check(await exists(patch), `Production patch ${patch} is missing`);
 
 for (const [header, expected] of Object.entries(manifest.requiredSecurityHeaders || {})) {
   check(nextConfig.toLowerCase().includes(header.toLowerCase()), `Security header ${header} is missing from next.config.js`);
@@ -190,7 +202,7 @@ if (failures.length) {
   failures.forEach((message) => console.error(`- ${message}`));
   process.exitCode = 1;
 } else {
-  console.log(`Scorecaster repository release audit passed: ${migrations.length} migrations, ${manifest.publicPages.length} public pages and ${protectedApis.length} protected probes.`);
+  console.log(`Scorecaster repository release audit passed: ${migrations.length} canonical migrations, ${productionPatches.length} production patches, ${manifest.publicPages.length} public pages and ${protectedApis.length} protected probes.`);
   if (warnings.length) {
     console.log("\nExternal verification still required:");
     warnings.forEach((message) => console.log(`- ${message}`));
