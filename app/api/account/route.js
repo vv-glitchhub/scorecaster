@@ -14,6 +14,8 @@ export const dynamic = "force-dynamic";
 
 const CONFIRMATION = "DELETE MY SCORECASTER ACCOUNT";
 const USER_TABLES = [
+  "ai_coach_reports_v1",
+  "ai_coach_preferences_v1",
   "notification_deliveries",
   "market_timeline_snapshots",
   "watchlist_monitor_state",
@@ -56,7 +58,7 @@ export async function GET(request) {
     deletionAvailable: Boolean(getSupabaseAdminClient()),
     confirmationPhrase: CONFIRMATION,
     requiresEmailConfirmation: true,
-    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "Autonomous Agent V13 settings, health state, decision audit, daily briefs and run history", "Shadow Learning observations, state and evaluation cycles", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
+    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "AI Coach preferences and generated evidence reports", "Autonomous Scorecaster V13 settings, health state, decision audit, daily briefs and run history", "Shadow Learning observations, state and evaluation cycles", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
     neverStored: ["payment card data", "bank credentials", "real-money balance"]
   }, 200, requestId);
 }
