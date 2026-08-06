@@ -2,7 +2,7 @@
 
 AI Coach is an authenticated, paper-only process review tool. It uses only the signed-in user's own paper decisions, chronology-safe calibration observations, verified pre-start closing evidence and explicit decision-audit rows.
 
-It does not place bets, access bookmaker accounts, change model probabilities, promote models, change automatic decisions or increase stakes. It never recommends chasing losses or promises profit.
+It does not place bets, access bookmaker accounts, change model probabilities, promote models, change automatic decisions or increase stakes. There is no model, decision or stake modification. It never recommends chasing losses or promises profit.
 
 ## Evidence inputs
 
