@@ -13,7 +13,7 @@ function observation(index, overrides = {}) {
   return {
     id: `observation-${index}`,
     bet_id: `bet-${index}`,
-    event_id: index < 2 ? "shared-event" : `event-${index}`,
+    event_id: index < 6 ? `shared-event-${Math.floor(index / 2)}` : `event-${index}`,
     sport: index % 2 ? "soccer" : "icehockey",
     league: index % 2 ? "EPL" : "NHL",
     market: "h2h",
