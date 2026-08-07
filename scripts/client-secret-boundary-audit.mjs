@@ -33,12 +33,17 @@ function relative(file) {
   return path.relative(root, file).replaceAll("\\", "/");
 }
 
-async function scan(group, fileList) {
+async function scan(group, fileList, { serverNameSeverity = "warning" } = {}) {
   const violations = [];
+  const warnings = [];
   for (const file of fileList) {
     const content = await readFile(file, "utf8").catch(() => "");
     for (const name of secretNames) {
-      if (content.includes(name)) violations.push({ group, file: relative(file), type: "server-only-variable-name", name });
+      if (content.includes(name)) {
+        const finding = { group, file: relative(file), type: "server-only-variable-name", name };
+        if (serverNameSeverity === "error") violations.push(finding);
+        else warnings.push(finding);
+      }
       for (const prefix of policy.forbiddenClientPrefixes || []) {
         const alias = `${prefix}${name}`;
         if (content.includes(alias)) violations.push({ group, file: relative(file), type: "forbidden-public-alias", name: alias });
@@ -49,28 +54,44 @@ async function scan(group, fileList) {
       if (pattern.test(content)) violations.push({ group, file: relative(file), type: "secret-value-pattern", name: "redacted-pattern" });
     }
   }
-  return violations;
+  return { violations, warnings };
 }
 
 const webRoot = path.join(root, ".next", "static");
 const mobileRoot = path.join(root, "mobile", "src");
 const webFiles = await files(webRoot);
 const mobileFiles = await files(mobileRoot);
-const violations = [
-  ...await scan("web-static", webFiles),
-  ...await scan("mobile-source", mobileFiles)
-];
+
+// A literal server environment-variable name in a generated Next.js chunk is
+// not itself a secret. Next.js does not expose non-NEXT_PUBLIC values to the
+// browser. We still report those names for review, but fail the web boundary on
+// actual secret-shaped values or on a forbidden public alias. Mobile source is
+// stricter: server-only names have no legitimate role in native client source.
+const webScan = await scan("web-static", webFiles, { serverNameSeverity: "warning" });
+const mobileScan = await scan("mobile-source", mobileFiles, { serverNameSeverity: "error" });
+const violations = [...webScan.violations, ...mobileScan.violations];
+const warnings = [...webScan.warnings, ...mobileScan.warnings];
 
 const report = {
-  version: "scorecaster-client-secret-boundary-v1",
+  version: "scorecaster-client-secret-boundary-v1.1",
   generatedAt: new Date().toISOString(),
   webBundleAvailable: webFiles.length > 0,
   webFilesScanned: webFiles.length,
   mobileSourceFilesScanned: mobileFiles.length,
   serverOnlyNamesChecked: secretNames,
   violationCount: violations.length,
+  warningCount: warnings.length,
   violations,
+  warnings,
   passed: violations.length === 0 && (!requireWebBuild || webFiles.length > 0),
+  policy: {
+    webServerOnlyName: "report-only",
+    webForbiddenPublicAlias: "fail",
+    webSecretValuePattern: "fail",
+    mobileServerOnlyName: "fail",
+    mobileForbiddenPublicAlias: "fail",
+    mobileSecretValuePattern: "fail"
+  },
   limitations: {
     signedMobileBundleInspected: false,
     signedMobileBundleRequiresPhysicalReleaseStep: true,
@@ -94,5 +115,6 @@ if (requireWebBuild && webFiles.length === 0) {
   violations.forEach((item) => console.error(`- ${item.group}:${item.file}: ${item.type} ${item.name}`));
   process.exitCode = 1;
 } else {
-  console.log(`Client secret boundary audit passed: ${webFiles.length} web static files and ${mobileFiles.length} mobile source files checked. No server-only variable names or secret patterns found.`);
+  console.log(`Client secret boundary audit passed: ${webFiles.length} web static files and ${mobileFiles.length} mobile source files checked. No secret-shaped values or forbidden public aliases found; mobile source contains no server-only names.`);
+  if (warnings.length) console.log(`Review note: ${warnings.length} generated web-chunk server-only variable-name occurrence(s) were recorded as non-secret metadata warnings.`);
 }
