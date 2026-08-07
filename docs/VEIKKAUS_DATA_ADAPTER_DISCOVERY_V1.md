@@ -14,12 +14,32 @@ The Source Registry entry is deliberately fail-closed:
 - commercial use allowed: `false`
 - redistribution allowed: `false`
 - model training allowed: `false`
-- licence: `unverified`
-- terms URL: missing
-- base/data URL: missing
+- terms URL: `https://dev.developer.api.veikkaus.fi/terms`
+- licence state: official Developer Portal EULA identified, but default purpose is documentation review/API testing and broader reuse requires Veikkaus approval
+- production data base URL: missing/unverified
 - retention: zero days
 
-Until these fields are replaced by verified evidence, both collection and publishing remain blocked.
+The official terms are now identified, but production collection and publishing remain blocked because the usable data endpoint, granted API product, commercial/display permission and retention/redistribution rights are not established.
+
+## Official API portal discovery
+
+Veikkaus operates an official API Developer Portal at:
+
+- `https://dev.developer.api.veikkaus.fi/`
+- getting started: `https://dev.developer.api.veikkaus.fi/get-started`
+- terms: `https://dev.developer.api.veikkaus.fi/terms`
+
+The publicly visible portal instructions establish that API use requires:
+
+1. a portal account
+2. administrator approval for access
+3. an application registered in the portal
+4. access to an API product
+5. an API key sent in the `x-apikey` request header
+
+The public API catalogue itself requires sign-in before API products/specifications are visible. Therefore this discovery phase does **not** record or guess a production API endpoint.
+
+The portal EULA states that its purpose is reviewing API documentation and/or testing Veikkaus APIs. It also limits access to interfaces/documentation Veikkaus has granted via API key and restricts using Veikkaus Data beyond the agreed purpose without prior approval. Scorecaster therefore records the terms as verified evidence **against** assuming production/commercial rights from public visibility alone.
 
 ## What the supplied evidence establishes
 
@@ -37,13 +57,13 @@ The supplied rules establish game semantics and selected mathematical rules such
 
 They **do not** establish:
 
-- an official reusable data API
-- an API licence
+- which Developer Portal API product contains the visible betting data
+- a granted API key/API product for Scorecaster
 - commercial display rights
 - redistribution rights
 - a permitted automated collection frequency
 - permission to reuse browser-internal or undocumented endpoints
-- permission to use account/session endpoints
+- permission to use player account/session endpoints
 
 Scorecaster therefore keeps screenshots as design/reference evidence only, never as a live data source.
 
@@ -123,21 +143,21 @@ The endpoint exposes only gate state:
 - publishing allowed or blocked
 - whether live fetching/account access/bet placement/Cash Out/money movement exist
 
-It does not return credentials, cookies, raw payloads, request URLs or customer context.
+It does not return credentials, API keys, cookies, raw payloads, request URLs or customer context.
 
 ## Conditions required before any real adapter work
 
 Before production collection can be implemented, the operator must record and review all of the following:
 
-1. **Authoritative source identity**
-   - official data owner/operator
-   - documented data/API URL family
+1. **Granted API product and authoritative source identity**
+   - exact Veikkaus API product granted to Scorecaster
+   - documented data/API URL family from the authenticated Developer Portal
    - transport format
-   - authentication requirements, if any
+   - authentication method approved for the application
 
 2. **Rights evidence**
-   - applicable terms URL
-   - licence or written permission
+   - applicable terms plus any product-specific terms
+   - licence or written Veikkaus permission beyond documentation/testing where required
    - whether commercial application display is allowed
    - whether normalized data may be retained
    - whether redistribution is allowed
@@ -158,7 +178,8 @@ Before production collection can be implemented, the operator must record and re
    - source timestamps
 
 5. **Safety review**
-   - endpoint must not require or expose a player account session
+   - use only the granted read-only data product
+   - do not integrate player-account APIs even if the portal exposes them
    - no ticket submission endpoint
    - no Cash Out endpoint
    - no payment/deposit/withdrawal functionality
@@ -168,17 +189,18 @@ Before production collection can be implemented, the operator must record and re
 
 Promotion is intentionally code-reviewed rather than environment-variable-only.
 
-The Source Registry entry must be updated with verified source metadata and rights. Only after that review may a future adapter call `sourceCanCollect()` and `sourceCanPublish()` successfully.
+The Source Registry entry must be updated with the granted API product, exact endpoint family and explicit permitted-use evidence. Only after that review may a future adapter call `sourceCanCollect()` and `sourceCanPublish()` successfully.
 
 A later production implementation must also add:
 
 - server-side read-only fetcher
+- `x-apikey` kept server-only and never returned to clients/logs
 - bounded timeout and payload size
 - HTTPS-only URL validation
 - deterministic normalization
 - freshness and chronology enforcement
 - provider/outage health
-- no raw payload persistence
+- no raw payload persistence unless explicitly permitted
 - privacy/security tests
 - release-readiness gate
 - worker disabled by default until production evidence passes
@@ -187,11 +209,14 @@ A later production implementation must also add:
 
 This phase does not:
 
+- sign in to the Developer Portal automatically
+- create an API account or application
+- retrieve or store an API key
 - discover or guess private endpoints in code
 - scrape Veikkaus pages
 - OCR screenshots
 - use browser automation
-- use Veikkaus credentials, cookies or account sessions
+- use Veikkaus player credentials, cookies or account sessions
 - place a bet
 - submit a ticket
 - invoke Cash Out
@@ -206,4 +231,4 @@ Run:
 node --test scripts/veikkaus-data-adapter-v1.test.mjs
 ```
 
-The regression suite verifies the fail-closed Source Registry entry, chronology checks, market normalization, fixed-odds/pool separation, redacted health and the permanent absence of account and execution features.
+The regression suite verifies the fail-closed Source Registry entry, official terms metadata, chronology checks, market normalization, fixed-odds/pool separation, redacted health and the permanent absence of account and execution features.
