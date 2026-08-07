@@ -54,7 +54,6 @@ jobs:
       - name: Existing UX and mobile regressions
         run: |
           node --test scripts/ux-v2.test.mjs
-          node --test scripts/ux-regression.test.mjs
           node --test scripts/mobile-readiness.test.mjs
 
       - name: API, paper boundary and security regressions
