@@ -35,7 +35,7 @@
     "test:intelligence-v3": "node --test scripts/intelligence-v3.test.mjs",
     "test:intelligence-v4": "node --test scripts/intelligence-v4.test.mjs",
     "test:production-control-center": "node --test scripts/production-control-center.test.mjs",
-    "test:production-evidence": "node --test scripts/production-evidence-v1.test.mjs",
+    "test:production-evidence": "node --test scripts/production-evidence-v1.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs",
     "test:transparency": "node --test scripts/open-transparency.test.mjs",
     "test:ux-v2": "node --test scripts/ux-v2.test.mjs",
     "test:ready-app": "node --test scripts/scorecaster-ready-app.test.mjs",

@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 
-const percent = (value) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(1)} %` : "—";
-const decimal = (value, digits = 1) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "—";
-const age = (value) => Number.isFinite(Number(value)) ? `${Math.round(Number(value))} min` : "—";
+const presentNumber = (value) => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+const percent = (value) => presentNumber(value) ? `${(Number(value) * 100).toFixed(1)} %` : "—";
+const decimal = (value, digits = 1) => presentNumber(value) ? Number(value).toFixed(digits) : "—";
+const age = (value) => presentNumber(value) ? `${Math.round(Number(value))} min` : "—";
 
 function tone(value) {
   if (["ready", "enabled", "healthy"].includes(value)) return "border-emerald-400/35 bg-emerald-400/10 text-emerald-200";
@@ -63,6 +64,9 @@ export default function ProductionEvidenceClient() {
   const csvQuery = new URLSearchParams({ days, format: "csv" });
   if (sport) csvQuery.set("sport", sport);
   const csvUrl = `/api/production-evidence?${csvQuery}`;
+  const releaseQuery = new URLSearchParams({ days, format: "release" });
+  if (sport) releaseQuery.set("sport", sport);
+  const releaseUrl = `/api/production-evidence?${releaseQuery}`;
 
   const summary = data?.summary || {};
   const worker = data?.worker || {};
@@ -92,7 +96,7 @@ export default function ProductionEvidenceClient() {
       </section>
 
       <section className="sc-surface-soft rounded-2xl p-4">
-        <form className="grid gap-3 sm:grid-cols-[180px_1fr_auto_auto]" onSubmit={(event) => { event.preventDefault(); setSport(sportInput.trim().toLowerCase()); }}>
+        <form className="grid gap-3 sm:grid-cols-[180px_1fr_auto_auto_auto]" onSubmit={(event) => { event.preventDefault(); setSport(sportInput.trim().toLowerCase()); }}>
           <label className="text-xs font-black uppercase tracking-[0.12em] text-[var(--sc-muted)]">
             {tr({ fi: "Aikaikkuna", en: "Time window", es: "Ventana" })}
             <select value={days} onChange={(event) => setDays(event.target.value)} className="sc-input mt-2" aria-label={tr({ fi: "Aikaikkuna", en: "Time window", es: "Ventana" })}>
@@ -107,7 +111,20 @@ export default function ProductionEvidenceClient() {
             <input value={sportInput} onChange={(event) => setSportInput(event.target.value)} className="sc-input mt-2" placeholder="soccer_epl" maxLength={80} />
           </label>
           <button type="submit" className="sc-button-primary self-end">{tr({ fi: "Käytä", en: "Apply", es: "Aplicar" })}</button>
-          <a href={csvUrl} className="sc-button-secondary self-end">CSV</a>
+          <a href={csvUrl} className="sc-button-secondary self-end" download>CSV</a>
+          <a
+            href={releaseUrl}
+            className="sc-button-secondary self-end"
+            download
+            aria-label={tr({ fi: "Lataa release-evidenssi JSON", en: "Download release evidence JSON", es: "Descargar evidencia de release JSON" })}
+            title={tr({
+              fi: "Koneellisesti luettava paketti. Puuttuvat tuotantotodisteet pysyvät unverified-tilassa.",
+              en: "Machine-readable package. Missing production proof remains unverified.",
+              es: "Paquete legible por máquina. La evidencia de producción faltante permanece sin verificar."
+            })}
+          >
+            Release JSON
+          </a>
         </form>
       </section>
 
