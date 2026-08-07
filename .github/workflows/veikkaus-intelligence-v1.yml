@@ -1,0 +1,56 @@
+name: Scorecaster Veikkaus Intelligence V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/veikkaus-pool-games.mjs"
+      - "lib/veikkaus-intelligence-v1.mjs"
+      - "app/api/veikkaus-intelligence/route.js"
+      - "app/veikkaus-intelligence/**"
+      - "scripts/veikkaus-pool-games.test.mjs"
+      - "scripts/veikkaus-intelligence-v1.test.mjs"
+      - "docs/VEIKKAUS_POOL_GAMES_V1.md"
+      - "docs/VEIKKAUS_INTELLIGENCE_V1.md"
+      - ".github/workflows/veikkaus-intelligence-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-veikkaus-intelligence-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  veikkaus-intelligence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Veikkaus pool game regressions
+        run: node --test scripts/veikkaus-pool-games.test.mjs
+
+      - name: Veikkaus Intelligence regressions
+        run: node --test scripts/veikkaus-intelligence-v1.test.mjs
+
+      - name: API and security regressions
+        run: |
+          node --test scripts/api-security.test.mjs
+          npm run security:check
+
+      - name: Production build
+        run: npm run build
