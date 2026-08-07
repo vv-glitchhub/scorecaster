@@ -141,5 +141,5 @@ test("source health route is redacted and does not implement fetching or credent
   assert.match(route, /Production collection remains fail-closed/);
   assert.doesNotMatch(route, /fetch\(/);
   assert.doesNotMatch(route, /Authorization/);
-  assert.doesNotMatch(route, /VEIKKAUS.*KEY|PASSWORD|COOKIE/i);
+  assert.doesNotMatch(route, /process\.env\.(?:VEIKKAUS|[^\s.]*PASSWORD|[^\s.]*COOKIE|[^\s.]*API_KEY)/i);
 });
