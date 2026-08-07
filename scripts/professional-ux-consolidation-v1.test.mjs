@@ -159,7 +159,7 @@ test("critical state is text-labelled and controls are accessible on mobile and 
   assert.match(controls, /focus:ring-2/);
   assert.match(card, /aria-label=\{`Decision \$\{decision\}`\}/);
   assert.match(card, /Largest risk/);
-  assert.match(card, /grid-cols-2 sm:grid-cols-4/);
+  assert.match(card, /grid-cols-2[^\n]*sm:grid-cols-4/);
   assert.match(shell, /aria-expanded=\{menuOpen\}/);
   assert.match(shell, /aria-controls="scorecaster-more-menu"/);
   assert.match(shell, /max-h-\[min\(78vh,760px\)\]/);
