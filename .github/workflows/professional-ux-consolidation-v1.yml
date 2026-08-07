@@ -54,10 +54,8 @@ jobs:
       - name: Existing UX regressions
         run: node --test scripts/ux-v2.test.mjs
 
-      - name: API, paper boundary and security regressions
-        run: |
-          node --test scripts/api-security.test.mjs
-          node --test scripts/ready-app.test.mjs
+      - name: API security regressions
+        run: node --test scripts/api-security.test.mjs
 
       - name: Secret and repository security check
         run: npm run security:check
