@@ -2,6 +2,7 @@ name: Scorecaster Mobile Release Evidence V2
 
 on:
   pull_request:
+    branches: [main]
     paths:
       - "mobile/**"
       - "docs/MOBILE_RELEASE_EVIDENCE_V2.md"
@@ -23,6 +24,7 @@ jobs:
     defaults:
       run:
         working-directory: mobile
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,15 +32,15 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "22.13.0"
-          cache: npm
-          cache-dependency-path: mobile/package-lock.json
+          node-version: 22.13.1
 
       - name: Install mobile dependencies
-        run: npm ci
+        run: npm install --no-audit --no-fund --silent
 
       - name: Repository release audit
-        run: npm run release:audit
+        run: |
+          set -o pipefail
+          npm run release:audit 2>&1 | tee release-evidence-audit.log
 
       - name: Mobile release evidence regressions
         run: npm run test:release-evidence
@@ -56,11 +58,13 @@ jobs:
         run: node scripts/mobile-release-evidence.mjs --repository-audit-passed
 
       - name: Upload redacted mobile evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: scorecaster-mobile-release-evidence-v2
+          name: scorecaster-mobile-release-evidence-v2-${{ github.run_id }}
           path: |
             mobile/artifacts/signed-bundle-audit.json
             mobile/artifacts/mobile-release-evidence.json
-          if-no-files-found: error
+            mobile/release-evidence-audit.log
+          if-no-files-found: ignore
           retention-days: 14
