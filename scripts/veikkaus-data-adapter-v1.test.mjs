@@ -12,22 +12,23 @@ import {
 
 const collectedAt = "2026-08-07T09:00:00.000Z";
 
-test("Veikkaus source is registered but fails closed while rights and endpoint are unverified", () => {
+test("Veikkaus official developer terms are recorded but production rights and endpoint still fail closed", () => {
   const source = getCollectorSource(VEIKKAUS_SOURCE_ID, {});
   assert.equal(source?.id, "veikkaus_public_data");
   assert.equal(source?.enabled, false);
   assert.equal(source?.accessMode, "disabled");
   assert.equal(source?.commercialUseAllowed, false);
-  assert.equal(source?.license, "unverified");
+  assert.match(source?.license || "", /Developer Portal EULA/);
   assert.equal(source?.baseUrl, null);
-  assert.equal(source?.termsUrl, null);
+  assert.equal(source?.termsUrl, "https://dev.developer.api.veikkaus.fi/terms");
+  assert.ok(source?.restrictedFields.includes("x-apikey"));
   assert.equal(sourceCanCollect(source).allowed, false);
   assert.equal(sourceCanPublish(source).allowed, false);
 
   const status = veikkausDiscoveryStatus({});
   assert.equal(status.rightsVerified, false);
   assert.equal(status.endpointVerified, false);
-  assert.equal(status.termsVerified, false);
+  assert.equal(status.termsVerified, true);
   assert.equal(status.collectionAllowed, false);
   assert.equal(status.publishingAllowed, false);
   assert.equal(status.liveFetchImplemented, false);
