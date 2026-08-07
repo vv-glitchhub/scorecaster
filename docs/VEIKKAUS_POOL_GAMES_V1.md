@@ -9,6 +9,7 @@ Scorecaster must not treat every Veikkaus game as a normal fixed-odds market. Th
 - **Pitkäveto**: fixed odds. A placed price is fixed at acceptance. This family continues to belong to the existing bookmaker/price analysis path.
 - **Tulosveto**: pari-mutuel exact-score pool. A system contains every exact-score combination formed by the selected home and away goal counts. A savings system removes home-win, draw or away-win combinations as selected by the user.
 - **Vakio**: pari-mutuel 1X2 pool. A complete system contains every row formed by selected 1/X/2 marks. Harava systems are intentionally not synthesized in V1 because their key-row tables and minimum guarantees require an explicit authoritative scheme definition.
+- **Moniveto**: separate pari-mutuel multi-score pool family. V1 classifies it separately so it cannot accidentally flow through fixed-odds analysis. Exact Moniveto system/settlement mathematics remain gated until an explicit authoritative rule definition is encoded.
 - **Voittajaveto / Supertripla**: ordered ranking pool. The engine counts only valid ordered rows; the same competitor cannot occupy multiple positions in one row.
 - **Toto**: racing pari-mutuel games. V1 stores deterministic multi-winner-class distribution rules for TOTO86, TOTO75, TOTO76, TOTO64 and TOTO65 and classifies common Toto game names.
 
@@ -44,7 +45,7 @@ The engine enumerates valid ordered combinations and excludes any row where a co
 
 ## Deliberate V1 exclusions
 
-The module does not place bets, authenticate to Veikkaus, move money, invoke Cash Out, generate real-money stakes or submit tickets. It also does not invent harava key rows, Toto reserve-horse substitutions, cancellation settlement or missing game-specific payout percentages when those are not represented by an explicit deterministic input/source.
+The module does not place bets, authenticate to Veikkaus, move money, invoke Cash Out, generate real-money stakes or submit tickets. It also does not invent Harava key rows, Moniveto system rules, Toto reserve-horse substitutions, cancellation settlement or missing game-specific payout percentages when those are not represented by an explicit deterministic input/source.
 
 These should be added later as separate, source-versioned rule modules rather than inferred from generic sportsbook logic.
 
