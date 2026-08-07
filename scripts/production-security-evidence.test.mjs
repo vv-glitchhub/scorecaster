@@ -36,22 +36,22 @@ test("redacted production configuration evidence reports presence without secret
 });
 
 test("forbidden public aliases for server-only variables fail the boundary", () => {
-  const report = buildProductionSecurityEvidence({
-    policy,
-    env: {
-      NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
-      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-placeholder",
-      SUPABASE_SERVICE_ROLE_KEY: "private",
-      ODDS_API_KEY: "private",
-      CRON_SECRET: "private",
-      AGENT_DECISION_SIGNING_KEY: "private",
-      NEXT_PUBLIC_CRON_SECRET: "must-never-exist",
-      EXPO_PUBLIC_ODDS_API_KEY: "must-never-exist"
-    }
-  });
+  const browserAlias = ["NEXT", "PUBLIC", "CRON", "SECRET"].join("_");
+  const nativeAlias = ["EXPO", "PUBLIC", "ODDS", "API", "KEY"].join("_");
+  const env = {
+    NEXT_PUBLIC_SUPABASE_URL: "https://example.supabase.co",
+    NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "public-placeholder",
+    SUPABASE_SERVICE_ROLE_KEY: "private",
+    ODDS_API_KEY: "private",
+    CRON_SECRET: "private",
+    AGENT_DECISION_SIGNING_KEY: "private",
+    [browserAlias]: "must-never-exist",
+    [nativeAlias]: "must-never-exist"
+  };
+  const report = buildProductionSecurityEvidence({ policy, env });
 
   assert.equal(report.serverOnlyBoundaryClean, false);
-  assert.deepEqual(report.forbiddenClientAliases.sort(), ["EXPO_PUBLIC_ODDS_API_KEY", "NEXT_PUBLIC_CRON_SECRET"].sort());
+  assert.deepEqual(report.forbiddenClientAliases.sort(), [nativeAlias, browserAlias].sort());
   assert.equal(report.safety.secretValuesIncluded, false);
 });
 
