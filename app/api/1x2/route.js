@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
-import { buildTransparent1X2 } from "../../../lib/transparent-1x2-engine.mjs";
+import { buildTransparent1X2V2 } from "../../../lib/transparent-1x2-v2.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -84,7 +84,7 @@ export async function GET(request) {
       draw: odds(url.searchParams.get("drawOdds")),
       away: odds(url.searchParams.get("awayOdds"))
     };
-    const result = buildTransparent1X2({
+    const result = buildTransparent1X2V2({
       homeTeam: teamInput(homeRow),
       awayTeam: teamInput(awayRow),
       neutralVenue: boolean(url.searchParams.get("neutral")),
@@ -113,6 +113,8 @@ export async function GET(request) {
       safety: {
         closingLineUsed: false,
         postKickoffDataUsed: false,
+        challengerChangesProductionProbability: false,
+        automaticModelPromotion: false,
         canPromotePlayByItself: false,
         realMoneyExecution: false,
         paperOnly: true
