@@ -48,7 +48,7 @@ async function fetchText(url, options = {}) {
   try {
     const response = await fetch(url, { ...options, cache: "no-store", redirect: "error", signal: controller.signal });
     const text = await response.text();
-    return { response, text, json: parseJson(text) };
+    return { response, json: parseJson(text) };
   } finally {
     clearTimeout(timeout);
   }
@@ -76,8 +76,7 @@ async function restSelect(token, table, ownerColumn, ownerId) {
   return {
     status: response.status,
     rows: Array.isArray(json) ? json.length : null,
-    ok: response.status === 200 && Array.isArray(json),
-    error: response.status === 200 ? null : `HTTP ${response.status}`
+    ok: response.status === 200 && Array.isArray(json)
   };
 }
 
@@ -93,7 +92,9 @@ async function restNoopUpdate(token, table, ownerColumn, targetId) {
     body: JSON.stringify({ [ownerColumn]: targetId })
   });
   const returnedRows = Array.isArray(json) ? json.length : response.status === 204 ? 0 : null;
-  const securityBlocked = (response.status === 200 || response.status === 204) ? returnedRows === 0 : [401, 403, 404].includes(response.status);
+  const securityBlocked = (response.status === 200 || response.status === 204)
+    ? returnedRows === 0
+    : [401, 403, 404].includes(response.status);
   return { status: response.status, returnedRows, securityBlocked };
 }
 
@@ -188,17 +189,18 @@ if (userA && userB && userA.id !== userB.id) {
 
 const accountExports = [];
 if (userA && userB && resolvedBase) {
-  for (const [label, token, cookie, user] of [
+  for (const [label, tokenCredential, cookieCredential, user] of [
     ["A", tokenA, cookieA, userA],
     ["B", tokenB, cookieB, userB]
   ]) {
     try {
-      const bearer = await exportProbe({ mode: "bearer", credential: token, expectedUserId: user.id });
-      accountExports.push({ user: label, ...bearer });
-      if (!bearer.passed) failures.push(`account-export:${label}:bearer scope failed`);
-      const cookie = await exportProbe({ mode: "cookie", credential: cookie, expectedUserId: user.id });
-      accountExports.push({ user: label, ...cookie });
-      if (cookie.configured && !cookie.passed) failures.push(`account-export:${label}:cookie scope failed`);
+      const bearerResult = await exportProbe({ mode: "bearer", credential: tokenCredential, expectedUserId: user.id });
+      accountExports.push({ user: label, ...bearerResult });
+      if (!bearerResult.passed) failures.push(`account-export:${label}:bearer scope failed`);
+
+      const cookieResult = await exportProbe({ mode: "cookie", credential: cookieCredential, expectedUserId: user.id });
+      accountExports.push({ user: label, ...cookieResult });
+      if (cookieResult.configured && !cookieResult.passed) failures.push(`account-export:${label}:cookie scope failed`);
     } catch (error) {
       failures.push(`account-export:${label}: ${redactError(error)}`);
     }
