@@ -1,0 +1,66 @@
+name: Scorecaster Mobile Release Evidence V2
+
+on:
+  pull_request:
+    paths:
+      - "mobile/**"
+      - "docs/MOBILE_RELEASE_EVIDENCE_V2.md"
+      - ".github/workflows/mobile-release-evidence-v2.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mobile/**"
+      - "docs/MOBILE_RELEASE_EVIDENCE_V2.md"
+      - ".github/workflows/mobile-release-evidence-v2.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-release-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22.13.0"
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - name: Install mobile dependencies
+        run: npm ci
+
+      - name: Repository release audit
+        run: npm run release:audit
+
+      - name: Mobile release evidence regressions
+        run: npm run test:release-evidence
+
+      - name: Expo compatibility
+        run: npm run check:expo
+
+      - name: Strict TypeScript
+        run: npm run typecheck
+
+      - name: Signed bundle evidence placeholder
+        run: npm run release:signed-bundle-audit
+
+      - name: Build redacted mobile release evidence
+        run: node scripts/mobile-release-evidence.mjs --repository-audit-passed
+
+      - name: Upload redacted mobile evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-mobile-release-evidence-v2
+          path: |
+            mobile/artifacts/signed-bundle-audit.json
+            mobile/artifacts/mobile-release-evidence.json
+          if-no-files-found: error
+          retention-days: 14
