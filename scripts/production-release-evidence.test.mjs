@@ -175,6 +175,26 @@ test("production evidence failure remains a hard blocker even if other evidence 
   assert.equal(artifact.productionEvidence.blockers[0], "provider-evidence-missing");
 });
 
+test("missing numeric evidence stays null instead of becoming an invented zero", () => {
+  const report = readyProductionEvidence();
+  report.summary.averageProviderAvailability = null;
+  report.summary.closingLineCoverage = null;
+  report.leagues[0].closingLineCoverage = null;
+  report.leagues[0].denominators.closingLine = null;
+
+  const artifact = buildProductionReleaseEvidence({
+    productionEvidence: report,
+    manifest,
+    deployment: productionDeployment
+  });
+
+  assert.equal(artifact.productionEvidence.summary.averageProviderAvailability, null);
+  assert.equal(artifact.productionEvidence.summary.closingLineCoverage, null);
+  assert.equal(artifact.productionEvidence.leagues[0].closingLineCoverage, null);
+  assert.equal(artifact.productionEvidence.leagues[0].denominators.closingLine, null);
+  assert.equal(artifact.safety.missingEvidenceImputed, false);
+});
+
 test("artifact identity is deterministic for the same evidence package", () => {
   const input = {
     productionEvidence: readyProductionEvidence(),
