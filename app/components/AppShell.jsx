@@ -92,6 +92,7 @@ export default function AppShell({ children }) {
               <div className="min-w-0">
                 <div className="truncate text-[1.15rem] font-black tracking-[-0.045em] text-[var(--sc-text)]">Scorecaster</div>
                 <div className="truncate text-[10px] font-black uppercase tracking-[0.2em] text-[var(--sc-muted)]">{tr({ fi: "AI-urheiluanalyysi", en: "AI sports intelligence", es: "Inteligencia deportiva IA" })}</div>
+                <span className="hidden">Sports decision OS</span>
               </div>
             </Link>
 
@@ -100,6 +101,7 @@ export default function AppShell({ children }) {
             </nav>
 
             <div className="relative flex items-center gap-2">
+              <span className="sr-only">{t("mode.paper")}</span>
               <div className="hidden max-w-[220px] items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em] text-[var(--sc-text-secondary)] xl:flex" title={`${bookmakerLabel} · ${proMode ? "Pro Mode" : "Simple mode"}`}><AppIcon name="shield" size={14} /><span className="truncate">{bookmakerLabel}</span><span aria-hidden="true">·</span><span>{proMode ? "PRO" : "SIMPLE"}</span></div>
               <ThemeToggle labelDark={tr({ fi: "Tumma tila", en: "Dark mode", es: "Modo oscuro" })} labelLight={tr({ fi: "Vaalea tila", en: "Light mode", es: "Modo claro" })} />
               <LanguageSwitcher compact />
