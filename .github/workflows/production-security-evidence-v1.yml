@@ -1,0 +1,76 @@
+name: Scorecaster Production Security Evidence V1
+
+on:
+  pull_request:
+    paths:
+      - "config/production-security.json"
+      - "config/release-readiness.json"
+      - "lib/production-security-evidence.mjs"
+      - "scripts/production-security-report.mjs"
+      - "scripts/protected-worker-contract-audit.mjs"
+      - "scripts/client-secret-boundary-audit.mjs"
+      - "scripts/production-security-evidence.test.mjs"
+      - "scripts/production-smoke.mjs"
+      - "app/api/internal/**"
+      - "mobile/src/**"
+      - "docs/PRODUCTION_SECURITY_EVIDENCE_V1.md"
+      - "package.json"
+      - ".github/workflows/production-security-evidence-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  security-evidence:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Production security regressions
+        run: node --test scripts/production-security-evidence.test.mjs
+
+      - name: Protected worker contract evidence
+        run: PROTECTED_WORKER_CONTRACT_REPORT_PATH=artifacts/protected-worker-contract.json node scripts/protected-worker-contract-audit.mjs
+
+      - name: Repository secret check
+        run: npm run security:check
+
+      - name: Canonical release audit
+        run: npm run release:audit
+
+      - name: Redacted CI configuration evidence
+        run: SCORECASTER_SECURITY_REPORT_PATH=artifacts/production-security.json node scripts/production-security-report.mjs
+
+      - name: Production build
+        run: npm run build
+
+      - name: Built client secret boundary
+        run: CLIENT_SECRET_BOUNDARY_REPORT_PATH=artifacts/client-secret-boundary.json node scripts/client-secret-boundary-audit.mjs --require-web-build
+
+      - name: Upload redacted security evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-security-evidence-${{ github.run_id }}
+          path: |
+            artifacts/protected-worker-contract.json
+            artifacts/production-security.json
+            artifacts/client-secret-boundary.json
+          if-no-files-found: ignore
+          retention-days: 7
