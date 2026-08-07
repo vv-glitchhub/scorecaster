@@ -48,6 +48,7 @@ export default function AppShell({ children }) {
     { href: "/model-lab", label: tr({ fi: "Selitys- ja mallilaboratorio", en: "Explanation & Model Lab", es: "Laboratorio de explicación y modelo" }) },
     { href: "/diagnostics", label: tr({ fi: "Päätösdiagnostiikka", en: "Decision diagnostics", es: "Diagnóstico de decisiones" }) },
     { href: "/sports-analytics", label: "Sports Analytics" },
+    { href: "/veikkaus-intelligence", label: "Veikkaus Intelligence" },
     { href: "/polymarket-intelligence", label: tr({ fi: "Polymarket-signaali", en: "Polymarket signal", es: "Señal de Polymarket" }) },
     { href: "/simulator", label: tr({ fi: "Simulaattori", en: "Simulator", es: "Simulador" }) },
     { href: "/probabilities", label: tr({ fi: "Avoin 1X2-malli", en: "Open 1X2 model", es: "Modelo 1X2 abierto" }) },
@@ -61,6 +62,7 @@ export default function AppShell({ children }) {
   ], [groups, tr]);
 
   const operatorItems = useMemo(() => [
+    { href: "/production-evidence", label: "Production Evidence" },
     { href: "/production-control-center", label: "Production Control" },
     { href: "/operations", label: "Operations" },
     { href: "/provider-health", label: "Provider Health" },
