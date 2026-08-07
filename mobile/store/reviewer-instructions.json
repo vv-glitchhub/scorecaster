@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "status": "draft-external-account-required",
+  "reviewLanguage": "en-US",
+  "supportedAppLanguages": ["fi", "en", "es"],
+  "productBoundary": {
+    "sportsAnalysis": true,
+    "riskControl": true,
+    "virtualPaperTracking": true,
+    "realMoneyBetting": false,
+    "bookmakerAccountConnection": false,
+    "depositsWithdrawals": false,
+    "paymentCardOrBankData": false,
+    "guaranteedProfitClaims": false
+  },
+  "reviewAccount": {
+    "required": true,
+    "configured": false,
+    "syntheticAccountOnly": true,
+    "credentialsStoredInRepository": false,
+    "credentialsStoredInReleaseArtifacts": false,
+    "credentialsMustBeEnteredOnlyInStoreDashboard": true,
+    "mustBePreConfirmedBeforeReview": true
+  },
+  "reviewerSteps": [
+    "Launch the signed build and select Finnish, English, or Spanish from Profile.",
+    "Sign in with the synthetic reviewer account supplied only in the store dashboard.",
+    "Open Today or Picks and inspect sports-analysis probabilities, prices, confidence, freshness, and risk information.",
+    "Open Agent and verify that explanations are decision support only and may downgrade a paper decision when evidence is weak.",
+    "Save a virtual paper selection and verify that the bankroll and stake are clearly virtual.",
+    "Open Tracking and inspect paper result, ROI, CLV, and settlement information when test data is available.",
+    "Open Profile and verify language persistence, privacy/help links, data export, and the account-deletion flow.",
+    "Verify that no screen offers deposits, withdrawals, payment methods, bookmaker login, or real-money bet execution."
+  ],
+  "reviewNotes": [
+    "Some live sports data depends on provider availability and event timing; missing data must fail closed rather than fabricate a pick.",
+    "Push notification delivery is part of physical-device evidence and must not be claimed as verified until signed-device testing is complete.",
+    "Account deletion is destructive and should be tested only with the disposable synthetic review/test account.",
+    "Automatic model promotion remains disabled; learning features are shadow-only unless separately approved through production gates."
+  ],
+  "publicUrls": {
+    "product": "https://scorecaster.vercel.app",
+    "support": "https://scorecaster.vercel.app/help",
+    "privacy": "https://scorecaster.vercel.app/privacy",
+    "terms": "https://scorecaster.vercel.app/terms",
+    "responsibleUse": "https://scorecaster.vercel.app/responsible-use",
+    "security": "https://scorecaster.vercel.app/security"
+  },
+  "externalCompletion": {
+    "finalSupportContactApproved": false,
+    "legalControllerIdentityApproved": false,
+    "storeDashboardReviewAccountConfigured": false,
+    "signedBuildReferencesAdded": false,
+    "physicalDeviceEvidenceComplete": false,
+    "publicSubmissionAllowed": false
+  }
+}
