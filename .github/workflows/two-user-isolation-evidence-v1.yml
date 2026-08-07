@@ -1,0 +1,74 @@
+name: Scorecaster Two-User Isolation Evidence V1
+
+on:
+  pull_request:
+    paths:
+      - "config/two-user-isolation.json"
+      - "scripts/two-user-isolation-contract-audit.mjs"
+      - "scripts/two-user-isolation-probe.mjs"
+      - "scripts/two-user-isolation-transactional-probe.sql"
+      - "scripts/two-user-isolation-evidence.test.mjs"
+      - "supabase/scorecaster_auth_cloud.sql"
+      - "supabase/scorecaster_watchlist_alerts.sql"
+      - "supabase/scorecaster_alert_inbox.sql"
+      - "supabase/scorecaster_autonomous_agent.sql"
+      - "supabase/scorecaster_autonomous_agent_v2.sql"
+      - "supabase/scorecaster_shadow_learning_v1.sql"
+      - "supabase/scorecaster_autonomous_v13_hard_caps.sql"
+      - "app/api/account/**"
+      - "lib/api-security.js"
+      - "docs/TWO_USER_ISOLATION_EVIDENCE_V1.md"
+      - "package.json"
+      - ".github/workflows/two-user-isolation-evidence-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolation-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Two-user isolation regressions
+        run: node --test scripts/two-user-isolation-evidence.test.mjs
+
+      - name: Two-user isolation contract evidence
+        run: TWO_USER_ISOLATION_CONTRACT_REPORT_PATH=artifacts/two-user-isolation-contract.json node scripts/two-user-isolation-contract-audit.mjs
+
+      - name: Canonical release audit
+        run: npm run release:audit
+
+      - name: Repository secret check
+        run: npm run security:check
+
+      - name: Existing API security regressions
+        run: npm run test:security
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload redacted isolation contract evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: two-user-isolation-contract-${{ github.run_id }}
+          path: artifacts/two-user-isolation-contract.json
+          if-no-files-found: ignore
+          retention-days: 7
