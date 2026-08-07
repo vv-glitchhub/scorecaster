@@ -55,7 +55,7 @@ function syntheticRows(count = 18) {
   });
 }
 
-test("Dixon-Coles rho zero reproduces the independent Poisson 1X2 component", () => {
+test("Dixon-Coles rho zero reproduces independent Poisson within the exposed xG rounding", () => {
   const baseline = buildTransparent1X2(input());
   const challenger = buildDixonColes1X2({
     homeLambda: baseline.expectedGoals.home,
@@ -67,7 +67,7 @@ test("Dixon-Coles rho zero reproduces the independent Poisson 1X2 component", ()
   assert.equal(challenger.version, DIXON_COLES_1X2_VERSION);
   assert.equal(challenger.correctionApplied, false);
   for (const key of ["home", "draw", "away"]) {
-    assert.ok(Math.abs(challenger.probabilities[key] - baseline.components.poisson.probabilities[key]) < 0.00001);
+    assert.ok(Math.abs(challenger.probabilities[key] - baseline.components.poisson.probabilities[key]) < 0.001);
   }
   assert.ok(Math.abs(total(challenger.probabilities) - 1) < 0.00001);
 });
