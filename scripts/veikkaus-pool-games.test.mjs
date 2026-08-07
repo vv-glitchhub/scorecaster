@@ -18,6 +18,7 @@ test("classifies fixed-odds and pool game families separately", () => {
   assert.equal(classifyVeikkausGame("Pitkäveto"), VEIKKAUS_GAME_FAMILIES.PITKAVETO);
   assert.equal(classifyVeikkausGame("Tulosveto"), VEIKKAUS_GAME_FAMILIES.TULOSVETO);
   assert.equal(classifyVeikkausGame("Vakio 1"), VEIKKAUS_GAME_FAMILIES.VAKIO);
+  assert.equal(classifyVeikkausGame("Moniveto 5"), VEIKKAUS_GAME_FAMILIES.MONIVETO);
   assert.equal(classifyVeikkausGame("Supertripla"), VEIKKAUS_GAME_FAMILIES.VOITTAJAVETO);
   assert.equal(classifyVeikkausGame("TOTO75"), VEIKKAUS_GAME_FAMILIES.TOTO);
 });
