@@ -6,7 +6,9 @@ on:
       - "scripts/apply-public-schema-hardening-v1.sql"
       - "scripts/verify-public-schema-hardening-v1.sql"
       - "scripts/public-schema-hardening.test.mjs"
+      - "scripts/public-schema-release-gate.mjs"
       - "docs/PUBLIC_SCHEMA_HARDENING_V1.md"
+      - "package.json"
       - ".github/workflows/public-schema-hardening.yml"
   workflow_dispatch:
 
@@ -28,6 +30,12 @@ jobs:
 
       - name: Run hardening regression tests
         run: node --test scripts/public-schema-hardening.test.mjs
+
+      - name: Run canonical release audit including hardening gate
+        run: npm run release:audit
+
+      - name: Secret and repository security check
+        run: npm run security:check
 
       - name: Confirm SQL scripts are present
         run: |

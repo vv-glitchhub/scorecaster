@@ -5,7 +5,7 @@
     "start": "next start",
     "lint": "next lint",
     "security:check": "node scripts/security-check.mjs",
-    "release:audit": "node scripts/release-readiness.mjs",
+    "release:audit": "node scripts/release-readiness.mjs && node scripts/public-schema-release-gate.mjs",
     "release:smoke": "node scripts/production-smoke.mjs",
     "production:activate": "node scripts/production-activation.mjs",
     "release:check": "npm run release:audit && npm --prefix mobile run release:check",
