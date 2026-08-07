@@ -1,4 +1,9 @@
+import releaseManifest from "../../../config/release-readiness.json";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
+import {
+  buildProductionReleaseEvidence,
+  runtimeDeploymentEvidence
+} from "../../../lib/production-release-evidence.mjs";
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -9,7 +14,7 @@ const HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 
-const json = (payload, status = 200) => Response.json(payload, { status, headers: HEADERS });
+const json = (payload, status = 200, extraHeaders = {}) => Response.json(payload, { status, headers: { ...HEADERS, ...extraHeaders } });
 const integer = (value, fallback, min, max) => {
   const parsed = Number.parseInt(String(value || ""), 10);
   return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
@@ -72,7 +77,7 @@ export async function GET(request) {
   const days = integer(url.searchParams.get("days"), 30, 1, 180);
   const sport = cleanSport(url.searchParams.get("sport"));
   const format = String(url.searchParams.get("format") || "json").toLowerCase();
-  if (!new Set(["json", "csv"]).has(format)) return json({ ok: false, error: "Unsupported export format" }, 400);
+  if (!new Set(["json", "csv", "release"]).has(format)) return json({ ok: false, error: "Unsupported export format" }, 400);
 
   const admin = getSupabaseAdmin();
   if (!admin) {
@@ -170,6 +175,26 @@ export async function GET(request) {
         "Content-Disposition": `attachment; filename="scorecaster-production-evidence-${days}d.csv"`
       }
     });
+  }
+
+  if (format === "release") {
+    const artifact = buildProductionReleaseEvidence({
+      productionEvidence: report,
+      manifest: releaseManifest,
+      deployment: runtimeDeploymentEvidence(process.env),
+      migrationEvidence: {
+        status: "unverified",
+        evidenceRef: null,
+        observedAt: null
+      },
+      manualGateEvidence: {},
+      workerProbeEvidence: {}
+    });
+    return json(
+      { ...artifact, filters: { days, sport: sport || null }, warnings },
+      200,
+      { "Content-Disposition": `attachment; filename="scorecaster-release-evidence-${days}d.json"` }
+    );
   }
 
   return json({ ...report, filters: { days, sport: sport || null }, warnings });
