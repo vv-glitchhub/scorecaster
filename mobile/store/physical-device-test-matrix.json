@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "status": "unverified",
+  "productBoundary": "sports analysis, risk control and virtual paper tracking only",
+  "requiredPlatforms": ["ios", "android"],
+  "requiredLocales": ["fi", "en", "es"],
+  "criticalFlows": [
+    "cold-launch",
+    "sign-in",
+    "sign-up-confirmation-deep-link",
+    "language-change-and-restart-persistence",
+    "today-and-picks",
+    "agent-explanation-language",
+    "paper-save",
+    "paper-settlement-refresh",
+    "watchlist-and-alert-deep-link",
+    "account-export",
+    "sign-out-and-sign-in",
+    "account-deletion-on-disposable-account",
+    "expired-session-fail-closed",
+    "emergency-stop-visible"
+  ],
+  "accessibilityChecks": [
+    "screen-reader-navigation",
+    "font-scaling",
+    "small-screen-layout",
+    "focus-order",
+    "interactive-control-labels",
+    "long-localized-labels"
+  ],
+  "notificationChecks": [
+    "permission-prompt-user-initiated",
+    "push-registration-after-consent",
+    "foreground-notification",
+    "background-notification",
+    "cold-start-notification-deep-link",
+    "notification-disabled-fail-closed"
+  ],
+  "evidenceRules": {
+    "rawAccessTokensAllowed": false,
+    "sessionCookiesAllowed": false,
+    "passwordsAllowed": false,
+    "pushTokensAllowed": false,
+    "deviceIdentifiersAllowed": false,
+    "unrelatedPersonalDataAllowed": false,
+    "screenshotsMayContainSyntheticTestDataOnly": true,
+    "signedBuildRequired": true
+  },
+  "matrix": [
+    { "platform": "ios", "locale": "fi", "screenReader": "VoiceOver", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] },
+    { "platform": "ios", "locale": "en", "screenReader": "VoiceOver", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] },
+    { "platform": "ios", "locale": "es", "screenReader": "VoiceOver", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] },
+    { "platform": "android", "locale": "fi", "screenReader": "TalkBack", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] },
+    { "platform": "android", "locale": "en", "screenReader": "TalkBack", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] },
+    { "platform": "android", "locale": "es", "screenReader": "TalkBack", "status": "pending", "buildReference": null, "deviceClass": null, "osVersion": null, "completedAt": null, "criticalFlowsPassed": [], "accessibilityChecksPassed": [], "notificationChecksPassed": [], "evidenceReferences": [], "blockers": ["signed-build-and-physical-device-required"] }
+  ]
+}
