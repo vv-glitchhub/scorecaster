@@ -99,6 +99,7 @@ do $$
 declare
   target_relation text;
   target_kind "char";
+  required_command text;
   missing_access text[] := array[]::text[];
 begin
   foreach target_relation in array array[
@@ -117,10 +118,17 @@ begin
     from pg_class c
     where c.oid = to_regclass(format('public.%I', target_relation));
 
-    if target_kind in ('r', 'p') and not has_table_privilege('service_role', format('public.%I', target_relation), 'SELECT,INSERT,UPDATE,DELETE') then
-      missing_access := array_append(missing_access, target_relation || ':CRUD');
-    elsif target_kind in ('v', 'm') and not has_table_privilege('service_role', format('public.%I', target_relation), 'SELECT') then
-      missing_access := array_append(missing_access, target_relation || ':SELECT');
+    if target_kind in ('r', 'p') then
+      foreach required_command in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
+      loop
+        if not has_table_privilege('service_role', format('public.%I', target_relation), required_command) then
+          missing_access := array_append(missing_access, target_relation || ':' || required_command);
+        end if;
+      end loop;
+    elsif target_kind in ('v', 'm') then
+      if not has_table_privilege('service_role', format('public.%I', target_relation), 'SELECT') then
+        missing_access := array_append(missing_access, target_relation || ':SELECT');
+      end if;
     end if;
   end loop;
 
@@ -140,12 +148,12 @@ begin
     if has_table_privilege('anon', 'public.bets', 'SELECT') then
       raise exception 'anon must not read bets';
     end if;
-    if not has_table_privilege('authenticated', 'public.bets', 'SELECT,INSERT,UPDATE,DELETE') then
-      raise exception 'authenticated bets CRUD grant matrix is incomplete';
-    end if;
 
     foreach required_command in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
     loop
+      if not has_table_privilege('authenticated', 'public.bets', required_command) then
+        raise exception 'authenticated bets grant is missing %', required_command;
+      end if;
       if not exists (
         select 1
         from pg_policies p
@@ -166,15 +174,15 @@ begin
     if has_table_privilege('anon', 'public.user_settings', 'SELECT') then
       raise exception 'anon must not read user_settings';
     end if;
-    if not has_table_privilege('authenticated', 'public.user_settings', 'SELECT,INSERT,UPDATE') then
-      raise exception 'authenticated user_settings grant matrix is incomplete';
-    end if;
     if has_table_privilege('authenticated', 'public.user_settings', 'DELETE') then
       raise exception 'authenticated must not delete user_settings directly';
     end if;
 
     foreach required_command in array array['SELECT', 'INSERT', 'UPDATE']
     loop
+      if not has_table_privilege('authenticated', 'public.user_settings', required_command) then
+        raise exception 'authenticated user_settings grant is missing %', required_command;
+      end if;
       if not exists (
         select 1
         from pg_policies p
@@ -195,15 +203,18 @@ begin
     if not has_table_privilege('anon', 'public.community_comments', 'SELECT') then
       raise exception 'anon community comment read is missing';
     end if;
-    if has_table_privilege('anon', 'public.community_comments', 'INSERT,UPDATE,DELETE') then
-      raise exception 'anon must not mutate community comments';
-    end if;
-    if not has_table_privilege('authenticated', 'public.community_comments', 'SELECT,INSERT,UPDATE,DELETE') then
-      raise exception 'authenticated community comment grant matrix is incomplete';
-    end if;
+    foreach required_command in array array['INSERT', 'UPDATE', 'DELETE']
+    loop
+      if has_table_privilege('anon', 'public.community_comments', required_command) then
+        raise exception 'anon must not mutate community comments with %', required_command;
+      end if;
+    end loop;
 
     foreach required_command in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
     loop
+      if not has_table_privilege('authenticated', 'public.community_comments', required_command) then
+        raise exception 'authenticated community comment grant is missing %', required_command;
+      end if;
       if not exists (
         select 1
         from pg_policies p
