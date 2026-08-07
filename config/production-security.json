@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "product": "Scorecaster",
+  "publicClientVariables": [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"
+  ],
+  "serverOnlyRequired": [
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "ODDS_API_KEY",
+    "CRON_SECRET",
+    "AGENT_DECISION_SIGNING_KEY"
+  ],
+  "serverOnlyConditional": [
+    "OPENAI_API_KEY",
+    "SPORTSGAMEODDS_API_KEY",
+    "NEWS_API_KEY",
+    "SPORTSDATA_API_KEY",
+    "LINEUP_API_KEY",
+    "SPORTS_CONTEXT_API_KEY",
+    "SPORTS_ANALYTICS_API_KEY",
+    "COLLECTOR_JSON_API_KEY"
+  ],
+  "serverOnlyNonSecretConfiguration": [
+    "SCORECASTER_SHADOW_LEARNING_ENABLED",
+    "OPENAI_AGENT_MODEL",
+    "SPORTSDATA_BASE_URL",
+    "LINEUP_API_URL",
+    "SPORTS_CONTEXT_API_URL",
+    "SPORTS_ANALYTICS_API_URL",
+    "COLLECTOR_JSON_API_URL"
+  ],
+  "forbiddenClientPrefixes": [
+    "NEXT_PUBLIC_",
+    "EXPO_PUBLIC_"
+  ],
+  "notes": "Only variable names and boolean presence may be emitted in production security evidence. Values of server-only variables are never part of an artifact."
+}
