@@ -11,7 +11,10 @@
     "doctor": "expo-doctor",
     "check:expo": "node scripts/check-expo-compat.mjs",
     "release:audit": "node scripts/release-audit.mjs",
-    "release:check": "npm run release:audit && npm run check:expo && npm run typecheck"
+    "release:signed-bundle-audit": "node scripts/signed-bundle-audit.mjs",
+    "release:evidence": "node scripts/mobile-release-evidence.mjs",
+    "test:release-evidence": "node --test scripts/mobile-release-evidence.test.mjs",
+    "release:check": "npm run release:audit && npm run test:release-evidence && npm run check:expo && npm run typecheck"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",

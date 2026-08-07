@@ -45,12 +45,15 @@ async function filesUnder(relativePath) {
   return files;
 }
 
-const [appConfig, eas, packageJson, appleStore, googleStore] = await Promise.all([
+const [appConfig, eas, packageJson, appleStore, googleStore, releaseBlockers, physicalMatrix, reviewerInstructions] = await Promise.all([
   json("app.json"),
   json("eas.json"),
   json("package.json"),
   json("store.config.json"),
-  json("store/google-play-listing.json")
+  json("store/google-play-listing.json"),
+  json("store/release-blockers.json"),
+  json("store/physical-device-test-matrix.json"),
+  json("store/reviewer-instructions.json")
 ]);
 
 const expo = appConfig.expo || {};
@@ -112,6 +115,39 @@ for (const locale of ["fi-FI", "en-US", "es-ES"]) {
 check(httpsUrl(googleStore.supportUrl), "Google Play support URL must use HTTPS");
 check(httpsUrl(googleStore.privacyPolicyUrl), "Google Play privacy URL must use HTTPS");
 
+check(releaseBlockers.schemaVersion === 1, "Release blocker schema must stay on reviewed V1 until migrated explicitly");
+check(Array.isArray(releaseBlockers.externalBlockers) && releaseBlockers.externalBlockers.length >= 8, "External mobile release blocker registry is incomplete");
+check(releaseBlockers.externalBlockers.filter((item) => item.required !== false).every((item) => item.completed === false || item.completed === true), "External blocker completion must be explicit boolean evidence");
+
+const requiredPlatforms = new Set(["ios", "android"]);
+const requiredLocales = new Set(["fi", "en", "es"]);
+check(physicalMatrix.schemaVersion === 1, "Physical-device matrix schema must remain V1 until explicitly migrated");
+check(new Set(physicalMatrix.requiredPlatforms || []).size === requiredPlatforms.size && [...requiredPlatforms].every((item) => physicalMatrix.requiredPlatforms?.includes(item)), "Physical-device matrix must require iOS and Android");
+check(new Set(physicalMatrix.requiredLocales || []).size === requiredLocales.size && [...requiredLocales].every((item) => physicalMatrix.requiredLocales?.includes(item)), "Physical-device matrix must require FI EN ES");
+const matrixKeys = (physicalMatrix.matrix || []).map((item) => `${item.platform}:${item.locale}`);
+check(matrixKeys.length === 6 && new Set(matrixKeys).size === 6, "Physical-device matrix must contain exactly six unique platform-language cells");
+for (const platform of requiredPlatforms) {
+  for (const locale of requiredLocales) check(matrixKeys.includes(`${platform}:${locale}`), `Physical-device matrix is missing ${platform}:${locale}`);
+}
+for (const flow of ["sign-in", "paper-save", "paper-settlement-refresh", "account-export", "account-deletion-on-disposable-account", "expired-session-fail-closed"]) {
+  check(physicalMatrix.criticalFlows?.includes(flow), `Physical-device matrix is missing critical flow ${flow}`);
+}
+for (const notificationCheck of ["foreground-notification", "background-notification", "cold-start-notification-deep-link", "notification-disabled-fail-closed"]) {
+  check(physicalMatrix.notificationChecks?.includes(notificationCheck), `Physical-device matrix is missing notification check ${notificationCheck}`);
+}
+check(physicalMatrix.evidenceRules?.rawAccessTokensAllowed === false, "Physical-device evidence must never contain raw access tokens");
+check(physicalMatrix.evidenceRules?.passwordsAllowed === false, "Physical-device evidence must never contain passwords");
+check(physicalMatrix.evidenceRules?.pushTokensAllowed === false, "Physical-device evidence must never contain push tokens");
+check(physicalMatrix.evidenceRules?.deviceIdentifiersAllowed === false, "Physical-device evidence must not contain persistent device identifiers");
+
+check(reviewerInstructions.schemaVersion === 1, "Reviewer instruction package schema must remain V1 until explicitly migrated");
+check(reviewerInstructions.productBoundary?.realMoneyBetting === false, "Reviewer package must state that real-money betting is disabled");
+check(reviewerInstructions.productBoundary?.depositsWithdrawals === false, "Reviewer package must state that deposits and withdrawals are absent");
+check(reviewerInstructions.reviewAccount?.credentialsStoredInRepository === false, "Reviewer credentials must never be stored in the repository");
+check(reviewerInstructions.reviewAccount?.credentialsStoredInReleaseArtifacts === false, "Reviewer credentials must never be stored in release artifacts");
+check(reviewerInstructions.reviewAccount?.credentialsMustBeEnteredOnlyInStoreDashboard === true, "Reviewer credentials must be supplied only through store dashboards");
+for (const url of Object.values(reviewerInstructions.publicUrls || {})) check(httpsUrl(url), "Reviewer public URLs must use HTTPS");
+
 const authScreen = await readFile(path.join(root, "src/screens/AuthScreen.tsx"), "utf8");
 const appSource = await readFile(path.join(root, "src/App.tsx"), "utf8");
 const authHandler = await readFile(path.join(root, "src/lib/auth-deep-link.ts"), "utf8");
@@ -131,6 +167,9 @@ const scannedFiles = [
   "eas.json",
   "store.config.json",
   "store/google-play-listing.json",
+  "store/release-blockers.json",
+  "store/physical-device-test-matrix.json",
+  "store/reviewer-instructions.json",
   ...await filesUnder("src")
 ].filter((file) => /\.(json|js|jsx|mjs|ts|tsx)$/.test(file));
 const forbiddenSecrets = [
@@ -154,6 +193,9 @@ for (const file of scannedFiles) {
 warn(Boolean(expo.extra?.eas?.projectId), "EAS project ID is not linked yet; run eas init with the correct Expo account before push registration or store builds");
 warn(Boolean(expo.icon), "Final 1024x1024 store icon has not been committed");
 warn(Boolean(expo.splash), "Final native splash asset has not been committed");
+warn(releaseBlockers.externalBlockers.filter((item) => item.required !== false).every((item) => item.completed === true), "External mobile release blockers remain incomplete; repository readiness is not signed-build or physical-device proof");
+warn((physicalMatrix.matrix || []).every((item) => item.status === "passed"), "Physical-device FI EN ES matrix is not complete yet");
+warn(reviewerInstructions.reviewAccount?.configured === true, "Synthetic store reviewer account is not configured yet; credentials must stay outside GitHub");
 
 if (failures.length) {
   console.error("\nMobile release audit failed:\n");
