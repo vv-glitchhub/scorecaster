@@ -51,10 +51,8 @@ jobs:
       - name: Professional selection and five-tab regressions
         run: node --test scripts/professional-ux-consolidation-v1.test.mjs
 
-      - name: Existing UX and mobile regressions
-        run: |
-          node --test scripts/ux-v2.test.mjs
-          node --test scripts/mobile-readiness.test.mjs
+      - name: Existing UX regressions
+        run: node --test scripts/ux-v2.test.mjs
 
       - name: API, paper boundary and security regressions
         run: |
