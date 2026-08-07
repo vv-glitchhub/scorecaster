@@ -1,3 +1,4 @@
+import ProfessionalSurfaceRail from "./components/ProfessionalSurfaceRail";
 import TodayPageClient from "./components/TodayPageClient";
 
 export const metadata = {
@@ -5,5 +6,10 @@ export const metadata = {
 };
 
 export default function DashboardPage() {
-  return <TodayPageClient />;
+  return (
+    <div className="space-y-6">
+      <ProfessionalSurfaceRail surface="today" />
+      <TodayPageClient />
+    </div>
+  );
 }

@@ -1,3 +1,4 @@
+import ProfessionalSurfaceRail from "../components/ProfessionalSurfaceRail";
 import EventsClient from "./EventsClient";
 
 export const metadata = {
@@ -6,5 +7,10 @@ export const metadata = {
 };
 
 export default function EventsPage() {
-  return <EventsClient />;
+  return (
+    <div className="space-y-6">
+      <ProfessionalSurfaceRail surface="events" />
+      <EventsClient />
+    </div>
+  );
 }

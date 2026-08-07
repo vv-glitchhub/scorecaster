@@ -1,3 +1,4 @@
+import ProfessionalSurfaceRail from "../components/ProfessionalSurfaceRail";
 import FeedClient from "./FeedClient";
 
 export const metadata = {
@@ -6,5 +7,10 @@ export const metadata = {
 };
 
 export default function FeedPage() {
-  return <FeedClient />;
+  return (
+    <div className="space-y-6">
+      <ProfessionalSurfaceRail surface="feed" />
+      <FeedClient />
+    </div>
+  );
 }

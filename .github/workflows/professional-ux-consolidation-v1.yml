@@ -1,0 +1,64 @@
+name: Scorecaster Professional UX Consolidation V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/professional-selection-evidence.mjs"
+      - "lib/settings-storage.js"
+      - "app/layout.jsx"
+      - "app/page.jsx"
+      - "app/components/AppShell.jsx"
+      - "app/components/ProfessionalPreferencesProvider.jsx"
+      - "app/components/ProfessionalPreferenceControls.jsx"
+      - "app/components/ProfessionalSelectionCard.jsx"
+      - "app/components/ProfessionalSurfaceRail.jsx"
+      - "app/feed/page.jsx"
+      - "app/events/page.jsx"
+      - "app/tracking/layout.jsx"
+      - "app/profile/layout.jsx"
+      - "scripts/professional-ux-consolidation-v1.test.mjs"
+      - "docs/PROFESSIONAL_UX_CONSOLIDATION_V1.md"
+      - ".github/workflows/professional-ux-consolidation-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-professional-ux-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  professional-ux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Professional selection and five-tab regressions
+        run: node --test scripts/professional-ux-consolidation-v1.test.mjs
+
+      - name: Existing UX regressions
+        run: node --test scripts/ux-v2.test.mjs
+
+      - name: API security regressions
+        run: node --test scripts/api-security.test.mjs
+
+      - name: Secret and repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build
