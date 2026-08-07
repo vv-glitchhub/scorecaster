@@ -120,13 +120,18 @@ The audit scans:
 - `.next/static` client assets
 - `mobile/src` source that will enter the native client bundle
 
-It rejects:
+The web-build boundary fails on:
 
-- server-only environment variable names in client assets/source
 - forbidden public aliases of server-only names
 - OpenAI-style secret values
 - Supabase `sb_secret_` values
 - private-key blocks
+
+A literal server environment-variable **name** in a generated Next.js chunk is recorded as review metadata rather than treated as a leaked secret value. Next.js does not make non-`NEXT_PUBLIC_` environment values available to browser code merely because the variable name is present. The report therefore separates `warnings` from actual `violations`.
+
+The native-source boundary is stricter: a server-only variable name has no legitimate role in `mobile/src`, so it remains a failure there. Forbidden public aliases and secret-shaped values also fail.
+
+This distinction prevents a harmless environment-variable name from masking the actual acceptance criterion: no server secret **value** may enter a client bundle, and no server-only variable may be intentionally exposed through a public alias.
 
 The report explicitly states that a signed iOS/Android bundle has not yet been inspected. Signed bundle verification remains part of the physical mobile release work in #97/#12.
 
