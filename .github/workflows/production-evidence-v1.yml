@@ -4,11 +4,14 @@ on:
   pull_request:
     paths:
       - "lib/production-evidence-v1.mjs"
+      - "lib/production-release-evidence.mjs"
       - "app/api/production-evidence/**"
       - "app/production-evidence/**"
       - "app/components/AppShell.jsx"
       - "scripts/production-evidence-v1.test.mjs"
+      - "scripts/production-release-evidence.test.mjs"
       - "docs/PRODUCTION_EVIDENCE_V1.md"
+      - "docs/PRODUCTION_RELEASE_EVIDENCE_ARTIFACT_V1.md"
       - "config/release-readiness.json"
       - "package.json"
       - ".github/workflows/production-evidence-v1.yml"
@@ -41,8 +44,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
 
-      - name: Production evidence regression tests
-        run: node --test scripts/production-evidence-v1.test.mjs
+      - name: Production evidence and release artifact regressions
+        run: node --test scripts/production-evidence-v1.test.mjs scripts/production-release-evidence.test.mjs
 
       - name: Unified data chronology regressions
         run: node --test scripts/unified-data-calibration.test.mjs scripts/calibration-lab-v1.test.mjs
