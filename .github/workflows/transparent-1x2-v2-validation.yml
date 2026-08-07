@@ -31,7 +31,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Transparent 1X2 V2 validation regressions
-        run: node --test scripts/transparent-1x2-v2-validation.test.mjs
+        run: node --test scripts/transparent-1x2-v2-validation.test.mjs scripts/transparent-1x2-v2-failclosed.test.mjs
 
       - name: Existing Transparent 1X2 baseline regressions
         run: node --test scripts/transparent-1x2-baseline.test.mjs
