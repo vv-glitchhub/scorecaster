@@ -7,8 +7,10 @@ const manifest = JSON.parse(await readFile(path.join(root, "config/release-readi
 const baseUrl = String(process.env.SCORECASTER_SMOKE_BASE_URL || process.argv[2] || manifest.productionBaseUrl).replace(/\/$/, "");
 const accessToken = String(process.env.SCORECASTER_SMOKE_ACCESS_TOKEN || "").trim();
 const reportPath = path.resolve(root, process.env.SCORECASTER_SMOKE_REPORT_PATH || "artifacts/production-smoke.json");
+const invalidWorkerCredential = "Bearer scorecaster-intentionally-invalid-worker-probe";
 const checks = [];
 const failures = [];
+const workerProbeEvidence = {};
 
 function safeOrigin(value) {
   const url = new URL(value);
@@ -29,7 +31,7 @@ function record(name, ok, details = {}) {
 }
 
 function secretFree(value) {
-  return !/(SUPABASE_SERVICE_ROLE_KEY|ODDS_API_KEY|CRON_SECRET|OPENAI_API_KEY|AGENT_DECISION_SIGNING_KEY|expo_push_token|token_hash|sb_secret_)/i.test(String(value || ""));
+  return !/(SUPABASE_SERVICE_ROLE_KEY|ODDS_API_KEY|CRON_SECRET|OPENAI_API_KEY|AGENT_DECISION_SIGNING_KEY|expo_push_token|token_hash|sb_secret_|Bearer\s+[A-Za-z0-9_-]{24,})/i.test(String(value || ""));
 }
 
 async function request(route, options = {}) {
@@ -43,7 +45,7 @@ async function request(route, options = {}) {
       signal: controller.signal,
       headers: {
         Accept: options.accept || "application/json, text/html;q=0.9",
-        "User-Agent": "Scorecaster-Production-Smoke/1",
+        "User-Agent": "Scorecaster-Production-Smoke/2",
         ...(options.authorization ? { Authorization: options.authorization } : {})
       },
       method: options.method || "GET"
@@ -108,15 +110,47 @@ for (const endpoint of manifest.protectedApis) {
 }
 
 for (const endpoint of manifest.internalWorkers) {
+  const observedAt = new Date().toISOString();
+  let unauthenticated = null;
+  let invalidCredential = null;
+
   try {
-    const { response, body, durationMs } = await request(endpoint.path, { method: endpoint.method });
-    record(`worker-guard:${endpoint.method}:${endpoint.path}`, endpoint.allowedStatuses.includes(response.status) && secretFree(body), {
-      status: response.status,
-      durationMs
+    const result = await request(endpoint.path, { method: endpoint.method });
+    const ok = endpoint.allowedStatuses.includes(result.response.status) && secretFree(result.body);
+    unauthenticated = { ok, status: result.response.status, durationMs: result.durationMs };
+    record(`worker-guard:none:${endpoint.method}:${endpoint.path}`, ok, {
+      status: result.response.status,
+      durationMs: result.durationMs
     });
   } catch (error) {
-    record(`worker-guard:${endpoint.method}:${endpoint.path}`, false, { error: error instanceof Error ? error.message : "Request failed" });
+    unauthenticated = { ok: false, status: null, durationMs: null, error: error instanceof Error ? error.message : "Request failed" };
+    record(`worker-guard:none:${endpoint.method}:${endpoint.path}`, false, { error: unauthenticated.error });
   }
+
+  try {
+    const result = await request(endpoint.path, { method: endpoint.method, authorization: invalidWorkerCredential });
+    const ok = endpoint.allowedStatuses.includes(result.response.status) && secretFree(result.body);
+    invalidCredential = { ok, status: result.response.status, durationMs: result.durationMs };
+    record(`worker-guard:invalid:${endpoint.method}:${endpoint.path}`, ok, {
+      status: result.response.status,
+      durationMs: result.durationMs
+    });
+  } catch (error) {
+    invalidCredential = { ok: false, status: null, durationMs: null, error: error instanceof Error ? error.message : "Request failed" };
+    record(`worker-guard:invalid:${endpoint.method}:${endpoint.path}`, false, { error: invalidCredential.error });
+  }
+
+  const passed = Boolean(unauthenticated?.ok && invalidCredential?.ok);
+  workerProbeEvidence[endpoint.path] = {
+    status: passed ? "passed" : "failed",
+    observedAt,
+    httpStatus: unauthenticated?.status ?? null,
+    invalidCredentialHttpStatus: invalidCredential?.status ?? null,
+    unauthenticatedDurationMs: unauthenticated?.durationMs ?? null,
+    invalidCredentialDurationMs: invalidCredential?.durationMs ?? null,
+    workerInvokedByProbe: false,
+    validCredentialUsed: false
+  };
 }
 
 if (accessToken) {
@@ -134,16 +168,26 @@ if (accessToken) {
 }
 
 const report = {
-  version: 1,
+  version: 2,
   product: "Scorecaster",
   baseUrl,
   generatedAt: new Date().toISOString(),
   authenticatedProbesEnabled: Boolean(accessToken),
+  workerProbeMode: "guard-only-no-valid-cron-secret",
+  workerProbeEvidence,
   passed: failures.length === 0,
   totals: {
     checks: checks.length,
     passed: checks.filter((item) => item.ok).length,
-    failed: failures.length
+    failed: failures.length,
+    workerGuards: Object.keys(workerProbeEvidence).length,
+    workerGuardsPassed: Object.values(workerProbeEvidence).filter((item) => item.status === "passed").length
+  },
+  safety: {
+    validCronSecretUsed: false,
+    workerInvokedByGuardProbe: false,
+    paperRowsCreatedByGuardProbe: false,
+    realMoneyExecution: false
   },
   checks
 };
@@ -157,5 +201,6 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Scorecaster production smoke passed: ${checks.length} checks against ${baseUrl}.`);
-  if (!accessToken) console.log("Authenticated probes were skipped because SCORECASTER_SMOKE_ACCESS_TOKEN was not provided.");
+  console.log(`Protected-worker guard evidence passed: ${report.totals.workerGuardsPassed}/${report.totals.workerGuards}. No valid cron secret was used by guard probes.`);
+  if (!accessToken) console.log("Authenticated user probes were skipped because SCORECASTER_SMOKE_ACCESS_TOKEN was not provided.");
 }
