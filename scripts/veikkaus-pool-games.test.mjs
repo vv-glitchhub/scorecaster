@@ -6,6 +6,7 @@ import {
   calculateFullSystemRows,
   calculateOrderedRankingRows,
   calculateParimutuelOdds,
+  calculateSupertriplaRowsFromOverlapCounts,
   calculateTulosvetoSystemRows,
   calculateVakioSystemRows,
   classifyVeikkausGame,
@@ -45,7 +46,23 @@ test("Tulosveto savings system removes the selected outcome class", () => {
 
 test("ordered ranking systems reject duplicate competitor positions", () => {
   assert.equal(calculateOrderedRankingRows([["A", "B", "C"], ["A", "B", "C"], ["A", "B", "C"]]), 6);
-  assert.equal(calculateOrderedRankingRows([["1", "2", "3", "4"], ["1", "2", "3", "4", "5"], ["1", "2", "3", "4", "5", "6", "7", "8", "9"]]), 135);
+
+  const first = ["1", "2", "3", "4"];
+  const second = ["1", "2", "3", "5", "6"];
+  const third = ["1", "2", "5", "7", "8", "9", "10", "11", "12"];
+  assert.equal(calculateOrderedRankingRows([first, second, third]), 135);
+});
+
+test("Supertripla overlap-count formula reproduces the supplied 135-row example", () => {
+  assert.equal(calculateSupertriplaRowsFromOverlapCounts({
+    firstCount: 4,
+    secondCount: 5,
+    thirdCount: 9,
+    firstSecondOverlap: 3,
+    firstThirdOverlap: 2,
+    secondThirdOverlap: 3,
+    tripleOverlap: 2,
+  }), 135);
 });
 
 test("Toto multi-winner class shares are explicit", () => {
