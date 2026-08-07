@@ -1,0 +1,61 @@
+name: Scorecaster Veikkaus Data Adapter Discovery V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/collector-source-registry.mjs"
+      - "lib/veikkaus-data-adapter-v1.mjs"
+      - "lib/veikkaus-pool-games.mjs"
+      - "lib/veikkaus-intelligence-v1.mjs"
+      - "app/api/veikkaus-intelligence/source-health/route.js"
+      - "scripts/veikkaus-data-adapter-v1.test.mjs"
+      - "scripts/collector-v1.test.mjs"
+      - "docs/VEIKKAUS_DATA_ADAPTER_DISCOVERY_V1.md"
+      - ".github/workflows/veikkaus-data-adapter-discovery-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-veikkaus-data-adapter-discovery-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  discovery-contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 18
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Veikkaus discovery adapter regressions
+        run: node --test scripts/veikkaus-data-adapter-v1.test.mjs
+
+      - name: Collector Source Registry regressions
+        run: node --test scripts/collector-v1.test.mjs
+
+      - name: Veikkaus Intelligence regressions
+        run: |
+          node --test scripts/veikkaus-pool-games.test.mjs
+          node --test scripts/veikkaus-intelligence-v1.test.mjs
+
+      - name: API security and repository security
+        run: |
+          node --test scripts/api-security.test.mjs
+          npm run security:check
+
+      - name: Production build
+        run: npm run build
