@@ -34,7 +34,7 @@ jobs:
         run: node --test scripts/transparent-1x2-v2-validation.test.mjs scripts/transparent-1x2-v2-failclosed.test.mjs
 
       - name: Immutable chronology-safe evaluation package regressions
-        run: node --test scripts/transparent-1x2-evaluation-package.test.mjs
+        run: node --test scripts/transparent-1x2-evaluation-package.test.mjs scripts/transparent-1x2-evaluation-package-failclosed.test.mjs
 
       - name: Existing Transparent 1X2 baseline regressions
         run: node --test scripts/transparent-1x2-baseline.test.mjs
