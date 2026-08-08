@@ -1,4 +1,6 @@
+import productionMigrationStatus from "../../../config/production-migration-status.json";
 import releaseManifest from "../../../config/release-readiness.json";
+import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
 import {
   buildProductionReleaseEvidence,
@@ -178,15 +180,15 @@ export async function GET(request) {
   }
 
   if (format === "release") {
+    const migrationEvidence = buildMigrationReleaseStatus({
+      manifest: releaseManifest,
+      statusDocument: productionMigrationStatus
+    });
     const artifact = buildProductionReleaseEvidence({
       productionEvidence: report,
       manifest: releaseManifest,
       deployment: runtimeDeploymentEvidence(process.env),
-      migrationEvidence: {
-        status: "unverified",
-        evidenceRef: null,
-        observedAt: null
-      },
+      migrationEvidence,
       manualGateEvidence: {},
       workerProbeEvidence: {}
     });
