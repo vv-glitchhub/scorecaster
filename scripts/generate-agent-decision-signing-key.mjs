@@ -1,12 +1,13 @@
 import { access, chmod, mkdir, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   AGENT_SIGNING_KEY_GENERATED_BYTES,
   assessAgentDecisionSigningKey,
   generateAgentDecisionSigningKey
 } from "../lib/agent-signing-key-readiness.mjs";
 
-const root = resolve(new URL("../", import.meta.url).pathname);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const outputPath = resolve(root, ".scorecaster-secrets/agent-decision-signing-key.txt");
 const rotate = process.argv.includes("--rotate");
 const ci = /^(1|true|yes)$/i.test(String(process.env.CI || ""));
@@ -42,7 +43,7 @@ try {
   await chmod(dirname(outputPath), 0o700);
   await chmod(outputPath, 0o600);
 } catch {
-  // File-mode enforcement is best-effort on platforms that do not implement POSIX permissions.
+  // Windows and some filesystems do not implement POSIX permission bits.
 }
 
 process.stdout.write(`${JSON.stringify({
