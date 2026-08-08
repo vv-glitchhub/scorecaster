@@ -36,19 +36,23 @@ test("two-user matrix covers account, paper, watchlist, alerts, autonomous and s
   assert.equal(matrix.hardCaps.maxSameLeagueExposureFraction, 0.025);
 });
 
-test("static contract audit checks RLS ownership, client grants, hard caps and account scoping", async () => {
+test("static contract audit checks RLS ownership, client grants, hard caps and current account scoping", async () => {
   const audit = await source("scripts/two-user-isolation-contract-audit.mjs");
   assert.match(audit, /function hasRls\(/);
   assert.match(audit, /hasRls\(source, table\.table, "enable"\)/);
   assert.match(audit, /hasRls\(source, table\.table, "force"\)/);
-  assert.match(audit, /auth\\\.uid/);
+  assert.match(audit, /function hasOwnerPolicy\(/);
+  assert.match(audit, /const ownerPolicy = hasOwnerPolicy/);
   assert.match(audit, /hasAuthenticatedPrivilege/);
   assert.match(audit, /hasAuthenticatedRevoke/);
   assert.match(audit, /v_max_stake/);
   assert.match(audit, /v_max_daily/);
   assert.match(audit, /v_max_league/);
   assert.match(audit, /pg_advisory_xact_lock/);
-  assert.match(audit, /deleteUser\\\(auth\\\.user\\\.id/);
+  assert.match(audit, /exportAuthenticated/);
+  assert.match(audit, /deleteMutationOriginGuard/);
+  assert.match(audit, /deleteScopesUserTablesToAuthenticatedUser/);
+  assert.match(audit, /deleteScopesAuthUserToAuthenticatedUser/);
   assert.match(audit, /productionDatabaseProbed: false/);
   assert.match(audit, /rawUserIdsIncluded: false/);
 });
@@ -110,7 +114,10 @@ test("account export and delete routes remain scoped to authenticated identity",
   assert.match(exportRoute, /\.eq\("id",\s*auth\.user\.id\)/);
   assert.match(exportRoute, /id:\s*auth\.user\.id/);
 
-  assert.match(accountRoute, /requireCsrf:\s*true/);
+  assert.match(accountRoute, /export async function DELETE\(request\)/);
+  assert.match(accountRoute, /mutationOriginAllowed\(request\)/);
+  assert.match(accountRoute, /getAuthenticatedContext\(request\)/);
+  assert.match(accountRoute, /\.eq\("user_id",\s*auth\.user\.id\)/);
   assert.match(accountRoute, /\.eq\("id",\s*auth\.user\.id\)/);
   assert.match(accountRoute, /deleteUser\(auth\.user\.id\)/);
   assert.match(security, /auth\.getUser\(token\)/);
