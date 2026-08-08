@@ -2,6 +2,11 @@
   "version": 1,
   "product": "Scorecaster",
   "policy": "network-only-live-api",
+  "releaseGate": {
+    "id": "live-data-pwa-cache-boundary",
+    "title": "Live-data API responses are network-only: API responses are no-store and no PWA or service-worker runtime cache can serve live API traffic",
+    "blocking": true
+  },
   "apiHeaderRule": {
     "source": "/api/:path*",
     "requiredCacheControlTokens": ["no-store", "max-age=0"]
