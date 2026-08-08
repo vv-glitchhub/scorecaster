@@ -27,6 +27,9 @@ jobs:
           PUBLIC_SURFACE_CONTRACT_REPORT_PATH: artifacts/public-surface-contract.json
         run: node scripts/public-surface-contract-audit.mjs
 
+      - name: Retained public-surface evidence regressions
+        run: node --test scripts/public-surface-production-evidence.test.mjs
+
       - name: Production public-surface probe
         env:
           PUBLIC_SURFACE_BASE_URL: https://scorecaster.vercel.app
