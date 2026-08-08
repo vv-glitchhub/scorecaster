@@ -48,6 +48,15 @@ test("reviewed double production probe passes only for the current implementatio
   assert.equal(result.evidenceBoundary.rawResponseBodyIncluded, false);
 });
 
+test("release API obtains cache gate state only from repository-maintained trusted evidence", async () => {
+  const route = await read("app/api/production-evidence/route.js");
+  assert.match(route, /productionManualGateEvidence/);
+  assert.match(route, /buildTrustedLiveDataCacheGateEvidence/);
+  assert.match(route, /manualGateEvidence:\s*retainedCacheEvidence\.manualGateEvidence/);
+  assert.doesNotMatch(route, /searchParams\.get\(["'](?:manualGateEvidence|gateStatus|productionVerified|cacheGate)["']\)/);
+  assert.match(route, /const allowed = new Set\(\[["']days["'], ["']sport["'], ["']format["']\]\)/);
+});
+
 test("stale implementation fingerprint invalidates retained production evidence", () => {
   const stale = clone(trustedDocument);
   stale.gates["live-data-pwa-cache-boundary"].implementationFingerprint = "0".repeat(64);
