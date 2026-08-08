@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "evidenceType": "github-actions-production-public-surface-probe-v1",
+  "implementationFingerprint": "0f16d30368e3bacfb7352dd779da70e206c6782fd47e5822dfc10d2aeca64854",
+  "verifiedDeployment": {
+    "deploymentId": "dpl_4nMnhEvsfo4f4o6fwoSmY2dj3qKf",
+    "commitSha": "51918b2d35a564178dcc814be3d53d651d4f5828",
+    "environment": "production",
+    "host": "scorecaster.vercel.app"
+  },
+  "observedAt": "2026-08-08T18:23:28.050Z",
+  "evidenceRef": "github-actions-run-31271802029-artifact-9025825753",
+  "workflowRunId": 31271802029,
+  "artifactId": 9025825753,
+  "probes": [
+    { "path": "/", "observedAt": "2026-08-08T18:23:24.032Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 216, "vercelCache": "HIT" },
+    { "path": "/help", "observedAt": "2026-08-08T18:23:24.536Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 201, "vercelCache": "HIT" },
+    { "path": "/privacy", "observedAt": "2026-08-08T18:23:24.947Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/terms", "observedAt": "2026-08-08T18:23:25.213Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/responsible-use", "observedAt": "2026-08-08T18:23:25.436Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/production-status", "observedAt": "2026-08-08T18:23:25.804Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/autonomous-agent", "observedAt": "2026-08-08T18:23:25.978Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/mission-control", "observedAt": "2026-08-08T18:23:26.294Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/polymarket-intelligence", "observedAt": "2026-08-08T18:23:26.654Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/diagnostics-v2", "observedAt": "2026-08-08T18:23:26.971Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/provider-health", "observedAt": "2026-08-08T18:23:27.177Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/production-evidence", "observedAt": "2026-08-08T18:23:27.344Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/data-layer", "observedAt": "2026-08-08T18:23:27.528Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/sports-analytics", "observedAt": "2026-08-08T18:23:27.785Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" },
+    { "path": "/data-collector", "observedAt": "2026-08-08T18:23:28.050Z", "httpStatus": 200, "contentType": "text/html; charset=utf-8", "requiredSecurityHeaders": { "x-content-type-options": "nosniff", "x-frame-options": "DENY", "referrer-policy": "no-referrer", "cross-origin-opener-policy": "same-origin", "cross-origin-resource-policy": "same-origin" }, "ageSeconds": 0, "vercelCache": "PRERENDER" }
+  ],
+  "pageBodyRead": false,
+  "pageBodyRetained": false,
+  "credentialsSent": false,
+  "cookiesSent": false,
+  "authorizationSent": false,
+  "userDataRetained": false,
+  "secretValuesRetained": false
+}
