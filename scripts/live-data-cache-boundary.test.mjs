@@ -51,7 +51,7 @@ test("probe evidence header redaction uses an explicit allowlist", () => {
   });
 });
 
-test("repository cache audit passes current source tree", async () => {
+test("repository cache audit proves the reviewed service worker bypass", () => {
   const run = spawnSync(process.execPath, ["scripts/live-data-cache-boundary-audit.mjs"], {
     cwd: root,
     encoding: "utf8"
@@ -62,8 +62,21 @@ test("repository cache audit passes current source tree", async () => {
   assert.equal(report.repositoryVerified, true);
   assert.equal(report.productionVerified, false);
   assert.equal(report.apiHeaderRule.sourceRulePresent, true);
-  assert.equal(report.serviceWorkerBoundary.forbiddenCapabilityCount, 0);
+  assert.equal(report.serviceWorkerBoundary.mode, "reviewed-network-only-api-bypass");
+  assert.equal(report.serviceWorkerBoundary.apiBypassPresent, true);
+  assert.equal(report.serviceWorkerBoundary.apiBypassBeforeInterception, true);
+  assert.equal(report.serviceWorkerBoundary.offlineAssetAllowlistPresent, true);
+  assert.equal(report.serviceWorkerBoundary.unexpectedCapabilityCount, 0);
+  assert.equal(report.releaseGate.id, "live-data-pwa-cache-boundary");
+  assert.equal(report.releaseGate.productionEvidenceRequired, true);
   assert.equal(report.evidenceBoundary.secretValuesIncluded, false);
+});
+
+test("canonical release manifest keeps live cache proof blocking and un-self-certified", async () => {
+  const manifest = JSON.parse(await readFile(resolve(root, "config/release-readiness.json"), "utf8"));
+  const matches = manifest.manualReleaseChecks.filter((item) => item.id === "live-data-pwa-cache-boundary");
+  assert.equal(matches.length, 1);
+  assert.equal(matches[0].blocking, true);
 });
 
 test("policy keeps the paper-only boundary explicit", async () => {
