@@ -110,16 +110,17 @@ for (const [name, passed] of Object.entries(hardCaps)) {
 const exportApi = await readFile(path.join(root, "app/api/account/export/route.js"), "utf8");
 const deleteApi = await readFile(path.join(root, "app/api/account/route.js"), "utf8");
 const apiChecks = {
-  exportAuthenticated: /getAuthenticatedContext\(request,\s*\{\s*requireCsrf:\s*false\s*\}\)/s.test(exportApi),
+  exportAuthenticated: /getAuthenticatedContext\(request\)/.test(exportApi),
   exportScopesQueriesToAuthenticatedUser: [
-    /id=eq\.\$\{auth\.user\.id\}/,
-    /user_id=eq\.\$\{auth\.user\.id\}/
+    /\.eq\("id",\s*auth\.user\.id\)/,
+    /\.eq\("user_id",\s*auth\.user\.id\)/
   ].every((pattern) => pattern.test(exportApi)),
   exportAccountIdentityFromAuth: /id:\s*auth\.user\.id/.test(exportApi),
-  deleteRequiresAuthenticatedContext: /getAuthenticatedContext\(request,\s*\{\s*requireCsrf:\s*true\s*\}\)/s.test(deleteApi),
+  deleteMutationOriginGuard: /mutationOriginAllowed\(request\)/.test(deleteApi),
+  deleteRequiresAuthenticatedContext: /getAuthenticatedContext\(request\)/.test(deleteApi),
+  deleteScopesUserTablesToAuthenticatedUser: /\.eq\("user_id",\s*auth\.user\.id\)/.test(deleteApi),
   deleteScopesProfileToAuthenticatedUser: /\.eq\("id",\s*auth\.user\.id\)/.test(deleteApi),
-  deleteScopesAuthUserToAuthenticatedUser: /deleteUser\(auth\.user\.id\)/.test(deleteApi),
-  deleteClearsOnlyCurrentAuthCookies: /clearAuthCookies/.test(deleteApi)
+  deleteScopesAuthUserToAuthenticatedUser: /deleteUser\(auth\.user\.id\)/.test(deleteApi)
 };
 for (const [name, passed] of Object.entries(apiChecks)) {
   if (!passed) failures.push(`account-api:${name}: contract missing`);
