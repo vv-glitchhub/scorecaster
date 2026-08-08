@@ -2,10 +2,13 @@ import liveDataCacheImplementation from "../../../config/live-data-cache-impleme
 import liveDataCachePolicy from "../../../config/live-data-cache-boundary.json";
 import productionManualGateEvidence from "../../../config/production-manual-gate-evidence.json";
 import productionMigrationStatus from "../../../config/production-migration-status.json";
+import productionWorkerProbeEvidence from "../../../config/production-worker-probe-evidence.json";
+import protectedWorkerImplementation from "../../../config/protected-worker-implementation.json";
 import releaseManifest from "../../../config/release-readiness.json";
 import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
+import { buildTrustedProtectedWorkerProbeEvidence } from "../../../lib/protected-worker-production-evidence.mjs";
 import {
   buildProductionReleaseEvidence,
   runtimeDeploymentEvidence
@@ -193,13 +196,18 @@ export async function GET(request) {
       implementation: liveDataCacheImplementation,
       policy: liveDataCachePolicy
     });
+    const retainedWorkerEvidence = buildTrustedProtectedWorkerProbeEvidence({
+      trustedDocument: productionWorkerProbeEvidence,
+      implementation: protectedWorkerImplementation,
+      manifest: releaseManifest
+    });
     const artifact = buildProductionReleaseEvidence({
       productionEvidence: report,
       manifest: releaseManifest,
       deployment: runtimeDeploymentEvidence(process.env),
       migrationEvidence,
       manualGateEvidence: retainedCacheEvidence.manualGateEvidence,
-      workerProbeEvidence: {}
+      workerProbeEvidence: retainedWorkerEvidence.workerProbeEvidence
     });
     return json(
       {
@@ -212,6 +220,15 @@ export async function GET(request) {
             probeCount: retainedCacheEvidence.probeCount,
             verifiedDeployment: retainedCacheEvidence.verifiedDeployment,
             failures: retainedCacheEvidence.failures
+          },
+          protectedWorkers: {
+            status: retainedWorkerEvidence.status,
+            implementationFingerprint: retainedWorkerEvidence.implementationFingerprint,
+            observedAt: retainedWorkerEvidence.observedAt,
+            workerCount: retainedWorkerEvidence.workerCount,
+            passedWorkerCount: retainedWorkerEvidence.passedWorkerCount,
+            verifiedDeployment: retainedWorkerEvidence.verifiedDeployment,
+            failures: retainedWorkerEvidence.failures
           }
         },
         filters: { days, sport: sport || null },
