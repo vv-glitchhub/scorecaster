@@ -36,6 +36,9 @@ jobs:
       - name: Immutable chronology-safe evaluation package regressions
         run: node --test scripts/transparent-1x2-evaluation-package.test.mjs scripts/transparent-1x2-evaluation-package-failclosed.test.mjs
 
+      - name: Paired baseline challenger evidence regressions
+        run: node --test scripts/transparent-1x2-paired-evidence.test.mjs
+
       - name: Existing Transparent 1X2 baseline regressions
         run: node --test scripts/transparent-1x2-baseline.test.mjs
 
