@@ -78,12 +78,18 @@ test("missing, duplicate and extra worker probes fail closed", () => {
   assert.ok(result.failures.some((failure) => failure.includes("unexpected-worker-path")));
 });
 
-test("unexpected status, cache replay or credential use fail closed", () => {
+test("unexpected status, missing numeric metadata, cache replay or credential use fail closed", () => {
   const badStatus = clone(trustedDocument);
   badStatus.probes[0].httpStatus = 200;
   let result = buildTrustedProtectedWorkerProbeEvidence({ trustedDocument: badStatus, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("worker-http-status-not-allowed")));
+
+  const missingAge = clone(trustedDocument);
+  delete missingAge.probes[0].ageSeconds;
+  result = buildTrustedProtectedWorkerProbeEvidence({ trustedDocument: missingAge, implementation, manifest });
+  assert.equal(result.ok, false);
+  assert.ok(result.failures.some((failure) => failure.includes("worker-probe-age-not-zero")));
 
   const cached = clone(trustedDocument);
   cached.probes[0].vercelCache = "HIT";
