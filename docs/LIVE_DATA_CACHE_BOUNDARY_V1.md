@@ -1,6 +1,8 @@
 # Live Data Cache Boundary V1
 
-Scorecaster live-data API traffic is network-only. The current web application does not register a service worker or use a PWA runtime cache, and every `/api/*` response is covered by the reviewed `Cache-Control: no-store, max-age=0` rule in `next.config.js`.
+Scorecaster live-data API traffic is network-only. The web application does register the reviewed `/sw.js` service worker, but that worker exits immediately for same-origin paths beginning with `/api/` before any `event.respondWith(...)`, Cache API lookup or cache write can handle the request. Every `/api/*` response is also covered by the reviewed `Cache-Control: no-store, max-age=0` rule in `next.config.js`.
+
+The current service worker may cache only the explicit offline shell/static-asset paths covered by its destination rules. It must never provide a cached fallback for API traffic.
 
 This boundary is release-critical because stale odds, fixture state, provider health or decision evidence must never be presented as a fresh response from an offline/runtime cache.
 
@@ -14,13 +16,16 @@ npm run cache:live-data-audit
 npm run release:audit
 ```
 
-The audit fails closed when:
+The audit verifies the exact reviewed structure:
 
-- the global `/api/:path*` no-store header rule disappears
-- either required cache-control token disappears
-- application/native/public source begins registering a service worker
-- a fetch-handling service worker, Cache API usage, Workbox or generic `runtimeCaching` appears before a reviewed network-only exception exists
-- the paper-only product boundary changes
+- the global `/api/:path*` header rule contains `no-store` and `max-age=0`
+- `PwaRegister.jsx` registers only the reviewed `/sw.js`
+- the worker keeps the non-GET and same-origin guards
+- `if (url.pathname.startsWith("/api/")) return;` exists before the first `event.respondWith(...)`
+- the offline asset allowlist contains no `/api/` route
+- no second unreviewed service-worker registration or cache handler appears elsewhere
+- Workbox/generic `runtimeCaching` cannot be introduced silently
+- the paper-only product boundary remains unchanged
 
 Repository evidence explicitly sets `productionVerified=false`. Passing CI is not production proof.
 
@@ -50,15 +55,15 @@ The generated artifact contains only allowlisted response headers, timing/status
 
 ## Future PWA/offline work
 
-Adding a service worker is a separate reviewed change. If offline caching is introduced later:
+Any expansion of PWA/runtime caching is a separate reviewed change. If additional offline caching is introduced later:
 
-1. live `/api/*` requests must be explicitly bypassed with network-only handling before any generic runtime-cache route
-2. no cached live response may be used as a fallback when the network fails
-3. static asset/offline-page caching must be scoped so it cannot match API traffic
-4. this audit and regression suite must be updated to prove the exact network-only exception rather than simply allowing Workbox/service-worker patterns
+1. live `/api/*` requests must continue to return before any generic runtime-cache route or `event.respondWith(...)`
+2. no cached live API response may be used as a fallback when the network fails
+3. static asset/offline-page caching must stay scoped so it cannot match API traffic
+4. every additional worker registration or caching library must be explicitly represented in this audit rather than globally allowlisted
 5. production probe evidence must be regenerated after deployment
 
-Do not weaken the gate by broadening allowed service-worker patterns without an explicit route-level network-only proof.
+Do not weaken the gate by broadly allowing Workbox, runtime caching or additional service workers without an explicit route-level network-only proof.
 
 ## Product boundary
 
