@@ -183,6 +183,9 @@ create trigger bets_enforce_paper_stake_limit
 before insert or update of stake, user_id on public.bets
 for each row execute function public.enforce_paper_stake_limit();
 
+-- Profile creation is server/database-owned. Authenticated clients may read and
+-- update their own profile but may not create arbitrary profile IDs or delete a
+-- profile directly; account deletion is handled by the protected account route.
 create or replace function public.handle_new_user()
 returns trigger
 language plpgsql
@@ -222,11 +225,9 @@ to authenticated
 using (auth.uid() = id)
 with check (auth.uid() = id);
 
+-- Remove the former direct-client profile INSERT policy. The auth.users trigger
+-- above is the only reviewed profile-creation path.
 drop policy if exists "Users insert own profile" on public.profiles;
-create policy "Users insert own profile"
-on public.profiles for insert
-to authenticated
-with check (auth.uid() = id);
 
 drop policy if exists "Users manage own bets" on public.bets;
 create policy "Users manage own bets"
@@ -278,7 +279,11 @@ revoke all on public.profiles from anon;
 revoke all on public.bets from anon;
 revoke all on public.bankroll_settings from anon;
 
+-- Fail closed on profile writes before restoring the exact reviewed client
+-- surface. This makes rerunning the migration remove any legacy broad grants.
+revoke all on public.profiles from authenticated;
+grant select, update on public.profiles to authenticated;
+
 grant usage on schema public to authenticated;
-grant select, insert, update, delete on public.profiles to authenticated;
 grant select, insert, update, delete on public.bets to authenticated;
 grant select, insert, update, delete on public.bankroll_settings to authenticated;
