@@ -6,8 +6,13 @@ on:
       - "supabase/**"
       - "config/release-readiness.json"
       - "config/production-migration-status.json"
+      - "lib/migration-release-status.mjs"
+      - "lib/production-release-evidence.mjs"
+      - "app/api/production-evidence/route.js"
       - "scripts/migration-inventory.mjs"
       - "scripts/migration-inventory.test.mjs"
+      - "scripts/migration-release-status.test.mjs"
+      - "scripts/production-release-evidence.test.mjs"
       - "scripts/export-production-migration-evidence.sql"
       - "docs/PRODUCTION_MIGRATION_INVENTORY_V1.md"
       - ".github/workflows/migration-inventory.yml"
@@ -17,8 +22,13 @@ on:
       - "supabase/**"
       - "config/release-readiness.json"
       - "config/production-migration-status.json"
+      - "lib/migration-release-status.mjs"
+      - "lib/production-release-evidence.mjs"
+      - "app/api/production-evidence/route.js"
       - "scripts/migration-inventory.mjs"
       - "scripts/migration-inventory.test.mjs"
+      - "scripts/migration-release-status.test.mjs"
+      - "scripts/production-release-evidence.test.mjs"
       - "scripts/export-production-migration-evidence.sql"
       - "docs/PRODUCTION_MIGRATION_INVENTORY_V1.md"
       - ".github/workflows/migration-inventory.yml"
@@ -39,6 +49,8 @@ jobs:
         run: node scripts/migration-inventory.mjs --check --write
       - name: Run migration inventory tests
         run: node --test scripts/migration-inventory.test.mjs
+      - name: Validate Release JSON migration binding
+        run: node --test scripts/migration-release-status.test.mjs scripts/production-release-evidence.test.mjs
       - name: Upload inventory evidence
         uses: actions/upload-artifact@v4
         with:
