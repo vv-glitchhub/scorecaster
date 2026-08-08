@@ -3,15 +3,18 @@ import liveDataCachePolicy from "../../../config/live-data-cache-boundary.json";
 import productionManualGateEvidence from "../../../config/production-manual-gate-evidence.json";
 import productionMigrationStatus from "../../../config/production-migration-status.json";
 import productionProtectedApiProbeEvidence from "../../../config/production-protected-api-probe-evidence.json";
+import productionPublicSurfaceEvidence from "../../../config/production-public-surface-evidence.json";
 import productionWorkerProbeEvidence from "../../../config/production-worker-probe-evidence.json";
 import protectedApiImplementation from "../../../config/protected-api-implementation.json";
 import protectedWorkerImplementation from "../../../config/protected-worker-implementation.json";
+import publicSurfaceImplementation from "../../../config/public-surface-implementation.json";
 import releaseManifest from "../../../config/release-readiness.json";
 import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
 import { buildTrustedProtectedApiProbeEvidence } from "../../../lib/protected-api-production-evidence.mjs";
 import { buildTrustedProtectedWorkerProbeEvidence } from "../../../lib/protected-worker-production-evidence.mjs";
+import { buildTrustedPublicSurfaceEvidence } from "../../../lib/public-surface-production-evidence.mjs";
 import {
   buildProductionReleaseEvidence,
   runtimeDeploymentEvidence
@@ -199,6 +202,11 @@ export async function GET(request) {
       implementation: liveDataCacheImplementation,
       policy: liveDataCachePolicy
     });
+    const retainedPublicSurfaceEvidence = buildTrustedPublicSurfaceEvidence({
+      trustedDocument: productionPublicSurfaceEvidence,
+      implementation: publicSurfaceImplementation,
+      manifest: releaseManifest
+    });
     const retainedWorkerEvidence = buildTrustedProtectedWorkerProbeEvidence({
       trustedDocument: productionWorkerProbeEvidence,
       implementation: protectedWorkerImplementation,
@@ -215,6 +223,7 @@ export async function GET(request) {
       deployment: runtimeDeploymentEvidence(process.env),
       migrationEvidence,
       manualGateEvidence: retainedCacheEvidence.manualGateEvidence,
+      publicSurfaceEvidence: retainedPublicSurfaceEvidence.publicSurfaceEvidence,
       workerProbeEvidence: retainedWorkerEvidence.workerProbeEvidence,
       protectedApiProbeEvidence: retainedProtectedApiEvidence.protectedApiProbeEvidence
     });
@@ -229,6 +238,18 @@ export async function GET(request) {
             probeCount: retainedCacheEvidence.probeCount,
             verifiedDeployment: retainedCacheEvidence.verifiedDeployment,
             failures: retainedCacheEvidence.failures
+          },
+          publicSurface: {
+            status: retainedPublicSurfaceEvidence.status,
+            implementationFingerprint: retainedPublicSurfaceEvidence.implementationFingerprint,
+            observedAt: retainedPublicSurfaceEvidence.observedAt,
+            pageCount: retainedPublicSurfaceEvidence.pageCount,
+            passedPageCount: retainedPublicSurfaceEvidence.passedPageCount,
+            requiredSecurityHeaderCount: retainedPublicSurfaceEvidence.requiredSecurityHeaderCount,
+            workflowRunId: retainedPublicSurfaceEvidence.workflowRunId,
+            artifactId: retainedPublicSurfaceEvidence.artifactId,
+            verifiedDeployment: retainedPublicSurfaceEvidence.verifiedDeployment,
+            failures: retainedPublicSurfaceEvidence.failures
           },
           protectedWorkers: {
             status: retainedWorkerEvidence.status,
