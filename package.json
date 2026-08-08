@@ -14,7 +14,7 @@
     "test:security": "node --test scripts/api-security.test.mjs",
     "test:production-security": "node --test scripts/production-security-evidence.test.mjs && node scripts/protected-worker-contract-audit.mjs",
     "test:model": "node --test scripts/market-consensus.test.mjs",
-    "test:1x2-evaluation": "node --test scripts/transparent-1x2-evaluation-package.test.mjs",
+    "test:1x2-evaluation": "node --test scripts/transparent-1x2-evaluation-package.test.mjs scripts/transparent-1x2-evaluation-package-failclosed.test.mjs",
     "model:1x2-evaluate": "node scripts/build-1x2-evaluation-package.mjs",
     "test:settlement": "node --test scripts/paper-settlement.test.mjs",
     "test:settlement-monitor": "node --test scripts/settlement-monitor.test.mjs",
