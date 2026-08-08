@@ -1,0 +1,57 @@
+{
+  "version": 1,
+  "product": "Scorecaster",
+  "policy": "network-only-live-api",
+  "releaseGate": {
+    "id": "live-data-pwa-cache-boundary",
+    "title": "Live-data API responses are network-only: API responses are no-store and no PWA or service-worker runtime cache can serve live API traffic",
+    "blocking": true
+  },
+  "apiHeaderRule": {
+    "source": "/api/:path*",
+    "requiredCacheControlTokens": ["no-store", "max-age=0"]
+  },
+  "serviceWorker": {
+    "mode": "reviewed-network-only-api-bypass",
+    "registrationPath": "app/components/PwaRegister.jsx",
+    "workerPath": "public/sw.js",
+    "scriptUrl": "/sw.js",
+    "requiredApiBypass": "if (url.pathname.startsWith(\"/api/\")) return;",
+    "requiredGuards": [
+      "if (request.method !== \"GET\") return;",
+      "if (url.origin !== self.location.origin) return;"
+    ],
+    "forbiddenGeneralPatterns": [
+      "workbox",
+      "runtimeCaching"
+    ]
+  },
+  "productionProbe": {
+    "paths": [
+      "/api/health"
+    ],
+    "requiredCacheControlTokens": ["no-store"],
+    "forbiddenVercelCacheStates": ["HIT", "STALE"],
+    "maximumAgeHeaderSeconds": 0
+  },
+  "evidence": {
+    "rawResponseBodyIncluded": false,
+    "responseHeadersAllowlist": [
+      "cache-control",
+      "age",
+      "x-vercel-cache",
+      "x-vercel-id",
+      "content-type"
+    ],
+    "secretsAllowed": false,
+    "personalDataAllowed": false
+  },
+  "productBoundary": {
+    "paperOnly": true,
+    "bookmakerLogin": false,
+    "deposits": false,
+    "withdrawals": false,
+    "cashOut": false,
+    "realMoneyExecution": false
+  }
+}

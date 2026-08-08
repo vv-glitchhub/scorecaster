@@ -1,0 +1,52 @@
+name: Scorecaster Live Data Cache Boundary
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  live-data-cache-boundary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Cache boundary regressions
+        run: npm run test:cache-boundary
+
+      - name: Repository live-data cache audit
+        run: node scripts/live-data-cache-boundary-audit.mjs --write
+
+      - name: Canonical release audit
+        run: npm run release:audit
+
+      - name: Production build
+        run: npm run build
+
+      - name: Upload redacted cache-boundary evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-data-cache-boundary
+          path: artifacts/live-data-cache-boundary.json
+          if-no-files-found: ignore
+          retention-days: 14
