@@ -74,6 +74,24 @@ function readyProductionEvidence() {
   };
 }
 
+function verifiedMigrationEvidence() {
+  return {
+    status: "passed",
+    observedAt: "2026-08-07T13:40:00.000Z",
+    configuredMigrationCount: 2,
+    recordedMigrationCount: 2,
+    verifiedAppliedCount: 2,
+    unverifiedCount: 0,
+    unresolvedCount: 0,
+    orderMatchesManifest: true,
+    validationPassed: true,
+    productionVerified: true,
+    registrySchemaVersion: 1,
+    statusFingerprint: "a".repeat(64),
+    validationFailureCount: 0
+  };
+}
+
 const productionDeployment = {
   source: "runtime-metadata",
   environment: "production",
@@ -114,13 +132,33 @@ test("a healthy runtime report still fails closed when release proof is unverifi
   assert.equal(artifact.productionEvidence.summary.closingLineCoverage, 0.9);
   assert.deepEqual(artifact.productionEvidence.leagues[0].denominators, { identity: 20, multiProvider: 20, closingLine: 20 });
   assert.equal(artifact.migrationInventory.migrationCount, 2);
+  assert.equal(artifact.migrationInventory.configuredMigrationCount, 2);
+  assert.equal(artifact.migrationInventory.recordedMigrationCount, null);
+  assert.equal(artifact.migrationInventory.productionVerified, false);
   assert.equal(artifact.migrationInventory.latestMigration, "supabase/two.sql");
   assert.equal(artifact.migrationInventory.migrationsFingerprint.length, 64);
   assert.equal(artifact.manifestFingerprint.length, 64);
   assert.equal(artifact.artifactId.length, 64);
   assert.ok(artifact.manualGates.every((gate) => gate.status === "unverified"));
   assert.ok(artifact.protectedWorkerProbes.every((probe) => probe.status === "unverified"));
+  assert.equal(artifact.safety.migrationFilePresenceUsedAsProductionProof, false);
+  assert.equal(artifact.safety.rawMigrationEvidenceRefsIncluded, false);
   assert.equal(artifact.safety.missingEvidenceImputed, false);
+});
+
+test("status passed alone cannot certify migrations without productionVerified evidence", () => {
+  const artifact = buildProductionReleaseEvidence({
+    productionEvidence: readyProductionEvidence(),
+    manifest,
+    deployment: productionDeployment,
+    migrationEvidence: { status: "passed", productionVerified: false },
+    manualGateEvidence: Object.fromEntries(manifest.manualReleaseChecks.map((gate) => [gate.id, { status: "passed" }])),
+    workerProbeEvidence: Object.fromEntries(manifest.internalWorkers.map((worker) => [worker.path, { status: "passed", httpStatus: 401 }]))
+  });
+
+  assert.equal(artifact.activationEligible, false);
+  assert.equal(artifact.evidenceSummary.migrationsVerified, false);
+  assert.ok(artifact.blockers.includes("production-migrations-unverified"));
 });
 
 test("the artifact becomes activation-eligible only when every external gate is explicitly passed", () => {
@@ -128,11 +166,7 @@ test("the artifact becomes activation-eligible only when every external gate is 
     productionEvidence: readyProductionEvidence(),
     manifest,
     deployment: productionDeployment,
-    migrationEvidence: {
-      status: "passed",
-      observedAt: "2026-08-07T13:40:00.000Z",
-      evidenceRef: "release-evidence/migrations-2026-08-07.json"
-    },
+    migrationEvidence: verifiedMigrationEvidence(),
     manualGateEvidence: {
       "two-user-isolation": { status: "passed", evidenceRef: "release-evidence/rls.json" },
       "physical-push": { status: "passed", evidenceRef: "release-evidence/push.json" }
@@ -151,6 +185,9 @@ test("the artifact becomes activation-eligible only when every external gate is 
   assert.equal(artifact.evidenceSummary.runtimeWorkerEnabled, true);
   assert.equal(artifact.evidenceSummary.protectedWorkerProbesPassed, true);
   assert.equal(artifact.evidenceSummary.manualBlockingGatesPassed, true);
+  assert.equal(artifact.migrationInventory.verifiedAppliedCount, 2);
+  assert.equal(artifact.migrationInventory.unresolvedCount, 0);
+  assert.equal(artifact.migrationInventory.statusFingerprint, "a".repeat(64));
 });
 
 test("production evidence failure remains a hard blocker even if other evidence is passed", () => {
@@ -164,7 +201,7 @@ test("production evidence failure remains a hard blocker even if other evidence 
     productionEvidence: report,
     manifest,
     deployment: productionDeployment,
-    migrationEvidence: { status: "passed" },
+    migrationEvidence: verifiedMigrationEvidence(),
     manualGateEvidence: Object.fromEntries(manifest.manualReleaseChecks.map((gate) => [gate.id, { status: "passed" }])),
     workerProbeEvidence: Object.fromEntries(manifest.internalWorkers.map((worker) => [worker.path, { status: "passed", httpStatus: 401 }]))
   });
@@ -200,7 +237,7 @@ test("artifact identity is deterministic for the same evidence package", () => {
     productionEvidence: readyProductionEvidence(),
     manifest,
     deployment: productionDeployment,
-    migrationEvidence: { status: "unverified" }
+    migrationEvidence: { status: "unverified", productionVerified: false }
   };
   const one = buildProductionReleaseEvidence(input);
   const two = buildProductionReleaseEvidence(input);
@@ -208,13 +245,16 @@ test("artifact identity is deterministic for the same evidence package", () => {
   assert.equal(one.manifestFingerprint, two.manifestFingerprint);
 });
 
-test("public production-evidence API exports release JSON without accepting proof from the caller", async () => {
+test("public production-evidence API derives migration proof from the canonical registry, not query parameters", async () => {
   const route = await source("app/api/production-evidence/route.js");
+  assert.match(route, /production-migration-status\.json/);
+  assert.match(route, /buildMigrationReleaseStatus/);
+  assert.match(route, /statusDocument:\s*productionMigrationStatus/);
   assert.match(route, /buildProductionReleaseEvidence/);
   assert.match(route, /runtimeDeploymentEvidence\(process\.env\)/);
   assert.match(route, /new Set\(\["json", "csv", "release"\]\)/);
   assert.match(route, /filename="scorecaster-release-evidence-/);
-  assert.match(route, /migrationEvidence:\s*\{\s*status: "unverified"/s);
+  assert.match(route, /migrationEvidence,/);
   assert.match(route, /manualGateEvidence: \{\}/);
   assert.match(route, /workerProbeEvidence: \{\}/);
   assert.doesNotMatch(route, /manualGateEvidence.*searchParams|workerProbeEvidence.*searchParams|migrationEvidence.*searchParams/s);
