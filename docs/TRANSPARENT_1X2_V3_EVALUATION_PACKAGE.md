@@ -74,13 +74,21 @@ Accepted fields are intentionally narrow:
 
 Unexpected fields fail the package instead of being silently ignored. This deliberately rejects fields such as `closingOdds`, `closingLine`, settlement prices and ad-hoc post-kickoff feature payloads.
 
+Both model and market probability triples must contain finite values strictly between 0 and 1 and sum to approximately 1. They are normalized only inside that small numerical tolerance; malformed triples fail before evaluation.
+
 ## Chronology contract
 
-For every row:
+Every row must satisfy all of these independent constraints:
 
 ```text
-trainingCutoff <= marketObservedAt <= predictedAt < kickoffAt < outcomeObservedAt <= dataCutoff
+trainingCutoff <= predictedAt
+marketObservedAt <= predictedAt
+predictedAt < kickoffAt
+kickoffAt < outcomeObservedAt
+outcomeObservedAt <= dataCutoff
 ```
+
+The training cutoff and market-snapshot time do not need an artificial ordering relative to each other; each independently has to be information available no later than prediction time.
 
 `marketObservedAt` represents the no-vig market snapshot available at prediction time. It is a separate benchmark, not a hidden model label.
 
@@ -115,6 +123,12 @@ From the repository root:
 node scripts/build-1x2-evaluation-package.mjs \
   --input path/to/reviewed-evaluation-input.json \
   --output artifacts/transparent-1x2-evaluation-package.json
+```
+
+Or through npm:
+
+```bash
+npm run model:1x2-evaluate -- --input path/to/reviewed-evaluation-input.json
 ```
 
 To make the command fail unless the package has real reviewed historical evidence and the configured minimum sample:
