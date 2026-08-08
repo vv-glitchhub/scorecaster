@@ -1,8 +1,9 @@
 import { readFile } from "node:fs/promises";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { assessAgentDecisionSigningKey } from "../lib/agent-signing-key-readiness.mjs";
 
-const root = resolve(new URL("../", import.meta.url).pathname);
+const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const args = process.argv.slice(2);
 const fileArg = args.find((value) => value.startsWith("--file="));
 const requirePresent = args.includes("--require-present");
