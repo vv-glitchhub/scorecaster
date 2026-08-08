@@ -83,6 +83,8 @@ test("static worker contract audit checks every declared internal worker before 
   assert.match(audit, /authorization\|authorized/i);
   assert.match(audit, /guardBeforeAction/);
   assert.match(audit, /Cache-Control/);
+  assert.match(audit, /implementationFingerprint/);
+  assert.match(audit, /sourceSha256/);
   assert.match(audit, /workerInvoked: false/);
 });
 
@@ -96,3 +98,5 @@ test("client boundary audit scans built web static assets and mobile source with
   assert.match(audit, /secretValuesLoadedForComparison: false/);
   assert.match(audit, /--require-web-build/);
 });
+
+await import("./protected-worker-production-evidence.test.mjs");
