@@ -120,6 +120,7 @@ test("account export and delete routes remain scoped to authenticated identity",
   assert.match(accountRoute, /\.eq\("user_id",\s*auth\.user\.id\)/);
   assert.match(accountRoute, /\.eq\("id",\s*auth\.user\.id\)/);
   assert.match(accountRoute, /deleteUser\(auth\.user\.id\)/);
-  assert.match(security, /auth\.getUser\(token\)/);
+  assert.match(security, /supabase\.auth\.getUser\(bearerToken\)/);
+  assert.match(security, /supabase\.auth\.getUser\(\)/);
   assert.match(security, /createServerClient/);
 });
