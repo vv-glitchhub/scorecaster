@@ -39,6 +39,9 @@ jobs:
       - name: Paired baseline challenger evidence regressions
         run: node --test scripts/transparent-1x2-paired-evidence.test.mjs scripts/transparent-1x2-paired-evidence-failclosed.test.mjs
 
+      - name: Immutable manual model candidate registry
+        run: npm run test:model-candidate-registry
+
       - name: Existing Transparent 1X2 baseline regressions
         run: node --test scripts/transparent-1x2-baseline.test.mjs
 
