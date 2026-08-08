@@ -245,18 +245,23 @@ test("artifact identity is deterministic for the same evidence package", () => {
   assert.equal(one.manifestFingerprint, two.manifestFingerprint);
 });
 
-test("public production-evidence API derives migration proof from the canonical registry, not query parameters", async () => {
+test("public production-evidence API derives migration and cache proof from canonical trusted registries, not query parameters", async () => {
   const route = await source("app/api/production-evidence/route.js");
   assert.match(route, /production-migration-status\.json/);
   assert.match(route, /buildMigrationReleaseStatus/);
   assert.match(route, /statusDocument:\s*productionMigrationStatus/);
+  assert.match(route, /production-manual-gate-evidence\.json/);
+  assert.match(route, /buildTrustedLiveDataCacheGateEvidence/);
+  assert.match(route, /trustedDocument:\s*productionManualGateEvidence/);
+  assert.match(route, /implementation:\s*liveDataCacheImplementation/);
+  assert.match(route, /policy:\s*liveDataCachePolicy/);
   assert.match(route, /buildProductionReleaseEvidence/);
   assert.match(route, /runtimeDeploymentEvidence\(process\.env\)/);
   assert.match(route, /new Set\(\["json", "csv", "release"\]\)/);
   assert.match(route, /filename="scorecaster-release-evidence-/);
   assert.match(route, /migrationEvidence,/);
-  assert.match(route, /manualGateEvidence: \{\}/);
+  assert.match(route, /manualGateEvidence:\s*retainedCacheEvidence\.manualGateEvidence/);
   assert.match(route, /workerProbeEvidence: \{\}/);
-  assert.doesNotMatch(route, /manualGateEvidence.*searchParams|workerProbeEvidence.*searchParams|migrationEvidence.*searchParams/s);
+  assert.doesNotMatch(route, /manualGateEvidence.*searchParams|workerProbeEvidence.*searchParams|migrationEvidence.*searchParams|productionVerified.*searchParams|gateStatus.*searchParams/s);
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY|x-apikey/i);
 });
