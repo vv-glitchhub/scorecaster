@@ -12,14 +12,16 @@
     "requiredCacheControlTokens": ["no-store", "max-age=0"]
   },
   "serviceWorker": {
-    "mode": "disabled-until-reviewed-network-only",
-    "forbiddenSourcePatterns": [
-      "navigator.serviceWorker.register",
-      "navigator.serviceWorker.ready",
-      "self.addEventListener('fetch'",
-      "self.addEventListener(\"fetch\"",
-      "caches.open(",
-      "caches.match(",
+    "mode": "reviewed-network-only-api-bypass",
+    "registrationPath": "app/components/PwaRegister.jsx",
+    "workerPath": "public/sw.js",
+    "scriptUrl": "/sw.js",
+    "requiredApiBypass": "if (url.pathname.startsWith(\"/api/\")) return;",
+    "requiredGuards": [
+      "if (request.method !== \"GET\") return;",
+      "if (url.origin !== self.location.origin) return;"
+    ],
+    "forbiddenGeneralPatterns": [
       "workbox",
       "runtimeCaching"
     ]
