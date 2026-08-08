@@ -1,0 +1,137 @@
+{
+  "version": 1,
+  "product": "Scorecaster",
+  "tables": [
+    {
+      "table": "profiles",
+      "ownerColumn": "id",
+      "migration": "supabase/scorecaster_auth_cloud.sql",
+      "clientAccess": ["select", "update"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "account"
+    },
+    {
+      "table": "bankroll_settings",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_auth_cloud.sql",
+      "clientAccess": ["select", "insert", "update", "delete"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "bankroll-risk"
+    },
+    {
+      "table": "bets",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_auth_cloud.sql",
+      "clientAccess": ["select", "insert", "update", "delete"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "paper-bets"
+    },
+    {
+      "table": "watchlist_items",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_watchlist_alerts.sql",
+      "clientAccess": ["select", "insert", "update", "delete"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "watchlist"
+    },
+    {
+      "table": "alert_inbox",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_alert_inbox.sql",
+      "clientAccess": ["select", "insert", "update", "delete"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "alerts"
+    },
+    {
+      "table": "autonomous_agent_settings",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_autonomous_agent.sql",
+      "clientAccess": ["select", "insert", "update"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "autonomous-settings"
+    },
+    {
+      "table": "autonomous_agent_state",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_autonomous_agent.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "autonomous-state"
+    },
+    {
+      "table": "autonomous_agent_runs",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_autonomous_agent.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "autonomous-runs"
+    },
+    {
+      "table": "autonomous_agent_decision_audit",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_autonomous_agent_v2.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "autonomous-audit"
+    },
+    {
+      "table": "shadow_learning_samples",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_shadow_learning_v1.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "shadow-learning"
+    },
+    {
+      "table": "shadow_learning_state",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_shadow_learning_v1.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "shadow-learning"
+    },
+    {
+      "table": "shadow_learning_cycles",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_shadow_learning_v1.sql",
+      "clientAccess": ["select"],
+      "crossUserSafeNoopUpdate": false,
+      "category": "shadow-learning"
+    }
+  ],
+  "accountApis": [
+    {
+      "path": "/api/account/export",
+      "method": "GET",
+      "bearer": true,
+      "cookie": true,
+      "mustScopeToAuthenticatedUser": true
+    },
+    {
+      "path": "/api/account",
+      "method": "DELETE",
+      "bearer": true,
+      "cookie": true,
+      "mustScopeToAuthenticatedUser": true,
+      "destructive": true
+    }
+  ],
+  "hardCaps": {
+    "migration": "supabase/scorecaster_autonomous_v13_hard_caps.sql",
+    "sameEventDuplicate": true,
+    "maxAutonomousStakeFraction": 0.01,
+    "maxDailyPaperExposureFraction": 0.05,
+    "maxSameLeagueExposureFraction": 0.025,
+    "databaseAuthority": "before insert or update trigger on public.bets"
+  },
+  "evidenceRules": {
+    "rawUserIdsAllowed": false,
+    "tokensAllowed": false,
+    "cookiesAllowed": false,
+    "serviceRoleValueAllowed": false,
+    "passwordsAllowed": false,
+    "crossUserSelectMustReturnRows": 0,
+    "crossUserNoopUpdateMustReturnRows": 0,
+    "destructiveAccountDeleteRequiresDisposableTestAccount": true
+  }
+}
