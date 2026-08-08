@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "gates": {
+    "live-data-pwa-cache-boundary": {
+      "status": "passed",
+      "evidenceType": "vercel-production-double-probe-v1",
+      "implementationFingerprint": "97655f823e7d4a52a4a3f657bed0f2d4522bef10a12da5337e02b9e523631755",
+      "verifiedDeployment": {
+        "deploymentId": "dpl_Dm93CVDbD5576acTtXggJbPHoWPJ",
+        "commitSha": "fdcaf7e2d3de5107273118b58ada8548243e5955",
+        "environment": "production",
+        "host": "scorecaster.vercel.app"
+      },
+      "observedAt": "2026-08-08T17:18:48.463Z",
+      "evidenceRef": "github-issue-151#production-live-cache-double-probe",
+      "probes": [
+        {
+          "path": "/api/health",
+          "observedAt": "2026-08-08T17:18:40.433Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        },
+        {
+          "path": "/api/health",
+          "observedAt": "2026-08-08T17:18:48.463Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        }
+      ],
+      "rawResponseBodyIncluded": false,
+      "secretValuesIncluded": false,
+      "userIdentifiersIncluded": false,
+      "providerPayloadsIncluded": false
+    }
+  }
+}

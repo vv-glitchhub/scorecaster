@@ -15,7 +15,7 @@
     "release:check": "npm run release:audit && npm --prefix mobile run release:check",
     "test:security": "node --test scripts/api-security.test.mjs",
     "test:production-security": "node --test scripts/production-security-evidence.test.mjs && node scripts/protected-worker-contract-audit.mjs",
-    "test:cache-boundary": "node --test scripts/live-data-cache-boundary.test.mjs",
+    "test:cache-boundary": "node --test scripts/live-data-cache-boundary.test.mjs scripts/live-data-cache-production-evidence.test.mjs",
     "test:model": "node --test scripts/market-consensus.test.mjs",
     "test:1x2-evaluation": "node --test scripts/transparent-1x2-evaluation-package.test.mjs scripts/transparent-1x2-evaluation-package-failclosed.test.mjs scripts/transparent-1x2-paired-evidence.test.mjs scripts/transparent-1x2-paired-evidence-failclosed.test.mjs",
     "test:model-candidate-registry": "node --test scripts/transparent-1x2-model-candidate-registry.test.mjs && node scripts/transparent-1x2-model-candidate-registry-audit.mjs",

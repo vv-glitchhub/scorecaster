@@ -1,5 +1,9 @@
+import liveDataCacheImplementation from "../../../config/live-data-cache-implementation.json";
+import liveDataCachePolicy from "../../../config/live-data-cache-boundary.json";
+import productionManualGateEvidence from "../../../config/production-manual-gate-evidence.json";
 import productionMigrationStatus from "../../../config/production-migration-status.json";
 import releaseManifest from "../../../config/release-readiness.json";
+import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
 import {
@@ -184,16 +188,35 @@ export async function GET(request) {
       manifest: releaseManifest,
       statusDocument: productionMigrationStatus
     });
+    const retainedCacheEvidence = buildTrustedLiveDataCacheGateEvidence({
+      trustedDocument: productionManualGateEvidence,
+      implementation: liveDataCacheImplementation,
+      policy: liveDataCachePolicy
+    });
     const artifact = buildProductionReleaseEvidence({
       productionEvidence: report,
       manifest: releaseManifest,
       deployment: runtimeDeploymentEvidence(process.env),
       migrationEvidence,
-      manualGateEvidence: {},
+      manualGateEvidence: retainedCacheEvidence.manualGateEvidence,
       workerProbeEvidence: {}
     });
     return json(
-      { ...artifact, filters: { days, sport: sport || null }, warnings },
+      {
+        ...artifact,
+        retainedEvidence: {
+          liveDataCacheBoundary: {
+            status: retainedCacheEvidence.status,
+            implementationFingerprint: retainedCacheEvidence.implementationFingerprint,
+            observedAt: retainedCacheEvidence.observedAt,
+            probeCount: retainedCacheEvidence.probeCount,
+            verifiedDeployment: retainedCacheEvidence.verifiedDeployment,
+            failures: retainedCacheEvidence.failures
+          }
+        },
+        filters: { days, sport: sport || null },
+        warnings
+      },
       200,
       { "Content-Disposition": `attachment; filename="scorecaster-release-evidence-${days}d.json"` }
     );

@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "policyFingerprint": "74109089039910f940bae74f766e7e1be80a7dfa3c44c7d92f76bc3d77890040",
+  "files": [
+    {
+      "path": "next.config.js",
+      "sha256": "2bccbbc45d6595022c20c0e0dd1d001b4287ee16a862813752c95e73cf1546f4"
+    },
+    {
+      "path": "app/components/PwaRegister.jsx",
+      "sha256": "3af59b4a6f9c47c7cecd847dd365f50530c343a39bb4f40df2a9d524cadd2ecb"
+    },
+    {
+      "path": "public/sw.js",
+      "sha256": "ddd68041f4abc674643791926ae22d86a22f64b469b58fa722a2a5f0eb9c423f"
+    }
+  ],
+  "implementationFingerprint": "97655f823e7d4a52a4a3f657bed0f2d4522bef10a12da5337e02b9e523631755"
+}
