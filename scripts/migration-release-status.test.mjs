@@ -63,7 +63,7 @@ test("all configured migrations become passed only with complete explicit eviden
   assert.equal(result.statusFingerprint.length, 64);
 });
 
-test("an applied migration without verification evidence fails closed", () => {
+test("an applied migration without verification evidence fails closed and remains unresolved", () => {
   const statusDocument = allAppliedStatus();
   statusDocument.migrations[3] = {
     ...statusDocument.migrations[3],
@@ -74,6 +74,8 @@ test("an applied migration without verification evidence fails closed", () => {
   assert.equal(result.status, "failed");
   assert.equal(result.productionVerified, false);
   assert.equal(result.validationPassed, false);
+  assert.equal(result.verifiedAppliedCount, manifest.supabaseMigrations.length - 1);
+  assert.equal(result.unresolvedCount, 1);
   assert.ok(result.validationFailures.includes("applied-migration-missing-evidence"));
 });
 
