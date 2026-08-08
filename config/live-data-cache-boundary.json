@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "product": "Scorecaster",
+  "policy": "network-only-live-api",
+  "apiHeaderRule": {
+    "source": "/api/:path*",
+    "requiredCacheControlTokens": ["no-store", "max-age=0"]
+  },
+  "serviceWorker": {
+    "mode": "disabled-until-reviewed-network-only",
+    "forbiddenSourcePatterns": [
+      "navigator.serviceWorker.register",
+      "navigator.serviceWorker.ready",
+      "self.addEventListener('fetch'",
+      "self.addEventListener(\"fetch\"",
+      "caches.open(",
+      "caches.match(",
+      "workbox",
+      "runtimeCaching"
+    ]
+  },
+  "productionProbe": {
+    "paths": [
+      "/api/health"
+    ],
+    "requiredCacheControlTokens": ["no-store"],
+    "forbiddenVercelCacheStates": ["HIT", "STALE"],
+    "maximumAgeHeaderSeconds": 0
+  },
+  "evidence": {
+    "rawResponseBodyIncluded": false,
+    "responseHeadersAllowlist": [
+      "cache-control",
+      "age",
+      "x-vercel-cache",
+      "x-vercel-id",
+      "content-type"
+    ],
+    "secretsAllowed": false,
+    "personalDataAllowed": false
+  },
+  "productBoundary": {
+    "paperOnly": true,
+    "bookmakerLogin": false,
+    "deposits": false,
+    "withdrawals": false,
+    "cashOut": false,
+    "realMoneyExecution": false
+  }
+}
