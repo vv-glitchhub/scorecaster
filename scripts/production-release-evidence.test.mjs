@@ -245,7 +245,7 @@ test("artifact identity is deterministic for the same evidence package", () => {
   assert.equal(one.manifestFingerprint, two.manifestFingerprint);
 });
 
-test("public production-evidence API derives migration and cache proof from canonical trusted registries, not query parameters", async () => {
+test("public production-evidence API derives migration, cache and worker proof from canonical trusted registries, not query parameters", async () => {
   const route = await source("app/api/production-evidence/route.js");
   assert.match(route, /production-migration-status\.json/);
   assert.match(route, /buildMigrationReleaseStatus/);
@@ -255,13 +255,18 @@ test("public production-evidence API derives migration and cache proof from cano
   assert.match(route, /trustedDocument:\s*productionManualGateEvidence/);
   assert.match(route, /implementation:\s*liveDataCacheImplementation/);
   assert.match(route, /policy:\s*liveDataCachePolicy/);
+  assert.match(route, /production-worker-probe-evidence\.json/);
+  assert.match(route, /protected-worker-implementation\.json/);
+  assert.match(route, /buildTrustedProtectedWorkerProbeEvidence/);
+  assert.match(route, /trustedDocument:\s*productionWorkerProbeEvidence/);
+  assert.match(route, /implementation:\s*protectedWorkerImplementation/);
   assert.match(route, /buildProductionReleaseEvidence/);
   assert.match(route, /runtimeDeploymentEvidence\(process\.env\)/);
   assert.match(route, /new Set\(\["json", "csv", "release"\]\)/);
   assert.match(route, /filename="scorecaster-release-evidence-/);
   assert.match(route, /migrationEvidence,/);
   assert.match(route, /manualGateEvidence:\s*retainedCacheEvidence\.manualGateEvidence/);
-  assert.match(route, /workerProbeEvidence: \{\}/);
-  assert.doesNotMatch(route, /manualGateEvidence.*searchParams|workerProbeEvidence.*searchParams|migrationEvidence.*searchParams|productionVerified.*searchParams|gateStatus.*searchParams/s);
+  assert.match(route, /workerProbeEvidence:\s*retainedWorkerEvidence\.workerProbeEvidence/);
+  assert.doesNotMatch(route, /manualGateEvidence.*searchParams|workerProbeEvidence.*searchParams|migrationEvidence.*searchParams|productionVerified.*searchParams|gateStatus.*searchParams|workerStatus.*searchParams/s);
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY|x-apikey/i);
 });
