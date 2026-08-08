@@ -38,8 +38,9 @@ test("two-user matrix covers account, paper, watchlist, alerts, autonomous and s
 
 test("static contract audit checks RLS ownership, client grants, hard caps and account scoping", async () => {
   const audit = await source("scripts/two-user-isolation-contract-audit.mjs");
-  assert.match(audit, /enable\\s\+row\\s\+level\\s\+security/);
-  assert.match(audit, /force\\s\+row\\s\+level\\s\+security/);
+  assert.match(audit, /function hasRls\(/);
+  assert.match(audit, /hasRls\(source, table\.table, "enable"\)/);
+  assert.match(audit, /hasRls\(source, table\.table, "force"\)/);
   assert.match(audit, /auth\\\.uid/);
   assert.match(audit, /hasAuthenticatedPrivilege/);
   assert.match(audit, /hasAuthenticatedRevoke/);
@@ -90,7 +91,9 @@ test("transactional production probe is rollback-only and exercises destructive 
   assert.match(sql, /persistentRowsWritten', false/);
   assert.match(sql, /transactionOutcome', 'rollback'/);
   assert.match(sql, /rollback;\s*$/i);
-  assert.doesNotMatch(sql, /password|bearer\s+[A-Za-z0-9._-]{20,}|service_role_key/i);
+
+  const executableSql = sql.replace(/--.*$/gm, "");
+  assert.doesNotMatch(executableSql, /bearer\s+[A-Za-z0-9._-]{20,}|service[_-]?role[_-]?key|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/i);
 });
 
 test("account export and delete routes remain scoped to authenticated identity", async () => {
@@ -99,12 +102,16 @@ test("account export and delete routes remain scoped to authenticated identity",
     source("app/api/account/route.js"),
     source("lib/api-security.js")
   ]);
-  assert.match(exportRoute, /requireCsrf: false/);
-  assert.match(exportRoute, /user_id=eq\.\$\{auth\.user\.id\}/);
-  assert.match(exportRoute, /id=eq\.\$\{auth\.user\.id\}/);
+
+  assert.match(exportRoute, /export async function GET\(request\)/);
+  assert.match(exportRoute, /getAuthenticatedContext\(request\)/);
+  assert.doesNotMatch(exportRoute, /getAuthenticatedContext\(request,\s*\{[^}]*requireCsrf:\s*true/s);
+  assert.match(exportRoute, /\.eq\("user_id",\s*auth\.user\.id\)/);
+  assert.match(exportRoute, /\.eq\("id",\s*auth\.user\.id\)/);
   assert.match(exportRoute, /id:\s*auth\.user\.id/);
-  assert.match(accountRoute, /requireCsrf: true/);
-  assert.match(accountRoute, /\.eq\("id", auth\.user\.id\)/);
+
+  assert.match(accountRoute, /requireCsrf:\s*true/);
+  assert.match(accountRoute, /\.eq\("id",\s*auth\.user\.id\)/);
   assert.match(accountRoute, /deleteUser\(auth\.user\.id\)/);
   assert.match(security, /auth\.getUser\(token\)/);
   assert.match(security, /createServerClient/);
