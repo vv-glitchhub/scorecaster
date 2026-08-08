@@ -95,6 +95,11 @@ jobs:
           set -o pipefail
           npm run test:agent-ticket 2>&1 | tee agent-ticket.log
 
+      - name: Agent decision signing-key handoff tests
+        run: |
+          set -o pipefail
+          npm run test:agent-signing-key-handoff 2>&1 | tee agent-signing-key-handoff.log
+
       - name: Agent V11 self-learning model lab tests
         run: |
           set -o pipefail
@@ -206,6 +211,7 @@ jobs:
             agent-v9.log
             agent-v10.log
             agent-ticket.log
+            agent-signing-key-handoff.log
             agent-v11.log
             watchlist.log
             watchlist-monitor.log
