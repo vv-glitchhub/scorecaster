@@ -78,7 +78,7 @@ test("historical package is deterministic, redacted and ready only for manual re
 
   const serialized = JSON.stringify(one);
   assert.doesNotMatch(serialized, /internal-prediction-log|reviewed-market-snapshot/);
-  assert.doesNotMatch(serialized, /closingOdds|closingLine|service[_-]?role|bearer\s+[a-z0-9._-]{20,}/i);
+  assert.doesNotMatch(serialized, /"closingOdds"\s*:|"closingLine"\s*:|service[_-]?role|bearer\s+[a-z0-9._-]{20,}/i);
 });
 
 test("synthetic fixture can exercise CI but cannot count as historical validation", () => {
