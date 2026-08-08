@@ -1,0 +1,42 @@
+name: Scorecaster Public Surface Production Evidence
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  public-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Static public-surface contract audit
+        env:
+          PUBLIC_SURFACE_CONTRACT_REPORT_PATH: artifacts/public-surface-contract.json
+        run: node scripts/public-surface-contract-audit.mjs
+
+      - name: Production public-surface probe
+        env:
+          PUBLIC_SURFACE_BASE_URL: https://scorecaster.vercel.app
+          PUBLIC_SURFACE_PRODUCTION_REPORT_PATH: artifacts/public-surface-production-probe.json
+        run: node scripts/public-surface-production-probe.mjs
+
+      - name: Upload redacted public-surface evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-public-surface-production-evidence
+          path: artifacts/*.json
+          if-no-files-found: error
