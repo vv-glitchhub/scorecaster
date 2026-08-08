@@ -7,8 +7,9 @@ import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 
 const root = resolve(fileURLToPath(new URL("../", import.meta.url)));
+const implementation = JSON.parse(await readFile(resolve(root, "config/protected-api-implementation.json"), "utf8"));
 
-test("every declared protected API has a static fail-closed auth contract and deterministic fingerprint", async () => {
+test("every declared protected API has a static fail-closed auth contract and reviewed deterministic fingerprint", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scorecaster-protected-api-contract-"));
   const reportPath = join(directory, "report.json");
   try {
@@ -19,12 +20,12 @@ test("every declared protected API has a static fail-closed auth contract and de
     });
     assert.equal(run.status, 0, `${run.stderr || ""}\n${run.stdout || ""}`);
     const report = JSON.parse(await readFile(reportPath, "utf8"));
-    assert.equal(report.version, "scorecaster-protected-api-contract-v1");
-    assert.equal(report.apiCount, 12);
-    assert.equal(report.passedApis, 12);
+    assert.equal(report.version, implementation.contractVersion);
+    assert.equal(report.apiCount, implementation.apiCount);
+    assert.equal(report.passedApis, implementation.apiCount);
     assert.equal(report.failedApis, 0);
     assert.equal(report.passed, true);
-    assert.match(report.implementationFingerprint, /^[0-9a-f]{64}$/);
+    assert.equal(report.implementationFingerprint, implementation.implementationFingerprint);
     assert.equal(report.apis.every((api) => api.passed), true);
     assert.equal(report.safety.sessionCredentialRead, false);
     assert.equal(report.safety.bearerTokenRead, false);
@@ -34,3 +35,5 @@ test("every declared protected API has a static fail-closed auth contract and de
     await rm(directory, { recursive: true, force: true });
   }
 });
+
+await import("./protected-api-production-evidence.test.mjs");
