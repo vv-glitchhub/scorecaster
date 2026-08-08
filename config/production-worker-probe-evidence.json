@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "evidenceType": "vercel-production-unauthenticated-worker-probes-v1",
+  "implementationFingerprint": "0ce54bc07b008cf4281eb6653355bc5b233f52288899219e1a3c193ba56ce3ea",
+  "verifiedDeployment": {
+    "deploymentId": "dpl_G9VV6ecfECVx3NKfisaafRHry9Y1",
+    "commitSha": "805ef19a1493020aa34a6b824d814b6606ffb699",
+    "environment": "production",
+    "host": "scorecaster.vercel.app"
+  },
+  "observedAt": "2026-08-08T17:39:54.000Z",
+  "evidenceRef": "github-issue-153#production-unauthenticated-worker-probes",
+  "probes": [
+    { "path": "/api/internal/watchlist-monitor", "method": "GET", "observedAt": "2026-08-08T17:36:55.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/settlement-monitor", "method": "GET", "observedAt": "2026-08-08T17:37:15.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/autonomous-agent", "method": "GET", "observedAt": "2026-08-08T17:37:38.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/shadow-learning", "method": "GET", "observedAt": "2026-08-08T17:37:58.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/notification-delivery", "method": "GET", "observedAt": "2026-08-08T17:38:25.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/decision-diagnostics", "method": "GET", "observedAt": "2026-08-08T17:38:48.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/unified-data", "method": "GET", "observedAt": "2026-08-08T17:39:11.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/sports-analytics", "method": "GET", "observedAt": "2026-08-08T17:39:33.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" },
+    { "path": "/api/internal/collector", "method": "GET", "observedAt": "2026-08-08T17:39:54.000Z", "httpStatus": 401, "cacheControl": "no-store", "ageSeconds": 0, "vercelCache": "MISS" }
+  ],
+  "cronSecretSent": false,
+  "authorizationCredentialSent": false,
+  "rawResponseBodyIncluded": false,
+  "secretValuesIncluded": false,
+  "userIdentifiersIncluded": false,
+  "providerPayloadsIncluded": false
+}
