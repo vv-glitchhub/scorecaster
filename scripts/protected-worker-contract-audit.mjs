@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -7,6 +8,16 @@ const manifest = JSON.parse(await readFile(path.join(root, "config/release-readi
 const reportPath = process.env.PROTECTED_WORKER_CONTRACT_REPORT_PATH
   ? path.resolve(root, process.env.PROTECTED_WORKER_CONTRACT_REPORT_PATH)
   : null;
+
+const sha256 = (value) => createHash("sha256").update(value).digest("hex");
+function stable(value) {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+  }
+  return value;
+}
+const fingerprint = (value) => sha256(JSON.stringify(stable(value)));
 
 function routeFile(apiPath) {
   return path.join(root, "app", ...apiPath.split("/").filter(Boolean), "route.js");
@@ -25,6 +36,7 @@ function firstIndex(text, patterns) {
 
 const workers = [];
 const failures = [];
+const implementationEntries = [];
 
 for (const worker of manifest.internalWorkers || []) {
   const file = routeFile(worker.path);
@@ -36,8 +48,24 @@ for (const worker of manifest.internalWorkers || []) {
     const failure = `${worker.path}: route file is missing (${relativeFile})`;
     failures.push(failure);
     workers.push({ path: worker.path, method: worker.method, file: relativeFile, passed: false, failures: [failure] });
+    implementationEntries.push({
+      path: worker.path,
+      method: worker.method,
+      allowedStatuses: worker.allowedStatuses,
+      file: relativeFile,
+      sourceSha256: null
+    });
     continue;
   }
+
+  const sourceSha256 = sha256(source);
+  implementationEntries.push({
+    path: worker.path,
+    method: worker.method,
+    allowedStatuses: worker.allowedStatuses,
+    file: relativeFile,
+    sourceSha256
+  });
 
   const handlerIndex = source.indexOf(`export async function ${worker.method}`);
   const handler = handlerIndex >= 0 ? source.slice(handlerIndex) : "";
@@ -69,6 +97,7 @@ for (const worker of manifest.internalWorkers || []) {
     path: worker.path,
     method: worker.method,
     file: relativeFile,
+    sourceSha256,
     expectedUnauthenticatedStatuses: worker.allowedStatuses,
     cronGuard,
     authorizationGuard,
@@ -81,9 +110,17 @@ for (const worker of manifest.internalWorkers || []) {
   });
 }
 
+const implementationIdentity = {
+  version: 1,
+  internalWorkers: implementationEntries
+};
+const implementationFingerprint = fingerprint(implementationIdentity);
+
 const report = {
-  version: "scorecaster-protected-worker-contract-v1",
+  version: "scorecaster-protected-worker-contract-v2",
   generatedAt: new Date().toISOString(),
+  implementationFingerprint,
+  implementationIdentity,
   workerCount: workers.length,
   passedWorkers: workers.filter((worker) => worker.passed).length,
   failedWorkers: workers.filter((worker) => !worker.passed).length,
@@ -109,4 +146,5 @@ if (failures.length) {
   process.exitCode = 1;
 } else {
   console.log(`Scorecaster protected-worker contract audit passed: ${workers.length}/${workers.length} declared workers fail closed before visible worker/admin actions.`);
+  console.log(`Protected worker implementation fingerprint: ${implementationFingerprint}`);
 }
