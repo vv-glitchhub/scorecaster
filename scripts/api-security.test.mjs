@@ -129,3 +129,5 @@ test("database paper-risk enforcement covers concurrency, league and quality lim
   assert.match(migration, /source', ''/i);
   assert.match(migration, /errcode = '23514'/i);
 });
+
+await import("./protected-api-contract-audit.test.mjs");

@@ -88,6 +88,18 @@ test("static worker contract audit checks every declared internal worker before 
   assert.match(audit, /workerInvoked: false/);
 });
 
+test("static protected API contract audit fingerprints every declared auth surface", async () => {
+  const audit = await source("scripts/protected-api-contract-audit.mjs");
+  assert.match(audit, /manifest\.protectedApis/);
+  assert.match(audit, /getAuthenticatedContext/);
+  assert.match(audit, /localRequireAuthContract/);
+  assert.match(audit, /authBeforeProtectedAction/);
+  assert.match(audit, /implementationFingerprint/);
+  assert.match(audit, /sourceSha256/);
+  assert.match(audit, /protectedApiInvoked: false/);
+  assert.match(audit, /userDataRead: false/);
+});
+
 test("client boundary audit scans built web static assets and mobile source without loading secrets", async () => {
   const audit = await source("scripts/client-secret-boundary-audit.mjs");
   assert.match(audit, /\.next", "static/);
@@ -100,3 +112,4 @@ test("client boundary audit scans built web static assets and mobile source with
 });
 
 await import("./protected-worker-production-evidence.test.mjs");
+await import("./protected-api-production-evidence.test.mjs");

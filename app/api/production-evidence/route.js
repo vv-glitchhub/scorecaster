@@ -2,12 +2,15 @@ import liveDataCacheImplementation from "../../../config/live-data-cache-impleme
 import liveDataCachePolicy from "../../../config/live-data-cache-boundary.json";
 import productionManualGateEvidence from "../../../config/production-manual-gate-evidence.json";
 import productionMigrationStatus from "../../../config/production-migration-status.json";
+import productionProtectedApiProbeEvidence from "../../../config/production-protected-api-probe-evidence.json";
 import productionWorkerProbeEvidence from "../../../config/production-worker-probe-evidence.json";
+import protectedApiImplementation from "../../../config/protected-api-implementation.json";
 import protectedWorkerImplementation from "../../../config/protected-worker-implementation.json";
 import releaseManifest from "../../../config/release-readiness.json";
 import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
+import { buildTrustedProtectedApiProbeEvidence } from "../../../lib/protected-api-production-evidence.mjs";
 import { buildTrustedProtectedWorkerProbeEvidence } from "../../../lib/protected-worker-production-evidence.mjs";
 import {
   buildProductionReleaseEvidence,
@@ -201,13 +204,19 @@ export async function GET(request) {
       implementation: protectedWorkerImplementation,
       manifest: releaseManifest
     });
+    const retainedProtectedApiEvidence = buildTrustedProtectedApiProbeEvidence({
+      trustedDocument: productionProtectedApiProbeEvidence,
+      implementation: protectedApiImplementation,
+      manifest: releaseManifest
+    });
     const artifact = buildProductionReleaseEvidence({
       productionEvidence: report,
       manifest: releaseManifest,
       deployment: runtimeDeploymentEvidence(process.env),
       migrationEvidence,
       manualGateEvidence: retainedCacheEvidence.manualGateEvidence,
-      workerProbeEvidence: retainedWorkerEvidence.workerProbeEvidence
+      workerProbeEvidence: retainedWorkerEvidence.workerProbeEvidence,
+      protectedApiProbeEvidence: retainedProtectedApiEvidence.protectedApiProbeEvidence
     });
     return json(
       {
@@ -229,6 +238,15 @@ export async function GET(request) {
             passedWorkerCount: retainedWorkerEvidence.passedWorkerCount,
             verifiedDeployment: retainedWorkerEvidence.verifiedDeployment,
             failures: retainedWorkerEvidence.failures
+          },
+          protectedApis: {
+            status: retainedProtectedApiEvidence.status,
+            implementationFingerprint: retainedProtectedApiEvidence.implementationFingerprint,
+            observedAt: retainedProtectedApiEvidence.observedAt,
+            apiCount: retainedProtectedApiEvidence.apiCount,
+            passedApiCount: retainedProtectedApiEvidence.passedApiCount,
+            verifiedDeployment: retainedProtectedApiEvidence.verifiedDeployment,
+            failures: retainedProtectedApiEvidence.failures
           }
         },
         filters: { days, sport: sport || null },
