@@ -89,5 +89,7 @@ test("safe upstream evidence re-sanitizes usage and drops account identifiers", 
   assert.equal(evidence.usage.identifiersRetained, false);
   assert.equal(evidence.usage.emailRetained, false);
   assert.equal(evidence.usage.rawPayloadRetained, false);
-  assert.doesNotMatch(JSON.stringify(evidence), /must-not-leak|keyID|customerID|email/i);
+  const serialized = JSON.stringify(evidence);
+  assert.doesNotMatch(serialized, /must-not-leak|keyID|customerID/i);
+  assert.doesNotMatch(serialized, /must-not-leak@example\.com/i);
 });
