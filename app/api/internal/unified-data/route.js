@@ -1,5 +1,4 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
-import { normalizeStoredProviderObservations } from "../../../../lib/provider-observation-normalization-v1.mjs";
 import {
   buildClosingRecord,
   buildProviderObservations,
@@ -43,7 +42,7 @@ async function upsertSnapshots(admin, picks, capturedAt) {
       .single();
     if (error) throw error;
     stored.push(data);
-    observations.push(...normalizeStoredProviderObservations(buildProviderObservations(pick, data.id, { capturedAt })));
+    observations.push(...buildProviderObservations(pick, data.id, { capturedAt }));
   }
   if (observations.length) {
     const { error } = await admin
