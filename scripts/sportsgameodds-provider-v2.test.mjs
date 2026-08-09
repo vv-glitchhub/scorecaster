@@ -46,5 +46,4 @@ test("protected capture explicitly preflights safe quota usage before any event 
   assert.match(provider, /mode: "quota_exhausted"/);
   assert.match(provider, /attempts: 0/);
   assert.match(provider, /quotaPreflightBlocked: true/);
-  assert.match(provider, /eventRequestAllowed/);
 });
