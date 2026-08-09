@@ -20,6 +20,17 @@ const finite = (value) => value === null || value === undefined || value === ""
 const strings = (value, maximum = 30) => Array.isArray(value)
   ? value.slice(0, maximum).map((item) => clean(item, 140)).filter(Boolean)
   : [];
+const modeCounts = (value) => value && typeof value === "object"
+  ? Object.fromEntries(Object.entries(value).slice(0, 20).map(([key, count]) => [clean(key, 60), finite(count)]))
+  : {};
+const confidence = (value) => value && typeof value === "object"
+  ? {
+      average: finite(value.average),
+      minimum: finite(value.minimum),
+      maximum: finite(value.maximum),
+      samples: finite(value.samples)
+    }
+  : { average: null, minimum: null, maximum: null, samples: 0 };
 
 const parsed = new URL(baseUrl);
 if (parsed.protocol !== "https:" || parsed.host !== "scorecaster.vercel.app") {
@@ -66,18 +77,54 @@ const incidentSummary = payload?.incidentSummary && typeof payload.incidentSumma
       byType: Object.fromEntries(Object.entries(payload.incidentSummary.byType || {}).map(([key, value]) => [clean(key, 100), finite(value)]))
     }
   : { active: null, bySeverity: {}, byType: {} };
+const diagnostic = payload?.providerReadiness?.secondaryPricingDiagnostics;
+const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
+  ? {
+      version: clean(diagnostic.version, 100) || null,
+      eventCount: finite(diagnostic.eventCount),
+      oddsObservationCount: finite(diagnostic.oddsObservationCount),
+      providers: (Array.isArray(diagnostic.providers) ? diagnostic.providers : []).slice(0, 20).map((provider) => ({
+        provider: clean(provider?.provider, 100) || "unknown",
+        observations: finite(provider?.observations),
+        eligibleObservations: finite(provider?.eligibleObservations),
+        liveObservations: finite(provider?.liveObservations),
+        usableRate: finite(provider?.usableRate),
+        excludedUnsupportedOrUnconfigured: finite(provider?.excludedUnsupportedOrUnconfigured),
+        leaguesObserved: finite(provider?.leaguesObserved),
+        modeCounts: modeCounts(provider?.modeCounts),
+        confidence: confidence(provider?.confidence)
+      })),
+      byLeague: (Array.isArray(diagnostic.byLeague) ? diagnostic.byLeague : []).slice(0, 100).map((row) => ({
+        provider: clean(row?.provider, 100) || "unknown",
+        sport: clean(row?.sport, 100) || "unknown",
+        league: clean(row?.league, 120) || "unknown",
+        totalLeagueEvents: finite(row?.totalLeagueEvents),
+        observations: finite(row?.observations),
+        eligibleObservations: finite(row?.eligibleObservations),
+        liveObservations: finite(row?.liveObservations),
+        usableRate: finite(row?.usableRate),
+        liveCoverageOfLeague: finite(row?.liveCoverageOfLeague),
+        excludedUnsupportedOrUnconfigured: finite(row?.excludedUnsupportedOrUnconfigured),
+        modeCounts: modeCounts(row?.modeCounts),
+        confidence: confidence(row?.confidence)
+      }))
+    }
+  : null;
 
 const report = {
-  version: "scorecaster-external-production-provider-diagnosis-v1",
+  version: "scorecaster-external-production-provider-diagnosis-v2",
   observedAt: new Date().toISOString(),
   days,
   releaseState: clean(payload.releaseState, 32) || null,
   providers,
   incidentSummary,
+  secondaryPricingDiagnostics,
   safety: {
     credentialsSent: false,
     rawProviderPayloadsRetained: false,
     userIdentifiersRetained: false,
+    eventIdentifiersRetained: false,
+    teamNamesRetained: false,
     originalResponseBodyRetained: false,
     paperOnly: true,
     realMoneyExecution: false
