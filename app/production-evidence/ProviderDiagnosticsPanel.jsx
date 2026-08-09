@@ -39,6 +39,8 @@ const MATCH_LABELS = Object.freeze({
   unknown: "unknown"
 });
 
+const USAGE_INTERVALS = ["per-second", "per-minute", "per-hour", "per-day", "per-month"];
+
 function nonZeroEntries(value = {}, preferred = []) {
   const rows = Object.entries(value || {})
     .filter(([, count]) => presentNumber(count) && Number(count) > 0)
@@ -70,6 +72,50 @@ function Metric({ label, value, detail }) {
       <dt className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-muted)]">{label}</dt>
       <dd className="mt-2 text-xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{value}</dd>
       {detail ? <p className="mt-1 text-xs leading-5 text-[var(--sc-faint)]">{detail}</p> : null}
+    </div>
+  );
+}
+
+function UsageLimits({ usage, tr }) {
+  if (!usage?.observed) {
+    return <span className="text-xs text-[var(--sc-faint)]">{tr({ fi: "Ei usage-evidenssiä vielä", en: "No usage evidence yet", es: "Sin evidencia de uso todavía" })}</span>;
+  }
+
+  const bindings = Array.isArray(usage.bindingLimits) ? usage.bindingLimits : [];
+  const intervals = USAGE_INTERVALS.map((interval) => ({
+    interval,
+    requestRatio: usage.intervals?.[interval]?.maximumObservedRequestRatio,
+    entityRatio: usage.intervals?.[interval]?.maximumObservedEntityRatio
+  })).filter((row) => presentNumber(row.requestRatio) || presentNumber(row.entityRatio));
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-xs font-black text-[var(--sc-text)]">
+          {tr({ fi: "Sitova limit", en: "Binding limit", es: "Límite vinculante" })}: {bindings.length ? bindings.join(" · ") : tr({ fi: "ei tunnistettu", en: "not identified", es: "no identificado" })}
+        </p>
+        <p className="mt-1 text-xs text-[var(--sc-faint)]">
+          {tr({ fi: "Usage-evidenssiä sisältäviä event-rivejä", en: "Event rows carrying usage evidence", es: "Filas de eventos con evidencia de uso" })}: {usage.observationsCarryingUsage ?? 0}. {tr({ fi: "Toistuvat event-rivit eivät ole riippumattomia account-usage-sampleja.", en: "Repeated event rows are not independent account-usage samples.", es: "Las filas repetidas no son muestras independientes del uso de la cuenta." })}
+        </p>
+      </div>
+      {intervals.length ? (
+        <div className="overflow-x-auto">
+          <table className="min-w-[520px] w-full text-left text-xs">
+            <thead className="text-[10px] font-black uppercase tracking-[0.1em] text-[var(--sc-muted)]">
+              <tr><th className="py-2 pr-3">Interval</th><th className="py-2 pr-3">Request usage</th><th className="py-2">Entity usage</th></tr>
+            </thead>
+            <tbody>
+              {intervals.map((row) => (
+                <tr key={row.interval} className="border-t border-[var(--sc-border)]">
+                  <td className="py-2 pr-3 font-black text-[var(--sc-text)]">{row.interval}</td>
+                  <td className="py-2 pr-3">{percent(row.requestRatio)}</td>
+                  <td className="py-2">{percent(row.entityRatio)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -109,6 +155,10 @@ function ProviderCard({ provider, tr }) {
               {presentNumber(upstream.averageRetryAfterSeconds) ? ` · Retry-After ${decimal(upstream.averageRetryAfterSeconds, 1)} s` : ""}
             </p>
           ) : null}
+        </div>
+        <div className="rounded-xl border border-[var(--sc-border)] bg-black/10 p-3">
+          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-muted)]">SportsGameOdds usage</p>
+          <UsageLimits usage={upstream.usage} tr={tr} />
         </div>
         <div>
           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-muted)]">Match gate</p>
