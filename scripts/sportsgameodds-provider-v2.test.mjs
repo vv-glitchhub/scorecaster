@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import "./sportsgameodds-rejection-diagnostics-v1.test.mjs";
 
 const providerSource = () => readFile(new URL("../lib/sportsgameodds-provider.js", import.meta.url), "utf8");
 const matchSource = () => readFile(new URL("../lib/sportsgameodds-match-v3.mjs", import.meta.url), "utf8");
