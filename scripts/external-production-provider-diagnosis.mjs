@@ -20,8 +20,8 @@ const finite = (value) => value === null || value === undefined || value === ""
 const strings = (value, maximum = 30) => Array.isArray(value)
   ? value.slice(0, maximum).map((item) => clean(item, 140)).filter(Boolean)
   : [];
-const modeCounts = (value) => value && typeof value === "object"
-  ? Object.fromEntries(Object.entries(value).slice(0, 20).map(([key, count]) => [clean(key, 60), finite(count)]))
+const countMap = (value, maximum = 20) => value && typeof value === "object"
+  ? Object.fromEntries(Object.entries(value).slice(0, maximum).map(([key, count]) => [clean(key, 60), finite(count)]))
   : {};
 const confidence = (value) => value && typeof value === "object"
   ? {
@@ -31,6 +31,37 @@ const confidence = (value) => value && typeof value === "object"
       samples: finite(value.samples)
     }
   : { average: null, minimum: null, maximum: null, samples: 0 };
+const matchDiagnostics = (value) => value && typeof value === "object"
+  ? {
+      samples: finite(value.samples),
+      rejectionReasonCounts: countMap(value.rejectionReasonCounts, 10),
+      averageCandidateCount: finite(value.averageCandidateCount),
+      averageOrientationCount: finite(value.averageOrientationCount),
+      averageTeamEligibleCount: finite(value.averageTeamEligibleCount),
+      averageTimeEligibleCount: finite(value.averageTimeEligibleCount),
+      averageThresholdEligibleCount: finite(value.averageThresholdEligibleCount),
+      averageBestConfidence: finite(value.averageBestConfidence),
+      averageBestMinTeamSimilarity: finite(value.averageBestMinTeamSimilarity),
+      averageBestTimeDifferenceHours: finite(value.averageBestTimeDifferenceHours),
+      observedThresholds: {
+        teamSimilarity: finite(value.observedThresholds?.teamSimilarity),
+        timeWindowHours: finite(value.observedThresholds?.timeWindowHours),
+        matchConfidence: finite(value.observedThresholds?.matchConfidence)
+      }
+    }
+  : {
+      samples: 0,
+      rejectionReasonCounts: {},
+      averageCandidateCount: null,
+      averageOrientationCount: null,
+      averageTeamEligibleCount: null,
+      averageTimeEligibleCount: null,
+      averageThresholdEligibleCount: null,
+      averageBestConfidence: null,
+      averageBestMinTeamSimilarity: null,
+      averageBestTimeDifferenceHours: null,
+      observedThresholds: { teamSimilarity: null, timeWindowHours: null, matchConfidence: null }
+    };
 
 const parsed = new URL(baseUrl);
 if (parsed.protocol !== "https:" || parsed.host !== "scorecaster.vercel.app") {
@@ -91,8 +122,9 @@ const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
         usableRate: finite(provider?.usableRate),
         excludedUnsupportedOrUnconfigured: finite(provider?.excludedUnsupportedOrUnconfigured),
         leaguesObserved: finite(provider?.leaguesObserved),
-        modeCounts: modeCounts(provider?.modeCounts),
-        confidence: confidence(provider?.confidence)
+        modeCounts: countMap(provider?.modeCounts),
+        confidence: confidence(provider?.confidence),
+        matchDiagnostics: matchDiagnostics(provider?.matchDiagnostics)
       })),
       byLeague: (Array.isArray(diagnostic.byLeague) ? diagnostic.byLeague : []).slice(0, 100).map((row) => ({
         provider: clean(row?.provider, 100) || "unknown",
@@ -105,14 +137,15 @@ const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
         usableRate: finite(row?.usableRate),
         liveCoverageOfLeague: finite(row?.liveCoverageOfLeague),
         excludedUnsupportedOrUnconfigured: finite(row?.excludedUnsupportedOrUnconfigured),
-        modeCounts: modeCounts(row?.modeCounts),
-        confidence: confidence(row?.confidence)
+        modeCounts: countMap(row?.modeCounts),
+        confidence: confidence(row?.confidence),
+        matchDiagnostics: matchDiagnostics(row?.matchDiagnostics)
       }))
     }
   : null;
 
 const report = {
-  version: "scorecaster-external-production-provider-diagnosis-v2",
+  version: "scorecaster-external-production-provider-diagnosis-v3",
   observedAt: new Date().toISOString(),
   days,
   releaseState: clean(payload.releaseState, 32) || null,
@@ -126,6 +159,7 @@ const report = {
     eventIdentifiersRetained: false,
     teamNamesRetained: false,
     originalResponseBodyRetained: false,
+    rejectionDiagnosticsAggregateOnly: true,
     paperOnly: true,
     realMoneyExecution: false
   }
