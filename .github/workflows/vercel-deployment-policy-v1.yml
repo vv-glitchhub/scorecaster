@@ -1,18 +1,18 @@
-name: Scorecaster Vercel Deployment Policy V2
+name: Scorecaster Vercel Deployment Policy V3
 
 on:
   pull_request:
     paths:
       - "vercel.json"
-      - "scripts/vercel-deployment-policy-v2.test.mjs"
-      - "docs/VERCEL_DEPLOYMENT_POLICY_V2.md"
+      - "scripts/vercel-deployment-policy-v3.test.mjs"
+      - "docs/VERCEL_DEPLOYMENT_POLICY_V3.md"
       - ".github/workflows/vercel-deployment-policy-v1.yml"
   push:
     branches: [main]
     paths:
       - "vercel.json"
-      - "scripts/vercel-deployment-policy-v2.test.mjs"
-      - "docs/VERCEL_DEPLOYMENT_POLICY_V2.md"
+      - "scripts/vercel-deployment-policy-v3.test.mjs"
+      - "docs/VERCEL_DEPLOYMENT_POLICY_V3.md"
       - ".github/workflows/vercel-deployment-policy-v1.yml"
   workflow_dispatch:
 
@@ -32,11 +32,12 @@ jobs:
         with:
           node-version: 22
 
-      - name: Verify Git-stage deployment policy
-        run: node --test scripts/vercel-deployment-policy-v2.test.mjs
+      - name: Verify recursive Git-stage deployment policy
+        run: node --test scripts/vercel-deployment-policy-v3.test.mjs
 
-      - name: Verify obsolete ignore-build mechanism is absent
+      - name: Verify obsolete preview mechanisms and single-star default are absent
         run: |
           test ! -f scripts/vercel-ignore-build.mjs
           test ! -f lib/vercel-build-policy-v1.mjs
-          node -e 'const c=require("./vercel.json"); if (Object.prototype.hasOwnProperty.call(c,"ignoreCommand")) process.exit(1); if(c.git?.deploymentEnabled?.["*"]!==false||c.git?.deploymentEnabled?.main!==true) process.exit(1)'
+          test ! -f scripts/vercel-deployment-policy-v2.test.mjs
+          node -e 'const c=require("./vercel.json"); if (Object.prototype.hasOwnProperty.call(c,"ignoreCommand")) process.exit(1); if(c.git?.deploymentEnabled?.["**"]!==false||c.git?.deploymentEnabled?.main!==true) process.exit(1); if(Object.prototype.hasOwnProperty.call(c.git?.deploymentEnabled||{},"*")) process.exit(1)'
