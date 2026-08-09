@@ -7,6 +7,8 @@ on:
       - "lib/provider-readiness-input-v1.mjs"
       - "lib/provider-observation-normalization-v1.mjs"
       - "lib/secondary-pricing-diagnostics-v1.mjs"
+      - "lib/unified-sports-data-service.js"
+      - "lib/unified-sports-data-v2.mjs"
       - "lib/production-release-evidence.mjs"
       - "app/api/production-evidence/**"
       - "app/api/internal/unified-data/**"
