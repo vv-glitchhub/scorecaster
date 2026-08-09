@@ -5,13 +5,16 @@ on:
     paths:
       - "lib/production-evidence-v1.mjs"
       - "lib/provider-readiness-input-v1.mjs"
+      - "lib/provider-observation-normalization-v1.mjs"
       - "lib/secondary-pricing-diagnostics-v1.mjs"
       - "lib/production-release-evidence.mjs"
       - "app/api/production-evidence/**"
+      - "app/api/internal/unified-data/**"
       - "app/production-evidence/**"
       - "app/components/AppShell.jsx"
       - "scripts/production-evidence-v1.test.mjs"
       - "scripts/provider-readiness-input-v1.test.mjs"
+      - "scripts/provider-observation-normalization-v1.test.mjs"
       - "scripts/secondary-pricing-diagnostics-v1.test.mjs"
       - "scripts/production-release-evidence.test.mjs"
       - "scripts/production-release-evidence-ui.test.mjs"
@@ -52,7 +55,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Production evidence and provider-readiness regressions
-        run: node --test scripts/production-evidence-v1.test.mjs scripts/provider-readiness-input-v1.test.mjs scripts/secondary-pricing-diagnostics-v1.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs
+        run: node --test scripts/production-evidence-v1.test.mjs scripts/provider-readiness-input-v1.test.mjs scripts/provider-observation-normalization-v1.test.mjs scripts/secondary-pricing-diagnostics-v1.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs
 
       - name: Unified data chronology regressions
         run: node --test scripts/unified-data-calibration.test.mjs scripts/calibration-lab-v1.test.mjs
