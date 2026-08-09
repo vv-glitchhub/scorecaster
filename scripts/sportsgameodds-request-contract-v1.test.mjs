@@ -112,8 +112,10 @@ test("429 triggers one safe usage lookup, retains bounded evidence and is not im
     assert.equal(result.retried, false);
     assert.deepEqual(result.usage.bindingLimits, ["per-minute:requests"]);
     assert.equal(result.usage.intervals["per-minute"].requestRatio, 1);
+    assert.equal(result.usage.emailRetained, false);
     const serialized = JSON.stringify(result);
-    assert.doesNotMatch(serialized, /quota text must not leak|must-never-leak|keyID|customerID|email/i);
+    assert.doesNotMatch(serialized, /quota text must not leak|must-never-leak|keyID|customerID/i);
+    assert.doesNotMatch(serialized, /must-never-leak@example\.com/i);
   });
 });
 
