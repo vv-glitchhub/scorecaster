@@ -15,7 +15,7 @@ The static repository contract remains a separate prerequisite. `scripts/protect
 - `Cache-Control: no-store`
 - authorization visible before worker/admin actions
 
-The same audit now fingerprints the canonical worker declaration plus SHA-256 of every worker route source. The retained production evidence is valid only for that fingerprint.
+The same audit fingerprints the canonical worker declaration plus SHA-256 of every worker route source. Retained production evidence is valid only for that exact fingerprint.
 
 ## Current reviewed production observation
 
@@ -39,7 +39,19 @@ Raw response bodies are not retained.
 
 ## Stale protection
 
-`config/protected-worker-implementation.json` stores the reviewed worker-contract fingerprint. CI recomputes it from the current manifest and route sources. Any declared worker change, allowed-status change, HTTP method change or worker route source change invalidates the retained production evidence until the current production implementation is re-probed and explicitly reviewed.
+`config/protected-worker-implementation.json` stores the current repository worker-contract fingerprint. CI recomputes it from the manifest and route sources.
+
+A worker route change creates an intentional two-stage state:
+
+1. repository contract audit must pass for the new implementation fingerprint;
+2. the previously retained production probe becomes `stale` and every worker evidence entry becomes `unverified`;
+3. release evidence remains blocked for worker production proof;
+4. after the new implementation is deployed, all nine unauthenticated routes are probed again;
+5. only an explicitly reviewed production document with the new fingerprint can restore `passed` status.
+
+Repository CI is allowed to carry this stale/unverified state during a reviewed worker change, but it is never treated as production proof. This prevents the previous route implementation from certifying a new worker implementation.
+
+The worker-only SportsGameOdds acquisition change intentionally enters this state because `/api/internal/unified-data` changes its post-authorization capture behavior. The static auth boundary still has to pass before merge, and production worker evidence must be refreshed after deployment.
 
 ## Release artifact trust boundary
 
