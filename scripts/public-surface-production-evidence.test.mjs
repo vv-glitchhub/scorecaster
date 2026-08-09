@@ -16,6 +16,8 @@ const clone = (value) => structuredClone(value);
 const manifest = await json("config/release-readiness.json");
 const implementation = await json("config/public-surface-implementation.json");
 const trustedDocument = await json("config/production-public-surface-evidence.json");
+const retainedEvidenceIsCurrent = trustedDocument.implementationFingerprint === implementation.implementationFingerprint;
+const reviewedFixture = { ...clone(trustedDocument), implementationFingerprint: implementation.implementationFingerprint };
 
 test("public surface implementation fingerprint is recomputed from current pages, headers and Next config", async () => {
   const directory = await mkdtemp(join(tmpdir(), "scorecaster-public-surface-contract-"));
@@ -39,8 +41,24 @@ test("public surface implementation fingerprint is recomputed from current pages
   }
 });
 
-test("reviewed public surface evidence passes all 15 pages and five required headers", () => {
+test("repository retained public evidence is either current or explicitly fails closed as stale", () => {
   const result = buildTrustedPublicSurfaceEvidence({ trustedDocument, implementation, manifest });
+  if (retainedEvidenceIsCurrent) {
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "passed");
+    assert.equal(result.pageCount, 15);
+    assert.equal(result.passedPageCount, 15);
+    assert.equal(Object.values(result.publicSurfaceEvidence).every((entry) => entry.status === "passed"), true);
+  } else {
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "unverified");
+    assert.ok(result.failures.includes("public-surface-production-evidence-stale"));
+    assert.equal(Object.values(result.publicSurfaceEvidence).every((entry) => entry.status === "unverified"), true);
+  }
+});
+
+test("a fingerprint-aligned reviewed fixture validates all 15 pages and five required headers", () => {
+  const result = buildTrustedPublicSurfaceEvidence({ trustedDocument: reviewedFixture, implementation, manifest });
   assert.equal(result.ok, true);
   assert.equal(result.status, "passed");
   assert.equal(result.pageCount, 15);
@@ -55,7 +73,7 @@ test("reviewed public surface evidence passes all 15 pages and five required hea
 });
 
 test("stale public surface implementation invalidates every retained page probe", () => {
-  const stale = clone(trustedDocument);
+  const stale = clone(reviewedFixture);
   stale.implementationFingerprint = "0".repeat(64);
   const result = buildTrustedPublicSurfaceEvidence({ trustedDocument: stale, implementation, manifest });
   assert.equal(result.ok, false);
@@ -64,19 +82,19 @@ test("stale public surface implementation invalidates every retained page probe"
 });
 
 test("missing, duplicate and extra public pages fail closed", () => {
-  const missing = clone(trustedDocument);
+  const missing = clone(reviewedFixture);
   missing.probes.pop();
   let result = buildTrustedPublicSurfaceEvidence({ trustedDocument: missing, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("missing-public-page-probe")));
 
-  const duplicate = clone(trustedDocument);
+  const duplicate = clone(reviewedFixture);
   duplicate.probes[14] = clone(duplicate.probes[0]);
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: duplicate, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("duplicate-public-page-probe")));
 
-  const extra = clone(trustedDocument);
+  const extra = clone(reviewedFixture);
   extra.probes.push({ ...clone(extra.probes[0]), path: "/not-declared" });
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: extra, implementation, manifest });
   assert.equal(result.ok, false);
@@ -84,25 +102,25 @@ test("missing, duplicate and extra public pages fail closed", () => {
 });
 
 test("404, wrong security header, missing Age and STALE cache state fail closed", () => {
-  const missingPage = clone(trustedDocument);
+  const missingPage = clone(reviewedFixture);
   missingPage.probes[0].httpStatus = 404;
   let result = buildTrustedPublicSurfaceEvidence({ trustedDocument: missingPage, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("public-page-http-status-not-200")));
 
-  const wrongHeader = clone(trustedDocument);
+  const wrongHeader = clone(reviewedFixture);
   wrongHeader.probes[0].requiredSecurityHeaders["x-frame-options"] = "SAMEORIGIN";
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: wrongHeader, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("public-page-header-mismatch:x-frame-options")));
 
-  const missingAge = clone(trustedDocument);
+  const missingAge = clone(reviewedFixture);
   delete missingAge.probes[0].ageSeconds;
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: missingAge, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.some((failure) => failure.includes("public-page-age-invalid")));
 
-  const staleCache = clone(trustedDocument);
+  const staleCache = clone(reviewedFixture);
   staleCache.probes[0].vercelCache = "STALE";
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: staleCache, implementation, manifest });
   assert.equal(result.ok, false);
@@ -110,26 +128,26 @@ test("404, wrong security header, missing Age and STALE cache state fail closed"
 });
 
 test("HIT and PRERENDER are valid public-page cache states when headers and status are correct", () => {
-  const result = buildTrustedPublicSurfaceEvidence({ trustedDocument, implementation, manifest });
+  const result = buildTrustedPublicSurfaceEvidence({ trustedDocument: reviewedFixture, implementation, manifest });
   assert.equal(result.ok, true);
   assert.ok(result.probes.some((probe) => probe.vercelCache === "HIT"));
   assert.ok(result.probes.some((probe) => probe.vercelCache === "PRERENDER"));
 });
 
 test("secret-bearing refs, retained body or user data fail the evidence boundary", () => {
-  const secretRef = clone(trustedDocument);
+  const secretRef = clone(reviewedFixture);
   secretRef.evidenceRef = "https://example.invalid/evidence?token=secret";
   let result = buildTrustedPublicSurfaceEvidence({ trustedDocument: secretRef, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.includes("public-surface-evidence-reference-invalid-or-secret-bearing"));
 
-  const retainedBody = clone(trustedDocument);
+  const retainedBody = clone(reviewedFixture);
   retainedBody.pageBodyRetained = true;
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: retainedBody, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.includes("public-surface-pageBodyRetained-must-be-false"));
 
-  const retainedUserData = clone(trustedDocument);
+  const retainedUserData = clone(reviewedFixture);
   retainedUserData.userDataRetained = true;
   result = buildTrustedPublicSurfaceEvidence({ trustedDocument: retainedUserData, implementation, manifest });
   assert.equal(result.ok, false);
@@ -139,7 +157,46 @@ test("secret-bearing refs, retained body or user data fail the evidence boundary
   assert.doesNotMatch(serialized, /authorization\s*[:=]|bearer\s|service[_ -]?role|api[_ -]?key|password|cookie=/i);
 });
 
-test("canonical release artifact blocks public pages without evidence and clears only with trusted 15/15 evidence", () => {
+test("canonical release artifact remains blocked while repository public-surface evidence is stale", () => {
+  if (retainedEvidenceIsCurrent) return;
+  const retained = buildTrustedPublicSurfaceEvidence({ trustedDocument, implementation, manifest });
+  assert.equal(retained.ok, false);
+  const artifact = buildProductionReleaseEvidence({
+    productionEvidence: {
+      version: "test",
+      generatedAt: "2026-08-08T18:23:28.050Z",
+      releaseState: "ready",
+      ready: true,
+      blockers: [],
+      worker: { state: "enabled", observedCycles: 1, cycles: 1, denominator: 1, successRate: 1 }
+    },
+    manifest: {
+      product: "Scorecaster",
+      productionBaseUrl: "https://scorecaster.vercel.app",
+      publicPages: manifest.publicPages,
+      requiredSecurityHeaders: manifest.requiredSecurityHeaders,
+      protectedApis: [],
+      internalWorkers: [],
+      manualReleaseChecks: [],
+      supabaseMigrations: [],
+      productionPatches: []
+    },
+    deployment: {
+      source: "runtime-metadata",
+      environment: "production",
+      commitSha: "51918b2d35a564178dcc814be3d53d651d4f5828",
+      host: "scorecaster.vercel.app",
+      deploymentObserved: true,
+      productionRuntimeObserved: true
+    },
+    migrationEvidence: { status: "passed", productionVerified: true },
+    publicSurfaceEvidence: retained.publicSurfaceEvidence
+  });
+  assert.equal(artifact.activationEligible, false);
+  assert.ok(artifact.blockers.includes("public-surface-probes-unverified"));
+});
+
+test("canonical release artifact clears public page blocker only with structurally trusted 15/15 evidence", () => {
   const miniManifest = {
     product: "Scorecaster",
     productionBaseUrl: "https://scorecaster.vercel.app",
@@ -177,7 +234,7 @@ test("canonical release artifact blocks public pages without evidence and clears
   assert.ok(missing.blockers.includes("public-surface-probes-unverified"));
   assert.equal(missing.evidenceSummary.publicSurfaceProbesPassed, false);
 
-  const trusted = buildTrustedPublicSurfaceEvidence({ trustedDocument, implementation, manifest });
+  const trusted = buildTrustedPublicSurfaceEvidence({ trustedDocument: reviewedFixture, implementation, manifest });
   assert.equal(trusted.ok, true);
   const passed = buildProductionReleaseEvidence({ ...base, publicSurfaceEvidence: trusted.publicSurfaceEvidence });
   assert.ok(!passed.blockers.includes("public-surface-probes-unverified"));
