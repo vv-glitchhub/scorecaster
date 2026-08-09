@@ -48,6 +48,16 @@ test("normalization never invents a successful observation", () => {
   assert.equal(row.confidence, 0.99);
 });
 
+test("unified data service forwards only bounded SportsGameOdds match confidence into provider telemetry", async () => {
+  const service = await readFile(new URL("../lib/unified-sports-data-service.js", import.meta.url), "utf8");
+  assert.match(service, /function boundedConfidence\(value\)/);
+  assert.match(service, /number < 0 \|\| number > 1/);
+  assert.match(service, /matchConfidence:\s*boundedConfidence\(secondaryOdds\.matchConfidence \?\? secondaryOdds\.data\?\.matchConfidence\)/);
+  const providerSection = service.match(/providers:\s*\{([\s\S]*?)\n\s*\},\n\s*raw:/)?.[1] || "";
+  assert.match(providerSection, /secondaryOdds:/);
+  assert.doesNotMatch(providerSection, /candidateCount|events\s*:|rawProvider|apiKey/i);
+});
+
 test("unified data library normalizes provider observations before the worker upsert boundary", async () => {
   const library = await readFile(new URL("../lib/unified-sports-data-v2.mjs", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/internal/unified-data/route.js", import.meta.url), "utf8");
