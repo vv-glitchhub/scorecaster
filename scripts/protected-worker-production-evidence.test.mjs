@@ -37,21 +37,33 @@ test("protected worker implementation fingerprint is recomputed from current man
   }
 });
 
-test("reviewed production probes pass only for the exact current protected worker contract", () => {
+test("retained production probes pass only for the exact current worker contract and otherwise fail closed", () => {
   const result = buildTrustedProtectedWorkerProbeEvidence({ trustedDocument, implementation, manifest });
-  assert.equal(result.ok, true);
-  assert.equal(result.status, "passed");
-  assert.equal(result.workerCount, 9);
-  assert.equal(result.passedWorkerCount, 9);
-  assert.equal(Object.values(result.workerProbeEvidence).every((entry) => entry.status === "passed"), true);
-  assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
+  const exactContract = trustedDocument.implementationFingerprint === implementation.implementationFingerprint;
+  if (exactContract) {
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "passed");
+    assert.equal(result.workerCount, 9);
+    assert.equal(result.passedWorkerCount, 9);
+    assert.equal(Object.values(result.workerProbeEvidence).every((entry) => entry.status === "passed"), true);
+    assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
+  } else {
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "unverified");
+    assert.equal(result.workerCount, 9);
+    assert.equal(result.passedWorkerCount, 0);
+    assert.ok(result.failures.includes("worker-production-evidence-stale"));
+    assert.equal(Object.values(result.workerProbeEvidence).every((entry) => entry.status === "unverified"), true);
+  }
   assert.equal(result.evidenceBoundary.cronSecretSent, false);
   assert.equal(result.evidenceBoundary.authorizationCredentialSent, false);
 });
 
 test("stale implementation fingerprint invalidates every retained worker probe", () => {
   const stale = clone(trustedDocument);
-  stale.implementationFingerprint = "0".repeat(64);
+  stale.implementationFingerprint = implementation.implementationFingerprint === "0".repeat(64)
+    ? "1".repeat(64)
+    : "0".repeat(64);
   const result = buildTrustedProtectedWorkerProbeEvidence({ trustedDocument: stale, implementation, manifest });
   assert.equal(result.ok, false);
   assert.ok(result.failures.includes("worker-production-evidence-stale"));
