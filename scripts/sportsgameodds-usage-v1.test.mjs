@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  evaluateSportsGameOddsQuotaPreflight,
   sanitizeSportsGameOddsUsagePayload,
   safeSportsGameOddsUsageEvidence,
   SPORTSGAMEODDS_USAGE_INTERVALS
@@ -110,4 +111,43 @@ test("safe evidence re-sanitizes binding labels and numeric intervals", () => {
   assert.doesNotMatch(serialized, /must-disappear|keyID|customerID/i);
   assert.doesNotMatch(serialized, /must-disappear@example\.com/i);
   assert.equal(safe.emailRetained, false);
+});
+
+test("quota preflight blocks event acquisition when a safe binding limit is exhausted", () => {
+  const usage = sanitizeSportsGameOddsUsagePayload({
+    success: true,
+    data: {
+      isActive: true,
+      rateLimits: {
+        "per-minute": { "max-requests": 10, "current-requests": 3 },
+        "per-month": { "max-entities": 2500, "current-entities": 2500 }
+      }
+    }
+  });
+  const preflight = evaluateSportsGameOddsQuotaPreflight(usage);
+  assert.equal(preflight.blocked, true);
+  assert.equal(preflight.mode, "quota_exhausted");
+  assert.equal(preflight.eventRequestAllowed, false);
+  assert.deepEqual(preflight.bindingLimits, ["per-month:entities"]);
+  assert.equal(preflight.probabilityChanged, false);
+  assert.equal(preflight.matchingThresholdChanged, false);
+  assert.equal(preflight.paperOnly, true);
+});
+
+test("quota preflight allows event acquisition when no safe binding limit is exhausted", () => {
+  const usage = sanitizeSportsGameOddsUsagePayload({
+    success: true,
+    data: {
+      isActive: true,
+      rateLimits: {
+        "per-minute": { "max-requests": 10, "current-requests": 3 },
+        "per-month": { "max-entities": 2500, "current-entities": 2499 }
+      }
+    }
+  });
+  const preflight = evaluateSportsGameOddsQuotaPreflight(usage);
+  assert.equal(preflight.blocked, false);
+  assert.equal(preflight.mode, "available");
+  assert.equal(preflight.eventRequestAllowed, true);
+  assert.deepEqual(preflight.bindingLimits, []);
 });

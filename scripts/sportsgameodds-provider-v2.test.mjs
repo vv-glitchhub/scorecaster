@@ -2,9 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import "./sportsgameodds-rejection-diagnostics-v1.test.mjs";
+import "./sportsgameodds-quota-preflight-v1.test.mjs";
 
 const providerSource = () => readFile(new URL("../lib/sportsgameodds-provider.js", import.meta.url), "utf8");
 const matchSource = () => readFile(new URL("../lib/sportsgameodds-match-v3.mjs", import.meta.url), "utf8");
+const captureSource = () => readFile(new URL("../lib/unified-capture-enrichment-v1.mjs", import.meta.url), "utf8");
 
 test("secondary odds keeps scored team, time and confidence gates unchanged", async () => {
   const [provider, matcher] = await Promise.all([providerSource(), matchSource()]);
@@ -33,4 +35,17 @@ test("provider responses expose bounded match diagnostics without credentials", 
   assert.match(provider, /candidateCount: events\.length/);
   assert.match(provider, /matchDiagnostics/);
   assert.doesNotMatch(provider, /data:\s*\{[^}]*apiKey/s);
+});
+
+test("protected capture explicitly preflights safe quota usage before any event request", async () => {
+  const [provider, capture] = await Promise.all([providerSource(), captureSource()]);
+  assert.match(provider, /\{ preflightUsage = false \}/);
+  assert.match(capture, /fetchSecondary\(matchFromPick\(pick\), \{ preflightUsage: true \}\)/);
+  const preflight = provider.indexOf("evaluateSportsGameOddsQuotaPreflight(await requestUsage(apiKey))");
+  const events = provider.indexOf("const upstream = await requestEvents(url, apiKey)");
+  assert.ok(preflight >= 0 && events > preflight);
+  assert.match(provider, /mode: "api_error"/);
+  assert.match(provider, /errorCategory: "rate_limited"/);
+  assert.match(provider, /attempts: 0/);
+  assert.match(provider, /quotaPreflightBlocked: true/);
 });

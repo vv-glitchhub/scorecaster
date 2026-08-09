@@ -19,7 +19,11 @@ The same audit fingerprints the canonical worker declaration plus SHA-256 of eve
 
 ## Current reviewed production observation
 
-Production deployment `dpl_G9VV6ecfECVx3NKfisaafRHry9Y1`, merge commit `805ef19a1493020aa34a6b824d814b6606ffb699`, was probed without authorization headers or CRON secret.
+Worker-only SportsGameOdds release deployment `dpl_H5Mg5RXJLG3wLUAKtyykmvyYSDP4`, merge commit `ad866939ecd2a84afcd3db9c7d77904ce624a5f3`, was READY in production and probed without authorization headers or CRON secret on 2026-08-09.
+
+Current protected-worker implementation fingerprint:
+
+`b33626e3f73c6b951f3f8ab9169a214fde9cc05c1f43e351e7405a64c65563f8`
 
 All nine declared routes returned HTTP 401:
 
@@ -33,9 +37,9 @@ All nine declared routes returned HTTP 401:
 - `/api/internal/sports-analytics`
 - `/api/internal/collector`
 
-Every retained response also recorded `Cache-Control: no-store`, `Age: 0` and Vercel cache state `MISS`.
+Every retained response also recorded `Cache-Control: no-store`, `Age: 0` and Vercel cache state `MISS`. Review reference: `github-issue-184#post-deploy-worker-probes-ad866939`.
 
-Raw response bodies are not retained.
+Raw response bodies, provider payloads, user identifiers, credentials and secret values are not retained.
 
 ## Stale protection
 
@@ -49,9 +53,7 @@ A worker route change creates an intentional two-stage state:
 4. after the new implementation is deployed, all nine unauthenticated routes are probed again;
 5. only an explicitly reviewed production document with the new fingerprint can restore `passed` status.
 
-Repository CI is allowed to carry this stale/unverified state during a reviewed worker change, but it is never treated as production proof. This prevents the previous route implementation from certifying a new worker implementation.
-
-The worker-only SportsGameOdds acquisition change intentionally enters this state because `/api/internal/unified-data` changes its post-authorization capture behavior. The static auth boundary still has to pass before merge, and production worker evidence must be refreshed after deployment.
+Repository CI may carry a stale/unverified state during a reviewed worker change, but that state is never production proof. The worker-only SportsGameOdds release completed this cycle: its old evidence was invalidated before merge, the changed worker route was deployed, and all nine production probes were repeated before the retained evidence was refreshed.
 
 ## Release artifact trust boundary
 
