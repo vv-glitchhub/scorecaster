@@ -1,13 +1,67 @@
--- Scorecaster public-schema hardening V1
--- Idempotent production patch based on the 2026-08-04 Supabase privilege export.
--- This script does not drop tables, columns, rows or existing policies.
--- It preserves server-side access through service_role and narrows browser roles.
--- Reviewed client grants are restored only when matching RLS policies exist.
+-- Scorecaster public-schema hardening V1.3
+-- Idempotent, data-preserving production patch derived from the live 2026-08-09
+-- Supabase grant/function audit. It does not drop tables, columns, rows or RLS
+-- policies except the obsolete direct-client profile INSERT policy.
+--
+-- Browser roles are narrowed to reviewed CRUD/RPC surfaces. Server workers keep
+-- service_role access. Missing policy support fails the complete transaction.
 
 begin;
 
--- Server-internal and legacy data surfaces. Ordinary tables receive RLS and
--- FORCE RLS. Views cannot use RLS, so their browser grants are revoked instead.
+-- PUBLIC never needs direct relation privileges in the exposed public schema.
+revoke all privileges on all tables in schema public from public;
+
+-- Remove database-owner style relation privileges from every browser-facing
+-- table. PostgREST CRUD never requires TRUNCATE, TRIGGER or REFERENCES.
+do $$
+declare
+  target record;
+begin
+  for target in
+    select n.nspname as schema_name, c.relname as relation_name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+  loop
+    execute format(
+      'revoke truncate, references, trigger on table %I.%I from anon, authenticated',
+      target.schema_name,
+      target.relation_name
+    );
+  end loop;
+end;
+$$;
+
+-- Any RLS table without policies is server-internal by construction: no browser
+-- role can obtain rows from it. Remove its direct browser grants entirely and
+-- preserve service_role for server APIs/workers.
+do $$
+declare
+  target record;
+begin
+  for target in
+    select c.relname as relation_name
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public'
+      and c.relkind in ('r', 'p')
+      and c.relrowsecurity
+      and not exists (
+        select 1 from pg_policies p
+        where p.schemaname = 'public'
+          and p.tablename = c.relname
+      )
+  loop
+    execute format('alter table public.%I force row level security', target.relation_name);
+    execute format('revoke all privileges on table public.%I from public, anon, authenticated', target.relation_name);
+    execute format('grant all privileges on table public.%I to service_role', target.relation_name);
+  end loop;
+end;
+$$;
+
+-- Reviewed server-internal and legacy data surfaces. Ordinary tables receive
+-- RLS + FORCE RLS; views/materialized views are protected by grant revocation.
 do $$
 declare
   target_relation text;
@@ -68,9 +122,90 @@ begin
 end;
 $$;
 
--- User-owned paper rows. Existing RLS policies remain the source of row scope.
--- If the table exists but a required policy command is missing, abort the whole
--- transaction instead of restoring a broad authenticated grant without RLS.
+-- Legacy Production MVP user-owned rows remain authenticated CRUD surfaces.
+-- Anonymous access is removed and every restored CRUD command must be backed by
+-- the existing authenticated RLS policy.
+do $$
+declare
+  target_relation text;
+  required_command text;
+begin
+  foreach target_relation in array array[
+    'bet_slips',
+    'bet_slip_items',
+    'tracked_bets',
+    'pick_explanations',
+    'agent_feedback',
+    'risk_events'
+  ]
+  loop
+    if to_regclass(format('public.%I', target_relation)) is null then
+      continue;
+    end if;
+
+    execute format('alter table public.%I enable row level security', target_relation);
+    execute format('alter table public.%I force row level security', target_relation);
+    execute format('revoke all privileges on table public.%I from public, anon, authenticated', target_relation);
+
+    foreach required_command in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
+    loop
+      if not exists (
+        select 1
+        from pg_policies p
+        where p.schemaname = 'public'
+          and p.tablename = target_relation
+          and upper(p.cmd) in ('ALL', required_command)
+          and exists (
+            select 1 from unnest(p.roles) as policy_role
+            where policy_role::text in ('authenticated', 'public')
+          )
+      ) then
+        raise exception 'Public schema hardening refused: % lacks authenticated RLS policy backing for %', target_relation, required_command;
+      end if;
+    end loop;
+
+    execute format('grant select, insert, update, delete on table public.%I to authenticated', target_relation);
+    execute format('grant all privileges on table public.%I to service_role', target_relation);
+  end loop;
+end;
+$$;
+
+-- Profiles are database/server-created by auth.users trigger. Direct clients may
+-- only read/update their own row; INSERT and DELETE stay server-owned.
+do $$
+declare
+  required_command text;
+begin
+  if to_regclass('public.profiles') is not null then
+    alter table public.profiles enable row level security;
+    alter table public.profiles force row level security;
+    drop policy if exists "Users insert own profile" on public.profiles;
+    revoke all privileges on table public.profiles from public, anon, authenticated;
+
+    foreach required_command in array array['SELECT', 'UPDATE']
+    loop
+      if not exists (
+        select 1
+        from pg_policies p
+        where p.schemaname = 'public'
+          and p.tablename = 'profiles'
+          and upper(p.cmd) in ('ALL', required_command)
+          and exists (
+            select 1 from unnest(p.roles) as policy_role
+            where policy_role::text in ('authenticated', 'public')
+          )
+      ) then
+        raise exception 'Public schema hardening refused: profiles lacks authenticated RLS policy backing for %', required_command;
+      end if;
+    end loop;
+
+    grant select, update on table public.profiles to authenticated;
+    grant all privileges on table public.profiles to service_role;
+  end if;
+end;
+$$;
+
+-- Current paper bets remain authenticated CRUD, policy-backed and anon-closed.
 do $$
 declare
   required_command text;
@@ -89,8 +224,7 @@ begin
           and p.tablename = 'bets'
           and upper(p.cmd) in ('ALL', required_command)
           and exists (
-            select 1
-            from unnest(p.roles) as policy_role
+            select 1 from unnest(p.roles) as policy_role
             where policy_role::text in ('authenticated', 'public')
           )
       ) then
@@ -104,9 +238,7 @@ begin
 end;
 $$;
 
--- User preferences. The legacy production table is intentionally not recreated
--- or reshaped here. Existing policy-backed SELECT/INSERT/UPDATE access is kept;
--- direct DELETE remains revoked. Missing policy support aborts the migration.
+-- User settings keep SELECT/INSERT/UPDATE only; direct DELETE stays revoked.
 do $$
 declare
   required_command text;
@@ -125,8 +257,7 @@ begin
           and p.tablename = 'user_settings'
           and upper(p.cmd) in ('ALL', required_command)
           and exists (
-            select 1
-            from unnest(p.roles) as policy_role
+            select 1 from unnest(p.roles) as policy_role
             where policy_role::text in ('authenticated', 'public')
           )
       ) then
@@ -141,8 +272,6 @@ end;
 $$;
 
 -- Community Feed remains publicly readable, while writes require authentication.
--- The reviewed grant matrix is restored only after all four matching policy
--- commands are found. A missing policy rolls back the complete hardening patch.
 do $$
 declare
   required_command text;
@@ -156,7 +285,6 @@ begin
     foreach required_command in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE']
     loop
       required_role := case when required_command = 'SELECT' then 'public' else 'authenticated' end;
-
       if not exists (
         select 1
         from pg_policies p
@@ -164,8 +292,7 @@ begin
           and p.tablename = 'community_comments'
           and upper(p.cmd) in ('ALL', required_command)
           and exists (
-            select 1
-            from unnest(p.roles) as policy_role
+            select 1 from unnest(p.roles) as policy_role
             where policy_role::text in (required_role, 'public')
           )
       ) then
@@ -176,6 +303,45 @@ begin
     grant select on table public.community_comments to anon, authenticated;
     grant insert, update, delete on table public.community_comments to authenticated;
     grant all privileges on table public.community_comments to service_role;
+  end if;
+end;
+$$;
+
+-- SECURITY DEFINER functions are privileged server boundaries. Revoke inherited
+-- PUBLIC/browser execution from every current function, grant service_role, then
+-- restore only the three reviewed authenticated RPCs used by current server/user
+-- flows. Trigger functions do not require browser EXECUTE privileges to fire.
+do $$
+declare
+  target record;
+begin
+  for target in
+    select p.oid, p.oid::regprocedure::text as signature
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.prosecdef
+  loop
+    execute format('revoke all privileges on function %s from public, anon, authenticated', target.signature);
+    execute format('grant execute on function %s to service_role', target.signature);
+  end loop;
+end;
+$$;
+
+-- Explicit authenticated SECURITY DEFINER allowlist.
+do $$
+begin
+  if to_regprocedure('public.consume_api_quota(text,integer,integer)') is not null then
+    revoke all privileges on function public.consume_api_quota(text, integer, integer) from anon;
+    grant execute on function public.consume_api_quota(text, integer, integer) to authenticated, service_role;
+  end if;
+  if to_regprocedure('public.claim_notification_device(text,text,text,text)') is not null then
+    revoke all privileges on function public.claim_notification_device(text, text, text, text) from anon;
+    grant execute on function public.claim_notification_device(text, text, text, text) to authenticated, service_role;
+  end if;
+  if to_regprocedure('public.request_autonomous_agent_run()') is not null then
+    revoke all privileges on function public.request_autonomous_agent_run() from anon;
+    grant execute on function public.request_autonomous_agent_run() to authenticated, service_role;
   end if;
 end;
 $$;
