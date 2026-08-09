@@ -27,6 +27,29 @@ test("diagnostics read only release-safe provider readiness aggregates", async (
   assert.match(panel, /matchDiagnostics/);
 });
 
+test("safe SportsGameOdds usage UI renders only binding labels and aggregate ratios", async () => {
+  const panel = await source("app/production-evidence/ProviderDiagnosticsPanel.jsx");
+  assert.match(panel, /bindingLimits/);
+  assert.match(panel, /maximumObservedRequestRatio/);
+  assert.match(panel, /maximumObservedEntityRatio/);
+  assert.match(panel, /per-second/);
+  assert.match(panel, /per-minute/);
+  assert.match(panel, /per-hour/);
+  assert.match(panel, /per-day/);
+  assert.match(panel, /per-month/);
+  assert.match(panel, /Repeated event rows are not independent account-usage samples/);
+  for (const forbidden of [
+    /currentRequests/,
+    /maxRequests/,
+    /currentEntities/,
+    /maxEntities/,
+    /keyID/,
+    /customerID/,
+    /SPORTSGAMEODDS_API_KEY/,
+    /x-api-key/i
+  ]) assert.doesNotMatch(panel, forbidden);
+});
+
 test("diagnostics never depend on event identifiers, team names, raw payloads or error bodies", async () => {
   const combined = `${await source("app/production-evidence/ProviderDiagnosticsClient.jsx")}\n${await source("app/production-evidence/ProviderDiagnosticsPanel.jsx")}`;
   for (const forbidden of [
@@ -56,6 +79,7 @@ test("legacy evidence degrades gracefully instead of inventing provider health",
   assert.match(panel, /const diagnostics = readiness\?\.secondaryPricingDiagnostics \|\| null/);
   assert.match(panel, /const hasEvidence = Boolean/);
   assert.match(panel, /No new provider diagnostics have been retained yet/);
+  assert.match(panel, /No usage evidence yet/);
   assert.match(panel, /presentNumber\(value\) \? .* : "—"/);
 });
 
