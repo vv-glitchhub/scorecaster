@@ -169,6 +169,7 @@ export async function GET(request) {
     return !sport || !incidentSport || incidentSport === sport;
   });
   const providerReadinessInput = buildProviderReadinessInput({
+    snapshots: snapshots.rows,
     providerObservations: relevantProviderObservations,
     incidents: relevantIncidents
   });
