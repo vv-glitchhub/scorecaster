@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import {
   describeVercelBuildPolicy,
   shouldIgnoreVercelBuild,
@@ -50,4 +51,14 @@ test("policy description never treats unknown environment as a skipped build", (
   assert.equal(policy.ignored, false);
   assert.equal(policy.unknownEnvironmentFailsTowardBuild, true);
   assert.equal(policy.productionAutoDeployPreserved, false);
+});
+
+test("vercel.json uses the reviewed ignore command and preserves the production cron", async () => {
+  const raw = await readFile(new URL("../vercel.json", import.meta.url), "utf8");
+  const config = JSON.parse(raw);
+  assert.equal(config.ignoreCommand, "node scripts/vercel-ignore-build.mjs");
+  assert.deepEqual(config.crons, [{
+    path: "/api/cron/update-ratings",
+    schedule: "0 5 * * *"
+  }]);
 });
