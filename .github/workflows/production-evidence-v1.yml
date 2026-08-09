@@ -29,6 +29,7 @@ on:
       - "scripts/external-production-provider-diagnosis.mjs"
       - "scripts/production-release-evidence.test.mjs"
       - "scripts/production-release-evidence-ui.test.mjs"
+      - "scripts/production-provider-diagnostics-ui-v2.test.mjs"
       - "docs/PRODUCTION_EVIDENCE_V1.md"
       - "docs/PRICING_PROVIDER_READINESS_V1.md"
       - "docs/SECONDARY_PRICING_DIAGNOSTICS_V1.md"
@@ -68,7 +69,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Production evidence and provider-readiness regressions
-        run: node --test scripts/production-evidence-v1.test.mjs scripts/provider-readiness-input-v1.test.mjs scripts/provider-observation-normalization-v1.test.mjs scripts/secondary-pricing-diagnostics-v1.test.mjs scripts/sportsgameodds-provider-v2.test.mjs scripts/sportsgameodds-rejection-diagnostics-v1.test.mjs scripts/sportsgameodds-upstream-v1.test.mjs scripts/sportsgameodds-request-contract-v1.test.mjs scripts/sportsgameodds-upstream-evidence-v1.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs
+        run: node --test scripts/production-evidence-v1.test.mjs scripts/provider-readiness-input-v1.test.mjs scripts/provider-observation-normalization-v1.test.mjs scripts/secondary-pricing-diagnostics-v1.test.mjs scripts/sportsgameodds-provider-v2.test.mjs scripts/sportsgameodds-rejection-diagnostics-v1.test.mjs scripts/sportsgameodds-upstream-v1.test.mjs scripts/sportsgameodds-request-contract-v1.test.mjs scripts/sportsgameodds-upstream-evidence-v1.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs scripts/production-provider-diagnostics-ui-v2.test.mjs
 
       - name: Unified data chronology regressions
         run: node --test scripts/unified-data-calibration.test.mjs scripts/calibration-lab-v1.test.mjs
