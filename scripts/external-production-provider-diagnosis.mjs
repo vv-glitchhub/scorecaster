@@ -62,6 +62,23 @@ const matchDiagnostics = (value) => value && typeof value === "object"
       averageBestTimeDifferenceHours: null,
       observedThresholds: { teamSimilarity: null, timeWindowHours: null, matchConfidence: null }
     };
+const upstreamErrors = (value) => value && typeof value === "object"
+  ? {
+      samples: finite(value.samples),
+      errorCategoryCounts: countMap(value.errorCategoryCounts, 20),
+      httpStatusCounts: countMap(value.httpStatusCounts, 20),
+      averageRetryAfterSeconds: finite(value.averageRetryAfterSeconds),
+      averageAttempts: finite(value.averageAttempts),
+      retriedCount: finite(value.retriedCount)
+    }
+  : {
+      samples: 0,
+      errorCategoryCounts: {},
+      httpStatusCounts: {},
+      averageRetryAfterSeconds: null,
+      averageAttempts: null,
+      retriedCount: 0
+    };
 
 const parsed = new URL(baseUrl);
 if (parsed.protocol !== "https:" || parsed.host !== "scorecaster.vercel.app") {
@@ -124,7 +141,8 @@ const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
         leaguesObserved: finite(provider?.leaguesObserved),
         modeCounts: countMap(provider?.modeCounts),
         confidence: confidence(provider?.confidence),
-        matchDiagnostics: matchDiagnostics(provider?.matchDiagnostics)
+        matchDiagnostics: matchDiagnostics(provider?.matchDiagnostics),
+        upstreamErrors: upstreamErrors(provider?.upstreamErrors)
       })),
       byLeague: (Array.isArray(diagnostic.byLeague) ? diagnostic.byLeague : []).slice(0, 100).map((row) => ({
         provider: clean(row?.provider, 100) || "unknown",
@@ -139,13 +157,14 @@ const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
         excludedUnsupportedOrUnconfigured: finite(row?.excludedUnsupportedOrUnconfigured),
         modeCounts: countMap(row?.modeCounts),
         confidence: confidence(row?.confidence),
-        matchDiagnostics: matchDiagnostics(row?.matchDiagnostics)
+        matchDiagnostics: matchDiagnostics(row?.matchDiagnostics),
+        upstreamErrors: upstreamErrors(row?.upstreamErrors)
       }))
     }
   : null;
 
 const report = {
-  version: "scorecaster-external-production-provider-diagnosis-v3",
+  version: "scorecaster-external-production-provider-diagnosis-v4",
   observedAt: new Date().toISOString(),
   days,
   releaseState: clean(payload.releaseState, 32) || null,
@@ -160,6 +179,7 @@ const report = {
     teamNamesRetained: false,
     originalResponseBodyRetained: false,
     rejectionDiagnosticsAggregateOnly: true,
+    upstreamErrorsAggregateOnly: true,
     paperOnly: true,
     realMoneyExecution: false
   }
