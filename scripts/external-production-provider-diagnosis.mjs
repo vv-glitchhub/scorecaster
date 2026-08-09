@@ -1,0 +1,91 @@
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import { PRODUCTION_EVIDENCE_VERSION } from "../lib/production-evidence-v1.mjs";
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const baseUrl = String(process.env.PRODUCTION_EVIDENCE_BASE_URL || "https://scorecaster.vercel.app").replace(/\/$/, "");
+const days = Math.max(1, Math.min(180, Number.parseInt(process.env.PRODUCTION_EVIDENCE_DAYS || "30", 10) || 30));
+const reportPath = process.env.EXTERNAL_PROVIDER_DIAGNOSIS_REPORT_PATH
+  ? path.resolve(root, process.env.EXTERNAL_PROVIDER_DIAGNOSIS_REPORT_PATH)
+  : null;
+const clean = (value, maximum = 200) => String(value ?? "")
+  .replace(/[\u0000-\u001f\u007f]/g, " ")
+  .replace(/\s+/g, " ")
+  .trim()
+  .slice(0, maximum);
+const finite = (value) => value === null || value === undefined || value === ""
+  ? null
+  : Number.isFinite(Number(value)) ? Number(value) : null;
+const strings = (value, maximum = 30) => Array.isArray(value)
+  ? value.slice(0, maximum).map((item) => clean(item, 140)).filter(Boolean)
+  : [];
+
+const parsed = new URL(baseUrl);
+if (parsed.protocol !== "https:" || parsed.host !== "scorecaster.vercel.app") {
+  console.error("Provider diagnosis refuses non-production host.");
+  process.exit(2);
+}
+const url = new URL("/api/production-evidence", `${baseUrl}/`);
+url.searchParams.set("days", String(days));
+const response = await fetch(url, {
+  method: "GET",
+  cache: "no-store",
+  redirect: "error",
+  headers: { Accept: "application/json", "User-Agent": "Scorecaster-Provider-Diagnosis/1.0" }
+});
+if (response.status !== 200) {
+  console.error(`Provider diagnosis HTTP failure: ${response.status}`);
+  process.exit(1);
+}
+const payload = await response.json();
+if (payload?.version !== PRODUCTION_EVIDENCE_VERSION || payload?.ok !== true) {
+  console.error("Provider diagnosis rejected invalid Production Evidence payload.");
+  process.exit(1);
+}
+if (payload?.safety?.rawProviderPayloadsExposed !== false || payload?.safety?.userIdentifiersExposed !== false) {
+  console.error("Provider diagnosis rejected unsafe Production Evidence boundary.");
+  process.exit(1);
+}
+
+const providers = (Array.isArray(payload.providers) ? payload.providers : []).map((provider) => ({
+  provider: clean(provider?.provider, 100) || "unknown",
+  state: clean(provider?.state, 24) || "unknown",
+  score: finite(provider?.score),
+  availabilityRate: finite(provider?.availabilityRate),
+  events: finite(provider?.events),
+  families: strings(provider?.families, 20),
+  averageConfidence: finite(provider?.averageConfidence),
+  latestAgeMinutes: finite(provider?.latestAgeMinutes),
+  reasons: strings(provider?.reasons, 20)
+}));
+const incidentSummary = payload?.incidentSummary && typeof payload.incidentSummary === "object"
+  ? {
+      active: finite(payload.incidentSummary.active),
+      bySeverity: Object.fromEntries(Object.entries(payload.incidentSummary.bySeverity || {}).map(([key, value]) => [clean(key, 40), finite(value)])),
+      byType: Object.fromEntries(Object.entries(payload.incidentSummary.byType || {}).map(([key, value]) => [clean(key, 100), finite(value)]))
+    }
+  : { active: null, bySeverity: {}, byType: {} };
+
+const report = {
+  version: "scorecaster-external-production-provider-diagnosis-v1",
+  observedAt: new Date().toISOString(),
+  days,
+  releaseState: clean(payload.releaseState, 32) || null,
+  providers,
+  incidentSummary,
+  safety: {
+    credentialsSent: false,
+    rawProviderPayloadsRetained: false,
+    userIdentifiersRetained: false,
+    originalResponseBodyRetained: false,
+    paperOnly: true,
+    realMoneyExecution: false
+  }
+};
+
+if (reportPath) {
+  await mkdir(path.dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+console.log(JSON.stringify(report, null, 2));

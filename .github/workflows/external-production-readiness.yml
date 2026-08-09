@@ -1,0 +1,45 @@
+name: Scorecaster External Production Readiness
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  production-readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Probe release-safe production evidence
+        env:
+          PRODUCTION_EVIDENCE_BASE_URL: https://scorecaster.vercel.app
+          PRODUCTION_EVIDENCE_DAYS: 30
+          EXTERNAL_PRODUCTION_READINESS_REPORT_PATH: artifacts/external-production-readiness.json
+        run: node scripts/external-production-readiness-probe.mjs
+
+      - name: Diagnose provider and incident readiness
+        env:
+          PRODUCTION_EVIDENCE_BASE_URL: https://scorecaster.vercel.app
+          PRODUCTION_EVIDENCE_DAYS: 30
+          EXTERNAL_PROVIDER_DIAGNOSIS_REPORT_PATH: artifacts/external-production-provider-diagnosis.json
+        run: node scripts/external-production-provider-diagnosis.mjs
+
+      - name: Upload redacted readiness snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-external-production-readiness
+          path: artifacts/*.json
+          if-no-files-found: error
