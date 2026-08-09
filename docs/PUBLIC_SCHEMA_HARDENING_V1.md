@@ -1,137 +1,153 @@
-# Scorecaster Public Schema Hardening V1
+# Scorecaster Public Schema Hardening V1.3
 
 ## Status
 
-**Repository hardening can be prepared and tested without production access, but the issue is not production-complete until the SQL is applied and verified in the real Supabase project.**
+**V1.3 is derived from a live read-only production Supabase audit on 2026-08-09. Repository CI is not production proof: the exact reviewed SQL must still be applied, verified and followed by fresh Supabase security advisors and application smoke checks.**
 
-A production Supabase privilege export on 2026-08-04 showed 23 public tables with Row Level Security disabled and full `anon` and `authenticated` grants. Those grants included `DELETE`, `TRUNCATE`, `TRIGGER`, `REFERENCES` and `UPDATE`. Several additional RLS-enabled internal relations had zero policies but still retained broad client grants.
+The production audit found that all 80 public tables already had RLS + FORCE RLS, but legacy grants were still broader than the current product contract. In particular:
 
-This patch closes those reviewed direct browser surfaces while preserving Scorecaster's server-side API routes and protected workers through `service_role`.
+- browser roles retained `TRUNCATE`, `TRIGGER` and `REFERENCES` on many tables;
+- `profiles` still allowed authenticated INSERT/DELETE and retained the obsolete `Users insert own profile` policy;
+- anonymous roles retained broad grants on old authenticated user-owned MVP tables;
+- several policyless server-internal RLS tables still retained browser grants;
+- many public `SECURITY DEFINER` functions were executable through inherited PUBLIC/browser privileges even though their intended callers are protected workers or database triggers.
+
+V1.3 narrows those surfaces without deleting tables, columns or rows and without changing Scorecaster's paper-only product boundary.
 
 ## Files
 
-- `scripts/apply-public-schema-hardening-v1.sql` — idempotent write patch
-- `scripts/verify-public-schema-hardening-v1.sql` — read-only production verification
+- `scripts/apply-public-schema-hardening-v1.sql` — idempotent V1.3 write patch
+- `scripts/verify-public-schema-hardening-v1.sql` — read-only V1.3 production verification
 - `scripts/public-schema-hardening.test.mjs` — repository regression tests
-- `scripts/public-schema-release-gate.mjs` — canonical release-audit repository gate
+- `scripts/public-schema-release-gate.mjs` — canonical release-audit gate
 - `.github/workflows/public-schema-hardening.yml` — dedicated CI
 
-`npm run release:audit` runs the normal Scorecaster release-readiness audit and then the public-schema repository gate. Passing that command means the reviewed hardening artifacts are present and internally consistent. It does **not** claim that production Supabase has already been changed.
+`npm run release:audit` verifies repository consistency only. Production evidence remains a separate gate.
 
-## Access model after the patch
+## V1.3 access model
 
-### Server-internal relations
+### Global browser privilege floor
 
-The reviewed production-export groups become service-role-only:
+For ordinary/partitioned public tables, browser roles never retain database-owner style privileges:
 
-- teams, matches and bookmaker reference data
-- odds cache, market cache and odds snapshots
-- model predictions, model outputs, ratings and rating update logs
-- player and team statistics
-- match context and context snapshots
-- AI decisions, AI audit and AI intelligence storage
-- analytics and feedback storage
-- legacy bankroll entries and value-bet materialization
+- `TRUNCATE`
+- `TRIGGER`
+- `REFERENCES`
 
-For ordinary/partitioned tables the patch:
+`PUBLIC` receives no direct public-schema table/view grants.
 
-1. enables RLS
-2. forces RLS
-3. revokes every privilege from `PUBLIC`, `anon` and `authenticated`
-4. grants table access to `service_role`
+Any RLS-enabled table with zero policies is treated as server-internal: all `PUBLIC`/`anon`/`authenticated` grants are revoked and `service_role` access is retained.
 
-Views and materialized views cannot use table RLS in the same way, so their browser grants are revoked and `service_role` retains reviewed read access.
+### Reviewed server-internal relations
 
-The public application consumes these internal relations through server API routes. Broad browser grants must not be restored as a workaround.
+The existing reviewed internal list remains browser-closed and service-role-owned. Tables are RLS + FORCE RLS; views/materialized views are protected by grant revocation.
 
-### User-owned paper bets
+### Profiles
 
-`bets` keeps authenticated `SELECT`, `INSERT`, `UPDATE` and `DELETE`, but the migration now checks `pg_policies` first. All four operations must already have authenticated/public RLS-policy backing. If any required command is missing, the transaction raises and rolls back instead of restoring the grant.
+Profile creation is database/server-owned through the `auth.users` trigger. V1.3:
 
-### User settings
+- drops the obsolete `Users insert own profile` policy;
+- revokes all profile privileges from `PUBLIC`, `anon` and `authenticated`;
+- restores only authenticated `SELECT` + `UPDATE` after policy checks;
+- retains service-role access.
 
-If the legacy production `user_settings` table exists, it keeps authenticated `SELECT`, `INSERT` and `UPDATE`; direct deletion remains revoked. The migration does not invent its schema or policies. All three retained commands must already have matching RLS-policy backing or the transaction fails closed.
+Direct profile INSERT/DELETE remains forbidden to clients.
 
-### Community comments
+### Legacy authenticated user-owned MVP rows
 
-`community_comments` keeps anonymous/authenticated read access and authenticated create/update/delete access. The migration verifies the existing policy matrix before restoring those grants. A missing public-read or authenticated-write policy aborts the hardening transaction.
+These existing RLS tables remain authenticated CRUD surfaces:
+
+- `bet_slips`
+- `bet_slip_items`
+- `tracked_bets`
+- `pick_explanations`
+- `agent_feedback`
+- `risk_events`
+
+Anon access is removed. Authenticated `SELECT`/`INSERT`/`UPDATE`/`DELETE` is restored only if the existing RLS policy supports the command. `TRUNCATE`/`TRIGGER`/`REFERENCES` are never restored.
+
+### Current client matrices
+
+- `bets`: authenticated CRUD; anon closed
+- `user_settings`: authenticated SELECT/INSERT/UPDATE; DELETE closed
+- `community_comments`: anon/authenticated SELECT; authenticated INSERT/UPDATE/DELETE
+
+Existing RLS policies remain the row-ownership boundary.
+
+## SECURITY DEFINER execution lockdown
+
+Every current public `SECURITY DEFINER` function is enumerated during apply. V1.3:
+
+1. revokes inherited/direct EXECUTE from `PUBLIC`, `anon` and `authenticated`;
+2. grants EXECUTE to `service_role`;
+3. restores authenticated EXECUTE only for the three current user-context RPCs:
+   - `consume_api_quota(text,integer,integer)`
+   - `claim_notification_device(text,text,text,text)`
+   - `request_autonomous_agent_run()`
+
+Anon receives no `SECURITY DEFINER` EXECUTE permission.
+
+Trigger functions such as profile creation, notification-state synchronization and worker scheduling do not need browser EXECUTE grants to fire from their installed triggers. Worker claim/complete functions remain service-role-only.
 
 ## Fail-closed behavior
 
-The migration is deliberately ordered as:
+The entire hardening patch runs in one transaction. Before a reviewed client grant is restored, the migration verifies matching RLS policy support in `pg_policies`. Missing support raises `Public schema hardening refused:` and rolls the whole transaction back.
 
-1. enter one transaction
-2. enable/force RLS or revoke view grants on internal relations
-3. revoke broad browser grants
-4. inspect existing policies for the three reviewed client surfaces
-5. restore only policy-backed grants
-6. commit
+The migration does **not**:
 
-A policy mismatch before step 6 rolls back the transaction. It must not leave a partially hardened database with a newly restored unsupported client grant.
+- drop tables or columns;
+- delete or truncate rows;
+- invent ownership policies for unknown tables;
+- weaken RLS/FORCE RLS;
+- grant browser `TRUNCATE`, `TRIGGER` or `REFERENCES`;
+- grant anon access to SECURITY DEFINER functions;
+- add bookmaker credentials or real-money execution.
 
-The migration does not:
+## Read-only production verification
 
-- create replacement policies for unknown production tables
-- guess `user_settings` ownership columns
-- drop tables or columns
-- delete or truncate rows
-- remove existing policies
-- introduce bookmaker credentials or real-money functionality
+`scripts/verify-public-schema-hardening-v1.sql` requires:
 
-## Read-only verification
+- RLS + FORCE RLS on every public ordinary/partitioned table;
+- zero browser `TRUNCATE`/`TRIGGER`/`REFERENCES` grants;
+- zero direct `PUBLIC` relation grants;
+- zero browser grants on policyless RLS tables;
+- zero browser exposure on the reviewed internal relation list;
+- service-role access preserved;
+- profiles exactly authenticated SELECT+UPDATE with no legacy INSERT policy;
+- legacy user-owned MVP tables exactly authenticated CRUD and anon-closed;
+- current bets/user-settings/community matrices intact;
+- zero anon SECURITY DEFINER EXECUTE;
+- authenticated SECURITY DEFINER EXECUTE limited to the three reviewed RPCs;
+- service-role EXECUTE on every current public SECURITY DEFINER function.
 
-`scripts/verify-public-schema-hardening-v1.sql` checks after apply that:
+A passing query returns `public-schema-hardening-v1.3`, `reviewedClientGrantsPolicyBacked: true`, `securityDefinerAnonExecute: 0` and `paperOnly: true`.
 
-- reviewed tables have RLS and FORCE RLS
-- views are protected by grant revocation
-- `PUBLIC`, `anon` and `authenticated` retain no `TRUNCATE`, `TRIGGER` or `REFERENCES` privilege
-- `PUBLIC` has no direct public-schema relation grants
-- internal relations expose no anon/authenticated privileges
-- `service_role` still has the required server access
-- `bets`, `user_settings` and `community_comments` match their reviewed grant matrices
-- every retained reviewed client command has RLS-policy backing
+## Production Supabase apply sequence
 
-A successful verification returns version `public-schema-hardening-v1.2` with `reviewedClientGrantsPolicyBacked: true` and `paperOnly: true`.
+1. Run repository CI/release audit against the exact V1.3 SQL.
+2. Apply the exact current `scripts/apply-public-schema-hardening-v1.sql` through the production Supabase migration path.
+3. Run `scripts/verify-public-schema-hardening-v1.sql` read-only.
+4. Retain the returned JSON as non-secret production evidence.
+5. Rerun Supabase Security Advisor and compare remaining warnings.
+6. Smoke authenticated cloud APIs, public Community Feed reads and protected workers.
+7. Only then update/close #99.
 
-## Apply in production Supabase
+The script is idempotent; a second run reapplies the same reviewed authorization surface.
 
-Do this only when production database access is available:
+## Required smoke checks
 
-1. Confirm the normal Scorecaster production migrations have already been applied.
-2. Open the production Supabase project and SQL Editor.
-3. Paste the complete current contents of `scripts/apply-public-schema-hardening-v1.sql`.
-4. Review that it contains no destructive row/table operation.
-5. Run it once.
-6. Run `scripts/verify-public-schema-hardening-v1.sql` as a separate read-only query.
-7. Save the final verification JSON as production evidence.
-8. Run the smoke checks below.
+- `/api/value-bets`, `/api/feedback`, `/api/track` continue using server-side access;
+- authenticated paper/cloud history remains user-scoped;
+- notification device registration still works through `claim_notification_device`;
+- authenticated API rate limiting still works through `consume_api_quota`;
+- autonomous paper-agent manual run request still works through `request_autonomous_agent_run`;
+- Community Feed remains publicly readable but anon cannot mutate it;
+- protected workers continue operating through service-role/server paths;
+- browser roles cannot directly reach policyless/internal relations.
 
-The apply script is idempotent. Running it again reapplies the same reviewed matrix, subject to the same policy checks.
+## Separate Auth warning
 
-## Required smoke checks after apply
-
-- `/api/value-bets` returns normally through the server route
-- feedback submission works through `/api/feedback`
-- analytics tracking works through `/api/track`
-- Top Picks and event pages still load
-- authenticated paper history can read/write only the current user's permitted rows
-- Community Feed comments remain publicly readable
-- anonymous clients cannot read or write reviewed internal relations
-- server workers continue operating through `service_role`
-
-## Release-readiness boundary
-
-The repository gate is now part of `npm run release:audit`. It verifies that the hardening SQL, read-only verifier, regression coverage, documentation and CI contract are present and fail closed.
-
-The gate intentionally prints an external blocker until production work is performed:
-
-> apply the hardening SQL in production Supabase, run the read-only verification SQL and retain its JSON result before production activation.
-
-This keeps repository readiness separate from production evidence. CI success must never be reported as proof that the production database was changed.
-
-## Rollback policy
-
-There is no automatic rollback to the insecure grant state. If a server endpoint fails after apply, first verify that it uses the intended authenticated RLS path or server-only `service_role` path. Correct the route or add one narrowly reviewed policy-backed permission; do not restore broad `anon` / `authenticated` access.
+Supabase Security Advisor also reports leaked-password protection disabled for Auth. That setting is outside this SQL authorization patch and must remain a separately tracked production configuration item until the available Supabase tooling exposes or the dashboard applies the Auth setting. V1.3 must not claim it is fixed.
 
 ## Product boundary
 
