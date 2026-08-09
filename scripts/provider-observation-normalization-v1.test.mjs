@@ -22,7 +22,7 @@ test("nested match confidence is accepted but invalid values fail closed to null
   const rows = normalizeStoredProviderObservations([
     { family: "odds", mode: "low_match_confidence", ok: true, details: { data: { matchConfidence: 0.6814 } } },
     { family: "odds", mode: "live", ok: true, details: { matchConfidence: 1.3 } },
-    { family: "odds", mode: "live", ok: true, details: { matchConfidence: "secret-text" } }
+    { family: "odds", mode: "live", ok: true, details: { matchConfidence: "not-a-number" } }
   ]);
   assert.equal(rows[0].confidence, 0.681);
   assert.equal(rows[1].confidence, null);
@@ -48,9 +48,12 @@ test("normalization never invents a successful observation", () => {
   assert.equal(row.confidence, 0.99);
 });
 
-test("unified data worker normalizes provider observations before database upsert", async () => {
+test("unified data library normalizes provider observations before the worker upsert boundary", async () => {
+  const library = await readFile(new URL("../lib/unified-sports-data-v2.mjs", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/internal/unified-data/route.js", import.meta.url), "utf8");
-  assert.match(route, /normalizeStoredProviderObservations/);
-  assert.match(route, /observations\.push\(\.\.\.normalizeStoredProviderObservations\(buildProviderObservations/);
+  assert.match(library, /normalizeStoredProviderObservation/);
+  assert.match(library, /observations\.push\(normalizeStoredProviderObservation\(\{/);
+  assert.match(route, /observations\.push\(\.\.\.buildProviderObservations/);
   assert.match(route, /unified_data_provider_observations/);
+  assert.doesNotMatch(route, /provider-observation-normalization-v1/);
 });
