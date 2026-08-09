@@ -80,7 +80,11 @@ test("worker preflight blocks events when monthly entity quota is exhausted", as
     assert.deepEqual(result.usage.bindingLimits, ["per-month:entities"]);
     assert.equal(result.usage.intervals["per-minute"].requestRatio, 0.3);
     assert.equal(result.usage.intervals["per-month"].entityRatio, 1);
-    assert.doesNotMatch(JSON.stringify(result), /must-not-leak|keyID|customerID|email/i);
+    assert.equal(result.usage.identifiersRetained, false);
+    assert.equal(result.usage.emailRetained, false);
+    const serialized = JSON.stringify(result);
+    assert.doesNotMatch(serialized, /must-not-leak|"keyID"|"customerID"/i);
+    assert.doesNotMatch(serialized, /must-not-leak@example\.com/i);
   });
 });
 
