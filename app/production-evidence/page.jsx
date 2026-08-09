@@ -1,4 +1,5 @@
 import ProductionEvidenceClient from "./ProductionEvidenceClient";
+import ProviderDiagnosticsClient from "./ProviderDiagnosticsClient";
 
 export const metadata = {
   title: "Production Evidence | Scorecaster",
@@ -6,5 +7,10 @@ export const metadata = {
 };
 
 export default function ProductionEvidencePage() {
-  return <ProductionEvidenceClient />;
+  return (
+    <>
+      <ProductionEvidenceClient />
+      <ProviderDiagnosticsClient />
+    </>
+  );
 }
