@@ -40,7 +40,7 @@ test("usage sanitizer keeps only numeric interval evidence and drops account ide
   assert.equal(safe.intervals["per-minute"].requestRatio, 1);
   assert.deepEqual(safe.bindingLimits, ["per-minute:requests"]);
   const serialized = JSON.stringify(safe);
-  assert.doesNotMatch(serialized, /secret-key-id|customer-123|private@example\.com|keyID|customerID|email/i);
+  assert.doesNotMatch(serialized, /secret-key-id|customer-123|private@example\.com|keyID|customerID/i);
   assert.equal(safe.identifiersRetained, false);
   assert.equal(safe.emailRetained, false);
   assert.equal(safe.rawPayloadRetained, false);
@@ -106,5 +106,8 @@ test("safe evidence re-sanitizes binding labels and numeric intervals", () => {
   assert.deepEqual(safe.bindingLimits, ["per-minute:requests", "per-month:entities"]);
   assert.equal(safe.intervals["per-minute"].requestRatio, 1.1);
   assert.equal(safe.intervals["per-month"].entityRatio, 1);
-  assert.doesNotMatch(JSON.stringify(safe), /must-disappear|keyID|email/i);
+  const serialized = JSON.stringify(safe);
+  assert.doesNotMatch(serialized, /must-disappear|keyID|customerID/i);
+  assert.doesNotMatch(serialized, /must-disappear@example\.com/i);
+  assert.equal(safe.emailRetained, false);
 });
