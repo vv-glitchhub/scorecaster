@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   normalizeStoredProviderObservation,
   normalizeStoredProviderObservations
@@ -45,4 +46,11 @@ test("normalization never invents a successful observation", () => {
   const row = normalizeStoredProviderObservation({ family: "odds", mode: "live", ok: false, details: { matchConfidence: 0.99 } });
   assert.equal(row.ok, false);
   assert.equal(row.confidence, 0.99);
+});
+
+test("unified data worker normalizes provider observations before database upsert", async () => {
+  const route = await readFile(new URL("../app/api/internal/unified-data/route.js", import.meta.url), "utf8");
+  assert.match(route, /normalizeStoredProviderObservations/);
+  assert.match(route, /observations\.push\(\.\.\.normalizeStoredProviderObservations\(buildProviderObservations/);
+  assert.match(route, /unified_data_provider_observations/);
 });
