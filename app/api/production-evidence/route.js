@@ -12,6 +12,10 @@ import releaseManifest from "../../../config/release-readiness.json";
 import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
+import {
+  applyProviderReadinessTelemetry,
+  buildProviderReadinessInput
+} from "../../../lib/provider-readiness-input-v1.mjs";
 import { buildTrustedProtectedApiProbeEvidence } from "../../../lib/protected-api-production-evidence.mjs";
 import { buildTrustedProtectedWorkerProbeEvidence } from "../../../lib/protected-worker-production-evidence.mjs";
 import { buildTrustedPublicSurfaceEvidence } from "../../../lib/public-surface-production-evidence.mjs";
@@ -164,11 +168,15 @@ export async function GET(request) {
     const incidentSport = String(row.details?.sport_key || row.details?.sport || "").toLowerCase();
     return !sport || !incidentSport || incidentSport === sport;
   });
-  const report = buildProductionEvidence({
-    snapshots: snapshots.rows,
+  const providerReadinessInput = buildProviderReadinessInput({
     providerObservations: relevantProviderObservations,
+    incidents: relevantIncidents
+  });
+  const baseReport = buildProductionEvidence({
+    snapshots: snapshots.rows,
+    providerObservations: providerReadinessInput.pricingProviderObservations,
     closingRecords: closingRecords.rows,
-    incidents: relevantIncidents,
+    incidents: providerReadinessInput.readinessIncidents,
     collectorRuns: collectorRuns.rows,
     windowDays: days,
     dataAvailability: {
@@ -179,6 +187,7 @@ export async function GET(request) {
       collectorRuns: collectorRuns.available
     }
   });
+  const report = applyProviderReadinessTelemetry(baseReport, providerReadinessInput);
   const warnings = results.map((result) => result.warning).filter(Boolean);
 
   if (format === "csv") {
