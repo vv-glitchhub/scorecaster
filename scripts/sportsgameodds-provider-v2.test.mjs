@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import "./sportsgameodds-rejection-diagnostics-v1.test.mjs";
+import "./sportsgameodds-quota-preflight-v1.test.mjs";
 
 const providerSource = () => readFile(new URL("../lib/sportsgameodds-provider.js", import.meta.url), "utf8");
 const matchSource = () => readFile(new URL("../lib/sportsgameodds-match-v3.mjs", import.meta.url), "utf8");
@@ -43,7 +44,8 @@ test("protected capture explicitly preflights safe quota usage before any event 
   const preflight = provider.indexOf("evaluateSportsGameOddsQuotaPreflight(await requestUsage(apiKey))");
   const events = provider.indexOf("const upstream = await requestEvents(url, apiKey)");
   assert.ok(preflight >= 0 && events > preflight);
-  assert.match(provider, /mode: "quota_exhausted"/);
+  assert.match(provider, /mode: "api_error"/);
+  assert.match(provider, /errorCategory: "rate_limited"/);
   assert.match(provider, /attempts: 0/);
   assert.match(provider, /quotaPreflightBlocked: true/);
 });
