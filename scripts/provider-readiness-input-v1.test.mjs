@@ -64,18 +64,19 @@ test("pricing readiness telemetry keeps optional providers visible without mixin
       observation({ provider: "sportsgameodds", event: "event-1", mode: "live" }),
       observation({ provider: "sportsgameodds", event: "event-2", mode: "no_match" }),
       observation({ provider: "open-meteo", family: "weather", event: "event-1", mode: "live" }),
-      observation({ provider: "sports-context-provider", family: "context", event: "event-1", mode: "unavailable", ok: false })
+      observation({ provider: "sports-context-provider", family: "context", event: "event-1", mode: "unavailable", ok: false }),
+      observation({ provider: "unavailable", family: "injuries", event: "event-1", mode: "unavailable", ok: false })
     ],
     incidents: [
       { incident_type: "provider_health", severity: "high", provider_key: "sports-context-provider", details: { family: "context" }, active: true }
     ]
   });
 
-  assert.equal(input.telemetry.allProviderCount, 4);
+  assert.equal(input.telemetry.allProviderCount, 5);
   assert.equal(input.telemetry.oddsProviderCount, 2);
-  assert.equal(input.telemetry.optionalProviderCount, 2);
+  assert.equal(input.telemetry.optionalProviderCount, 3);
   assert.equal(input.telemetry.averageOddsProviderAvailability, 0.75);
-  assert.equal(input.telemetry.averageAllProviderAvailability, 0.6875);
+  assert.equal(input.telemetry.averageAllProviderAvailability, 0.6);
   assert.equal(input.telemetry.optionalProviderHealthIncidentCount, 1);
   assert.equal(input.readinessIncidents.length, 0);
 
@@ -84,9 +85,9 @@ test("pricing readiness telemetry keeps optional providers visible without mixin
     providers: input.pricingProviderEvidence,
     safety: { paperOnly: true }
   }, input);
-  assert.equal(report.providers.length, 4);
+  assert.equal(report.providers.length, 5);
   assert.equal(report.summary.averageProviderAvailability, 0.75);
-  assert.equal(report.summary.averageAllProviderAvailability, 0.6875);
+  assert.equal(report.summary.averageAllProviderAvailability, 0.6);
   assert.equal(report.summary.optionalProviderHealthIncidents, 1);
   assert.equal(report.providerReadiness.semantics.multiProviderCoverageRemainsIndependent, true);
 });
