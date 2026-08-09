@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import {
   buildClosingRecord,
   buildProviderObservations,
@@ -154,19 +155,28 @@ export async function GET(request) {
       return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
     }
 
-    const picks = Array.isArray(topPicks.data) ? topPicks.data : [];
-    const capture = await upsertSnapshots(admin, picks, capturedAt);
+    const publicPicks = Array.isArray(topPicks.data) ? topPicks.data : [];
+    const capturePicks = await enrichPicksForUnifiedCapture(publicPicks, { now });
+    const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
     const providerQuality = await recentProviderQuality(admin, now);
     const incidents = evaluateUnifiedDataIncidents(capture.stored, providerQuality);
     const incidentSync = await syncIncidents(admin, incidents, capturedAt);
     const closing = await finalizeClosingRecords(admin, now);
+    const liveSecondary = capturePicks.filter((pick) => pick?.unifiedDataProviders?.secondaryOdds?.mode === "live").length;
+    const failedSecondary = capturePicks.filter((pick) => ["api_error", "fetch_error", "timeout"].includes(pick?.unifiedDataProviders?.secondaryOdds?.mode)).length;
 
     return response({
       ok: true,
-      version: "unified-sports-data-worker-v2",
+      version: "unified-sports-data-worker-v3",
       capturedAt,
       selections: capture.stored.length,
       providerObservations: capture.observationCount,
+      secondaryPricingCapture: {
+        requested: capturePicks.length,
+        live: liveSecondary,
+        failed: failedSecondary,
+        acquisition: "protected-worker-only"
+      },
       providerQuality,
       closingRecords: { finalized: closing.finalized, latest: closing.records.slice(0, 12) },
       incidents: incidentSync,

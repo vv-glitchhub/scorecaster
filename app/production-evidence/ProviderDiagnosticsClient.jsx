@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
+import ProviderUsageLimitsPanel from "./ProviderUsageLimitsPanel";
 
 export default function ProviderDiagnosticsClient() {
   const { tr } = useLanguage();
@@ -58,7 +59,12 @@ export default function ProviderDiagnosticsClient() {
 
       {loading ? <div className="sc-surface-soft rounded-2xl p-4 text-sm text-[var(--sc-muted)]">{tr({ fi: "Provider-diagnostiikka latautuu…", en: "Loading provider diagnosis…", es: "Cargando diagnóstico de proveedores…" })}</div> : null}
       {error ? <div role="alert" className="rounded-2xl border border-rose-400/35 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div> : null}
-      {!loading && !error ? <ProviderDiagnosticsPanel data={data} tr={tr} /> : null}
+      {!loading && !error ? (
+        <>
+          <ProviderDiagnosticsPanel data={data} tr={tr} />
+          <ProviderUsageLimitsPanel data={data} tr={tr} />
+        </>
+      ) : null}
     </div>
   );
 }
