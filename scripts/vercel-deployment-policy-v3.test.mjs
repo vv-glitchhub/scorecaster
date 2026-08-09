@@ -5,13 +5,23 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const readConfig = async () => JSON.parse(await readFile(new URL("vercel.json", root), "utf8"));
 
-test("automatic Git deployments are disabled by default and explicitly enabled for main", async () => {
+test("automatic Git deployments use recursive default-disable and explicitly enable main", async () => {
   const config = await readConfig();
-  assert.equal(config.git?.deploymentEnabled?.["*"], false);
+  assert.equal(config.git?.deploymentEnabled?.["**"], false);
   assert.equal(config.git?.deploymentEnabled?.main, true);
+  assert.equal(Object.prototype.hasOwnProperty.call(config.git?.deploymentEnabled || {}, "*"), false);
 });
 
-test("build-stage ignoreCommand is removed so canceled previews do not consume quota by design", async () => {
+test("policy explicitly covers Scorecaster slash branch naming", async () => {
+  const config = await readConfig();
+  const patterns = Object.keys(config.git?.deploymentEnabled || {});
+  assert.ok(patterns.includes("**"));
+  for (const branch of ["feat/provider-work", "fix/provider-work", "chore/provider-work", "agent/provider-work", "dependabot/npm/example"]) {
+    assert.match(branch, /\//);
+  }
+});
+
+test("build-stage ignoreCommand remains absent", async () => {
   const config = await readConfig();
   assert.equal(Object.prototype.hasOwnProperty.call(config, "ignoreCommand"), false);
 });
