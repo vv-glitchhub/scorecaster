@@ -45,7 +45,7 @@ test("network timeouts are separated from other network failures", () => {
   assert.equal(sportsGameOddsNetworkCategory({ name: "TypeError" }), "network_error");
 });
 
-test("safe upstream evidence rejects arbitrary text and clamps numeric fields", () => {
+test("safe upstream evidence rejects arbitrary text, clamps numeric fields and exposes no usage by default", () => {
   const evidence = safeSportsGameOddsUpstreamEvidence({
     status: 429,
     errorCategory: "provider-said-secret-token-here",
@@ -59,6 +59,37 @@ test("safe upstream evidence rejects arbitrary text and clamps numeric fields", 
   assert.equal(evidence.retryAfterSeconds, 3600);
   assert.equal(evidence.attempts, 2);
   assert.equal(evidence.retried, true);
-  assert.deepEqual(Object.keys(evidence).sort(), ["attempts", "errorCategory", "httpStatus", "retried", "retryAfterSeconds"].sort());
+  assert.equal(evidence.usage, null);
+  assert.deepEqual(Object.keys(evidence).sort(), ["attempts", "errorCategory", "httpStatus", "retried", "retryAfterSeconds", "usage"].sort());
   assert.doesNotMatch(JSON.stringify(evidence), /secret|token|must-not-leak/i);
+});
+
+test("safe upstream evidence re-sanitizes usage and drops account identifiers", () => {
+  const evidence = safeSportsGameOddsUpstreamEvidence({
+    status: 429,
+    errorCategory: "rate_limited",
+    usage: {
+      isActive: true,
+      bindingLimits: ["per-minute:requests", "invalid:secret"],
+      intervals: {
+        "per-minute": {
+          maxRequests: 10,
+          currentRequests: 10,
+          maxEntities: 100,
+          currentEntities: 20
+        }
+      },
+      keyID: "must-not-leak",
+      customerID: "must-not-leak",
+      email: "must-not-leak@example.com"
+    }
+  });
+  assert.deepEqual(evidence.usage.bindingLimits, ["per-minute:requests"]);
+  assert.equal(evidence.usage.intervals["per-minute"].requestRatio, 1);
+  assert.equal(evidence.usage.identifiersRetained, false);
+  assert.equal(evidence.usage.emailRetained, false);
+  assert.equal(evidence.usage.rawPayloadRetained, false);
+  const serialized = JSON.stringify(evidence);
+  assert.doesNotMatch(serialized, /must-not-leak|keyID|customerID/i);
+  assert.doesNotMatch(serialized, /must-not-leak@example\.com/i);
 });

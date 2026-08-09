@@ -43,6 +43,24 @@ const matchDiagnostics = (rejectionReason, overrides = {}) => ({
   ...overrides
 });
 
+const usage = (requestRatio = 1, entityRatio = 0.5, bindingLimits = ["per-minute:requests"]) => ({
+  isActive: true,
+  bindingLimits,
+  intervals: {
+    "per-minute": {
+      maxRequests: 10,
+      currentRequests: 10 * requestRatio,
+      requestRatio,
+      maxEntities: 100,
+      currentEntities: 100 * entityRatio,
+      entityRatio
+    }
+  },
+  identifiersRetained: false,
+  emailRetained: false,
+  rawPayloadRetained: false
+});
+
 test("diagnostics aggregate mode distribution by provider without exposing event IDs", () => {
   const report = buildSecondaryPricingDiagnostics({
     snapshots: [snapshot("one"), snapshot("two"), snapshot("three")],
@@ -102,6 +120,55 @@ test("rejection diagnostics aggregate only allowlisted counts and numeric gate e
   assert.equal(diagnostic.observedThresholds.timeWindowHours, 8);
   assert.equal(diagnostic.observedThresholds.matchConfidence, 0.72);
   assert.doesNotMatch(JSON.stringify(report), /must-not-leak|providerHomeTeam|providerAwayTeam|"eventId"/);
+});
+
+test("safe 429 usage evidence is aggregated by maximum observed ratio and binding-limit union", () => {
+  const report = buildSecondaryPricingDiagnostics({
+    snapshots: [snapshot("one"), snapshot("two")],
+    providerObservations: [
+      observation("one", "sportsgameodds", "api_error", {
+        ok: false,
+        details: {
+          upstream: {
+            httpStatus: 429,
+            errorCategory: "rate_limited",
+            attempts: 1,
+            retried: false,
+            usage: {
+              ...usage(1, 0.5),
+              keyID: "must-not-leak",
+              customerID: "must-not-leak",
+              email: "must-not-leak@example.com"
+            }
+          }
+        }
+      }),
+      observation("two", "sportsgameodds", "api_error", {
+        ok: false,
+        details: {
+          upstream: {
+            httpStatus: 429,
+            errorCategory: "rate_limited",
+            attempts: 1,
+            retried: false,
+            usage: usage(0.8, 1, ["per-month:entities"])
+          }
+        }
+      })
+    ]
+  });
+
+  const upstream = report.providers[0].upstreamErrors;
+  assert.equal(upstream.httpStatusCounts["429"], 2);
+  assert.equal(upstream.usage.observed, true);
+  assert.equal(upstream.usage.observationsCarryingUsage, 2);
+  assert.deepEqual(upstream.usage.bindingLimits, ["per-minute:requests", "per-month:entities"]);
+  assert.equal(upstream.usage.intervals["per-minute"].maximumObservedRequestRatio, 1);
+  assert.equal(upstream.usage.intervals["per-minute"].maximumObservedEntityRatio, 1);
+  assert.equal(upstream.usage.repeatedEventCopiesAreNotIndependentSamples, true);
+  const serialized = JSON.stringify(report);
+  assert.doesNotMatch(serialized, /must-not-leak|keyID|customerID|email/i);
+  assert.doesNotMatch(serialized, /maxRequests|currentRequests|maxEntities|currentEntities/);
 });
 
 test("unsupported and unconfigured observations remain visible but are excluded from usable denominator", () => {
@@ -164,5 +231,7 @@ test("diagnostics preserve paper-only measurement boundary", () => {
   assert.equal(report.safety.stakeChanged, false);
   assert.equal(report.semantics.thresholdChanged, false);
   assert.equal(report.semantics.rejectionDiagnosticsAggregateOnly, true);
+  assert.equal(report.semantics.usageEvidenceAggregateOnly, true);
+  assert.equal(report.semantics.usageCopiesNotTreatedAsIndependentSamples, true);
   assert.equal(report.semantics.rawProviderPayloadsExposed, false);
 });
