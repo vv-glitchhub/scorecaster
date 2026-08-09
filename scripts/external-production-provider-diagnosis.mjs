@@ -62,6 +62,36 @@ const matchDiagnostics = (value) => value && typeof value === "object"
       averageBestTimeDifferenceHours: null,
       observedThresholds: { teamSimilarity: null, timeWindowHours: null, matchConfidence: null }
     };
+const usageEvidence = (value) => {
+  if (!value || typeof value !== "object" || value.observed !== true) {
+    return {
+      observed: false,
+      observationsCarryingUsage: 0,
+      bindingLimits: [],
+      intervals: {},
+      identifiersExposed: false,
+      rawPayloadExposed: false,
+      repeatedEventCopiesAreNotIndependentSamples: true
+    };
+  }
+  const intervals = {};
+  for (const interval of ["per-second", "per-minute", "per-hour", "per-day", "per-month"]) {
+    const row = value.intervals?.[interval];
+    intervals[interval] = {
+      maximumObservedRequestRatio: finite(row?.maximumObservedRequestRatio),
+      maximumObservedEntityRatio: finite(row?.maximumObservedEntityRatio)
+    };
+  }
+  return {
+    observed: true,
+    observationsCarryingUsage: finite(value.observationsCarryingUsage) ?? 0,
+    bindingLimits: strings(value.bindingLimits, 20),
+    intervals,
+    identifiersExposed: false,
+    rawPayloadExposed: false,
+    repeatedEventCopiesAreNotIndependentSamples: true
+  };
+};
 const upstreamErrors = (value) => value && typeof value === "object"
   ? {
       samples: finite(value.samples),
@@ -69,7 +99,8 @@ const upstreamErrors = (value) => value && typeof value === "object"
       httpStatusCounts: countMap(value.httpStatusCounts, 20),
       averageRetryAfterSeconds: finite(value.averageRetryAfterSeconds),
       averageAttempts: finite(value.averageAttempts),
-      retriedCount: finite(value.retriedCount)
+      retriedCount: finite(value.retriedCount),
+      usage: usageEvidence(value.usage)
     }
   : {
       samples: 0,
@@ -77,7 +108,8 @@ const upstreamErrors = (value) => value && typeof value === "object"
       httpStatusCounts: {},
       averageRetryAfterSeconds: null,
       averageAttempts: null,
-      retriedCount: 0
+      retriedCount: 0,
+      usage: usageEvidence(null)
     };
 
 const parsed = new URL(baseUrl);
@@ -164,7 +196,7 @@ const secondaryPricingDiagnostics = diagnostic && typeof diagnostic === "object"
   : null;
 
 const report = {
-  version: "scorecaster-external-production-provider-diagnosis-v4",
+  version: "scorecaster-external-production-provider-diagnosis-v5",
   observedAt: new Date().toISOString(),
   days,
   releaseState: clean(payload.releaseState, 32) || null,
@@ -180,6 +212,8 @@ const report = {
     originalResponseBodyRetained: false,
     rejectionDiagnosticsAggregateOnly: true,
     upstreamErrorsAggregateOnly: true,
+    usageEvidenceAggregateOnly: true,
+    accountCountersRetained: false,
     paperOnly: true,
     realMoneyExecution: false
   }
