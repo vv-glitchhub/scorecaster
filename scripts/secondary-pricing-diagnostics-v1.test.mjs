@@ -9,15 +9,38 @@ const snapshot = (eventId, league = "wnba", sport = "basketball_wnba", captured 
   captured_at: captured
 });
 
-const observation = (eventId, provider, mode, { ok = mode === "live", confidence = null, captured = "2026-08-09T04:01:00.000Z" } = {}) => ({
+const observation = (eventId, provider, mode, {
+  ok = mode === "live",
+  confidence = null,
+  captured = "2026-08-09T04:01:00.000Z",
+  details = null
+} = {}) => ({
   event_id: eventId,
   provider_key: provider,
   family: "odds",
   mode,
   ok,
   confidence,
+  details,
   observed_at: captured,
   captured_at: captured
+});
+
+const matchDiagnostics = (rejectionReason, overrides = {}) => ({
+  rejectionReason,
+  candidateCount: 10,
+  orientationCount: 20,
+  teamEligibleCount: 4,
+  timeEligibleCount: 3,
+  thresholdEligibleCount: rejectionReason === "matched" ? 1 : 0,
+  bestConfidence: rejectionReason === "confidence_threshold" ? 0.69 : 0.91,
+  bestHomeSimilarity: 0.88,
+  bestAwaySimilarity: 0.82,
+  bestTimeDifferenceHours: 1.5,
+  teamSimilarityThreshold: 0.55,
+  timeWindowHours: 8,
+  matchConfidenceThreshold: 0.72,
+  ...overrides
 });
 
 test("diagnostics aggregate mode distribution by provider without exposing event IDs", () => {
@@ -41,6 +64,44 @@ test("diagnostics aggregate mode distribution by provider without exposing event
   assert.equal(provider.confidence.samples, 2);
   assert.equal(provider.confidence.average, 0.795);
   assert.doesNotMatch(JSON.stringify(report), /"event_id"|"eventId"|"home_team"|"away_team"/);
+});
+
+test("rejection diagnostics aggregate only allowlisted counts and numeric gate evidence", () => {
+  const report = buildSecondaryPricingDiagnostics({
+    snapshots: [snapshot("one"), snapshot("two"), snapshot("three"), snapshot("four")],
+    providerObservations: [
+      observation("one", "sportsgameodds", "live", {
+        confidence: 0.91,
+        details: { matchDiagnostics: matchDiagnostics("matched") }
+      }),
+      observation("two", "sportsgameodds", "no_match", {
+        details: { matchDiagnostics: matchDiagnostics("team_similarity", { teamEligibleCount: 0, timeEligibleCount: 0, bestConfidence: 0.54 }) }
+      }),
+      observation("three", "sportsgameodds", "no_match", {
+        details: { matchDiagnostics: matchDiagnostics("time_window", { teamEligibleCount: 2, timeEligibleCount: 0, bestTimeDifferenceHours: 9.4 }) }
+      }),
+      observation("four", "sportsgameodds", "low_match_confidence", {
+        confidence: 0.69,
+        details: {
+          matchDiagnostics: matchDiagnostics("confidence_threshold", { bestConfidence: 0.69 }),
+          providerHomeTeam: "must-not-leak",
+          providerAwayTeam: "must-not-leak",
+          eventId: "must-not-leak"
+        }
+      })
+    ]
+  });
+  const diagnostic = report.providers[0].matchDiagnostics;
+  assert.equal(diagnostic.samples, 4);
+  assert.equal(diagnostic.rejectionReasonCounts.matched, 1);
+  assert.equal(diagnostic.rejectionReasonCounts.team_similarity, 1);
+  assert.equal(diagnostic.rejectionReasonCounts.time_window, 1);
+  assert.equal(diagnostic.rejectionReasonCounts.confidence_threshold, 1);
+  assert.equal(diagnostic.averageCandidateCount, 10);
+  assert.equal(diagnostic.observedThresholds.teamSimilarity, 0.55);
+  assert.equal(diagnostic.observedThresholds.timeWindowHours, 8);
+  assert.equal(diagnostic.observedThresholds.matchConfidence, 0.72);
+  assert.doesNotMatch(JSON.stringify(report), /must-not-leak|providerHomeTeam|providerAwayTeam|"eventId"/);
 });
 
 test("unsupported and unconfigured observations remain visible but are excluded from usable denominator", () => {
@@ -102,5 +163,6 @@ test("diagnostics preserve paper-only measurement boundary", () => {
   assert.equal(report.safety.probabilityChanged, false);
   assert.equal(report.safety.stakeChanged, false);
   assert.equal(report.semantics.thresholdChanged, false);
+  assert.equal(report.semantics.rejectionDiagnosticsAggregateOnly, true);
   assert.equal(report.semantics.rawProviderPayloadsExposed, false);
 });
