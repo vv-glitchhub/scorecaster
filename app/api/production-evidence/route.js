@@ -130,7 +130,7 @@ export async function GET(request) {
     safeQuery("snapshots", () => snapshotQuery),
     safeQuery("provider_observations", () => admin
       .from("unified_data_provider_observations")
-      .select("event_id,provider_key,family,mode,ok,trust,confidence,observed_at,age_hours,captured_at")
+      .select("event_id,provider_key,family,mode,ok,trust,confidence,details,observed_at,age_hours,captured_at")
       .gte("captured_at", since)
       .order("captured_at", { ascending: false })
       .limit(10000)),
