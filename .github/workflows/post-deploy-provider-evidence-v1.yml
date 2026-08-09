@@ -1,0 +1,108 @@
+name: Scorecaster Post-Deploy Provider Evidence V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/sportsgameodds-provider.js"
+      - "lib/sportsgameodds-match-v3.mjs"
+      - "lib/sportsgameodds-upstream-v1.mjs"
+      - "lib/unified-sports-data-service.js"
+      - "lib/unified-sports-data-v2.mjs"
+      - "lib/secondary-pricing-diagnostics-v1.mjs"
+      - "lib/provider-readiness-input-v1.mjs"
+      - "lib/provider-observation-normalization-v1.mjs"
+      - "app/api/internal/unified-data/**"
+      - "app/api/production-evidence/**"
+      - "scripts/post-deploy-unified-data-capture.mjs"
+      - "scripts/post-deploy-unified-data-capture-v1.test.mjs"
+      - "scripts/external-production-readiness-probe.mjs"
+      - "scripts/external-production-provider-diagnosis.mjs"
+      - ".github/workflows/post-deploy-provider-evidence-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/sportsgameodds-provider.js"
+      - "lib/sportsgameodds-match-v3.mjs"
+      - "lib/sportsgameodds-upstream-v1.mjs"
+      - "lib/unified-sports-data-service.js"
+      - "lib/unified-sports-data-v2.mjs"
+      - "lib/secondary-pricing-diagnostics-v1.mjs"
+      - "lib/provider-readiness-input-v1.mjs"
+      - "lib/provider-observation-normalization-v1.mjs"
+      - "app/api/internal/unified-data/**"
+      - "app/api/production-evidence/**"
+      - "scripts/post-deploy-unified-data-capture.mjs"
+      - "scripts/post-deploy-unified-data-capture-v1.test.mjs"
+      - "scripts/external-production-readiness-probe.mjs"
+      - "scripts/external-production-provider-diagnosis.mjs"
+      - ".github/workflows/post-deploy-provider-evidence-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-post-deploy-provider-evidence-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  contract:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify post-deploy capture safety contract
+        run: node --test scripts/post-deploy-unified-data-capture-v1.test.mjs
+
+  production-capture:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: contract
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wait for exact production commit and capture Unified Data once
+        env:
+          TARGET_SHA: ${{ github.sha }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PRODUCTION_BASE_URL: https://scorecaster.vercel.app
+          DEPLOYMENT_WAIT_SECONDS: 600
+          DEPLOYMENT_POLL_SECONDS: 15
+          POST_DEPLOY_CAPTURE_REPORT_PATH: artifacts/post-deploy-unified-data-capture.json
+        run: node scripts/post-deploy-unified-data-capture.mjs
+
+      - name: Measure release-safe production readiness
+        env:
+          PRODUCTION_EVIDENCE_BASE_URL: https://scorecaster.vercel.app
+          PRODUCTION_EVIDENCE_DAYS: 30
+          EXTERNAL_PRODUCTION_READINESS_REPORT_PATH: artifacts/external-production-readiness.json
+        run: node scripts/external-production-readiness-probe.mjs
+
+      - name: Diagnose release-safe provider state
+        env:
+          PRODUCTION_EVIDENCE_BASE_URL: https://scorecaster.vercel.app
+          PRODUCTION_EVIDENCE_DAYS: 30
+          EXTERNAL_PROVIDER_DIAGNOSIS_REPORT_PATH: artifacts/external-production-provider-diagnosis.json
+        run: node scripts/external-production-provider-diagnosis.mjs
+
+      - name: Upload redacted post-deploy evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: scorecaster-post-deploy-provider-evidence
+          path: artifacts/*.json
+          if-no-files-found: error
