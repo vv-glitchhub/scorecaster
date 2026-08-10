@@ -33,6 +33,22 @@ test("ready app still exposes all core production views", async () => {
   assert.match(client, /Näytä kaikki data/);
 });
 
+test("legacy value surface uses fresh unified data instead of stale value_bets rows", async () => {
+  const route = await file("app/api/value-bets/route.js");
+  const client = await file("app/components/ValueBetsSection.js");
+
+  assert.match(route, /from\("unified_data_snapshots"\)/);
+  assert.match(route, /\.gte\("commence_time", nowIso\)/);
+  assert.match(route, /MAX_CAPTURE_AGE_MS/);
+  assert.match(route, /freshness: "stale"/);
+  assert.match(route, /paperOnly: true/);
+  assert.doesNotMatch(route, /from\("value_bets"\)/);
+
+  assert.match(client, /data\?\.valueBets/);
+  assert.match(client, /cache: "no-store"/);
+  assert.match(client, /not showing old value observations/);
+});
+
 test("AI Feed has automatic refresh and authenticated community comments", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   const route = await file("app/api/community/comments/route.js");
