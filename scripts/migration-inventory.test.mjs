@@ -83,5 +83,11 @@ test("markdown explicitly separates repository analysis from production evidence
   assert.doesNotMatch(markdown, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 
   const status = JSON.parse(await readFile(path.join(repositoryRoot, "config/production-migration-status.json"), "utf8"));
-  assert.ok(status.migrations.every((migration) => migration.status === "unverified"));
+  assert.equal(status.environment, "production");
+  assert.equal(status.migrations.length, 21);
+  assert.ok(status.migrations.every((migration) => migration.status === "applied"));
+  assert.ok(status.migrations.every((migration) => typeof migration.verifiedAt === "string" && migration.verifiedAt.length > 0));
+  assert.ok(status.migrations.every((migration) => typeof migration.verifiedBy === "string" && migration.verifiedBy.length > 0));
+  assert.ok(status.migrations.every((migration) => /^docs\/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10\.md#/.test(migration.evidence || "")));
+  assert.equal(inventory.summary.productionVerified, true);
 });

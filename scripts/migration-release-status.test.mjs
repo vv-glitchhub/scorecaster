@@ -26,18 +26,18 @@ function allAppliedStatus() {
   };
 }
 
-test("canonical registry stays unverified until production evidence is explicitly recorded", () => {
+test("canonical registry reports passed only after explicit production evidence is recorded", () => {
   const result = buildMigrationReleaseStatus({ manifest, statusDocument: canonicalStatus });
 
   assert.equal(result.configuredMigrationCount, 21);
   assert.equal(result.recordedMigrationCount, 21);
-  assert.equal(result.verifiedAppliedCount, 0);
-  assert.equal(result.unverifiedCount, 21);
-  assert.equal(result.unresolvedCount, 21);
+  assert.equal(result.verifiedAppliedCount, 21);
+  assert.equal(result.unverifiedCount, 0);
+  assert.equal(result.unresolvedCount, 0);
   assert.equal(result.orderMatchesManifest, true);
   assert.equal(result.validationPassed, true);
-  assert.equal(result.productionVerified, false);
-  assert.equal(result.status, "unverified");
+  assert.equal(result.productionVerified, true);
+  assert.equal(result.status, "passed");
   assert.equal(result.statusFingerprint.length, 64);
   assert.equal(result.safety.filePresenceUsedAsProductionProof, false);
   assert.equal(result.safety.rawEvidenceRefsIncluded, false);
@@ -45,8 +45,8 @@ test("canonical registry stays unverified until production evidence is explicitl
   assert.equal(result.safety.userDataIncluded, false);
 
   const serialized = JSON.stringify(result);
-  assert.doesNotMatch(serialized, /release-evidence\/.*#/i);
-  assert.doesNotMatch(serialized, /release-reviewer/i);
+  assert.doesNotMatch(serialized, /PRODUCTION_MIGRATION_EVIDENCE_2026_08_10\.md#/i);
+  assert.doesNotMatch(serialized, /ChatGPT production catalog audit/i);
   assert.doesNotMatch(serialized, /service[_-]?role|password|bearer\s+[a-z0-9._-]{20,}/i);
 });
 
@@ -100,6 +100,7 @@ test("explicit missing or blocked migration is a failed production state", () =>
     const result = buildMigrationReleaseStatus({ manifest, statusDocument });
     assert.equal(result.status, "failed");
     assert.equal(result.productionVerified, false);
-    assert.equal(result.unresolvedCount, 21);
+    assert.equal(result.verifiedAppliedCount, 20);
+    assert.equal(result.unresolvedCount, 1);
   }
 });
