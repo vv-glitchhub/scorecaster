@@ -8,6 +8,10 @@ on:
       - "lib/sportsgameodds-upstream-v1.mjs"
       - "lib/unified-sports-data-service.js"
       - "lib/unified-sports-data-v2.mjs"
+      - "lib/open-meteo-provider.js"
+      - "lib/results-provider.js"
+      - "lib/results-league-map.js"
+      - "lib/form-rest-shadow-model.mjs"
       - "lib/secondary-pricing-diagnostics-v1.mjs"
       - "lib/provider-readiness-input-v1.mjs"
       - "lib/provider-observation-normalization-v1.mjs"
@@ -17,6 +21,8 @@ on:
       - "scripts/post-deploy-unified-data-capture-v1.test.mjs"
       - "scripts/external-production-readiness-probe.mjs"
       - "scripts/external-production-provider-diagnosis.mjs"
+      - ".github/workflows/collector.yml"
+      - ".github/workflows/unified-data-capture.yml"
       - ".github/workflows/post-deploy-provider-evidence-v1.yml"
   push:
     branches: [main]
@@ -26,6 +32,10 @@ on:
       - "lib/sportsgameodds-upstream-v1.mjs"
       - "lib/unified-sports-data-service.js"
       - "lib/unified-sports-data-v2.mjs"
+      - "lib/open-meteo-provider.js"
+      - "lib/results-provider.js"
+      - "lib/results-league-map.js"
+      - "lib/form-rest-shadow-model.mjs"
       - "lib/secondary-pricing-diagnostics-v1.mjs"
       - "lib/provider-readiness-input-v1.mjs"
       - "lib/provider-observation-normalization-v1.mjs"
@@ -35,6 +45,8 @@ on:
       - "scripts/post-deploy-unified-data-capture-v1.test.mjs"
       - "scripts/external-production-readiness-probe.mjs"
       - "scripts/external-production-provider-diagnosis.mjs"
+      - ".github/workflows/collector.yml"
+      - ".github/workflows/unified-data-capture.yml"
       - ".github/workflows/post-deploy-provider-evidence-v1.yml"
   workflow_dispatch:
 
