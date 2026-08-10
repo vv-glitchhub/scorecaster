@@ -5,15 +5,19 @@ import { useEffect, useState } from "react";
 export default function ValueBetsSection() {
   const [bets, setBets] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [freshness, setFreshness] = useState("unknown");
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/value-bets");
+        const res = await fetch("/api/value-bets", { cache: "no-store" });
         const data = await res.json();
-        setBets(data || []);
-      } catch (e) {
-        console.error(e);
+        setBets(Array.isArray(data?.valueBets) ? data.valueBets : []);
+        setFreshness(data?.freshness || "unknown");
+      } catch (error) {
+        console.error(error);
+        setBets([]);
+        setFreshness("error");
       } finally {
         setLoading(false);
       }
@@ -23,25 +27,36 @@ export default function ValueBetsSection() {
   }, []);
 
   function getColor(ev) {
-    if (ev > 1.1) return "#00ff9f";   // 🔥 strong value
-    if (ev > 1.05) return "#00d4ff";  // 👍 decent
-    if (ev > 1.0) return "#ffaa00";   // ⚠️ small edge
-    return "#666";                    // ❌ no value
+    if (ev > 1.1) return "#00ff9f";
+    if (ev > 1.05) return "#00d4ff";
+    if (ev > 1.0) return "#ffaa00";
+    return "#666";
   }
 
   function getLabel(ev) {
-    if (ev > 1.1) return "🔥 BEST BET";
+    if (ev > 1.1) return "STRONG VALUE";
     if (ev > 1.05) return "VALUE";
     if (ev > 1.0) return "MARGINAL";
     return "NO EDGE";
   }
 
-  if (loading) return <div>Loading value bets...</div>;
-  if (!bets.length) return <div>No value bets found</div>;
+  if (loading) return <div>Loading current paper-value observations...</div>;
+  if (!bets.length) {
+    return (
+      <div>
+        {freshness === "stale"
+          ? "Current market capture is stale, so Scorecaster is not showing old value observations."
+          : "No current positive-value paper observations found."}
+      </div>
+    );
+  }
 
   return (
     <section style={{ marginTop: 32 }}>
-      <h2 style={{ marginBottom: 16 }}>💰 Value Bets</h2>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12 }}>
+        <h2 style={{ marginBottom: 16 }}>Value observations</h2>
+        <div style={{ fontSize: 12, opacity: 0.7 }}>Unified Data · {freshness} · paper-only</div>
+      </div>
 
       <div style={{ display: "grid", gap: 12 }}>
         {bets.map((bet) => {
@@ -54,50 +69,38 @@ export default function ValueBetsSection() {
                 border: `1px solid ${color}`,
                 borderRadius: 12,
                 padding: 14,
-                background: "#0f172a",
+                background: "#0f172a"
               }}
             >
-              {/* HEADER */}
-              <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
                 <div style={{ fontWeight: 700 }}>
                   {bet.home_team} vs {bet.away_team}
                 </div>
-
-                <div
-                  style={{
-                    color,
-                    fontWeight: 700,
-                    fontSize: 12,
-                  }}
-                >
-                  {getLabel(bet.best_ev)}
-                </div>
+                <div style={{ color, fontWeight: 700, fontSize: 12 }}>{getLabel(bet.best_ev)}</div>
               </div>
 
-              {/* MAIN */}
-              <div style={{ marginTop: 8, fontSize: 18 }}>
-                {bet.recommendation}
-              </div>
+              <div style={{ marginTop: 8, fontSize: 18 }}>{bet.recommendation}</div>
 
-              {/* STATS */}
               <div
                 style={{
                   display: "flex",
                   justifyContent: "space-between",
+                  gap: 12,
                   marginTop: 10,
                   fontSize: 14,
-                  opacity: 0.8,
+                  opacity: 0.8
                 }}
               >
-                <div>Odds: {bet.best_odds}</div>
-                <div style={{ color }}>
-                  EV: {bet.best_ev?.toFixed(2)}
-                </div>
+                <div>Odds: {bet.best_odds?.toFixed?.(2) || bet.best_odds}</div>
+                <div style={{ color }}>Value: {bet.best_ev?.toFixed(3)}</div>
               </div>
 
-              {/* CONFIDENCE */}
               <div style={{ marginTop: 6, fontSize: 13 }}>
-                Confidence: {bet.confidence}
+                {bet.decision} · {bet.confidence} confidence · {bet.provider_count} provider
+                {bet.provider_count === 1 ? "" : "s"}
+              </div>
+              <div style={{ marginTop: 4, fontSize: 11, opacity: 0.65 }}>
+                {bet.league} · {new Date(bet.commence_time).toLocaleString()}
               </div>
             </div>
           );
