@@ -75,6 +75,20 @@ test("production workflow keeps deployment wait bounded and worker mutation sing
   assert.match(workflow, /timeout-minutes: 15/);
 });
 
+test("provider pipeline changes trigger post-deploy production capture", async () => {
+  const workflow = await workflowSource();
+  for (const path of [
+    "lib/open-meteo-provider.js",
+    "lib/results-provider.js",
+    "lib/results-league-map.js",
+    "lib/form-rest-shadow-model.mjs",
+    ".github/workflows/collector.yml",
+    ".github/workflows/unified-data-capture.yml"
+  ]) {
+    assert.ok(workflow.includes(`- \"${path}\"`), `missing post-deploy trigger path ${path}`);
+  }
+});
+
 test("workflow uploads only the redacted artifacts directory", async () => {
   const workflow = await workflowSource();
   assert.match(workflow, /path: artifacts\/\*\.json/);
