@@ -10,6 +10,8 @@ import {
   buildFormRestShadowLab,
   normalizeFormRestShadowSamples
 } from "../lib/form-rest-shadow-lab.mjs";
+import { resolveSportsDbLeagueKey } from "../lib/results-provider.js";
+import { getSportsDbLeagueId } from "../lib/results-league-map.js";
 
 const NOW = Date.parse("2026-07-18T12:00:00Z");
 const KICKOFF = "2026-07-20T18:00:00Z";
@@ -91,6 +93,49 @@ test("soccer remains feature-only and never produces a fake binary probability",
   assert.equal(soccer.status, "feature_only");
   assert.equal(soccer.shadowProbability, null);
   assert.equal(soccer.usedForDecision, false);
+});
+
+test("current summer leagues resolve to reviewed TheSportsDB histories", () => {
+  const cases = [
+    ["basketball_wnba", "WNBA", "4516"],
+    ["baseball_mlb", "MLB", "4424"],
+    ["soccer_usa_mls", "MLS", "4346"],
+    ["soccer_finland_veikkausliiga", "VEIKKAUSLIIGA", "4636"],
+    ["soccer_sweden_allsvenskan", "ALLSVENSKAN", "4347"],
+    ["soccer_norway_eliteserien", "ELITESERIEN", "4358"]
+  ];
+
+  for (const [sportKey, leagueKey, leagueId] of cases) {
+    assert.equal(resolveSportsDbLeagueKey({ sportKey }), leagueKey);
+    assert.equal(getSportsDbLeagueId(leagueKey), leagueId);
+  }
+});
+
+test("summer form and rest context is feature-only and cannot replace production probability", () => {
+  const cases = [
+    ["basketball_wnba", "WNBA"],
+    ["baseball_mlb", "MLB"],
+    ["soccer_usa_mls", "MLS"],
+    ["soccer_finland_veikkausliiga", "VEIKKAUSLIIGA"],
+    ["soccer_sweden_allsvenskan", "ALLSVENSKAN"],
+    ["soccer_norway_eliteserien", "ELITESERIEN"]
+  ];
+
+  for (const [sportKey, leagueKey] of cases) {
+    const snapshot = buildFormRestShadowSnapshot({
+      pick: pick({ sportKey, league: sportKey }),
+      provider: provider({ leagueKey }),
+      now: NOW
+    });
+    assert.equal(snapshot.mode, "feature-only");
+    assert.equal(snapshot.status, "feature_only");
+    assert.equal(snapshot.home.sampleSize, 4);
+    assert.equal(snapshot.away.sampleSize, 4);
+    assert.equal(snapshot.shadowProbability, null);
+    assert.equal(snapshot.probabilityAppliedToProduction, false);
+    assert.equal(snapshot.usedForDecision, false);
+    assert.equal(snapshot.chronologyGuard, true);
+  }
 });
 
 test("compact snapshot always forces audit-only flags", () => {
