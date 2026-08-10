@@ -104,6 +104,9 @@ test("collector storage and APIs retain security boundaries", async () => {
   assert.match(health, /scorecaster-collector-health-v3/);
   assert.match(sources, /productionCollectionFailsClosed: true/);
   assert.match(workflow, /api\/internal\/collector/);
+  assert.match(workflow, /api\/internal\/unified-data/);
+  assert.match(workflow, /api\/internal\/sports-analytics/);
+  assert.match(workflow, /timeout-minutes:\s*12/);
   assert.match(client, /publishable-only API/);
   assert.match(provider, /https-required/);
 });
