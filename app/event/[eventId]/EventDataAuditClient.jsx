@@ -8,6 +8,7 @@ import { useLanguage } from "../../components/LanguageProvider";
 import EventModelAuditPanel from "./EventModelAuditPanel";
 import EventAdvancedSignalReadinessPanel from "./EventAdvancedSignalReadinessPanel";
 import EventNhlXgGoaliePanel from "./EventNhlXgGoaliePanel";
+import EventSoccerXgPoissonPanel from "./EventSoccerXgPoissonPanel";
 
 export default function EventDataAuditClient({ eventId, sport }) {
   const { tr } = useLanguage();
@@ -39,6 +40,7 @@ export default function EventDataAuditClient({ eventId, sport }) {
       <UnifiedDataLedger ledger={state.row.ledger} />
       <EventModelAuditPanel row={state.row} />
       <EventNhlXgGoaliePanel row={state.row} />
+      <EventSoccerXgPoissonPanel row={state.row} />
       <EventAdvancedSignalReadinessPanel row={state.row} />
       <UnifiedDataHistoryClient compact eventId={eventId} selection={state.row.selection || ""} />
     </div>
