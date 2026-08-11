@@ -14,6 +14,7 @@ Unified Data
        -> deterministic model adapters
        -> model audit gate
        -> performance evidence gate
+       -> dependence-family policy
        -> rejected-model ledger
   -> Ensemble Engine V1
   -> Calibration / Risk review
@@ -35,11 +36,28 @@ The existing NHL and NBA `form-rest-shadow-v1` binary models can become Model Fa
 - chronology guard passed
 - the model is deterministic
 
-The adapter declares a dependence group so variants of the same family cannot double-vote in Ensemble V1.
+They belong to the sport-specific `historical-results-family` dependence group because their predictive signal is derived from completed historical results.
+
+### Historical Rating / recent Elo shadow
+
+`historical-rating-shadow-v1` trains a deterministic recent Elo-style state from the same free completed-results provider already used by form/rest.
+
+Initial supported profiles are NHL, NBA, WNBA and MLB. The model:
+
+- initializes teams at a common research rating
+- processes completed league events chronologically
+- excludes events at or after the target fixture
+- updates ratings with a documented Elo-style formula
+- applies a documented research home-advantage term
+- emits a home/away shadow probability only when league and team sample gates are satisfied
+
+The default K-factors and home-advantage terms are research settings, not league-calibrated production parameters.
+
+Historical Rating and form/rest are **not treated as two fully independent top-level model families**. Both use historical results, so Model Factory assigns them to the same sport-specific `historical-results-family` dependence group. Ensemble V1 may use both to refine that group's internal probability, but the group receives at most one top-level vote.
 
 ### Feature-only form/rest profiles
 
-WNBA, MLB and supported soccer form/rest feature-only profiles remain Feature Engine inputs only.
+Feature-only form/rest profiles remain Feature Engine inputs only.
 
 They are inventoried by Model Factory but cannot emit an ensemble probability.
 
@@ -60,6 +78,22 @@ An external model must provide a valid probability and explicitly prove:
 - model family/dependence group
 
 Known random legacy implementations such as `model-engine-v3` remain blocked.
+
+## Dependence-family contract
+
+A distinct model ID does not automatically mean an independent predictive signal.
+
+Model Factory uses `dependenceGroup` to encode shared signal families. Models in the same group may be compared and combined internally, but Ensemble V1 gives the group at most one top-level vote and does not sum correlated family weights.
+
+Current explicit historical rule:
+
+```text
+<form sport key>-historical-results-family
+  - form/rest shadow
+  - historical rating shadow
+```
+
+This prevents apparent ensemble diversity from being inflated by multiple transformations of the same underlying match-history data.
 
 ## Performance Evidence V1
 
@@ -98,13 +132,15 @@ Model Factory rejects:
 - banned random legacy implementations
 - model outputs whose attached performance evidence violates chronology/leakage boundaries
 
+Models whose own source/sample gate is not ready stay visible as non-voting inventory instead of receiving an imputed probability.
+
 Missing probability is never imputed.
 
 ## Public audit
 
-`/api/data-layer` exposes Model Factory V1 alongside Feature Engine and Ensemble Engine.
+`/api/data-layer` exposes Model Factory V1 alongside form/rest, Historical Rating, Feature Engine and Ensemble Engine.
 
-The audit contains accepted outputs, rejected outputs, non-voting adapters, performance-evidence readiness and explicit safety contracts.
+The audit contains accepted outputs, rejected outputs, non-voting adapters, performance-evidence readiness, dependence-family policy and explicit safety contracts.
 
 ## Promotion boundary
 
