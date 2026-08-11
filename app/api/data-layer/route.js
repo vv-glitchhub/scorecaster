@@ -42,6 +42,7 @@ export async function GET(request) {
       edge: pick.edge,
       ev: pick.ev,
       ledger: pick.unifiedSportsData || null,
+      intelligenceFusion: pick.intelligenceFusionV2 || null,
       providers: pick.unifiedDataProviders || {},
       dataProvenance: pick.dataProvenance || null,
       generatedAt: pick.unifiedDataGeneratedAt || payload.generatedAt
@@ -50,6 +51,7 @@ export async function GET(request) {
     return Response.json({
       ok: true,
       version: "unified-sports-data-api-v2",
+      intelligenceFusionVersion: "intelligence-fusion-v2",
       generatedAt: new Date().toISOString(),
       eventId: eventId || null,
       count: rows.length,
@@ -71,6 +73,9 @@ export async function GET(request) {
       },
       safety: {
         probabilitySource: "no-vig market consensus",
+        aiUsesOnlyEligibleAuditedEvidence: true,
+        missingDataImputed: false,
+        probabilityAdjustedByIntelligenceFusion: false,
         contextCanUpgrade: false,
         contextCanDowngradeVerifiedRisk: true,
         closingOddsPregameLeakage: false,
