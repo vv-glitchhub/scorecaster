@@ -118,7 +118,7 @@ test("Verified adverse evidence imposes a CAUTION ceiling", () => {
   assert.ok(result.dataQualityGate.reasons.some((reason) => reason.includes("adverse")));
 });
 
-test("Future-dated evidence fails chronology guard and cannot enter AI context", () => {
+test("Future-dated contextual evidence fails chronology guard and cannot enter AI context", () => {
   const result = buildIntelligenceFusionV2(pickWithFactors([
     factor({ key: "odds-consensus", title: "Odds consensus", confidence: 0.9, trust: 0.86 }),
     factor({
@@ -138,6 +138,24 @@ test("Future-dated evidence fails chronology guard and cannot enter AI context",
   assert.equal(result.dataQualityGate.decisionCeiling, "CAUTION");
   assert.equal(result.dataQualityGate.safeForAi, false);
   assert.ok(!result.explanationEvidence.some((line) => line.includes("Lineups")));
+});
+
+test("Odds commence-time fallback remains governed by the existing market freshness gate", () => {
+  const commenceTime = "2026-08-12T18:00:00.000Z";
+  const result = buildIntelligenceFusionV2(pickWithFactors([
+    factor({
+      key: "odds-consensus",
+      title: "Odds consensus",
+      confidence: 0.9,
+      trust: 0.86,
+      observedAt: commenceTime
+    })
+  ], { commenceTime }), { now: NOW });
+
+  assert.equal(result.eligibleFactors.length, 1);
+  assert.equal(result.eligibleFactors[0].key, "odds-consensus");
+  assert.equal(result.eligibleFactors[0].chronology.governedBy, "market-freshness-gate");
+  assert.equal(result.dataQualityGate.decisionCeiling, "PLAY");
 });
 
 test("Missing audited odds consensus fails closed", () => {
