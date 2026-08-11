@@ -9,6 +9,9 @@ on:
       - "lib/model-performance-evidence-v1.mjs"
       - "lib/advanced-signal-readiness-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
+      - "lib/nhl-xg-goalie-shadow-v1.mjs"
+      - "lib/sports-analytics-shadow-input-loader.js"
+      - "lib/sports-analytics-provider.js"
       - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
       - "lib/decision-architecture-v1.mjs"
@@ -16,16 +19,20 @@ on:
       - "app/event/[eventId]/EventDataAuditClient.jsx"
       - "app/event/[eventId]/EventModelAuditPanel.jsx"
       - "app/event/[eventId]/EventAdvancedSignalReadinessPanel.jsx"
+      - "app/event/[eventId]/EventNhlXgGoaliePanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
       - "scripts/historical-rating-shadow-v1.test.mjs"
+      - "scripts/nhl-xg-goalie-shadow-v1.test.mjs"
+      - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
       - "scripts/advanced-signal-readiness-v1.test.mjs"
       - "docs/MODEL_FACTORY_V1.md"
       - "docs/HISTORICAL_RATING_SHADOW_V1.md"
       - "docs/MODEL_LINEAGE_GUARD_V1.md"
       - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
+      - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - ".github/workflows/model-factory-v1.yml"
   push:
     branches: [main]
@@ -35,6 +42,9 @@ on:
       - "lib/model-performance-evidence-v1.mjs"
       - "lib/advanced-signal-readiness-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
+      - "lib/nhl-xg-goalie-shadow-v1.mjs"
+      - "lib/sports-analytics-shadow-input-loader.js"
+      - "lib/sports-analytics-provider.js"
       - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
       - "lib/decision-architecture-v1.mjs"
@@ -42,16 +52,20 @@ on:
       - "app/event/[eventId]/EventDataAuditClient.jsx"
       - "app/event/[eventId]/EventModelAuditPanel.jsx"
       - "app/event/[eventId]/EventAdvancedSignalReadinessPanel.jsx"
+      - "app/event/[eventId]/EventNhlXgGoaliePanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
       - "scripts/historical-rating-shadow-v1.test.mjs"
+      - "scripts/nhl-xg-goalie-shadow-v1.test.mjs"
+      - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
       - "scripts/advanced-signal-readiness-v1.test.mjs"
       - "docs/MODEL_FACTORY_V1.md"
       - "docs/HISTORICAL_RATING_SHADOW_V1.md"
       - "docs/MODEL_LINEAGE_GUARD_V1.md"
       - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
+      - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - ".github/workflows/model-factory-v1.yml"
 
 permissions:
@@ -78,7 +92,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Model Factory regression tests
-        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
+        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble
