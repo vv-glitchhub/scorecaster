@@ -7,6 +7,7 @@ on:
       - "lib/model-factory-v1.mjs"
       - "lib/model-performance-evidence-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
+      - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
       - "lib/decision-architecture-v1.mjs"
       - "app/api/data-layer/route.js"
@@ -22,6 +23,7 @@ on:
       - "lib/model-factory-v1.mjs"
       - "lib/model-performance-evidence-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
+      - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
       - "lib/decision-architecture-v1.mjs"
       - "app/api/data-layer/route.js"
@@ -60,6 +62,9 @@ jobs:
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble
+
+      - name: Open transparency regressions
+        run: npm run test:transparency
 
       - name: Security check
         run: npm run security:check
