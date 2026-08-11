@@ -1,3 +1,6 @@
+import { buildAdvancedSignalReadinessV1 } from "../../../lib/advanced-signal-readiness-v1.mjs";
+import { sportsAnalyticsProviderConfiguration } from "../../../lib/sports-analytics-provider.js";
+
 const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff"
@@ -31,6 +34,8 @@ export async function GET(request) {
       return Response.json({ ok: false, error: payload?.error || "Unified data layer is unavailable", data: [] }, { status: 503, headers: HEADERS });
     }
 
+    const now = Date.now();
+    const analyticsProvider = sportsAnalyticsProviderConfiguration();
     const picks = Array.isArray(payload.data) ? payload.data : [];
     const selected = eventId ? picks.filter((pick) => pickId(pick) === eventId) : picks;
     const rows = selected.map((pick) => ({
@@ -48,6 +53,7 @@ export async function GET(request) {
       featureEngine: pick.featureEngineV1 || null,
       modelFactory: pick.modelFactoryV1 || null,
       ensembleEngine: pick.ensembleEngineV1 || null,
+      advancedSignalReadiness: buildAdvancedSignalReadinessV1(pick, { providerConfiguration: analyticsProvider, now }),
       decisionArchitecture: pick.decisionArchitectureV1 || null,
       providers: pick.unifiedDataProviders || {},
       dataProvenance: pick.dataProvenance || null,
@@ -56,19 +62,25 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v6",
+      version: "unified-sports-data-api-v7",
       intelligenceFusionVersion: "intelligence-fusion-v2",
       formRestShadowVersion: "form-rest-shadow-v1",
       historicalRatingShadowVersion: "historical-rating-shadow-v1",
       featureEngineVersion: "scorecaster-feature-engine-v1",
       modelFactoryVersion: "scorecaster-model-factory-v1",
       modelLineageGuardVersion: "scorecaster-model-lineage-guard-v1",
+      advancedSignalReadinessVersion: "scorecaster-advanced-signal-readiness-v1",
       modelPerformanceEvidenceVersion: "scorecaster-model-performance-evidence-v1",
       ensembleEngineVersion: "scorecaster-ensemble-engine-v1",
       decisionArchitectureVersion: "scorecaster-decision-architecture-v1",
-      generatedAt: new Date().toISOString(),
+      generatedAt: new Date(now).toISOString(),
       eventId: eventId || null,
       count: rows.length,
+      externalAnalyticsConfiguration: {
+        configured: analyticsProvider.configured === true,
+        source: analyticsProvider.source,
+        transport: analyticsProvider.transport
+      },
       history: {
         endpoint: "/api/data-layer/history",
         captureIntervalMinutes: 30,
@@ -80,7 +92,7 @@ export async function GET(request) {
         primaryOdds: "The Odds API bookmaker consensus",
         secondaryOdds: "SportsGameOdds when configured and event-matched",
         historicalResults: "TheSportsDB recent completed league events with pre-event chronology filtering",
-        advancedIndependentSignals: "audited external model outputs may use expected-performance, tracking or performance-statistics families when explicit lineage is supplied",
+        advancedIndependentSignals: "raw advanced analytics and audited probability models are separate readiness stages; raw observations never become probability automatically",
         injuries: "SportsData when supported and configured",
         lineups: "configured lineup provider",
         context: "configured sports context provider",
@@ -91,12 +103,15 @@ export async function GET(request) {
         featureEngine: "audited deterministic feature snapshots with explicit missing and rejected inputs",
         modelFactory: "canonical adapter and validation boundary for deterministic shadow model outputs",
         modelLineageGuard: "derives dependence groups from declared signal lineage instead of trusting a model-supplied group",
+        advancedSignalReadiness: "separates provider availability, metric lineage, audited model output and chronological holdout evidence",
         historicalRating: "recent-results Elo-style research shadow using only completed events before the fixture",
         historicalDependencePolicy: "form/rest and historical rating share one historical-results-family top-level ensemble vote",
         advancedSignalDependencePolicy: "expected-performance, tracking and performance-statistics families receive explicit derived groups; mixed models use conservative precedence",
         performanceEvidence: "chronological pre-event holdout evidence is required before a performance weight can exist",
         ensembleEngine: "shadow-first independent-model ensemble; validated performance weights only",
         marketBenchmarkIsNotIndependentModel: true,
+        rawAdvancedAnalyticsAutomaticallyCreateModelProbability: false,
+        providerConfiguredMeansIndependentModelReady: false,
         featureOnlyModelsCastProbabilityVote: false,
         correlatedHistoricalModelsDoubleCounted: false,
         modelSelfDeclaredDependenceGroupTrusted: false,
@@ -113,11 +128,13 @@ export async function GET(request) {
         probabilityAdjustedByIntelligenceFusion: false,
         probabilityAdjustedByHistoricalRating: false,
         probabilityAdjustedByModelFactory: false,
+        probabilityAdjustedByAdvancedSignalReadiness: false,
         probabilityAdjustedByFeatureEnsemble: false,
         productionDecisionAdjustedByFeatureEnsemble: false,
         historicalRatingUsesPostFixtureResults: false,
         dependenceGroupDerivedFromLineage: true,
         marketDerivedSignalCanMasqueradeAsIndependentModel: false,
+        rawAdvancedAnalyticsCanMasqueradeAsProbabilityModel: false,
         contextCanUpgrade: false,
         contextCanDowngradeVerifiedRisk: true,
         closingOddsPregameLeakage: false,

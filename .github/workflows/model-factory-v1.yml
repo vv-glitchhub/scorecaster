@@ -7,6 +7,7 @@ on:
       - "lib/model-factory-v1.mjs"
       - "lib/model-lineage-guard-v1.mjs"
       - "lib/model-performance-evidence-v1.mjs"
+      - "lib/advanced-signal-readiness-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
       - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
@@ -14,14 +15,17 @@ on:
       - "app/api/data-layer/route.js"
       - "app/event/[eventId]/EventDataAuditClient.jsx"
       - "app/event/[eventId]/EventModelAuditPanel.jsx"
+      - "app/event/[eventId]/EventAdvancedSignalReadinessPanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
       - "scripts/historical-rating-shadow-v1.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
+      - "scripts/advanced-signal-readiness-v1.test.mjs"
       - "docs/MODEL_FACTORY_V1.md"
       - "docs/HISTORICAL_RATING_SHADOW_V1.md"
       - "docs/MODEL_LINEAGE_GUARD_V1.md"
+      - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
       - ".github/workflows/model-factory-v1.yml"
   push:
     branches: [main]
@@ -29,6 +33,7 @@ on:
       - "lib/model-factory-v1.mjs"
       - "lib/model-lineage-guard-v1.mjs"
       - "lib/model-performance-evidence-v1.mjs"
+      - "lib/advanced-signal-readiness-v1.mjs"
       - "lib/historical-rating-shadow-model.mjs"
       - "lib/model-formula-registry-v1.mjs"
       - "lib/agent-intelligence-loader.js"
@@ -36,14 +41,17 @@ on:
       - "app/api/data-layer/route.js"
       - "app/event/[eventId]/EventDataAuditClient.jsx"
       - "app/event/[eventId]/EventModelAuditPanel.jsx"
+      - "app/event/[eventId]/EventAdvancedSignalReadinessPanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
       - "scripts/historical-rating-shadow-v1.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
+      - "scripts/advanced-signal-readiness-v1.test.mjs"
       - "docs/MODEL_FACTORY_V1.md"
       - "docs/HISTORICAL_RATING_SHADOW_V1.md"
       - "docs/MODEL_LINEAGE_GUARD_V1.md"
+      - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
       - ".github/workflows/model-factory-v1.yml"
 
 permissions:
@@ -70,7 +78,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Model Factory regression tests
-        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/event-model-audit-ui.test.mjs
+        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble
