@@ -1,0 +1,51 @@
+name: Scorecaster Feature Ensemble V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/feature-engine-v1.mjs"
+      - "lib/ensemble-engine-v1.mjs"
+      - "lib/decision-architecture-v1.mjs"
+      - "lib/agent-intelligence-loader.js"
+      - "lib/model-formula-registry-v1.mjs"
+      - "lib/event-detail.mjs"
+      - "app/api/data-layer/route.js"
+      - "scripts/feature-engine-v1.test.mjs"
+      - "scripts/ensemble-engine-v1.test.mjs"
+      - "docs/FEATURE_ENSEMBLE_ARCHITECTURE_V1.md"
+      - "package.json"
+      - ".github/workflows/feature-ensemble-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feature-ensemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Feature and ensemble regression tests
+        run: npm run test:feature-ensemble
+
+      - name: Security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build

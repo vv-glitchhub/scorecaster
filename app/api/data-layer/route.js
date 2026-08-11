@@ -43,6 +43,9 @@ export async function GET(request) {
       ev: pick.ev,
       ledger: pick.unifiedSportsData || null,
       intelligenceFusion: pick.intelligenceFusionV2 || null,
+      featureEngine: pick.featureEngineV1 || null,
+      ensembleEngine: pick.ensembleEngineV1 || null,
+      decisionArchitecture: pick.decisionArchitectureV1 || null,
       providers: pick.unifiedDataProviders || {},
       dataProvenance: pick.dataProvenance || null,
       generatedAt: pick.unifiedDataGeneratedAt || payload.generatedAt
@@ -50,8 +53,11 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v2",
+      version: "unified-sports-data-api-v3",
       intelligenceFusionVersion: "intelligence-fusion-v2",
+      featureEngineVersion: "scorecaster-feature-engine-v1",
+      ensembleEngineVersion: "scorecaster-ensemble-engine-v1",
+      decisionArchitectureVersion: "scorecaster-decision-architecture-v1",
       generatedAt: new Date().toISOString(),
       eventId: eventId || null,
       count: rows.length,
@@ -71,11 +77,20 @@ export async function GET(request) {
         weather: "Open-Meteo for outdoor events with coordinates",
         news: "NewsAPI with per-source reliability scoring"
       },
+      architecture: {
+        featureEngine: "audited deterministic feature snapshots with explicit missing and rejected inputs",
+        ensembleEngine: "shadow-first independent-model ensemble; validated performance weights only",
+        marketBenchmarkIsNotIndependentModel: true,
+        randomLegacyModelsRejected: true,
+        automaticModelPromotion: false
+      },
       safety: {
         probabilitySource: "no-vig market consensus",
         aiUsesOnlyEligibleAuditedEvidence: true,
         missingDataImputed: false,
         probabilityAdjustedByIntelligenceFusion: false,
+        probabilityAdjustedByFeatureEnsemble: false,
+        productionDecisionAdjustedByFeatureEnsemble: false,
         contextCanUpgrade: false,
         contextCanDowngradeVerifiedRisk: true,
         closingOddsPregameLeakage: false,
