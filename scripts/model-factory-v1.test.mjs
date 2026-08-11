@@ -65,6 +65,8 @@ test("Model Factory V1 turns a ready NHL form/rest shadow into one audited model
   assert.equal(result.outputs[0].audit.independentPredictiveModel, true);
   assert.equal(result.outputs[0].audit.deterministic, true);
   assert.match(result.outputs[0].dependenceGroup, /historical-results-family/);
+  assert.deepEqual(result.outputs[0].signalLineageV1.signalFamilies, ["context", "historical-results"]);
+  assert.equal(result.outputs[0].audit.dependenceGroupDerivedFromLineage, true);
   assert.equal(result.contracts.productionProbabilityChanged, false);
 });
 
@@ -127,6 +129,7 @@ test("unaudited external probabilities are rejected", () => {
   }), { now: NOW });
   assert.equal(result.counts.acceptedOutputs, 0);
   assert.equal(result.counts.rejectedOutputs, 1);
+  assert.ok(result.rejectedModels[0].reasons.includes("missing-signal-lineage"));
   assert.ok(result.rejectedModels[0].reasons.includes("not-independent-predictive-model"));
   assert.ok(result.rejectedModels[0].reasons.includes("not-deterministic"));
 });
@@ -137,6 +140,7 @@ test("legacy random model remains blocked even if it claims an audit", () => {
       modelId: "model-engine-v3",
       modelVersion: "model-engine-v3",
       probability: 0.7,
+      signalFamilies: ["historical-results"],
       generatedAt: "2026-08-11T08:50:00.000Z",
       audit: {
         independentPredictiveModel: true,
@@ -148,6 +152,58 @@ test("legacy random model remains blocked even if it claims an audit", () => {
   }), { now: NOW });
   assert.equal(result.counts.acceptedOutputs, 0);
   assert.ok(result.rejectedModels[0].reasons.includes("banned-random-or-legacy-model"));
+});
+
+test("audited expected-performance challenger gets a lineage-derived independent group", () => {
+  const result = buildModelFactoryV1(basePick({
+    independentModelOutputs: [{
+      modelId: "nhl-xg-shadow-v1",
+      modelVersion: "nhl-xg-shadow-v1",
+      modelFamily: "nhl-xg",
+      dependenceGroup: "totally-independent-claimed-by-model",
+      probability: 0.62,
+      generatedAt: "2026-08-11T08:50:00.000Z",
+      signalFamilies: ["xg", "shot-quality"],
+      dataLineage: {
+        providers: ["advanced-hockey-provider"],
+        metrics: ["xg", "shot-quality", "goals-saved-above-expected"]
+      },
+      audit: {
+        independentPredictiveModel: true,
+        deterministic: true,
+        chronologySafe: true,
+        source: "advanced-hockey-provider",
+        implementationPath: "models/nhl-xg-shadow-v1"
+      }
+    }]
+  }), { now: NOW });
+
+  assert.equal(result.counts.acceptedOutputs, 1);
+  assert.equal(result.outputs[0].dependenceGroup, "icehockey_nhl-expected-performance-family");
+  assert.equal(result.outputs[0].signalLineageV1.claimedDependenceGroup, "totally-independent-claimed-by-model");
+  assert.ok(result.warnings.some((warning) => warning.includes("claimed-dependence-group-overridden-by-lineage")));
+  assert.equal(result.contracts.dependenceGroupSelfDeclared, false);
+});
+
+test("market-derived challenger is rejected even with deterministic audit flags", () => {
+  const result = buildModelFactoryV1(basePick({
+    independentModelOutputs: [{
+      modelId: "odds-repackaged-model",
+      probability: 0.61,
+      generatedAt: "2026-08-11T08:50:00.000Z",
+      signalFamilies: ["odds-consensus", "expected-performance"],
+      audit: {
+        independentPredictiveModel: true,
+        deterministic: true,
+        chronologySafe: true,
+        source: "some-provider"
+      }
+    }]
+  }), { now: NOW });
+
+  assert.equal(result.counts.acceptedOutputs, 0);
+  assert.ok(result.rejectedModels[0].reasons.includes("market-derived-signal-not-independent"));
+  assert.equal(result.contracts.marketDerivedIndependentModelAllowed, false);
 });
 
 test("validated performance evidence is the only route to a factory calibration-ready output", () => {
