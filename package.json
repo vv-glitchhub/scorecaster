@@ -45,7 +45,7 @@
     "test:notification-delivery": "node --test scripts/notification-delivery.test.mjs",
     "test:market-timeline": "node --test scripts/market-timeline.test.mjs",
     "test:market-changes": "node --test scripts/market-change-radar.test.mjs",
-    "test:intelligence": "node --test scripts/intelligence-readiness.test.mjs",
+    "test:intelligence": "node --test scripts/intelligence-readiness.test.mjs scripts/intelligence-fusion-v2.test.mjs",
     "test:intelligence-v3": "node --test scripts/intelligence-v3.test.mjs",
     "test:intelligence-v4": "node --test scripts/intelligence-v4.test.mjs",
     "test:production-control-center": "node --test scripts/production-control-center.test.mjs",
