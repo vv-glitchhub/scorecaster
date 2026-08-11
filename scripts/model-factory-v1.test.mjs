@@ -42,6 +42,21 @@ function readyFormRest(overrides = {}) {
   };
 }
 
+function readyHistoricalRating(overrides = {}) {
+  return {
+    version: "historical-rating-shadow-v1",
+    modelId: "nhl-recent-elo-v1",
+    status: "ready",
+    sportKey: "icehockey_nhl",
+    generatedAt: "2026-08-11T08:55:00.000Z",
+    shadowProbability: 0.6,
+    chronologyGuard: true,
+    trainingUsesOnlyCompletedEventsBeforeFixture: true,
+    provider: { source: "thesportsdb" },
+    ...overrides
+  };
+}
+
 test("Model Factory V1 turns a ready NHL form/rest shadow into one audited model output", () => {
   const result = buildModelFactoryV1(basePick({ formRestShadow: readyFormRest() }), { now: NOW });
   assert.equal(result.version, MODEL_FACTORY_VERSION);
@@ -49,8 +64,31 @@ test("Model Factory V1 turns a ready NHL form/rest shadow into one audited model
   assert.equal(result.outputs[0].modelId, "nhl-form-rest-logit-v1");
   assert.equal(result.outputs[0].audit.independentPredictiveModel, true);
   assert.equal(result.outputs[0].audit.deterministic, true);
-  assert.match(result.outputs[0].dependenceGroup, /form-rest-logit-family/);
+  assert.match(result.outputs[0].dependenceGroup, /historical-results-family/);
   assert.equal(result.contracts.productionProbabilityChanged, false);
+});
+
+test("Model Factory V1 admits ready Historical Rating as a deterministic shadow model", () => {
+  const result = buildModelFactoryV1(basePick({ historicalRatingShadow: readyHistoricalRating() }), { now: NOW });
+  assert.equal(result.counts.acceptedOutputs, 1);
+  assert.equal(result.outputs[0].modelId, "nhl-recent-elo-v1");
+  assert.equal(result.outputs[0].role, "historical-rating-shadow");
+  assert.match(result.outputs[0].dependenceGroup, /historical-results-family/);
+  assert.equal(result.outputs[0].audit.implementationPath, "lib/historical-rating-shadow-model.mjs");
+});
+
+test("form/rest and rating models share one top-level historical dependence group", () => {
+  const result = attachDecisionArchitectureV1(basePick({
+    formRestShadow: readyFormRest(),
+    historicalRatingShadow: readyHistoricalRating()
+  }), { now: NOW });
+
+  assert.equal(result.modelFactoryV1.counts.acceptedOutputs, 2);
+  assert.equal(result.modelFactoryV1.counts.uniqueDependenceGroups, 1);
+  assert.equal(result.ensembleEngineV1.counts.researchEligible, 2);
+  assert.equal(result.ensembleEngineV1.counts.researchGroups, 1);
+  assert.ok(result.ensembleEngineV1.researchRiskGate.reasons.includes("fewer-than-two-independent-model-groups"));
+  assert.equal(result.modelFactoryV1.contracts.historicalResultModelsDoubleCountedAsIndependentFamilies, false);
 });
 
 test("feature-only form/rest profiles are inventoried but never cast a probability vote", () => {
@@ -68,6 +106,15 @@ test("feature-only form/rest profiles are inventoried but never cast a probabili
   assert.equal(result.counts.inventoriedNonVotingAdapters, 1);
   assert.equal(result.inventory[0].adapter, "form-rest-feature-only");
   assert.equal(result.contracts.featureOnlyModelsCastProbabilityVote, false);
+});
+
+test("unready Historical Rating remains in inventory but cannot vote", () => {
+  const result = buildModelFactoryV1(basePick({
+    historicalRatingShadow: readyHistoricalRating({ status: "insufficient_history", shadowProbability: null })
+  }), { now: NOW });
+  assert.equal(result.counts.acceptedOutputs, 0);
+  assert.equal(result.inventory[0].adapter, "historical-rating-shadow");
+  assert.equal(result.inventory[0].status, "insufficient_history");
 });
 
 test("unaudited external probabilities are rejected", () => {
@@ -109,7 +156,7 @@ test("validated performance evidence is the only route to a factory calibration-
     modelPerformanceEvidenceV1: [{
       modelId: "nhl-form-rest-logit-v1",
       modelVersion: "nhl-form-rest-logit-v1",
-      dependenceGroup: "icehockey_nhl-form-rest-logit-family",
+      dependenceGroup: "icehockey_nhl-historical-results-family",
       scope: { sport: "icehockey", league: "nhl", market: "h2h" },
       status: "validated",
       evaluationMode: "chronological-holdout",
@@ -137,12 +184,13 @@ test("validated performance evidence is the only route to a factory calibration-
 test("Decision Architecture V1 canonicalizes model inputs through Model Factory before Ensemble", () => {
   const result = attachDecisionArchitectureV1(basePick({
     formRestShadow: readyFormRest(),
+    historicalRatingShadow: readyHistoricalRating(),
     independentModelOutputs: [{
       modelId: "unaudited",
       probability: 0.9
     }]
   }), { now: NOW });
-  assert.equal(result.modelFactoryV1.counts.acceptedOutputs, 1);
+  assert.equal(result.modelFactoryV1.counts.acceptedOutputs, 2);
   assert.equal(result.modelFactoryV1.counts.rejectedOutputs, 1);
   assert.equal(result.decisionArchitectureV1.modelFactoryBypassed, false);
   assert.equal(result.ensembleEngineV1.models.some((row) => row.modelId === "unaudited"), false);
