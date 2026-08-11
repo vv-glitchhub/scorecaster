@@ -20,17 +20,19 @@ function basePick() {
   };
 }
 
-function calibratedModel(modelId, probability, weight) {
+function calibratedModel(modelId, probability, weight, dependenceGroup = null) {
   return {
     modelId,
     modelVersion: `${modelId}-v1`,
+    dependenceGroup,
     probability,
     generatedAt: "2026-08-11T06:50:00.000Z",
     audit: {
       independentPredictiveModel: true,
       deterministic: true,
       chronologySafe: true,
-      source: "test-model"
+      source: "test-model",
+      ...(dependenceGroup ? { dependenceGroup } : {})
     },
     performance: {
       status: "usable",
@@ -57,7 +59,9 @@ test("Ensemble Engine V1 combines only validated independent deterministic model
 
   assert.equal(result.version, ENSEMBLE_ENGINE_VERSION);
   assert.equal(result.counts.researchEligible, 2);
+  assert.equal(result.counts.researchGroups, 2);
   assert.equal(result.counts.calibrationReady, 2);
+  assert.equal(result.counts.calibrationReadyGroups, 2);
   assert.equal(result.calibratedShadowProbability, 0.588);
   assert.equal(result.marketBenchmark.probability, 0.52);
   assert.equal(result.marketBenchmark.independentPredictiveModel, false);
@@ -142,4 +146,44 @@ test("Ensemble Engine V1 rejects context-only outputs that masquerade as models"
   assert.equal(result.models[0].eligibleForResearch, false);
   assert.ok(result.models[0].rejectionReasons.includes("not-independent-predictive-model"));
   assert.equal(result.contract.contextModelsMayMasqueradeAsIndependentModels, false);
+});
+
+test("correlated variants in one dependence group receive only one top-level vote", () => {
+  const pick = basePick();
+  pick.independentModelOutputs = [
+    calibratedModel("poisson-base", 0.62, 1, "goal-model-family"),
+    calibratedModel("dixon-coles-variant", 0.58, 1, "goal-model-family"),
+    calibratedModel("elo-rating", 0.54, 1, "rating-family")
+  ];
+
+  const result = buildEnsembleSnapshotV1(pick, { counts: { rejected: 0 } }, { now: NOW });
+
+  assert.equal(result.counts.researchEligible, 3);
+  assert.equal(result.counts.researchGroups, 2);
+  assert.equal(result.counts.calibrationReadyGroups, 2);
+  assert.equal(result.dependenceGroups.find((group) => group.dependenceGroup === "goal-model-family").memberCount, 2);
+  assert.equal(result.shadowProbability, 0.57);
+  assert.equal(result.calibratedShadowProbability, 0.57);
+  assert.equal(result.weighting.dependenceGroupDoubleCountingAllowed, false);
+  assert.equal(result.contract.correlatedModelVariantsDoubleCounted, false);
+  assert.equal(result.researchRiskGate.decision, "REVIEW");
+});
+
+test("multiple variants from only one model family do not satisfy the independent-model gate", () => {
+  const pick = basePick();
+  pick.independentModelOutputs = [
+    calibratedModel("poisson-base", 0.62, 1, "goal-model-family"),
+    calibratedModel("dixon-coles-variant", 0.58, 1, "goal-model-family")
+  ];
+
+  const result = buildEnsembleSnapshotV1(pick, { counts: { rejected: 0 } }, { now: NOW });
+
+  assert.equal(result.counts.researchEligible, 2);
+  assert.equal(result.counts.researchGroups, 1);
+  assert.equal(result.counts.calibrationReadyGroups, 1);
+  assert.equal(result.shadowProbability, 0.6);
+  assert.equal(result.calibratedShadowProbability, null);
+  assert.equal(result.researchRiskGate.decision, "NO_BET");
+  assert.ok(result.researchRiskGate.reasons.includes("fewer-than-two-independent-model-groups"));
+  assert.ok(result.researchRiskGate.reasons.includes("fewer-than-two-calibration-ready-model-groups"));
 });
