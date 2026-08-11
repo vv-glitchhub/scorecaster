@@ -99,11 +99,45 @@ Context-only engines are not accepted as independent models.
 
 The market benchmark is always kept outside the independent-model list.
 
+## Dependence groups
+
+Two outputs are not automatically two independent opinions just because they have different model IDs.
+
+Every candidate therefore has a `dependenceGroup`. It can be supplied explicitly through:
+
+- `dependenceGroup`
+- `modelFamily`
+- the equivalent fields in the model audit
+
+If no family metadata exists, the model ID is the conservative fallback group. Known Scorecaster model families, such as Transparent 1X2, receive an explicit family group automatically.
+
+Models inside the same group are collapsed before top-level ensemble weighting:
+
+1. variants may combine into one within-family probability
+2. the family receives at most one top-level ensemble vote
+3. adding another correlated variant cannot multiply the family weight
+4. the independent-model gate counts unique dependence groups, not raw model rows
+5. calibration-ready promotion also requires at least two distinct calibration-ready groups
+
+Example:
+
+```text
+Poisson baseline       -> goal-model-family
+Dixon-Coles variant    -> goal-model-family
+Elo rating model       -> rating-family
+```
+
+This is treated as two independent model groups, not three models worth of independent evidence.
+
+If Poisson and Dixon-Coles are the only available outputs, the research gate remains `NO_BET` even though two model rows exist.
+
 ## Weighting
 
 V1 does not invent model-performance weights.
 
-Research shadow probability uses equal weights unless a model carries an explicit validated performance weight from an allowlisted evidence source:
+Research shadow probability uses one top-level weight per dependence group. Within a group, validated variants may refine the group probability, but the group weight is capped to the strongest eligible member weight rather than summed.
+
+A model may carry an explicit validated performance weight only from an allowlisted evidence source:
 
 - `validated-calibration-slice`
 - `shadow-learning-holdout`
@@ -121,13 +155,15 @@ This creates the future `sport x league x market x model version` performance-we
 
 ## Ensemble uncertainty
 
-V1 calculates weighted model disagreement around the shadow ensemble probability.
+V1 calculates weighted disagreement across independent dependence groups around the shadow ensemble probability.
 
 Disagreement is classified as:
 
 - low
 - medium
 - high
+
+Multiple variants of one model family do not artificially shrink or enlarge the cross-model disagreement statistic.
 
 High disagreement becomes an explicit research `NO_BET` reason.
 
@@ -139,27 +175,28 @@ The V1 gate recommends `NO_BET` when any of these are true:
 - fusion trust is below the minimum boundary
 - verified data coverage is too low
 - Feature Engine rejected future-dated evidence
-- fewer than two independent models are available
-- model disagreement is high
-- fewer than two calibration-ready models are available
+- fewer than two independent model groups are available
+- model-group disagreement is high
+- fewer than two calibration-ready model groups are available
 
 This gate is research evidence only in V1. It cannot change the current production decision.
 
 ## Promotion boundary
 
-Even when the ensemble has enough validated models and low disagreement, V1 can only mark the result `eligibleForHumanReview`.
+Even when the ensemble has enough validated model groups and low disagreement, V1 can only mark the result `eligibleForHumanReview`.
 
 ```text
 automaticPromotionAllowed = false
 productionProbabilityChanged = false
 productionDecisionChanged = false
+correlatedModelVariantsDoubleCounted = false
 ```
 
 A future production ensemble must pass chronological calibration, model-slice performance, drift and release review before these boundaries may change.
 
 ## AI boundary
 
-The LLM does not create features, model weights or probabilities. It may later explain the audited Feature/Ensemble output, but deterministic model and risk layers remain authoritative.
+The LLM does not create features, model weights, dependence groups or probabilities. It may later explain the audited Feature/Ensemble output, but deterministic model and risk layers remain authoritative.
 
 ## Public audit
 
@@ -167,6 +204,7 @@ The LLM does not create features, model weights or probabilities. It may later e
 
 - Feature Engine snapshot
 - Ensemble Engine snapshot
+- dependence-group composition
 - decision architecture summary
 - explicit safety flags
 
@@ -182,5 +220,6 @@ No API keys, credentials or restricted raw provider payloads are added by this l
 - no missing-data imputation
 - no random legacy model in the ensemble
 - no market benchmark masquerading as an independent model
+- no correlated model-family double counting
 - no invented performance weights
 - no automatic model promotion
