@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { fetchExternalSportsAnalytics, sportsAnalyticsProviderConfiguration } from "../../../../lib/sports-analytics-provider";
+import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v1.mjs";
+import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -65,9 +67,23 @@ function uniqueEvents(picks = []) {
   return [...rows.values()].slice(0, 20);
 }
 
-function compactShadowModels(pick = {}) {
+function eventLevelAdvancedModels(pick = {}, observations = [], capturedAt = new Date().toISOString()) {
+  const now = Date.parse(capturedAt);
+  const eventPick = { ...pick, selection: pick.homeTeam, label: pick.homeTeam };
+  const existingNhl = pick.nhlXgGoalieShadowV1;
+  const existingSoccer = pick.soccerXgPoissonShadowV1;
+  const nhl = existingNhl?.status === "ready"
+    ? existingNhl
+    : buildNhlXgGoalieShadowV1(eventPick, observations, { now });
+  const soccer = existingSoccer?.status === "ready"
+    ? existingSoccer
+    : buildSoccerXgPoissonShadowV1(eventPick, observations, { now });
+  return { nhl, soccer };
+}
+
+function compactShadowModels(pick = {}, observations = [], capturedAt) {
   const rows = [];
-  const nhl = pick.nhlXgGoalieShadowV1;
+  const { nhl, soccer } = eventLevelAdvancedModels(pick, observations, capturedAt);
   if (nhl?.status === "ready" && finite(nhl.homeMoneylineProbability) !== null && finite(nhl.awayMoneylineProbability) !== null) {
     rows.push({
       modelId: clean(nhl.modelId, 160),
@@ -87,12 +103,12 @@ function compactShadowModels(pick = {}) {
       providers: Array.isArray(nhl.provenance?.providers) ? nhl.provenance.providers.slice(0, 10) : [],
       metrics: Array.isArray(nhl.provenance?.metrics) ? nhl.provenance.metrics.slice(0, 30) : [],
       calibrated: false,
+      eventLevelHoldoutCapture: true,
       productionProbabilityChanged: false,
       paperOnly: true
     });
   }
 
-  const soccer = pick.soccerXgPoissonShadowV1;
   if (soccer?.status === "ready" && soccer.probabilities) {
     const home = finite(soccer.probabilities.home);
     const draw = finite(soccer.probabilities.draw);
@@ -113,6 +129,7 @@ function compactShadowModels(pick = {}) {
         providers: Array.isArray(soccer.provenance?.providers) ? soccer.provenance.providers.slice(0, 10) : [],
         metrics: Array.isArray(soccer.provenance?.metrics) ? soccer.provenance.metrics.slice(0, 30) : [],
         calibrated: false,
+        eventLevelHoldoutCapture: true,
         productionProbabilityChanged: false,
         paperOnly: true
       });
@@ -150,14 +167,15 @@ async function storeEvent(admin, pick, capturedAt) {
   });
   if (!snapshot.event_id) return null;
 
-  const shadowModels = compactShadowModels(pick);
+  const shadowModels = compactShadowModels(pick, observations, capturedAt);
   snapshot.raw_summary = {
     ...(snapshot.raw_summary || {}),
     shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
     shadowModels,
     shadowModelCount: shadowModels.length,
     shadowPredictionsCapturedBeforeStart: true,
-    shadowPredictionsImmutableByCaptureBucket: true
+    shadowPredictionsImmutableByCaptureBucket: true,
+    selectionIndependentEventDistributionCaptured: true
   };
 
   const { data: storedSnapshot, error: snapshotError } = await admin
@@ -210,7 +228,7 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v2",
+      version: "sports-analytics-worker-v3",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
       capturedAt,
       eventsRequested: picks.length,
