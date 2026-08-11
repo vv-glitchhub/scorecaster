@@ -65,7 +65,7 @@ test("Model Factory V1 turns a ready NHL form/rest shadow into one audited model
   assert.equal(result.outputs[0].audit.independentPredictiveModel, true);
   assert.equal(result.outputs[0].audit.deterministic, true);
   assert.match(result.outputs[0].dependenceGroup, /historical-results-family/);
-  assert.deepEqual(result.outputs[0].signalLineageV1.signalFamilies, ["historical-results"]);
+  assert.deepEqual(result.outputs[0].signalLineageV1.signalFamilies, ["context", "historical-results"]);
   assert.equal(result.outputs[0].audit.dependenceGroupDerivedFromLineage, true);
   assert.equal(result.contracts.productionProbabilityChanged, false);
 });
