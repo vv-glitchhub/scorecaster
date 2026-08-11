@@ -1,0 +1,60 @@
+name: Scorecaster Model Factory V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/model-factory-v1.mjs"
+      - "lib/model-performance-evidence-v1.mjs"
+      - "lib/decision-architecture-v1.mjs"
+      - "app/api/data-layer/route.js"
+      - "scripts/model-factory-v1.test.mjs"
+      - "scripts/model-performance-evidence-v1.test.mjs"
+      - "docs/MODEL_FACTORY_V1.md"
+      - ".github/workflows/model-factory-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/model-factory-v1.mjs"
+      - "lib/model-performance-evidence-v1.mjs"
+      - "lib/decision-architecture-v1.mjs"
+      - "app/api/data-layer/route.js"
+      - "scripts/model-factory-v1.test.mjs"
+      - "scripts/model-performance-evidence-v1.test.mjs"
+      - "docs/MODEL_FACTORY_V1.md"
+      - ".github/workflows/model-factory-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  model-factory:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Model Factory regression tests
+        run: node --test scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs
+
+      - name: Existing Feature Ensemble regressions
+        run: npm run test:feature-ensemble
+
+      - name: Security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build
