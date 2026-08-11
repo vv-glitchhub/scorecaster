@@ -1,0 +1,36 @@
+name: Scorecaster Feature Ensemble V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/feature-engine-v1.mjs"
+      - "lib/ensemble-engine-v1.mjs"
+      - "lib/decision-architecture-v1.mjs"
+      - "lib/agent-intelligence-loader.js"
+      - "app/api/data-layer/route.js"
+      - "scripts/feature-engine-v1.test.mjs"
+      - "scripts/ensemble-engine-v1.test.mjs"
+      - "docs/FEATURE_ENSEMBLE_ARCHITECTURE_V1.md"
+      - "package.json"
+      - ".github/workflows/feature-ensemble-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  feature-ensemble:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Feature and ensemble regression tests
+        run: npm run test:feature-ensemble
+      - name: Production build
+        run: npm run build
