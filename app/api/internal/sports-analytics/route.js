@@ -28,6 +28,12 @@ function clean(value, limit = 180) {
   return String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
 }
 
+function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function migrationMissing(error) {
   const text = String(error?.message || error || "").toLowerCase();
   return text.includes("sports_analytics_") && (text.includes("does not exist") || text.includes("schema cache"));
@@ -59,6 +65,63 @@ function uniqueEvents(picks = []) {
   return [...rows.values()].slice(0, 20);
 }
 
+function compactShadowModels(pick = {}) {
+  const rows = [];
+  const nhl = pick.nhlXgGoalieShadowV1;
+  if (nhl?.status === "ready" && finite(nhl.homeMoneylineProbability) !== null && finite(nhl.awayMoneylineProbability) !== null) {
+    rows.push({
+      modelId: clean(nhl.modelId, 160),
+      modelVersion: clean(nhl.version, 160),
+      family: "expected-performance",
+      sport: "ice_hockey",
+      generatedAt: nhl.generatedAt || null,
+      predictionHorizon: nhl.predictionHorizon || null,
+      inputSnapshotHash: clean(nhl.inputSnapshotHash, 128),
+      homeTeam: clean(pick.homeTeam, 140),
+      awayTeam: clean(pick.awayTeam, 140),
+      probabilities: {
+        home: finite(nhl.homeMoneylineProbability),
+        away: finite(nhl.awayMoneylineProbability)
+      },
+      projectedGoals: nhl.projectedGoals || null,
+      providers: Array.isArray(nhl.provenance?.providers) ? nhl.provenance.providers.slice(0, 10) : [],
+      metrics: Array.isArray(nhl.provenance?.metrics) ? nhl.provenance.metrics.slice(0, 30) : [],
+      calibrated: false,
+      productionProbabilityChanged: false,
+      paperOnly: true
+    });
+  }
+
+  const soccer = pick.soccerXgPoissonShadowV1;
+  if (soccer?.status === "ready" && soccer.probabilities) {
+    const home = finite(soccer.probabilities.home);
+    const draw = finite(soccer.probabilities.draw);
+    const away = finite(soccer.probabilities.away);
+    if (home !== null && draw !== null && away !== null) {
+      rows.push({
+        modelId: clean(soccer.modelId, 160),
+        modelVersion: clean(soccer.version, 160),
+        family: "expected-performance",
+        sport: "soccer",
+        generatedAt: soccer.generatedAt || null,
+        predictionHorizon: soccer.predictionHorizon || null,
+        inputSnapshotHash: clean(soccer.inputSnapshotHash, 128),
+        homeTeam: clean(pick.homeTeam, 140),
+        awayTeam: clean(pick.awayTeam, 140),
+        probabilities: { home, draw, away },
+        projectedGoals: soccer.projectedGoals || null,
+        providers: Array.isArray(soccer.provenance?.providers) ? soccer.provenance.providers.slice(0, 10) : [],
+        metrics: Array.isArray(soccer.provenance?.metrics) ? soccer.provenance.metrics.slice(0, 30) : [],
+        calibrated: false,
+        productionProbabilityChanged: false,
+        paperOnly: true
+      });
+    }
+  }
+
+  return rows;
+}
+
 async function storeEvent(admin, pick, capturedAt) {
   const automatic = buildAutomaticObservationsFromPick(pick, { capturedAt });
   const external = await fetchExternalSportsAnalytics(matchFromPick(pick), { capturedAt });
@@ -87,6 +150,16 @@ async function storeEvent(admin, pick, capturedAt) {
   });
   if (!snapshot.event_id) return null;
 
+  const shadowModels = compactShadowModels(pick);
+  snapshot.raw_summary = {
+    ...(snapshot.raw_summary || {}),
+    shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
+    shadowModels,
+    shadowModelCount: shadowModels.length,
+    shadowPredictionsCapturedBeforeStart: true,
+    shadowPredictionsImmutableByCaptureBucket: true
+  };
+
   const { data: storedSnapshot, error: snapshotError } = await admin
     .from("sports_analytics_snapshots")
     .upsert(snapshot, { onConflict: "event_id,capture_bucket" })
@@ -107,7 +180,8 @@ async function storeEvent(admin, pick, capturedAt) {
     automaticObservations: automatic.length,
     externalObservations: external.observations.length,
     externalMode: external.mode,
-    golfShots: external.golfShots.length
+    golfShots: external.golfShots.length,
+    shadowModelsCaptured: shadowModels.length
   };
 }
 
@@ -136,13 +210,15 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v1",
+      version: "sports-analytics-worker-v2",
+      shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
       capturedAt,
       eventsRequested: picks.length,
       eventsStored: stored.length,
       observationsStored: stored.reduce((sum, item) => sum + item.automaticObservations + item.externalObservations, 0),
       automaticObservations: stored.reduce((sum, item) => sum + item.automaticObservations, 0),
       externalObservations: stored.reduce((sum, item) => sum + item.externalObservations, 0),
+      shadowModelsCaptured: stored.reduce((sum, item) => sum + item.shadowModelsCaptured, 0),
       golfShots: stored.reduce((sum, item) => sum + item.golfShots, 0),
       externalProvider: sportsAnalyticsProviderConfiguration(),
       failures: failures.length,
