@@ -44,6 +44,7 @@ export async function GET(request) {
       ledger: pick.unifiedSportsData || null,
       intelligenceFusion: pick.intelligenceFusionV2 || null,
       featureEngine: pick.featureEngineV1 || null,
+      modelFactory: pick.modelFactoryV1 || null,
       ensembleEngine: pick.ensembleEngineV1 || null,
       decisionArchitecture: pick.decisionArchitectureV1 || null,
       providers: pick.unifiedDataProviders || {},
@@ -53,9 +54,11 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v3",
+      version: "unified-sports-data-api-v4",
       intelligenceFusionVersion: "intelligence-fusion-v2",
       featureEngineVersion: "scorecaster-feature-engine-v1",
+      modelFactoryVersion: "scorecaster-model-factory-v1",
+      modelPerformanceEvidenceVersion: "scorecaster-model-performance-evidence-v1",
       ensembleEngineVersion: "scorecaster-ensemble-engine-v1",
       decisionArchitectureVersion: "scorecaster-decision-architecture-v1",
       generatedAt: new Date().toISOString(),
@@ -79,8 +82,12 @@ export async function GET(request) {
       },
       architecture: {
         featureEngine: "audited deterministic feature snapshots with explicit missing and rejected inputs",
+        modelFactory: "canonical adapter and validation boundary for deterministic shadow model outputs",
+        performanceEvidence: "chronological pre-event holdout evidence is required before a performance weight can exist",
         ensembleEngine: "shadow-first independent-model ensemble; validated performance weights only",
         marketBenchmarkIsNotIndependentModel: true,
+        featureOnlyModelsCastProbabilityVote: false,
+        unauditedModelsAccepted: false,
         randomLegacyModelsRejected: true,
         automaticModelPromotion: false
       },
@@ -89,6 +96,7 @@ export async function GET(request) {
         aiUsesOnlyEligibleAuditedEvidence: true,
         missingDataImputed: false,
         probabilityAdjustedByIntelligenceFusion: false,
+        probabilityAdjustedByModelFactory: false,
         probabilityAdjustedByFeatureEnsemble: false,
         productionDecisionAdjustedByFeatureEnsemble: false,
         contextCanUpgrade: false,
