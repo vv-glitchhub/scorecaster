@@ -1,4 +1,5 @@
 import { buildAdvancedSignalReadinessV1 } from "../../../lib/advanced-signal-readiness-v1.mjs";
+import { buildAdvancedProviderQualificationV1 } from "../../../lib/advanced-provider-qualification-v1.mjs";
 import { sportsAnalyticsProviderConfiguration } from "../../../lib/sports-analytics-provider.js";
 
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
@@ -54,7 +55,9 @@ export async function GET(request) {
       featureEngine: pick.featureEngineV1 || null,
       modelFactory: pick.modelFactoryV1 || null,
       ensembleEngine: pick.ensembleEngineV1 || null,
+      uncertaintyEngine: pick.uncertaintyEngineV1 || null,
       advancedSignalReadiness: buildAdvancedSignalReadinessV1(pick, { providerConfiguration: analyticsProvider, now }),
+      advancedProviderQualification: buildAdvancedProviderQualificationV1(pick, { providerConfiguration: analyticsProvider, now }),
       decisionArchitecture: pick.decisionArchitectureV1 || null,
       providers: pick.unifiedDataProviders || {},
       dataProvenance: pick.dataProvenance || null,
@@ -63,7 +66,7 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v11",
+      version: "unified-sports-data-api-v12",
       intelligenceFusionVersion: "intelligence-fusion-v2",
       formRestShadowVersion: "form-rest-shadow-v1",
       historicalRatingShadowVersion: "historical-rating-shadow-v1",
@@ -76,8 +79,10 @@ export async function GET(request) {
       modelFactoryVersion: "scorecaster-model-factory-v1",
       modelLineageGuardVersion: "scorecaster-model-lineage-guard-v1",
       advancedSignalReadinessVersion: "scorecaster-advanced-signal-readiness-v1",
+      advancedProviderQualificationVersion: "scorecaster-advanced-provider-qualification-v1",
       modelPerformanceEvidenceVersion: "scorecaster-model-performance-evidence-v1",
       ensembleEngineVersion: "scorecaster-ensemble-engine-v1",
+      uncertaintyEngineVersion: "scorecaster-uncertainty-engine-v1",
       decisionArchitectureVersion: "scorecaster-decision-architecture-v1",
       generatedAt: new Date(now).toISOString(),
       eventId: eventId || null,
@@ -102,6 +107,7 @@ export async function GET(request) {
         secondaryOdds: "SportsGameOdds when configured and event-matched",
         historicalResults: "TheSportsDB recent completed league events with pre-event chronology filtering",
         advancedIndependentSignals: "licensed external advanced analytics may feed deterministic shadow models only through stored chronology-safe observations and audited lineage",
+        advancedProviderQualification: "provider configuration, V5 contract compatibility, independent stored data, operational freshness, chronology and model input hashes are all required before shadow holdout qualification",
         nhlAdvancedModel: "xGF/xGA plus optional post-shot xG and both confirmed starting-goalie GSAx/60 inputs; market and mirrored providers are excluded",
         soccerAdvancedModel: "xGF/xGA per 90 plus optional post-shot xG/90; market and mirrored providers are excluded",
         basketballAdvancedModel: "pace plus offensive/defensive rating and optional bounded lineup-adjusted impact; market and mirrored providers are excluded",
@@ -117,6 +123,8 @@ export async function GET(request) {
         modelFactory: "canonical adapter and validation boundary for deterministic shadow model outputs",
         modelLineageGuard: "derives dependence groups from declared signal lineage instead of trusting a model-supplied group",
         advancedSignalReadiness: "separates provider availability, metric lineage, audited model output and chronological holdout evidence",
+        advancedProviderQualification: "fail-closed provider/data/model gate for shadow holdout; configuration alone never qualifies a provider",
+        uncertaintyEngine: "transparent evidence-risk index built from data trust, verified coverage, independent model diversity, calibration readiness, disagreement, rejections and benchmark availability",
         historicalRating: "recent-results Elo-style research shadow using only completed events before the fixture",
         nhlXgGoalieShadow: "transparent Poisson H2H research model using independent xG rates and confirmed starting-goalie GSAx/60",
         soccerXgPoissonShadow: "transparent 1X2 Poisson research model using independent xGF/xGA rates per 90",
@@ -130,6 +138,7 @@ export async function GET(request) {
         marketBenchmarkIsNotIndependentModel: true,
         rawAdvancedAnalyticsAutomaticallyCreateModelProbability: false,
         providerConfiguredMeansIndependentModelReady: false,
+        uncertaintyIndexIsProbabilityConfidence: false,
         nhlXgGoalieUsesMarketInputs: false,
         nhlXgGoalieRequiresStartingGoalies: true,
         soccerXgUsesMarketInputs: false,
@@ -151,6 +160,8 @@ export async function GET(request) {
         probabilitySource: "no-vig market consensus",
         aiUsesOnlyEligibleAuditedEvidence: true,
         missingDataImputed: false,
+        uncertaintyMissingTrustFailsClosed: true,
+        uncertaintyMissingCoverageFailsClosed: true,
         probabilityAdjustedByIntelligenceFusion: false,
         probabilityAdjustedByHistoricalRating: false,
         probabilityAdjustedByNhlXgGoalieShadow: false,
@@ -159,8 +170,11 @@ export async function GET(request) {
         probabilityAdjustedByMlbPitchingOffenseShadow: false,
         probabilityAdjustedByModelFactory: false,
         probabilityAdjustedByAdvancedSignalReadiness: false,
+        probabilityAdjustedByAdvancedProviderQualification: false,
+        probabilityAdjustedByUncertaintyEngine: false,
         probabilityAdjustedByFeatureEnsemble: false,
         productionDecisionAdjustedByFeatureEnsemble: false,
+        productionDecisionAdjustedByUncertaintyEngine: false,
         historicalRatingUsesPostFixtureResults: false,
         advancedModelsUsePostFixtureObservations: false,
         advancedModelsUseMarketProviderData: false,
