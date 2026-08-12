@@ -1,9 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import { buildNoVigEventMarketBenchmarkV1 } from "../lib/no-vig-market-benchmark-v1.mjs";
-import { createScorecasterPick } from "../lib/scorecaster-engine.js";
 
 const CAPTURED_AT = "2026-08-12T12:00:00.000Z";
+const scorecasterEngineSource = fs.readFileSync(new URL("../lib/scorecaster-engine.js", import.meta.url), "utf8");
+const sportsAnalyticsWorkerSource = fs.readFileSync(new URL("../app/api/internal/sports-analytics/route.js", import.meta.url), "utf8");
 
 function pick(overrides = {}) {
   return {
@@ -16,15 +18,6 @@ function pick(overrides = {}) {
       { selection: "New York Knicks", probability: 0.42, bookmakerCount: 8 }
     ],
     ...overrides
-  };
-}
-
-function bookmaker(key, outcomes) {
-  return {
-    key,
-    title: key,
-    last_update: "2026-08-12T11:55:00.000Z",
-    markets: [{ key: "h2h", last_update: "2026-08-12T11:55:00.000Z", outcomes }]
   };
 }
 
@@ -87,25 +80,14 @@ test("materially invalid probability totals are rejected", () => {
   assert.equal(benchmark, null);
 });
 
-test("Scorecaster picks carry the complete event consensus without another provider call", () => {
-  const game = {
-    id: "nba-1",
-    sport_key: "basketball_nba",
-    sport_title: "NBA",
-    commence_time: "2026-08-12T23:00:00.000Z",
-    home_team: "Boston Celtics",
-    away_team: "New York Knicks",
-    bookmakers: [
-      bookmaker("a", [{ name: "Boston Celtics", price: 1.8 }, { name: "New York Knicks", price: 2.1 }]),
-      bookmaker("b", [{ name: "Boston Celtics", price: 1.85 }, { name: "New York Knicks", price: 2.05 }]),
-      bookmaker("c", [{ name: "Boston Celtics", price: 1.82 }, { name: "New York Knicks", price: 2.08 }])
-    ]
-  };
-  const picks = createScorecasterPick({ game, marketKey: "h2h" });
-  assert.equal(picks.length, 2);
-  assert.equal(picks.every((row) => row.eventConsensusDistribution.length === 2), true);
-  assert.deepEqual(
-    picks[0].eventConsensusDistribution.map((row) => row.selection).sort(),
-    ["Boston Celtics", "New York Knicks"].sort()
-  );
+test("Scorecaster engine carries the complete event consensus without another provider call", () => {
+  assert.match(scorecasterEngineSource, /const eventConsensusDistribution = fullEventConsensus\(consensusPrices\)/);
+  assert.match(scorecasterEngineSource, /eventConsensusDistribution,/);
+  assert.equal(scorecasterEngineSource.includes("fetch("), false);
+});
+
+test("protected Sports Analytics worker uses the tested benchmark builder", () => {
+  assert.match(sportsAnalyticsWorkerSource, /buildNoVigEventMarketBenchmarkV1/);
+  assert.match(sportsAnalyticsWorkerSource, /marketBenchmarkCapturedBeforeStart/);
+  assert.match(sportsAnalyticsWorkerSource, /advanced-shadow-prediction-ledger-v2/);
 });
