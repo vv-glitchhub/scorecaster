@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildBasketballEfficiencyShadowV1 } from "../lib/basketball-efficiency-shadow-v1.mjs";
 import { buildModelFactoryV1 } from "../lib/model-factory-v1.mjs";
+import { buildAdvancedSignalReadinessV1 } from "../lib/advanced-signal-readiness-v1.mjs";
 
 const NOW = Date.parse("2026-08-12T10:00:00.000Z");
 
@@ -43,11 +44,16 @@ function observations() {
   ];
 }
 
-test("Model Factory accepts audited basketball efficiency output into a non-market dependence group", () => {
+function factoryState() {
   const base = pick();
   const model = buildBasketballEfficiencyShadowV1(base, observations(), { now: NOW });
-  assert.equal(model.status, "ready");
   const factory = buildModelFactoryV1({ ...base, independentModelOutputs: [model.independentModelOutput] }, { now: NOW });
+  return { base, model, factory };
+}
+
+test("Model Factory accepts audited basketball efficiency output into a non-market dependence group", () => {
+  const { model, factory } = factoryState();
+  assert.equal(model.status, "ready");
   assert.equal(factory.counts.acceptedOutputs, 1);
   assert.equal(factory.counts.rejectedOutputs, 0);
   assert.equal(factory.counts.uniqueDependenceGroups, 1);
@@ -61,4 +67,26 @@ test("Model Factory accepts audited basketball efficiency output into a non-mark
   assert.equal(factory.contracts.marketDerivedIndependentModelAllowed, false);
   assert.equal(factory.contracts.automaticPromotionAllowed, false);
   assert.equal(factory.contracts.productionProbabilityChanged, false);
+});
+
+test("basketball performance-statistics readiness becomes shadow-model-needs-holdout, not production-ready", () => {
+  const { base, factory } = factoryState();
+  const readiness = buildAdvancedSignalReadinessV1({ ...base, modelFactoryV1: factory }, {
+    now: NOW,
+    providerConfiguration: {
+      configured: true,
+      source: "licensed-basketball-analytics",
+      transport: "https-post"
+    }
+  });
+  const family = readiness.families.find((row) => row.family === "performance-statistics");
+  assert.ok(family);
+  assert.equal(family.status, "shadow-model-needs-holdout");
+  assert.equal(family.probabilityModelPresent, true);
+  assert.equal(family.metricCoverage.rate, 1);
+  assert.deepEqual(family.metricCoverage.missingMetrics, []);
+  assert.equal(family.performanceEvidenceReady, false);
+  assert.equal(family.productionEligible, false);
+  assert.equal(readiness.contracts.modelOutputWithoutHoldoutGetsPerformanceWeight, false);
+  assert.equal(readiness.contracts.productionProbabilityChanged, false);
 });
