@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import ProfessionalExplanationCard from "../components/ProfessionalExplanationCard";
 import { EmptyState, PageHero, SectionHeader } from "../components/ProductUI";
+import ModelHoldoutScorecard from "./ModelHoldoutScorecard";
 
 export default function ModelLabClient() {
   const { tr, locale } = useLanguage();
@@ -53,6 +54,8 @@ export default function ModelLabClient() {
         actions={<button type="button" onClick={() => void load()} className="sc-button-secondary">{tr({ fi: "Päivitä tapahtumat", en: "Refresh events", es: "Actualizar eventos" })}</button>}
         aside={<div><div className="text-[10px] font-black uppercase tracking-[0.17em] text-[var(--sc-brand)]">Public audit</div><div className="mt-2 text-3xl font-black text-[var(--sc-text)]">{events.length}</div><div className="mt-1 text-sm text-[var(--sc-muted)]">{tr({ fi: "julkaistavaa tapahtumaa", en: "publishable events", es: "eventos publicables" })}</div><div className="mt-4 text-xs leading-5 text-[var(--sc-muted)]">marketMislabeledAsIndependentModel=false<br />missingValuesConvertedToZero=false</div></div>}
       />
+
+      <ModelHoldoutScorecard />
 
       {error && <div className="rounded-xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-200">{error}</div>}
 
