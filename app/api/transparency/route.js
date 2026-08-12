@@ -9,7 +9,7 @@ import {
   buildProfessionalExplanation,
   reproduceProfessionalExplanation
 } from "../../../lib/professional-explanation-v1.mjs";
-import { publicModelFormulaRegistry } from "../../../lib/model-formula-registry-v1.mjs";
+import { publicModelFormulaRegistry } from "../../../lib/public-model-formula-registry-v2.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;

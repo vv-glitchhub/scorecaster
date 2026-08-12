@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { fetchExternalSportsAnalytics, sportsAnalyticsProviderConfiguration } from "../../../../lib/sports-analytics-provider";
 import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v1.mjs";
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
+import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-efficiency-shadow-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -72,18 +73,22 @@ function eventLevelAdvancedModels(pick = {}, observations = [], capturedAt = new
   const eventPick = { ...pick, selection: pick.homeTeam, label: pick.homeTeam };
   const existingNhl = pick.nhlXgGoalieShadowV1;
   const existingSoccer = pick.soccerXgPoissonShadowV1;
+  const existingBasketball = pick.basketballEfficiencyShadowV1;
   const nhl = existingNhl?.status === "ready"
     ? existingNhl
     : buildNhlXgGoalieShadowV1(eventPick, observations, { now });
   const soccer = existingSoccer?.status === "ready"
     ? existingSoccer
     : buildSoccerXgPoissonShadowV1(eventPick, observations, { now });
-  return { nhl, soccer };
+  const basketball = existingBasketball?.status === "ready"
+    ? existingBasketball
+    : buildBasketballEfficiencyShadowV1(eventPick, observations, { now });
+  return { nhl, soccer, basketball };
 }
 
 function compactShadowModels(pick = {}, observations = [], capturedAt) {
   const rows = [];
-  const { nhl, soccer } = eventLevelAdvancedModels(pick, observations, capturedAt);
+  const { nhl, soccer, basketball } = eventLevelAdvancedModels(pick, observations, capturedAt);
   if (nhl?.status === "ready" && finite(nhl.homeMoneylineProbability) !== null && finite(nhl.awayMoneylineProbability) !== null) {
     rows.push({
       modelId: clean(nhl.modelId, 160),
@@ -128,6 +133,32 @@ function compactShadowModels(pick = {}, observations = [], capturedAt) {
         projectedGoals: soccer.projectedGoals || null,
         providers: Array.isArray(soccer.provenance?.providers) ? soccer.provenance.providers.slice(0, 10) : [],
         metrics: Array.isArray(soccer.provenance?.metrics) ? soccer.provenance.metrics.slice(0, 30) : [],
+        calibrated: false,
+        eventLevelHoldoutCapture: true,
+        productionProbabilityChanged: false,
+        paperOnly: true
+      });
+    }
+  }
+
+  if (basketball?.status === "ready" && basketball.probabilities) {
+    const home = finite(basketball.probabilities.home);
+    const away = finite(basketball.probabilities.away);
+    if (home !== null && away !== null) {
+      rows.push({
+        modelId: clean(basketball.modelId, 160),
+        modelVersion: clean(basketball.modelVersion || basketball.version, 160),
+        family: "performance-statistics",
+        sport: "basketball",
+        generatedAt: basketball.generatedAt || null,
+        predictionHorizon: basketball.predictionHorizon || null,
+        inputSnapshotHash: clean(basketball.inputSnapshotHash, 128),
+        homeTeam: clean(pick.homeTeam, 140),
+        awayTeam: clean(pick.awayTeam, 140),
+        probabilities: { home, away },
+        projectedPoints: basketball.projected || null,
+        providers: Array.isArray(basketball.provenance?.providers) ? basketball.provenance.providers.slice(0, 10) : [],
+        metrics: Array.isArray(basketball.provenance?.metrics) ? basketball.provenance.metrics.slice(0, 30) : [],
         calibrated: false,
         eventLevelHoldoutCapture: true,
         productionProbabilityChanged: false,
@@ -228,7 +259,7 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v3",
+      version: "sports-analytics-worker-v4",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
       capturedAt,
       eventsRequested: picks.length,
