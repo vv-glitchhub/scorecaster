@@ -4,6 +4,7 @@ import fs from "node:fs";
 
 const auditClient = fs.readFileSync(new URL("../app/event/[eventId]/EventDataAuditClient.jsx", import.meta.url), "utf8");
 const modelPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventModelAuditPanel.jsx", import.meta.url), "utf8");
+const uncertaintyPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventUncertaintyPanel.jsx", import.meta.url), "utf8");
 const soccerPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventSoccerXgPoissonPanel.jsx", import.meta.url), "utf8");
 const basketballPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventBasketballEfficiencyPanel.jsx", import.meta.url), "utf8");
 const mlbPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventMlbPitchingOffensePanel.jsx", import.meta.url), "utf8");
@@ -11,14 +12,29 @@ const dataLayer = fs.readFileSync(new URL("../app/api/data-layer/route.js", impo
 
 function count(text, token) { return text.split(token).length - 1; }
 
-test("event detail exposes all advanced model audits from one unified data request", () => {
-  for (const component of ["EventModelAuditPanel", "EventSoccerXgPoissonPanel", "EventBasketballEfficiencyPanel", "EventMlbPitchingOffensePanel"]) assert.match(auditClient, new RegExp(component));
+test("event detail exposes all advanced audits and uncertainty from one unified data request", () => {
+  for (const component of ["EventUncertaintyPanel", "EventModelAuditPanel", "EventSoccerXgPoissonPanel", "EventBasketballEfficiencyPanel", "EventMlbPitchingOffensePanel"]) assert.match(auditClient, new RegExp(component));
+  assert.match(auditClient, /<EventUncertaintyPanel row=\{state\.row\}/);
   assert.match(auditClient, /<EventMlbPitchingOffensePanel row=\{state\.row\}/);
   assert.equal(count(auditClient, "fetch("), 1);
   assert.equal(count(modelPanel, "fetch("), 0);
+  assert.equal(count(uncertaintyPanel, "fetch("), 0);
   assert.equal(count(soccerPanel, "fetch("), 0);
   assert.equal(count(basketballPanel, "fetch("), 0);
   assert.equal(count(mlbPanel, "fetch("), 0);
+});
+
+test("uncertainty audit exposes evidence risk without pretending it is a probability interval", () => {
+  assert.match(uncertaintyPanel, /row\?\.uncertaintyEngine/);
+  assert.match(uncertaintyPanel, /row\?\.advancedProviderQualification/);
+  assert.match(uncertaintyPanel, /uncertaintyIndex/);
+  assert.match(uncertaintyPanel, /evidenceReadiness/);
+  assert.match(uncertaintyPanel, /not a probability confidence interval/);
+  assert.match(dataLayer, /scorecaster-uncertainty-engine-v1/);
+  assert.match(dataLayer, /scorecaster-advanced-provider-qualification-v1/);
+  assert.match(dataLayer, /uncertaintyMissingTrustFailsClosed: true/);
+  assert.match(dataLayer, /uncertaintyMissingCoverageFailsClosed: true/);
+  assert.match(dataLayer, /probabilityAdjustedByUncertaintyEngine: false/);
 });
 
 test("model audit renders factory, ensemble, rating and research gate evidence", () => {
