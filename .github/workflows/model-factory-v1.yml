@@ -12,6 +12,8 @@ on:
       - "lib/uncertainty-engine-v1.mjs"
       - "lib/advanced-model-holdout-v1.mjs"
       - "lib/advanced-model-holdout-service.js"
+      - "lib/no-vig-market-benchmark-v1.mjs"
+      - "lib/scorecaster-engine.js"
       - "lib/historical-rating-shadow-model.mjs"
       - "lib/nhl-xg-goalie-shadow-v1.mjs"
       - "lib/soccer-xg-poisson-shadow-v1.mjs"
@@ -49,6 +51,7 @@ on:
       - "scripts/mlb-transparency-registry-v1.test.mjs"
       - "scripts/uncertainty-engine-v1.test.mjs"
       - "scripts/advanced-provider-qualification-v1.test.mjs"
+      - "scripts/model-vs-market-benchmark-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -59,6 +62,7 @@ on:
       - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
       - "docs/UNCERTAINTY_ENGINE_V1.md"
       - "docs/ADVANCED_PROVIDER_QUALIFICATION_V1.md"
+      - "docs/MODEL_VS_MARKET_SKILL_V1.md"
       - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - "docs/SOCCER_XG_POISSON_SHADOW_V1.md"
       - "docs/BASKETBALL_EFFICIENCY_SHADOW_V1.md"
@@ -76,6 +80,8 @@ on:
       - "lib/uncertainty-engine-v1.mjs"
       - "lib/advanced-model-holdout-v1.mjs"
       - "lib/advanced-model-holdout-service.js"
+      - "lib/no-vig-market-benchmark-v1.mjs"
+      - "lib/scorecaster-engine.js"
       - "lib/historical-rating-shadow-model.mjs"
       - "lib/nhl-xg-goalie-shadow-v1.mjs"
       - "lib/soccer-xg-poisson-shadow-v1.mjs"
@@ -113,6 +119,7 @@ on:
       - "scripts/mlb-transparency-registry-v1.test.mjs"
       - "scripts/uncertainty-engine-v1.test.mjs"
       - "scripts/advanced-provider-qualification-v1.test.mjs"
+      - "scripts/model-vs-market-benchmark-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -123,6 +130,7 @@ on:
       - "docs/ADVANCED_SIGNAL_READINESS_V1.md"
       - "docs/UNCERTAINTY_ENGINE_V1.md"
       - "docs/ADVANCED_PROVIDER_QUALIFICATION_V1.md"
+      - "docs/MODEL_VS_MARKET_SKILL_V1.md"
       - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - "docs/SOCCER_XG_POISSON_SHADOW_V1.md"
       - "docs/BASKETBALL_EFFICIENCY_SHADOW_V1.md"
@@ -154,7 +162,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Model Factory regression tests
-        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/basketball-model-factory-v1.test.mjs scripts/basketball-transparency-registry-v1.test.mjs scripts/mlb-pitching-offense-shadow-v1.test.mjs scripts/mlb-model-factory-v1.test.mjs scripts/mlb-transparency-registry-v1.test.mjs scripts/uncertainty-engine-v1.test.mjs scripts/advanced-provider-qualification-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
+        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/basketball-model-factory-v1.test.mjs scripts/basketball-transparency-registry-v1.test.mjs scripts/mlb-pitching-offense-shadow-v1.test.mjs scripts/mlb-model-factory-v1.test.mjs scripts/mlb-transparency-registry-v1.test.mjs scripts/uncertainty-engine-v1.test.mjs scripts/advanced-provider-qualification-v1.test.mjs scripts/model-vs-market-benchmark-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble
