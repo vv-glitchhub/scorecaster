@@ -4,6 +4,7 @@ import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
 import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-efficiency-shadow-v1.mjs";
 import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-offense-shadow-v1.mjs";
+import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -24,10 +25,6 @@ const finite = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 const eventId = (pick = {}) => clean(pick.gameId || pick.eventId || pick.id, 180);
-
-function normalized(value, limit = 180) {
-  return clean(value, limit).toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 function migrationMissing(error) {
   const text = String(error?.message || error || "").toLowerCase();
@@ -154,48 +151,6 @@ function compactShadowModels(pick = {}, observations = [], capturedAt) {
   return rows;
 }
 
-function marketBenchmarkFromPick(pick = {}, capturedAt) {
-  const rows = Array.isArray(pick.eventConsensusDistribution) ? pick.eventConsensusDistribution : [];
-  const homeKey = normalized(pick.homeTeam, 140);
-  const awayKey = normalized(pick.awayTeam, 140);
-  const probabilities = {};
-  const raw = [];
-
-  for (const row of rows.slice(0, 5)) {
-    const selection = normalized(row?.selection, 140);
-    const probability = finite(row?.probability);
-    if (!selection || probability === null || probability <= 0 || probability >= 1) continue;
-    let side = null;
-    if (selection === homeKey) side = "home";
-    else if (selection === awayKey) side = "away";
-    else if (["draw", "tie", "tasapeli", "x"].includes(selection)) side = "draw";
-    if (!side || probabilities[side] !== undefined) continue;
-    probabilities[side] = probability;
-    raw.push({ side, selection: clean(row.selection, 140), probability, bookmakerCount: Number(row.bookmakerCount || 0), latestUpdate: row.latestUpdate || null });
-  }
-
-  const soccer = normalized(pick.sportKey || pick.sportTitle, 120).includes("soccer");
-  const required = soccer ? ["home", "draw", "away"] : ["home", "away"];
-  if (!required.every((side) => finite(probabilities[side]) !== null)) return null;
-  const rawTotal = required.reduce((sum, side) => sum + Number(probabilities[side]), 0);
-  if (!Number.isFinite(rawTotal) || rawTotal < 0.9 || rawTotal > 1.1) return null;
-  const normalizedProbabilities = Object.fromEntries(required.map((side) => [side, Number((probabilities[side] / rawTotal).toFixed(8))]));
-
-  return {
-    version: "no-vig-event-market-benchmark-v1",
-    source: "bookmaker-no-vig-consensus",
-    independentPredictiveModel: false,
-    marketKey: clean(pick.marketKey || "h2h", 60),
-    capturedAt,
-    rawProbabilityTotal: Number(rawTotal.toFixed(8)),
-    renormalized: Math.abs(rawTotal - 1) > 0.000001,
-    probabilities: normalizedProbabilities,
-    outcomes: raw,
-    productionProbabilityChanged: false,
-    paperOnly: true
-  };
-}
-
 async function storeEvent(admin, pick, capturedAt) {
   const automatic = buildAutomaticObservationsFromPick(pick, { capturedAt });
   const external = await fetchExternalSportsAnalytics(matchFromPick(pick), { capturedAt });
@@ -208,13 +163,13 @@ async function storeEvent(admin, pick, capturedAt) {
   if (!snapshot.event_id) return null;
 
   const shadowModels = compactShadowModels(pick, observations, capturedAt);
-  const marketBenchmark = marketBenchmarkFromPick(pick, capturedAt);
+  const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });
   snapshot.raw_summary = {
     ...(snapshot.raw_summary || {}),
     shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
     shadowModels,
     shadowModelCount: shadowModels.length,
-    marketBenchmarkVersion: "no-vig-event-market-benchmark-v1",
+    marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
     marketBenchmark,
     marketBenchmarkCapturedBeforeStart: Boolean(marketBenchmark),
     shadowPredictionsCapturedBeforeStart: true,
@@ -268,7 +223,7 @@ export async function GET(request) {
       ok: failures.length === 0,
       version: "sports-analytics-worker-v6",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
-      marketBenchmarkVersion: "no-vig-event-market-benchmark-v1",
+      marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
       capturedAt,
       eventsRequested: picks.length,
       eventsStored: stored.length,
