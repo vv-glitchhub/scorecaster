@@ -14,6 +14,7 @@ on:
       - "lib/nhl-xg-goalie-shadow-v1.mjs"
       - "lib/soccer-xg-poisson-shadow-v1.mjs"
       - "lib/basketball-efficiency-shadow-v1.mjs"
+      - "lib/mlb-pitching-offense-shadow-v1.mjs"
       - "lib/sports-analytics-shadow-input-loader.js"
       - "lib/sports-analytics-provider.js"
       - "lib/model-formula-registry-v1.mjs"
@@ -30,6 +31,7 @@ on:
       - "app/event/[eventId]/EventNhlXgGoaliePanel.jsx"
       - "app/event/[eventId]/EventSoccerXgPoissonPanel.jsx"
       - "app/event/[eventId]/EventBasketballEfficiencyPanel.jsx"
+      - "app/event/[eventId]/EventMlbPitchingOffensePanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
@@ -39,6 +41,9 @@ on:
       - "scripts/basketball-efficiency-shadow-v1.test.mjs"
       - "scripts/basketball-model-factory-v1.test.mjs"
       - "scripts/basketball-transparency-registry-v1.test.mjs"
+      - "scripts/mlb-pitching-offense-shadow-v1.test.mjs"
+      - "scripts/mlb-model-factory-v1.test.mjs"
+      - "scripts/mlb-transparency-registry-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -50,6 +55,7 @@ on:
       - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - "docs/SOCCER_XG_POISSON_SHADOW_V1.md"
       - "docs/BASKETBALL_EFFICIENCY_SHADOW_V1.md"
+      - "docs/MLB_PITCHING_OFFENSE_SHADOW_V1.md"
       - "docs/ADVANCED_MODEL_HOLDOUT_V1.md"
       - ".github/workflows/model-factory-v1.yml"
   push:
@@ -65,6 +71,7 @@ on:
       - "lib/nhl-xg-goalie-shadow-v1.mjs"
       - "lib/soccer-xg-poisson-shadow-v1.mjs"
       - "lib/basketball-efficiency-shadow-v1.mjs"
+      - "lib/mlb-pitching-offense-shadow-v1.mjs"
       - "lib/sports-analytics-shadow-input-loader.js"
       - "lib/sports-analytics-provider.js"
       - "lib/model-formula-registry-v1.mjs"
@@ -81,6 +88,7 @@ on:
       - "app/event/[eventId]/EventNhlXgGoaliePanel.jsx"
       - "app/event/[eventId]/EventSoccerXgPoissonPanel.jsx"
       - "app/event/[eventId]/EventBasketballEfficiencyPanel.jsx"
+      - "app/event/[eventId]/EventMlbPitchingOffensePanel.jsx"
       - "scripts/model-lineage-guard-v1.test.mjs"
       - "scripts/model-factory-v1.test.mjs"
       - "scripts/model-performance-evidence-v1.test.mjs"
@@ -90,6 +98,9 @@ on:
       - "scripts/basketball-efficiency-shadow-v1.test.mjs"
       - "scripts/basketball-model-factory-v1.test.mjs"
       - "scripts/basketball-transparency-registry-v1.test.mjs"
+      - "scripts/mlb-pitching-offense-shadow-v1.test.mjs"
+      - "scripts/mlb-model-factory-v1.test.mjs"
+      - "scripts/mlb-transparency-registry-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -101,6 +112,7 @@ on:
       - "docs/NHL_XG_GOALIE_SHADOW_V1.md"
       - "docs/SOCCER_XG_POISSON_SHADOW_V1.md"
       - "docs/BASKETBALL_EFFICIENCY_SHADOW_V1.md"
+      - "docs/MLB_PITCHING_OFFENSE_SHADOW_V1.md"
       - "docs/ADVANCED_MODEL_HOLDOUT_V1.md"
       - ".github/workflows/model-factory-v1.yml"
 
@@ -128,7 +140,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Model Factory regression tests
-        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/basketball-model-factory-v1.test.mjs scripts/basketball-transparency-registry-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
+        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/basketball-model-factory-v1.test.mjs scripts/basketball-transparency-registry-v1.test.mjs scripts/mlb-pitching-offense-shadow-v1.test.mjs scripts/mlb-model-factory-v1.test.mjs scripts/mlb-transparency-registry-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble

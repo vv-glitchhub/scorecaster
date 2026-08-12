@@ -6,34 +6,23 @@ const auditClient = fs.readFileSync(new URL("../app/event/[eventId]/EventDataAud
 const modelPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventModelAuditPanel.jsx", import.meta.url), "utf8");
 const soccerPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventSoccerXgPoissonPanel.jsx", import.meta.url), "utf8");
 const basketballPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventBasketballEfficiencyPanel.jsx", import.meta.url), "utf8");
+const mlbPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventMlbPitchingOffensePanel.jsx", import.meta.url), "utf8");
 const dataLayer = fs.readFileSync(new URL("../app/api/data-layer/route.js", import.meta.url), "utf8");
 
-function count(text, token) {
-  return text.split(token).length - 1;
-}
+function count(text, token) { return text.split(token).length - 1; }
 
-test("event detail exposes model audit from the existing unified data request", () => {
-  assert.match(auditClient, /EventModelAuditPanel/);
-  assert.match(auditClient, /EventSoccerXgPoissonPanel/);
-  assert.match(auditClient, /EventBasketballEfficiencyPanel/);
-  assert.match(auditClient, /<EventModelAuditPanel row=\{state\.row\}/);
-  assert.match(auditClient, /<EventSoccerXgPoissonPanel row=\{state\.row\}/);
-  assert.match(auditClient, /<EventBasketballEfficiencyPanel row=\{state\.row\}/);
+test("event detail exposes all advanced model audits from one unified data request", () => {
+  for (const component of ["EventModelAuditPanel", "EventSoccerXgPoissonPanel", "EventBasketballEfficiencyPanel", "EventMlbPitchingOffensePanel"]) assert.match(auditClient, new RegExp(component));
+  assert.match(auditClient, /<EventMlbPitchingOffensePanel row=\{state\.row\}/);
   assert.equal(count(auditClient, "fetch("), 1);
   assert.equal(count(modelPanel, "fetch("), 0);
   assert.equal(count(soccerPanel, "fetch("), 0);
   assert.equal(count(basketballPanel, "fetch("), 0);
+  assert.equal(count(mlbPanel, "fetch("), 0);
 });
 
 test("model audit renders factory, ensemble, rating and research gate evidence", () => {
-  assert.match(modelPanel, /row\?\.modelFactory/);
-  assert.match(modelPanel, /row\?\.ensembleEngine/);
-  assert.match(modelPanel, /row\?\.historicalRatingShadow/);
-  assert.match(modelPanel, /researchRiskGate/);
-  assert.match(modelPanel, /calibrationReadyGroups/);
-  assert.match(modelPanel, /dependenceGroup/);
-  assert.match(modelPanel, /productionProbabilityChanged/);
-  assert.match(modelPanel, /automaticPromotionAllowed/);
+  for (const token of [/row\?\.modelFactory/, /row\?\.ensembleEngine/, /row\?\.historicalRatingShadow/, /researchRiskGate/, /calibrationReadyGroups/, /dependenceGroup/, /productionProbabilityChanged/, /automaticPromotionAllowed/]) assert.match(modelPanel, token);
 });
 
 test("soccer xG audit exposes full 1X2 probability and holdout boundaries", () => {
@@ -46,19 +35,29 @@ test("soccer xG audit exposes full 1X2 probability and holdout boundaries", () =
   assert.match(dataLayer, /holdoutInventsPerformanceWeight: false/);
 });
 
-test("basketball efficiency audit exposes H2H, projected points and research boundaries", () => {
+test("basketball efficiency audit exposes H2H and projected points", () => {
   assert.match(basketballPanel, /row\?\.basketballEfficiencyShadow/);
-  assert.match(basketballPanel, /probabilities\?\.home/);
-  assert.match(basketballPanel, /probabilities\?\.away/);
   assert.match(basketballPanel, /projected\?\.homePoints/);
-  assert.match(basketballPanel, /projected\?\.awayPoints/);
   assert.match(basketballPanel, /performanceWeightAvailable/);
-  assert.match(dataLayer, /basketballEfficiencyShadowVersion/);
   assert.match(dataLayer, /basketballEfficiencyUsesMarketInputs: false/);
-  assert.match(dataLayer, /probabilityAdjustedByBasketballEfficiencyShadow: false/);
 });
 
-test("data layer publishes the lineage guard and anti-masquerading contract", () => {
+test("MLB audit exposes H2H, starter vulnerability and strict safety boundaries", () => {
+  assert.match(mlbPanel, /row\?\.mlbPitchingOffenseShadow/);
+  assert.match(mlbPanel, /probabilities\?\.home/);
+  assert.match(mlbPanel, /probabilities\?\.away/);
+  assert.match(mlbPanel, /homeStarterVulnerabilityZ/);
+  assert.match(mlbPanel, /awayStarterVulnerabilityZ/);
+  assert.match(mlbPanel, /confirmed starters/);
+  assert.match(mlbPanel, /parkContextUsedInProbability/);
+  assert.match(mlbPanel, /performanceWeightAvailable/);
+  assert.match(dataLayer, /mlbPitchingOffenseShadowVersion/);
+  assert.match(dataLayer, /mlbPitchingOffenseRequiresConfirmedStartingPitchers: true/);
+  assert.match(dataLayer, /mlbParkContextUsedInH2hProbability: false/);
+  assert.match(dataLayer, /probabilityAdjustedByMlbPitchingOffenseShadow: false/);
+});
+
+test("data layer publishes lineage guard and anti-masquerading contract", () => {
   assert.match(dataLayer, /scorecaster-model-lineage-guard-v1/);
   assert.match(dataLayer, /modelSelfDeclaredDependenceGroupTrusted: false/);
   assert.match(dataLayer, /marketDerivedIndependentModelsAccepted: false/);

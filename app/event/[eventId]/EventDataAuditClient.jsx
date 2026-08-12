@@ -10,6 +10,7 @@ import EventAdvancedSignalReadinessPanel from "./EventAdvancedSignalReadinessPan
 import EventNhlXgGoaliePanel from "./EventNhlXgGoaliePanel";
 import EventSoccerXgPoissonPanel from "./EventSoccerXgPoissonPanel";
 import EventBasketballEfficiencyPanel from "./EventBasketballEfficiencyPanel";
+import EventMlbPitchingOffensePanel from "./EventMlbPitchingOffensePanel";
 
 export default function EventDataAuditClient({ eventId, sport }) {
   const { tr } = useLanguage();
@@ -43,6 +44,7 @@ export default function EventDataAuditClient({ eventId, sport }) {
       <EventNhlXgGoaliePanel row={state.row} />
       <EventSoccerXgPoissonPanel row={state.row} />
       <EventBasketballEfficiencyPanel row={state.row} />
+      <EventMlbPitchingOffensePanel row={state.row} />
       <EventAdvancedSignalReadinessPanel row={state.row} />
       <UnifiedDataHistoryClient compact eventId={eventId} selection={state.row.selection || ""} />
     </div>

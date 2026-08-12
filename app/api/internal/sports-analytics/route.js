@@ -3,6 +3,7 @@ import { fetchExternalSportsAnalytics, sportsAnalyticsProviderConfiguration } fr
 import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v1.mjs";
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
 import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-efficiency-shadow-v1.mjs";
+import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-offense-shadow-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -13,37 +14,20 @@ import {
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
-const HEADERS = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff"
-};
-
-function response(payload, status = 200) {
-  return Response.json(payload, { status, headers: HEADERS });
-}
-
-function authorized(request) {
-  const secret = process.env.CRON_SECRET;
-  return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
-}
-
-function clean(value, limit = 180) {
-  return String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
-}
-
-function finite(value) {
+const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
+const response = (payload, status = 200) => Response.json(payload, { status, headers: HEADERS });
+const authorized = (request) => Boolean(process.env.CRON_SECRET) && request.headers.get("authorization") === `Bearer ${process.env.CRON_SECRET}`;
+const clean = (value, limit = 180) => String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
+const finite = (value) => {
   if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
-}
+};
+const eventId = (pick = {}) => clean(pick.gameId || pick.eventId || pick.id, 180);
 
 function migrationMissing(error) {
   const text = String(error?.message || error || "").toLowerCase();
   return text.includes("sports_analytics_") && (text.includes("does not exist") || text.includes("schema cache"));
-}
-
-function eventId(pick = {}) {
-  return clean(pick.gameId || pick.eventId || pick.id, 180);
 }
 
 function matchFromPick(pick = {}) {
@@ -71,24 +55,45 @@ function uniqueEvents(picks = []) {
 function eventLevelAdvancedModels(pick = {}, observations = [], capturedAt = new Date().toISOString()) {
   const now = Date.parse(capturedAt);
   const eventPick = { ...pick, selection: pick.homeTeam, label: pick.homeTeam };
-  const existingNhl = pick.nhlXgGoalieShadowV1;
-  const existingSoccer = pick.soccerXgPoissonShadowV1;
-  const existingBasketball = pick.basketballEfficiencyShadowV1;
-  const nhl = existingNhl?.status === "ready"
-    ? existingNhl
-    : buildNhlXgGoalieShadowV1(eventPick, observations, { now });
-  const soccer = existingSoccer?.status === "ready"
-    ? existingSoccer
-    : buildSoccerXgPoissonShadowV1(eventPick, observations, { now });
-  const basketball = existingBasketball?.status === "ready"
-    ? existingBasketball
-    : buildBasketballEfficiencyShadowV1(eventPick, observations, { now });
-  return { nhl, soccer, basketball };
+  const build = (existing, factory) => existing?.status === "ready" ? existing : factory(eventPick, observations, { now });
+  return {
+    nhl: build(pick.nhlXgGoalieShadowV1, buildNhlXgGoalieShadowV1),
+    soccer: build(pick.soccerXgPoissonShadowV1, buildSoccerXgPoissonShadowV1),
+    basketball: build(pick.basketballEfficiencyShadowV1, buildBasketballEfficiencyShadowV1),
+    baseball: build(pick.mlbPitchingOffenseShadowV1, buildMlbPitchingOffenseShadowV1)
+  };
+}
+
+function compactBinaryModel({ model, pick, family, sport, extra = {} }) {
+  if (model?.status !== "ready" || !model.probabilities) return null;
+  const home = finite(model.probabilities.home);
+  const away = finite(model.probabilities.away);
+  if (home === null || away === null) return null;
+  return {
+    modelId: clean(model.modelId, 160),
+    modelVersion: clean(model.modelVersion || model.version, 160),
+    family,
+    sport,
+    generatedAt: model.generatedAt || null,
+    predictionHorizon: model.predictionHorizon || null,
+    inputSnapshotHash: clean(model.inputSnapshotHash, 128),
+    homeTeam: clean(pick.homeTeam, 140),
+    awayTeam: clean(pick.awayTeam, 140),
+    probabilities: { home, away },
+    providers: Array.isArray(model.provenance?.providers) ? model.provenance.providers.slice(0, 10) : [],
+    metrics: Array.isArray(model.provenance?.metrics) ? model.provenance.metrics.slice(0, 30) : [],
+    calibrated: false,
+    eventLevelHoldoutCapture: true,
+    productionProbabilityChanged: false,
+    paperOnly: true,
+    ...extra
+  };
 }
 
 function compactShadowModels(pick = {}, observations = [], capturedAt) {
   const rows = [];
-  const { nhl, soccer, basketball } = eventLevelAdvancedModels(pick, observations, capturedAt);
+  const { nhl, soccer, basketball, baseball } = eventLevelAdvancedModels(pick, observations, capturedAt);
+
   if (nhl?.status === "ready" && finite(nhl.homeMoneylineProbability) !== null && finite(nhl.awayMoneylineProbability) !== null) {
     rows.push({
       modelId: clean(nhl.modelId, 160),
@@ -100,10 +105,7 @@ function compactShadowModels(pick = {}, observations = [], capturedAt) {
       inputSnapshotHash: clean(nhl.inputSnapshotHash, 128),
       homeTeam: clean(pick.homeTeam, 140),
       awayTeam: clean(pick.awayTeam, 140),
-      probabilities: {
-        home: finite(nhl.homeMoneylineProbability),
-        away: finite(nhl.awayMoneylineProbability)
-      },
+      probabilities: { home: finite(nhl.homeMoneylineProbability), away: finite(nhl.awayMoneylineProbability) },
       projectedGoals: nhl.projectedGoals || null,
       providers: Array.isArray(nhl.provenance?.providers) ? nhl.provenance.providers.slice(0, 10) : [],
       metrics: Array.isArray(nhl.provenance?.metrics) ? nhl.provenance.metrics.slice(0, 30) : [],
@@ -141,32 +143,10 @@ function compactShadowModels(pick = {}, observations = [], capturedAt) {
     }
   }
 
-  if (basketball?.status === "ready" && basketball.probabilities) {
-    const home = finite(basketball.probabilities.home);
-    const away = finite(basketball.probabilities.away);
-    if (home !== null && away !== null) {
-      rows.push({
-        modelId: clean(basketball.modelId, 160),
-        modelVersion: clean(basketball.modelVersion || basketball.version, 160),
-        family: "performance-statistics",
-        sport: "basketball",
-        generatedAt: basketball.generatedAt || null,
-        predictionHorizon: basketball.predictionHorizon || null,
-        inputSnapshotHash: clean(basketball.inputSnapshotHash, 128),
-        homeTeam: clean(pick.homeTeam, 140),
-        awayTeam: clean(pick.awayTeam, 140),
-        probabilities: { home, away },
-        projectedPoints: basketball.projected || null,
-        providers: Array.isArray(basketball.provenance?.providers) ? basketball.provenance.providers.slice(0, 10) : [],
-        metrics: Array.isArray(basketball.provenance?.metrics) ? basketball.provenance.metrics.slice(0, 30) : [],
-        calibrated: false,
-        eventLevelHoldoutCapture: true,
-        productionProbabilityChanged: false,
-        paperOnly: true
-      });
-    }
-  }
-
+  const basketballRow = compactBinaryModel({ model: basketball, pick, family: "performance-statistics", sport: "basketball", extra: { projectedPoints: basketball?.projected || null } });
+  if (basketballRow) rows.push(basketballRow);
+  const baseballRow = compactBinaryModel({ model: baseball, pick, family: "expected-performance", sport: "baseball", extra: { matchup: baseball?.matchup || null } });
+  if (baseballRow) rows.push(baseballRow);
   return rows;
 }
 
@@ -175,27 +155,10 @@ async function storeEvent(admin, pick, capturedAt) {
   const external = await fetchExternalSportsAnalytics(matchFromPick(pick), { capturedAt });
   const observations = mergeAnalyticsObservations(automatic, external.observations);
   const providerStatus = {
-    automatic: {
-      source: "scorecaster-unified-data",
-      mode: automatic.length ? "live" : "unavailable",
-      ok: automatic.length > 0,
-      observationCount: automatic.length
-    },
-    external: {
-      source: external.source,
-      mode: external.mode,
-      ok: external.ok,
-      observationCount: external.observations.length,
-      reason: external.reason || null
-    }
+    automatic: { source: "scorecaster-unified-data", mode: automatic.length ? "live" : "unavailable", ok: automatic.length > 0, observationCount: automatic.length },
+    external: { source: external.source, mode: external.mode, ok: external.ok, observationCount: external.observations.length, reason: external.reason || null }
   };
-  const snapshot = buildSportsAnalyticsSnapshot({
-    pick,
-    observations,
-    golfShots: external.golfShots,
-    providerStatus,
-    capturedAt
-  });
+  const snapshot = buildSportsAnalyticsSnapshot({ pick, observations, golfShots: external.golfShots, providerStatus, capturedAt });
   if (!snapshot.event_id) return null;
 
   const shadowModels = compactShadowModels(pick, observations, capturedAt);
@@ -218,9 +181,7 @@ async function storeEvent(admin, pick, capturedAt) {
 
   const observationRows = toSportsAnalyticsObservationRows(storedSnapshot.id, snapshot, observations);
   if (observationRows.length) {
-    const { error: observationError } = await admin
-      .from("sports_analytics_observations")
-      .upsert(observationRows, { onConflict: "fingerprint" });
+    const { error: observationError } = await admin.from("sports_analytics_observations").upsert(observationRows, { onConflict: "fingerprint" });
     if (observationError) throw observationError;
   }
 
@@ -243,14 +204,9 @@ export async function GET(request) {
   try {
     const capturedAt = new Date().toISOString();
     const origin = new URL(request.url).origin;
-    const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(75_000)
-    });
+    const topPicksResponse = await fetch(`${origin}/api/top-picks`, { cache: "no-store", signal: AbortSignal.timeout(75_000) });
     const topPicks = await topPicksResponse.json();
-    if (!topPicksResponse.ok || topPicks?.ok === false) {
-      return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
-    }
+    if (!topPicksResponse.ok || topPicks?.ok === false) return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
 
     const picks = uniqueEvents(Array.isArray(topPicks.data) ? topPicks.data : []);
     const settled = await Promise.allSettled(picks.map((pick) => storeEvent(admin, pick, capturedAt)));
@@ -259,7 +215,7 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v4",
+      version: "sports-analytics-worker-v5",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
       capturedAt,
       eventsRequested: picks.length,
@@ -278,11 +234,7 @@ export async function GET(request) {
   } catch (error) {
     return response({
       ok: false,
-      error: migrationMissing(error)
-        ? "Sports analytics migration is not active"
-        : process.env.NODE_ENV === "production"
-          ? "Sports analytics capture failed"
-          : String(error),
+      error: migrationMissing(error) ? "Sports analytics migration is not active" : process.env.NODE_ENV === "production" ? "Sports analytics capture failed" : String(error),
       migrationRequired: migrationMissing(error) ? "supabase/scorecaster_sports_analytics.sql" : undefined
     }, migrationMissing(error) ? 503 : 500);
   }

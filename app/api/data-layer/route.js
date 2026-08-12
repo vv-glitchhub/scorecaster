@@ -1,10 +1,7 @@
 import { buildAdvancedSignalReadinessV1 } from "../../../lib/advanced-signal-readiness-v1.mjs";
 import { sportsAnalyticsProviderConfiguration } from "../../../lib/sports-analytics-provider.js";
 
-const HEADERS = {
-  "Cache-Control": "no-store",
-  "X-Content-Type-Options": "nosniff"
-};
+const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
 function clean(value, limit = 200) {
   return String(value || "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, limit);
@@ -18,9 +15,7 @@ export async function GET(request) {
   const url = new URL(request.url);
   const allowed = new Set(["eventId", "sports"]);
   const unknown = [...url.searchParams.keys()].filter((key) => !allowed.has(key));
-  if (unknown.length) {
-    return Response.json({ ok: false, error: "Unsupported query parameter" }, { status: 400, headers: HEADERS });
-  }
+  if (unknown.length) return Response.json({ ok: false, error: "Unsupported query parameter" }, { status: 400, headers: HEADERS });
 
   const eventId = clean(url.searchParams.get("eventId"), 180);
   const sports = clean(url.searchParams.get("sports"), 500);
@@ -30,9 +25,7 @@ export async function GET(request) {
   try {
     const response = await fetch(topPicksUrl, { cache: "no-store", signal: AbortSignal.timeout(60_000) });
     const payload = await response.json();
-    if (!response.ok || payload?.ok === false) {
-      return Response.json({ ok: false, error: payload?.error || "Unified data layer is unavailable", data: [] }, { status: 503, headers: HEADERS });
-    }
+    if (!response.ok || payload?.ok === false) return Response.json({ ok: false, error: payload?.error || "Unified data layer is unavailable", data: [] }, { status: 503, headers: HEADERS });
 
     const now = Date.now();
     const analyticsProvider = sportsAnalyticsProviderConfiguration();
@@ -53,9 +46,11 @@ export async function GET(request) {
       nhlXgGoalieShadow: pick.nhlXgGoalieShadowV1 || null,
       soccerXgPoissonShadow: pick.soccerXgPoissonShadowV1 || null,
       basketballEfficiencyShadow: pick.basketballEfficiencyShadowV1 || null,
+      mlbPitchingOffenseShadow: pick.mlbPitchingOffenseShadowV1 || null,
       advancedShadowInputStatus: pick.advancedShadowInputStatus || null,
       nhlAdvancedShadowInputStatus: pick.nhlAdvancedShadowInputStatus || null,
       basketballAdvancedShadowInputStatus: pick.basketballAdvancedShadowInputStatus || null,
+      mlbAdvancedShadowInputStatus: pick.mlbAdvancedShadowInputStatus || null,
       featureEngine: pick.featureEngineV1 || null,
       modelFactory: pick.modelFactoryV1 || null,
       ensembleEngine: pick.ensembleEngineV1 || null,
@@ -68,13 +63,14 @@ export async function GET(request) {
 
     return Response.json({
       ok: true,
-      version: "unified-sports-data-api-v10",
+      version: "unified-sports-data-api-v11",
       intelligenceFusionVersion: "intelligence-fusion-v2",
       formRestShadowVersion: "form-rest-shadow-v1",
       historicalRatingShadowVersion: "historical-rating-shadow-v1",
       nhlXgGoalieShadowVersion: "nhl-xg-goalie-shadow-v1",
       soccerXgPoissonShadowVersion: "soccer-xg-poisson-shadow-v1",
       basketballEfficiencyShadowVersion: "basketball-efficiency-shadow-v1",
+      mlbPitchingOffenseShadowVersion: "mlb-pitching-offense-shadow-v1",
       advancedModelHoldoutVersion: "scorecaster-advanced-model-holdout-v1",
       featureEngineVersion: "scorecaster-feature-engine-v1",
       modelFactoryVersion: "scorecaster-model-factory-v1",
@@ -109,6 +105,7 @@ export async function GET(request) {
         nhlAdvancedModel: "xGF/xGA plus optional post-shot xG and both confirmed starting-goalie GSAx/60 inputs; market and mirrored providers are excluded",
         soccerAdvancedModel: "xGF/xGA per 90 plus optional post-shot xG/90; market and mirrored providers are excluded",
         basketballAdvancedModel: "pace plus offensive/defensive rating and optional bounded lineup-adjusted impact; market and mirrored providers are excluded",
+        mlbAdvancedModel: "standardized lineup and bullpen strength plus both confirmed starting pitchers' xwOBA allowed; optional park context is audited but not used in V1 H2H probability",
         injuries: "SportsData when supported and configured",
         lineups: "configured lineup provider",
         context: "configured sports context provider",
@@ -121,12 +118,13 @@ export async function GET(request) {
         modelLineageGuard: "derives dependence groups from declared signal lineage instead of trusting a model-supplied group",
         advancedSignalReadiness: "separates provider availability, metric lineage, audited model output and chronological holdout evidence",
         historicalRating: "recent-results Elo-style research shadow using only completed events before the fixture",
-        nhlXgGoalieShadow: "transparent Poisson H2H research model using independent xG rates and confirmed starting-goalie GSAx/60; optional post-shot xG is bounded at 20% of attack-rate input",
-        soccerXgPoissonShadow: "transparent 1X2 Poisson research model using independent xGF/xGA rates per 90 with optional 20% post-shot xG blend",
+        nhlXgGoalieShadow: "transparent Poisson H2H research model using independent xG rates and confirmed starting-goalie GSAx/60",
+        soccerXgPoissonShadow: "transparent 1X2 Poisson research model using independent xGF/xGA rates per 90",
         basketballEfficiencyShadow: "transparent NBA/WNBA H2H research model using pregame pace and offensive/defensive efficiency with optional bounded lineup impact",
+        mlbPitchingOffenseShadow: "transparent MLB H2H research model using standardized lineup/bullpen strength and confirmed starter xwOBA allowed; park context is display/audit-only in V1",
         advancedModelHoldout: "latest immutable pregame capture per event/model is evaluated only after settlement; input snapshot hash is mandatory and no performance weight is invented",
         historicalDependencePolicy: "form/rest and historical rating share one historical-results-family top-level ensemble vote",
-        advancedSignalDependencePolicy: "advanced xG models use the expected-performance family; basketball efficiency uses a separate performance-statistics lineage family; none share a market vote",
+        advancedSignalDependencePolicy: "lineage guard derives advanced-model groups; MLB combines expected-performance and performance-statistics but receives one expected-performance top-level group, never a market vote",
         performanceEvidence: "chronological pre-event holdout evidence is required before a performance weight can exist",
         ensembleEngine: "shadow-first independent-model ensemble; validated performance weights only",
         marketBenchmarkIsNotIndependentModel: true,
@@ -136,6 +134,9 @@ export async function GET(request) {
         nhlXgGoalieRequiresStartingGoalies: true,
         soccerXgUsesMarketInputs: false,
         basketballEfficiencyUsesMarketInputs: false,
+        mlbPitchingOffenseUsesMarketInputs: false,
+        mlbPitchingOffenseRequiresConfirmedStartingPitchers: true,
+        mlbParkContextUsedInH2hProbability: false,
         holdoutInventsPerformanceWeight: false,
         featureOnlyModelsCastProbabilityVote: false,
         correlatedHistoricalModelsDoubleCounted: false,
@@ -155,6 +156,7 @@ export async function GET(request) {
         probabilityAdjustedByNhlXgGoalieShadow: false,
         probabilityAdjustedBySoccerXgPoissonShadow: false,
         probabilityAdjustedByBasketballEfficiencyShadow: false,
+        probabilityAdjustedByMlbPitchingOffenseShadow: false,
         probabilityAdjustedByModelFactory: false,
         probabilityAdjustedByAdvancedSignalReadiness: false,
         probabilityAdjustedByFeatureEnsemble: false,

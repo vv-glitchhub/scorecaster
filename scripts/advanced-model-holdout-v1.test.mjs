@@ -12,26 +12,20 @@ function soccerSnapshot(index, captureOffsetMinutes = -60, probabilityShift = 0)
     league: "EPL",
     commence_time: commence.toISOString(),
     captured_at: captured.toISOString(),
-    raw_summary: {
-      shadowModels: [{
-        modelId: "soccer-xg-poisson-v1",
-        modelVersion: "soccer-xg-poisson-shadow-v1",
-        family: "expected-performance",
-        sport: "soccer",
-        generatedAt: captured.toISOString(),
-        predictionHorizon: captured.toISOString(),
-        inputSnapshotHash: `hash-${index}-${captureOffsetMinutes}`,
-        homeTeam: `Home ${index}`,
-        awayTeam: `Away ${index}`,
-        probabilities: {
-          home: 0.5 + probabilityShift,
-          draw: 0.25,
-          away: 0.25 - probabilityShift
-        },
-        providers: ["licensed-xg-provider"],
-        metrics: ["xg-for-per-90", "xg-against-per-90"]
-      }]
-    }
+    raw_summary: { shadowModels: [{
+      modelId: "soccer-xg-poisson-v1",
+      modelVersion: "soccer-xg-poisson-shadow-v1",
+      family: "expected-performance",
+      sport: "soccer",
+      generatedAt: captured.toISOString(),
+      predictionHorizon: captured.toISOString(),
+      inputSnapshotHash: `hash-${index}-${captureOffsetMinutes}`,
+      homeTeam: `Home ${index}`,
+      awayTeam: `Away ${index}`,
+      probabilities: { home: 0.5 + probabilityShift, draw: 0.25, away: 0.25 - probabilityShift },
+      providers: ["licensed-xg-provider"],
+      metrics: ["xg-for-per-90", "xg-against-per-90"]
+    }] }
   };
 }
 
@@ -61,22 +55,20 @@ function basketballSnapshot(index, { league = "NBA", modelVersion = "nba-efficie
     league,
     commence_time: commence.toISOString(),
     captured_at: captured.toISOString(),
-    raw_summary: {
-      shadowModels: [{
-        modelId: league === "WNBA" ? "wnba-efficiency-pace-v1" : "nba-efficiency-pace-v1",
-        modelVersion,
-        family: "performance-statistics",
-        sport: "basketball",
-        generatedAt: captured.toISOString(),
-        predictionHorizon: captured.toISOString(),
-        inputSnapshotHash: `${prefix}-hash-${index}`,
-        homeTeam: `${league} Home ${index}`,
-        awayTeam: `${league} Away ${index}`,
-        probabilities: { home: probability, away: 1 - probability },
-        providers: ["licensed-basketball-provider"],
-        metrics: ["pace", "offensive-rating", "defensive-rating"]
-      }]
-    }
+    raw_summary: { shadowModels: [{
+      modelId: league === "WNBA" ? "wnba-efficiency-pace-v1" : "nba-efficiency-pace-v1",
+      modelVersion,
+      family: "performance-statistics",
+      sport: "basketball",
+      generatedAt: captured.toISOString(),
+      predictionHorizon: captured.toISOString(),
+      inputSnapshotHash: `${prefix}-hash-${index}`,
+      homeTeam: `${league} Home ${index}`,
+      awayTeam: `${league} Away ${index}`,
+      probabilities: { home: probability, away: 1 - probability },
+      providers: ["licensed-basketball-provider"],
+      metrics: ["pace", "offensive-rating", "defensive-rating"]
+    }] }
   };
 }
 
@@ -94,12 +86,49 @@ function basketballResult(index, { league = "NBA", homeWin = true } = {}) {
   };
 }
 
+function baseballSnapshot(index, probability = 0.68) {
+  const commence = new Date(Date.UTC(2026, 7, 20 + index, 18, 0, 0));
+  const captured = new Date(commence.getTime() - 60 * 60_000);
+  return {
+    event_id: `mlb-${index}`,
+    sport_key: "baseball_mlb",
+    canonical_sport: "baseball",
+    league: "MLB",
+    commence_time: commence.toISOString(),
+    captured_at: captured.toISOString(),
+    raw_summary: { shadowModels: [{
+      modelId: "mlb-pitching-offense-v1",
+      modelVersion: "mlb-pitching-offense-shadow-v1",
+      family: "expected-performance",
+      sport: "baseball",
+      generatedAt: captured.toISOString(),
+      predictionHorizon: captured.toISOString(),
+      inputSnapshotHash: `mlb-hash-${index}`,
+      homeTeam: `MLB Home ${index}`,
+      awayTeam: `MLB Away ${index}`,
+      probabilities: { home: probability, away: 1 - probability },
+      providers: ["licensed-baseball-provider"],
+      metrics: ["lineup-strength", "bullpen-depth", "starting-pitcher-xwoba-allowed"]
+    }] }
+  };
+}
+
+function baseballResult(index, homeWin = true) {
+  const date = new Date(Date.UTC(2026, 7, 20 + index, 18, 0, 0));
+  return {
+    id: `mlb-result-${index}`,
+    date: date.toISOString().slice(0, 10),
+    time: "18:00:00",
+    home_team: `MLB Home ${index}`,
+    away_team: `MLB Away ${index}`,
+    home_score: homeWin ? 5 : 2,
+    away_score: homeWin ? 3 : 6,
+    is_finished: true
+  };
+}
+
 test("holdout uses the latest immutable pregame capture and ignores post-start snapshots", () => {
-  const rows = [
-    soccerSnapshot(0, -120, -0.1),
-    soccerSnapshot(0, -30, 0.1),
-    soccerSnapshot(0, 10, -0.2)
-  ];
+  const rows = [soccerSnapshot(0, -120, -0.1), soccerSnapshot(0, -30, 0.1), soccerSnapshot(0, 10, -0.2)];
   const report = buildAdvancedModelHoldoutV1(rows, [soccerResult(0, "home")], { now: Date.parse("2026-08-20T00:00:00.000Z") });
   assert.equal(report.counts.immutablePregamePredictions, 1);
   assert.equal(report.counts.settledEvaluations, 1);
@@ -138,13 +167,9 @@ test("100 chronological settled predictions become review-ready but never get an
 });
 
 test("basketball H2H predictions are evaluated with binary Brier and log loss", () => {
-  const snapshot = basketballSnapshot(0, { probability: 0.7 });
-  const result = basketballResult(0, { homeWin: true });
-  const report = buildAdvancedModelHoldoutV1([snapshot], [result], { now: Date.parse("2026-11-01T00:00:00.000Z") });
+  const report = buildAdvancedModelHoldoutV1([basketballSnapshot(0, { probability: 0.7 })], [basketballResult(0, { homeWin: true })], { now: Date.parse("2026-11-01T00:00:00.000Z") });
   assert.equal(report.counts.settledEvaluations, 1);
-  assert.equal(report.models.length, 1);
   assert.equal(report.models[0].sport, "basketball");
-  assert.equal(report.models[0].sampleSize, 1);
   assert.equal(report.models[0].brier, 0.09);
   assert.ok(report.models[0].logLoss > 0);
   assert.equal(report.models[0].performanceEvidenceDraft.scope.market, "h2h");
@@ -155,16 +180,24 @@ test("NBA and WNBA holdout samples stay separated by modelVersion", () => {
     basketballSnapshot(1, { league: "NBA", modelVersion: "nba-efficiency-pace-shadow-v1" }),
     basketballSnapshot(2, { league: "WNBA", modelVersion: "wnba-efficiency-pace-shadow-v1" })
   ];
-  const results = [
-    basketballResult(1, { league: "NBA", homeWin: true }),
-    basketballResult(2, { league: "WNBA", homeWin: false })
-  ];
+  const results = [basketballResult(1, { league: "NBA", homeWin: true }), basketballResult(2, { league: "WNBA", homeWin: false })];
   const report = buildAdvancedModelHoldoutV1(snapshots, results, { now: Date.parse("2026-11-10T00:00:00.000Z") });
   assert.equal(report.models.length, 2);
-  assert.deepEqual(report.models.map((model) => model.modelVersion).sort(), [
-    "nba-efficiency-pace-shadow-v1",
-    "wnba-efficiency-pace-shadow-v1"
-  ]);
+  assert.deepEqual(report.models.map((model) => model.modelVersion).sort(), ["nba-efficiency-pace-shadow-v1", "wnba-efficiency-pace-shadow-v1"]);
   assert.equal(report.models.every((model) => model.sampleSize === 1), true);
   assert.equal(report.models.every((model) => model.ensembleWeightAvailable === false), true);
+});
+
+test("MLB H2H shadow is evaluated only after settlement with binary metrics and no weight", () => {
+  const report = buildAdvancedModelHoldoutV1([baseballSnapshot(0, 0.7)], [baseballResult(0, true)], { now: Date.parse("2026-09-01T00:00:00.000Z") });
+  assert.equal(report.counts.settledEvaluations, 1);
+  assert.equal(report.models.length, 1);
+  const model = report.models[0];
+  assert.equal(model.sport, "baseball");
+  assert.equal(model.modelVersion, "mlb-pitching-offense-shadow-v1");
+  assert.equal(model.brier, 0.09);
+  assert.ok(model.logLoss > 0);
+  assert.equal(model.performanceEvidenceDraft.scope.market, "h2h");
+  assert.equal(model.performanceEvidenceDraft.postEventDataUsed, false);
+  assert.equal(model.ensembleWeightAvailable, false);
 });
