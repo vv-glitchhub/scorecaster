@@ -11,6 +11,7 @@ import EventNhlXgGoaliePanel from "./EventNhlXgGoaliePanel";
 import EventSoccerXgPoissonPanel from "./EventSoccerXgPoissonPanel";
 import EventBasketballEfficiencyPanel from "./EventBasketballEfficiencyPanel";
 import EventMlbPitchingOffensePanel from "./EventMlbPitchingOffensePanel";
+import EventUncertaintyPanel from "./EventUncertaintyPanel";
 
 export default function EventDataAuditClient({ eventId, sport }) {
   const { tr } = useLanguage();
@@ -40,6 +41,7 @@ export default function EventDataAuditClient({ eventId, sport }) {
   return (
     <div className="space-y-8">
       <UnifiedDataLedger ledger={state.row.ledger} />
+      <EventUncertaintyPanel row={state.row} />
       <EventModelAuditPanel row={state.row} />
       <EventNhlXgGoaliePanel row={state.row} />
       <EventSoccerXgPoissonPanel row={state.row} />
