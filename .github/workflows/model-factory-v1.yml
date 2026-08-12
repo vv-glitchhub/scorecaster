@@ -35,6 +35,7 @@ on:
       - "scripts/nhl-xg-goalie-shadow-v1.test.mjs"
       - "scripts/soccer-xg-poisson-shadow-v1.test.mjs"
       - "scripts/basketball-efficiency-shadow-v1.test.mjs"
+      - "scripts/basketball-model-factory-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -82,6 +83,7 @@ on:
       - "scripts/nhl-xg-goalie-shadow-v1.test.mjs"
       - "scripts/soccer-xg-poisson-shadow-v1.test.mjs"
       - "scripts/basketball-efficiency-shadow-v1.test.mjs"
+      - "scripts/basketball-model-factory-v1.test.mjs"
       - "scripts/advanced-model-holdout-v1.test.mjs"
       - "scripts/sports-analytics-provider-contract-v2.test.mjs"
       - "scripts/event-model-audit-ui.test.mjs"
@@ -120,7 +122,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Model Factory regression tests
-        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
+        run: node --test scripts/model-lineage-guard-v1.test.mjs scripts/model-performance-evidence-v1.test.mjs scripts/model-factory-v1.test.mjs scripts/historical-rating-shadow-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/basketball-efficiency-shadow-v1.test.mjs scripts/basketball-model-factory-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs scripts/event-model-audit-ui.test.mjs scripts/advanced-signal-readiness-v1.test.mjs
 
       - name: Existing Feature Ensemble regressions
         run: npm run test:feature-ensemble
