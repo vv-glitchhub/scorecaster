@@ -4,6 +4,7 @@ import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
 import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-efficiency-shadow-v1.mjs";
 import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-offense-shadow-v1.mjs";
+import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -162,11 +163,15 @@ async function storeEvent(admin, pick, capturedAt) {
   if (!snapshot.event_id) return null;
 
   const shadowModels = compactShadowModels(pick, observations, capturedAt);
+  const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });
   snapshot.raw_summary = {
     ...(snapshot.raw_summary || {}),
-    shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
+    shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
     shadowModels,
     shadowModelCount: shadowModels.length,
+    marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
+    marketBenchmark,
+    marketBenchmarkCapturedBeforeStart: Boolean(marketBenchmark),
     shadowPredictionsCapturedBeforeStart: true,
     shadowPredictionsImmutableByCaptureBucket: true,
     selectionIndependentEventDistributionCaptured: true
@@ -191,7 +196,8 @@ async function storeEvent(admin, pick, capturedAt) {
     externalObservations: external.observations.length,
     externalMode: external.mode,
     golfShots: external.golfShots.length,
-    shadowModelsCaptured: shadowModels.length
+    shadowModelsCaptured: shadowModels.length,
+    marketBenchmarkCaptured: Boolean(marketBenchmark)
   };
 }
 
@@ -215,8 +221,9 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v5",
-      shadowLedgerVersion: "advanced-shadow-prediction-ledger-v1",
+      version: "sports-analytics-worker-v6",
+      shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
+      marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
       capturedAt,
       eventsRequested: picks.length,
       eventsStored: stored.length,
@@ -224,6 +231,7 @@ export async function GET(request) {
       automaticObservations: stored.reduce((sum, item) => sum + item.automaticObservations, 0),
       externalObservations: stored.reduce((sum, item) => sum + item.externalObservations, 0),
       shadowModelsCaptured: stored.reduce((sum, item) => sum + item.shadowModelsCaptured, 0),
+      marketBenchmarksCaptured: stored.filter((item) => item.marketBenchmarkCaptured).length,
       golfShots: stored.reduce((sum, item) => sum + item.golfShots, 0),
       externalProvider: sportsAnalyticsProviderConfiguration(),
       failures: failures.length,
