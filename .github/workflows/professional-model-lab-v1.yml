@@ -29,8 +29,8 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
 
-      - name: Professional explanation regression tests
-        run: node --test scripts/professional-model-lab-v1.test.mjs
+      - name: Professional explanation and research scorecard regressions
+        run: node --test scripts/professional-model-lab-v1.test.mjs scripts/model-research-scorecard-v1.test.mjs
 
       - name: Open transparency regression tests
         run: node --test scripts/open-transparency.test.mjs
