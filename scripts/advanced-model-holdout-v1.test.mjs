@@ -2,6 +2,20 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { buildAdvancedModelHoldoutV1 } from "../lib/advanced-model-holdout-v1.mjs";
 
+function addMarketBenchmark(snapshot, probabilities, { capturedAt } = {}) {
+  const capture = capturedAt || snapshot.captured_at;
+  snapshot.raw_summary.marketBenchmark = {
+    version: "no-vig-event-market-benchmark-v1",
+    source: "bookmaker-no-vig-consensus",
+    capturedAt: capture,
+    probabilities,
+    rawProbabilityTotal: Object.values(probabilities).reduce((sum, value) => sum + value, 0),
+    renormalized: false,
+    independentPredictiveModel: false
+  };
+  return snapshot;
+}
+
 function soccerSnapshot(index, captureOffsetMinutes = -60, probabilityShift = 0) {
   const commence = new Date(Date.UTC(2026, 7, 1 + index, 18, 0, 0));
   const captured = new Date(commence.getTime() + captureOffsetMinutes * 60_000);
@@ -159,6 +173,9 @@ test("100 chronological settled predictions become review-ready but never get an
   assert.equal(model.sampleSize, 100);
   assert.equal(model.status, "review-ready");
   assert.equal(model.reviewEligibleBySample, true);
+  assert.equal(model.marketBenchmark.sampleSize, 0);
+  assert.equal(model.marketBenchmark.brierSkillScore, null);
+  assert.equal(model.reviewEligibleByMarketSkill, false);
   assert.equal(model.ensembleWeightAvailable, false);
   assert.equal(model.performanceEvidenceDraft.performanceWeight, null);
   assert.equal(model.performanceEvidenceDraft.weightSource, null);
@@ -200,4 +217,62 @@ test("MLB H2H shadow is evaluated only after settlement with binary metrics and 
   assert.equal(model.performanceEvidenceDraft.scope.market, "h2h");
   assert.equal(model.performanceEvidenceDraft.postEventDataUsed, false);
   assert.equal(model.ensembleWeightAvailable, false);
+});
+
+test("binary market skill compares model and market on exactly the same immutable pregame row", () => {
+  const snapshot = addMarketBenchmark(basketballSnapshot(4, { probability: 0.7 }), { home: 0.55, away: 0.45 });
+  const report = buildAdvancedModelHoldoutV1([snapshot], [basketballResult(4, { homeWin: true })]);
+  const benchmark = report.models[0].marketBenchmark;
+  assert.equal(report.counts.marketComparableEvaluations, 1);
+  assert.equal(benchmark.sampleSize, 1);
+  assert.equal(benchmark.modelBrierOnBenchmarkRows, 0.09);
+  assert.equal(benchmark.marketBrier, 0.2025);
+  assert.ok(benchmark.brierSkillScore > 0.55);
+  assert.ok(benchmark.logLossImprovement > 0);
+  assert.equal(benchmark.beatsMarketOnBrier, true);
+  assert.equal(benchmark.beatsMarketOnLogLoss, true);
+  assert.equal(benchmark.reviewEligible, false);
+  assert.equal(benchmark.skillClaimAllowed, false);
+});
+
+test("soccer market skill uses the full home-draw-away pregame consensus distribution", () => {
+  const snapshot = soccerSnapshot(7, -60, 0.1);
+  addMarketBenchmark(snapshot, { home: 0.4, draw: 0.3, away: 0.3 });
+  const report = buildAdvancedModelHoldoutV1([snapshot], [soccerResult(7, "home")]);
+  const benchmark = report.models[0].marketBenchmark;
+  assert.equal(benchmark.sampleSize, 1);
+  assert.ok(benchmark.brierSkillScore > 0);
+  assert.ok(benchmark.logLossImprovement > 0);
+  assert.equal(report.models[0].performanceEvidenceDraft.marketBenchmarkSampleSize, 1);
+});
+
+test("market benchmark captured after event start is never used for a skill claim", () => {
+  const snapshot = basketballSnapshot(8, { probability: 0.7 });
+  const afterStart = new Date(Date.parse(snapshot.commence_time) + 60_000).toISOString();
+  addMarketBenchmark(snapshot, { home: 0.55, away: 0.45 }, { capturedAt: afterStart });
+  const report = buildAdvancedModelHoldoutV1([snapshot], [basketballResult(8, { homeWin: true })]);
+  assert.equal(report.counts.marketComparableEvaluations, 0);
+  assert.equal(report.models[0].marketBenchmark.sampleSize, 0);
+  assert.equal(report.models[0].marketBenchmark.skillClaimAllowed, false);
+});
+
+test("100 paired rows beating the market become market-skill review eligible but still receive no automatic weight", () => {
+  const snapshots = [];
+  const results = [];
+  for (let index = 0; index < 100; index += 1) {
+    snapshots.push(addMarketBenchmark(basketballSnapshot(index, { probability: 0.7 }), { home: 0.55, away: 0.45 }));
+    results.push(basketballResult(index, { homeWin: true }));
+  }
+  const report = buildAdvancedModelHoldoutV1(snapshots, results, { now: Date.parse("2027-02-01T00:00:00.000Z") });
+  const model = report.models[0];
+  assert.equal(model.sampleSize, 100);
+  assert.equal(model.marketBenchmark.sampleSize, 100);
+  assert.equal(model.marketBenchmark.fullComparableSample, true);
+  assert.equal(model.reviewEligibleByMarketSkill, true);
+  assert.equal(model.marketBenchmark.skillClaimAllowed, true);
+  assert.ok(model.marketBenchmark.brierSkillScore > 0);
+  assert.ok(model.marketBenchmark.logLossImprovement > 0);
+  assert.equal(model.ensembleWeightAvailable, false);
+  assert.equal(model.performanceEvidenceDraft.performanceWeight, null);
+  assert.equal(report.contracts.skillClaimRequiresAtLeast100ComparableRows, true);
 });
