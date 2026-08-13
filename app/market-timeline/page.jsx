@@ -1,3 +1,4 @@
+import EventActivityClient from "./EventActivityClient";
 import MarketTimelineClient from "./MarketTimelineClient";
 
 export const metadata = {
@@ -7,6 +8,6 @@ export const metadata = {
 
 export default async function MarketTimelinePage({ searchParams }) {
   const resolved = await searchParams;
-  const initialEventId = String(resolved?.eventId || "").trim();
-  return <MarketTimelineClient initialEventId={initialEventId} />;
+  const eventId = String(resolved?.eventId || "").trim();
+  return eventId ? <EventActivityClient eventId={eventId} /> : <MarketTimelineClient />;
 }
