@@ -33,6 +33,9 @@ jobs:
       - name: Match Intelligence regression tests
         run: node --test scripts/match-intelligence-v1.test.mjs scripts/match-intelligence-v2.test.mjs
 
+      - name: Market Activity regression tests
+        run: node --test scripts/market-activity-v2.test.mjs scripts/market-timeline.test.mjs
+
       - name: UX V2 regression tests
         run: npm run test:ux-v2
 
