@@ -5,6 +5,8 @@ export const metadata = {
   description: "Verified descriptive price history for watched Scorecaster selections."
 };
 
-export default function MarketTimelinePage() {
-  return <MarketTimelineClient />;
+export default async function MarketTimelinePage({ searchParams }) {
+  const resolved = await searchParams;
+  const initialEventId = String(resolved?.eventId || "").trim();
+  return <MarketTimelineClient initialEventId={initialEventId} />;
 }
