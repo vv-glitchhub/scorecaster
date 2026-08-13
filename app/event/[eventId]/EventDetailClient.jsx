@@ -3,36 +3,17 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../components/LanguageProvider";
-import {
-  DecisionBadge,
-  EmptyState,
-  MatchIdentity,
-  MetricTile,
-  PageHero,
-  SectionHeader,
-  TrustBar
-} from "../../components/ProductUI";
+import { DecisionBadge, EmptyState, MatchIdentity, MetricTile, PageHero, SectionHeader, TrustBar } from "../../components/ProductUI";
 
-function percent(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? `${(number * 100).toFixed(1)} %` : "–";
+function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
-
-function decimal(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(2) : "–";
-}
-
-function normalizedDecision(value) {
-  const decision = String(value || "CAUTION").toUpperCase();
-  if (decision === "BET") return "PLAY";
-  if (decision === "PASS") return "SKIP";
-  return ["PLAY", "CAUTION", "SKIP"].includes(decision) ? decision : "CAUTION";
-}
-
-function toneForNumber(value) {
-  return Number(value || 0) > 0 ? "green" : Number(value || 0) < 0 ? "red" : "default";
-}
+function percent(value) { const number = finite(value); return number === null ? "–" : `${(number * 100).toFixed(1)} %`; }
+function decimal(value) { const number = finite(value); return number === null ? "–" : number.toFixed(2); }
+function normalizedDecision(value) { const decision = String(value || "CAUTION").toUpperCase(); if (decision === "BET") return "PLAY"; if (decision === "PASS") return "SKIP"; return ["PLAY", "CAUTION", "SKIP"].includes(decision) ? decision : "CAUTION"; }
+function toneForNumber(value) { const number = finite(value); return number === null ? "default" : number > 0 ? "green" : number < 0 ? "red" : "default"; }
 
 export default function EventDetailClient({ eventId, sport, initialSelection }) {
   const { tr, locale } = useLanguage();
@@ -46,8 +27,7 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
-    setLoading(true);
-    setError("");
+    setLoading(true); setError("");
     try {
       const query = new URLSearchParams({ eventId, sport });
       if (initialSelection) query.set("selection", initialSelection);
@@ -57,303 +37,75 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
       setPayload(data);
       const preferred = initialSelection || data.detail?.selectedSelection || data.detail?.selections?.[0]?.selection || "";
       setSelectedName((current) => current || preferred);
-      try {
-        const bankResponse = await fetch("/api/cloud/bankroll", { cache: "no-store" });
-        if (bankResponse.ok) setBankroll((await bankResponse.json())?.data || null);
-      } catch {
-        setBankroll(null);
-      }
+      try { const bankResponse = await fetch("/api/cloud/bankroll", { cache: "no-store" }); if (bankResponse.ok) setBankroll((await bankResponse.json())?.data || null); } catch { setBankroll(null); }
     } catch (loadError) {
       setPayload(null);
       setError(loadError instanceof Error ? loadError.message : tr({ fi: "Ottelua ei voitu ladata.", en: "The event could not be loaded.", es: "No se pudo cargar el evento." }));
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   }, [eventId, sport, initialSelection, tr]);
 
   useEffect(() => { void load(); }, [load]);
-
   const detail = payload?.detail;
-  const selected = useMemo(
-    () => detail?.selections?.find((item) => item.selection === selectedName) || detail?.selections?.[0] || null,
-    [detail, selectedName]
-  );
+  const selected = useMemo(() => detail?.selections?.find((item) => item.selection === selectedName) || detail?.selections?.[0] || null, [detail, selectedName]);
   const maximumStake = bankroll ? Number(bankroll.bankroll || 0) * Number(bankroll.max_stake_percent || 0) / 100 : null;
   const money = (value) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
-  const kickoff = detail?.commenceTime
-    ? new Date(detail.commenceTime).toLocaleString(locale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })
-    : tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" });
+  const kickoff = detail?.commenceTime ? new Date(detail.commenceTime).toLocaleString(locale, { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" }) : tr({ fi: "Alkamisaika puuttuu", en: "Kickoff unavailable", es: "Hora no disponible" });
 
   async function watch() {
     if (!selected || !detail) return;
-    setBusy("watch");
-    setMessage("");
-    setError("");
+    setBusy("watch"); setMessage(""); setError("");
     try {
-      const response = await fetch("/api/cloud/watchlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: detail.eventId, selection: selected.selection, sport: detail.sportKey })
-      });
+      const response = await fetch("/api/cloud/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: detail.eventId, selection: selected.selection, sport: detail.sportKey }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Watchlist save failed");
       setMessage(tr({ fi: "Kohde lisättiin varmennettuun seurantaan. Panosta ei luotu.", en: "The selection was added to the verified watchlist. No stake was created.", es: "La selección se añadió a la lista verificada. No se creó ningún importe." }));
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Watchlist save failed");
-    } finally {
-      setBusy("");
-    }
+    } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Watchlist save failed"); } finally { setBusy(""); }
   }
 
   async function savePaper() {
     if (!selected || !detail) return;
+    const verifiedOdds = finite(selected.odds);
+    if (verifiedOdds === null || verifiedOdds <= 1) { setError(tr({ fi: "Nykyinen varmennettu kerroin puuttuu. Paperivalintaa ei tallenneta nollalla tai arvauksella.", en: "The current verified odds are missing. The paper selection is not saved with zero or an invented price.", es: "Falta la cuota verificada actual. La selección simulada no se guarda con cero ni con una cuota inventada." })); return; }
     const paperStake = Number(String(stake).replace(",", "."));
-    if (!Number.isFinite(paperStake) || paperStake <= 0 || (maximumStake !== null && paperStake > maximumStake + 0.001)) {
-      setError(maximumStake === null
-        ? tr({ fi: "Tarkista paperipanos ja kirjaudu sisään.", en: "Check the paper stake and sign in.", es: "Revisa el importe simulado e inicia sesión." })
-        : tr({ fi: `Paperipanos saa olla enintään ${money(maximumStake)}.`, en: `The paper stake may be at most ${money(maximumStake)}.`, es: `El importe simulado puede ser como máximo ${money(maximumStake)}.` }));
-      return;
-    }
-    setBusy("paper");
-    setError("");
-    setMessage("");
+    if (!Number.isFinite(paperStake) || paperStake <= 0 || (maximumStake !== null && paperStake > maximumStake + 0.001)) { setError(maximumStake === null ? tr({ fi: "Tarkista paperipanos ja kirjaudu sisään.", en: "Check the paper stake and sign in.", es: "Revisa el importe simulado e inicia sesión." }) : tr({ fi: `Paperipanos saa olla enintään ${money(maximumStake)}.`, en: `The paper stake may be at most ${money(maximumStake)}.`, es: `El importe simulado puede ser como máximo ${money(maximumStake)}.` })); return; }
+    setBusy("paper"); setError(""); setMessage("");
     try {
-      const response = await fetch("/api/cloud/bets/audited", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bets: [{
-          id: `${detail.eventId}-${selected.selection}`,
-          eventId: detail.eventId,
-          match: detail.match,
-          homeTeam: detail.homeTeam,
-          awayTeam: detail.awayTeam,
-          selection: selected.selection,
-          odds: selected.odds,
-          stake: paperStake,
-          edge: selected.edge,
-          ev: selected.ev,
-          confidence: selected.confidence,
-          league: detail.league,
-          sport: detail.sportKey,
-          bookmaker: selected.bookmaker,
-          decision: selected.decision,
-          qualityGrade: selected.qualityGrade,
-          qualityScore: selected.trustScore,
-          modelProbability: selected.consensusProbability,
-          impliedProbability: selected.marketProbability,
-          source: "scorecaster-web-event-detail-v1"
-        }] })
-      });
+      const response = await fetch("/api/cloud/bets/audited", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bets: [{ id: `${detail.eventId}-${selected.selection}`, eventId: detail.eventId, match: detail.match, homeTeam: detail.homeTeam, awayTeam: detail.awayTeam, selection: selected.selection, odds: selected.odds, stake: paperStake, edge: selected.edge, ev: selected.ev, confidence: selected.confidence, league: detail.league, sport: detail.sportKey, bookmaker: selected.bookmaker, decision: selected.decision, qualityGrade: selected.qualityGrade, qualityScore: selected.trustScore, modelProbability: selected.consensusProbability, impliedProbability: selected.marketProbability, source: "scorecaster-web-event-detail-v1" }] }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Paper save failed");
       setMessage(tr({ fi: `Tallennettu paperiseurantaan: ${selected.selection} · ${money(paperStake)}. Oikeaa vetoa ei asetettu.`, en: `Saved to paper tracking: ${selected.selection} · ${money(paperStake)}. No real bet was placed.`, es: `Guardado en seguimiento simulado: ${selected.selection} · ${money(paperStake)}. No se realizó ninguna apuesta real.` }));
-    } catch (actionError) {
-      setError(actionError instanceof Error ? actionError.message : "Paper save failed");
-    } finally {
-      setBusy("");
-    }
+    } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Paper save failed"); } finally { setBusy(""); }
   }
 
-  if (loading) {
-    return <div className="sc-surface rounded-[1.6rem] p-8 text-[var(--sc-text-secondary)]">{tr({ fi: "Varmennetaan ottelua…", en: "Verifying event…", es: "Verificando evento…" })}</div>;
-  }
-
-  if (!detail) {
-    return (
-      <div className="space-y-4">
-        <EmptyState
-          title={tr({ fi: "Ottelua ei löydy nykyisestä analyysistä", en: "The event is not in the current analysis", es: "El evento no está en el análisis actual" })}
-          description={error || tr({ fi: "Scorecaster ei täytä puuttuvaa tapahtumaa arvatuilla tiedoilla.", en: "Scorecaster does not fill a missing event with invented data.", es: "Scorecaster no completa un evento ausente con datos inventados." })}
-          actionHref="/events"
-          actionLabel={tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}
-        />
-      </div>
-    );
-  }
+  if (loading) return <div className="sc-surface rounded-[1.6rem] p-8 text-[var(--sc-text-secondary)]">{tr({ fi: "Varmennetaan ottelua…", en: "Verifying event…", es: "Verificando evento…" })}</div>;
+  if (!detail) return <div className="space-y-4"><EmptyState title={tr({ fi: "Ottelua ei löydy nykyisestä analyysistä", en: "The event is not in the current analysis", es: "El evento no está en el análisis actual" })} description={error || tr({ fi: "Scorecaster ei täytä puuttuvaa tapahtumaa arvatuilla tiedoilla.", en: "Scorecaster does not fill a missing event with invented data.", es: "Scorecaster no completa un evento ausente con datos inventados." })} actionHref="/events" actionLabel={tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })} /></div>;
 
   const intelligence = detail.sportsIntelligence || {};
   const formRest = detail.formRestShadow || {};
   const decision = normalizedDecision(selected?.decision);
   const evidence = intelligence.evidence || [];
+  const intelligenceState = intelligence.evidenceState || "missing";
+  const formState = formRest.evidenceState || "missing";
+  const sourceCount = finite(intelligence.sourceCount);
+  const conflictCount = intelligenceState === "missing" ? null : Array.isArray(intelligence.conflicts) ? intelligence.conflicts.length : null;
+  const selectedOddsAvailable = finite(selected?.odds) !== null && finite(selected?.odds) > 1;
+  const formPublishable = formState === "observed" || formState === "no-observations";
 
   return (
-    <div className="space-y-7">
-      <PageHero
-        tone={decision === "SKIP" ? "purple" : decision === "PLAY" ? "emerald" : "sky"}
-        eyebrow={`Event Detail V3 · ${detail.league || "Sport"}`}
-        title={detail.match}
-        description={tr({
-          fi: "Palvelin varmisti ottelun uudelleen nykyisestä live-analyysistä. Päätös, hinta ja turvarajat näkyvät ensin; syvä auditointi avautuu tarvittaessa.",
-          en: "The server re-verified the event from current live analysis. Decision, price and safety gates come first; deep audit opens when needed.",
-          es: "El servidor volvió a verificar el evento desde el análisis actual. La decisión, la cuota y los límites aparecen primero; la auditoría se abre cuando hace falta."
-        })}
-        actions={
-          <>
-            <button type="button" onClick={() => void load()} className="sc-button-secondary">{tr({ fi: "Päivitä tiedot", en: "Refresh data", es: "Actualizar datos" })}</button>
-            <Link href="/events" className="sc-button-ghost">{tr({ fi: "Kaikki ottelut", en: "All events", es: "Todos los eventos" })}</Link>
-          </>
-        }
-        aside={
-          <div>
-            <MatchIdentity homeTeam={detail.homeTeam} awayTeam={detail.awayTeam} meta={`${kickoff} · ${detail.fixtureSource || "verified"}`} />
-            <div className="mt-5 flex items-center justify-between gap-3">
-              <div>
-                <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{selected?.selection || "–"}</div>
-                <div className="mt-1 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)]">{decimal(selected?.odds)}</div>
-              </div>
-              <DecisionBadge decision={decision} />
-            </div>
-          </div>
-        }
-      />
-
-      <TrustBar items={[
-        { label: tr({ fi: "Ottelu", en: "Fixture", es: "Evento" }), value: detail.fixtureVerifiedByProvider === false ? "unverified" : "verified", tone: detail.fixtureVerifiedByProvider === false ? "warning" : "good" },
-        { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: detail.fixtureSource || "live analysis", tone: "info" },
-        { label: tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" }), value: intelligence.readiness?.level || "market-only", tone: intelligence.readiness?.level === "verified" ? "good" : "warning" },
-        { label: tr({ fi: "Toimintatila", en: "Action mode", es: "Modo" }), value: tr({ fi: "vain seuranta ja paperi", en: "watchlist and paper only", es: "solo seguimiento y simulación" }), tone: "warning" }
-      ]} />
-
+    <div className="space-y-7" data-evidence-semantics-v2="true">
+      <PageHero tone={decision === "SKIP" ? "purple" : decision === "PLAY" ? "emerald" : "sky"} eyebrow={`Event Detail V3 · ${detail.league || "Sport"}`} title={detail.match} description={tr({ fi: "Palvelin varmisti ottelun uudelleen nykyisestä live-analyysistä. Päätös, hinta ja turvarajat näkyvät ensin; syvä auditointi avautuu tarvittaessa.", en: "The server re-verified the event from current live analysis. Decision, price and safety gates come first; deep audit opens when needed.", es: "El servidor volvió a verificar el evento desde el análisis actual. La decisión, la cuota y los límites aparecen primero; la auditoría se abre cuando hace falta." })} actions={<><button type="button" onClick={() => void load()} className="sc-button-secondary">{tr({ fi: "Päivitä tiedot", en: "Refresh data", es: "Actualizar datos" })}</button><Link href="/events" className="sc-button-ghost">{tr({ fi: "Kaikki ottelut", en: "All events", es: "Todos los eventos" })}</Link></>} aside={<div><MatchIdentity homeTeam={detail.homeTeam} awayTeam={detail.awayTeam} meta={`${kickoff} · ${detail.fixtureSource || "verified"}`} /><div className="mt-5 flex items-center justify-between gap-3"><div><div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{selected?.selection || "–"}</div><div className="mt-1 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)]">{decimal(selected?.odds)}</div></div><DecisionBadge decision={decision} /></div></div>} />
+      <TrustBar items={[{ label: tr({ fi: "Ottelu", en: "Fixture", es: "Evento" }), value: detail.fixtureVerifiedByProvider === false ? "unverified" : "verified", tone: detail.fixtureVerifiedByProvider === false ? "warning" : "good" }, { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: detail.fixtureSource || "live analysis", tone: "info" }, { label: tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" }), value: intelligenceState === "missing" ? "unavailable" : intelligence.readiness?.level || "market-only", tone: intelligence.readiness?.level === "verified" ? "good" : "warning" }, { label: tr({ fi: "Toimintatila", en: "Action mode", es: "Modo" }), value: tr({ fi: "vain seuranta ja paperi", en: "watchlist and paper only", es: "solo seguimiento y simulación" }), tone: "warning" }]} />
       {error && <div className="rounded-[1.2rem] border border-rose-400/25 bg-rose-400/10 p-4 text-rose-200">{error} {/sign|auth|session/i.test(error) && <Link href="/login" className="ml-2 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link>}</div>}
       {message && <div className="rounded-[1.2rem] border border-emerald-400/25 bg-emerald-400/10 p-4 text-emerald-200">{message}</div>}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-6">
-          <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6">
-            <SectionHeader
-              eyebrow={tr({ fi: "Vaihe 1", en: "Step 1", es: "Paso 1" })}
-              title={tr({ fi: "Valitse markkinahinta", en: "Choose the market price", es: "Elige la cuota" })}
-              description={tr({ fi: "Jokainen valinta käyttää saman ottelun nykyistä varmennettua analyysiä.", en: "Every selection uses the same current verified event analysis.", es: "Cada selección usa el mismo análisis verificado del evento." })}
-            />
-            <div className="grid gap-3 md:grid-cols-2">
-              {detail.selections.map((item) => {
-                const itemDecision = normalizedDecision(item.decision);
-                const active = selected?.selection === item.selection;
-                return (
-                  <button
-                    type="button"
-                    key={item.id}
-                    onClick={() => setSelectedName(item.selection)}
-                    aria-pressed={active}
-                    className={`rounded-[1.3rem] border p-5 text-left transition ${active ? "border-[var(--sc-brand)] bg-[var(--sc-brand-soft)] shadow-[var(--sc-brand-shadow)]" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-[var(--sc-border-strong)]"}`}
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <div className="font-black text-[var(--sc-text)]">{item.selection}</div>
-                        <div className="mt-2 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)]">{decimal(item.odds)}</div>
-                      </div>
-                      <DecisionBadge decision={itemDecision} />
-                    </div>
-                    <div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{item.bookmaker || tr({ fi: "Paras hinta", en: "Best price", es: "Mejor cuota" })}</div>
-                    <div className="mt-4 grid grid-cols-3 gap-2">
-                      <MetricTile compact label="Edge" value={percent(item.edge)} tone={toneForNumber(item.edge)} />
-                      <MetricTile compact label="EV" value={percent(item.ev)} tone={toneForNumber(item.ev)} />
-                      <MetricTile compact label={tr({ fi: "Trust", en: "Trust", es: "Confianza" })} value={`${decimal(item.trustScore)}/100`} tone="blue" />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {selected && (
-            <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6">
-              <SectionHeader
-                eyebrow={tr({ fi: "Vaihe 2", en: "Step 2", es: "Paso 2" })}
-                title={tr({ fi: "Päätös ja hintaraja", en: "Decision and price guard", es: "Decisión y límite de cuota" })}
-                action={<DecisionBadge decision={decision} />}
-              />
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                <MetricTile label={tr({ fi: "Nykykerroin", en: "Current odds", es: "Cuota actual" })} value={decimal(selected.odds)} tone="blue" />
-                <MetricTile label={tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} value={decimal(selected.fairOdds)} />
-                <MetricTile label={tr({ fi: "PLAY-raja", en: "PLAY floor", es: "Límite PLAY" })} value={decimal(selected.priceGuard?.minimumPlayOdds)} tone="green" />
-                <MetricTile label={tr({ fi: "Hintapuskuri", en: "Price buffer", es: "Margen de cuota" })} value={decimal(selected.priceGuard?.buffer)} tone={toneForNumber(selected.priceGuard?.buffer)} />
-              </div>
-              <div className="mt-5 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5">
-                <div className="text-xs font-black uppercase tracking-[0.17em] text-[var(--sc-brand)]">{tr({ fi: "Miksi tämä päätös?", en: "Why this decision?", es: "¿Por qué esta decisión?" })}</div>
-                <p className="mt-2 text-sm leading-6 text-[var(--sc-text-secondary)]">{selected.decisionReason || tr({ fi: "Päätös perustuu markkinakonsensukseen ja turvaportteihin.", en: "The decision is based on market consensus and safety gates.", es: "La decisión se basa en el consenso de mercado y filtros de seguridad." })}</p>
-              </div>
-            </section>
-          )}
-
-          <details className="sc-surface rounded-[1.65rem] p-5 sm:p-6">
-            <summary className="cursor-pointer list-none font-black text-[var(--sc-text)]">{tr({ fi: "Näytä Sports Intelligence -auditointi", en: "Show Sports Intelligence audit", es: "Mostrar auditoría de Sports Intelligence" })}</summary>
-            <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tämä osio kertoo, mitä riippumatonta evidenssiä löytyi ja mitä puuttuu. Se ei korvaa markkinatodennäköisyyttä.", en: "This section shows which independent evidence was available and what is missing. It does not replace market probability.", es: "Esta sección muestra la evidencia independiente disponible y lo que falta. No sustituye la probabilidad de mercado." })}</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <MetricTile label={tr({ fi: "Valmius", en: "Readiness", es: "Preparación" })} value={intelligence.readiness?.level || "market-only"} tone="blue" />
-              <MetricTile label={tr({ fi: "Lähteitä", en: "Sources", es: "Fuentes" })} value={intelligence.sourceCount || 0} />
-              <MetricTile label={tr({ fi: "Ristiriitoja", en: "Conflicts", es: "Conflictos" })} value={intelligence.conflicts?.length || 0} tone={(intelligence.conflicts?.length || 0) > 0 ? "yellow" : "green"} />
-            </div>
-            <div className="mt-4 space-y-3">
-              {evidence.length === 0 && <EmptyState title={tr({ fi: "Riippumatonta evidenssiä ei ole saatavilla", en: "Independent evidence is unavailable", es: "No hay evidencia independiente" })} description={tr({ fi: "Markkinatodennäköisyys pysyy ainoana todennäköisyyslähteenä.", en: "Market probability remains the only probability source.", es: "La probabilidad de mercado sigue siendo la única fuente." })} />}
-              {evidence.map((item, index) => (
-                <div key={`${item.category}-${item.subject}-${index}`} className="rounded-[1.1rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
-                  <div className="font-black text-[var(--sc-text)]">{item.subject || item.category} · {item.status}</div>
-                  <div className="mt-1 text-sm leading-6 text-[var(--sc-text-secondary)]">{item.detail}</div>
-                  <div className="mt-1 text-xs text-[var(--sc-faint)]">{item.source} · {item.freshness}</div>
-                </div>
-              ))}
-            </div>
-            {(intelligence.readiness?.missing || []).length > 0 && <div className="mt-4 rounded-[1.1rem] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">{tr({ fi: "Puuttuu", en: "Missing", es: "Falta" })}: {intelligence.readiness.missing.join(", ")}</div>}
-          </details>
-
-          <details className="sc-surface rounded-[1.65rem] p-5 sm:p-6">
-            <summary className="cursor-pointer list-none font-black text-[var(--sc-text)]">{tr({ fi: "Näytä vire- ja lepo-varjomalli", en: "Show form and rest shadow model", es: "Mostrar modelo sombra de forma y descanso" })}</summary>
-            <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Varjomalli ei vaikuta PLAY-päätökseen, edgeen, EV:hen tai panokseen.", en: "The shadow model does not affect PLAY, edge, EV or stake.", es: "El modelo sombra no afecta PLAY, ventaja, EV ni importe." })}</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricTile label={tr({ fi: "Tila", en: "Status", es: "Estado" })} value={formRest.status || "unavailable"} />
-              <MetricTile label={tr({ fi: "Markkina", en: "Market", es: "Mercado" })} value={percent(formRest.marketProbability)} />
-              <MetricTile label="Shadow" value={percent(formRest.shadowProbability)} tone="purple" />
-              <MetricTile label="Δ" value={percent(formRest.probabilityDelta)} tone={toneForNumber(formRest.probabilityDelta)} />
-            </div>
-            <div className="mt-4 grid gap-3 md:grid-cols-2">
-              <MetricTile label={detail.homeTeam} value={`${formRest.home?.sampleSize || 0} ${tr({ fi: "ottelua", en: "games", es: "partidos" })}`} hint={`${tr({ fi: "lepo", en: "rest", es: "descanso" })} ${decimal(formRest.home?.restDays)} d · 7d ${formRest.home?.gamesLast7Days || 0}`} />
-              <MetricTile label={detail.awayTeam} value={`${formRest.away?.sampleSize || 0} ${tr({ fi: "ottelua", en: "games", es: "partidos" })}`} hint={`${tr({ fi: "lepo", en: "rest", es: "descanso" })} ${decimal(formRest.away?.restDays)} d · 7d ${formRest.away?.gamesLast7Days || 0}`} />
-            </div>
-          </details>
+          <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Vaihe 1", en: "Step 1", es: "Paso 1" })} title={tr({ fi: "Valitse markkinahinta", en: "Choose the market price", es: "Elige la cuota" })} description={tr({ fi: "Jokainen valinta käyttää saman ottelun nykyistä varmennettua analyysiä.", en: "Every selection uses the same current verified event analysis.", es: "Cada selección usa el mismo análisis verificado del evento." })} /><div className="grid gap-3 md:grid-cols-2">{detail.selections.map((item) => { const itemDecision = normalizedDecision(item.decision); const active = selected?.selection === item.selection; return <button type="button" key={item.id} onClick={() => setSelectedName(item.selection)} aria-pressed={active} className={`rounded-[1.3rem] border p-5 text-left transition ${active ? "border-[var(--sc-brand)] bg-[var(--sc-brand-soft)] shadow-[var(--sc-brand-shadow)]" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] hover:border-[var(--sc-border-strong)]"}`}><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{item.selection}</div><div className="mt-2 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)]">{decimal(item.odds)}</div></div><DecisionBadge decision={itemDecision} /></div><div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{item.bookmaker || tr({ fi: "Paras hinta", en: "Best price", es: "Mejor cuota" })}</div><div className="mt-4 grid grid-cols-3 gap-2"><MetricTile compact label="Edge" value={percent(item.edge)} tone={toneForNumber(item.edge)} /><MetricTile compact label="EV" value={percent(item.ev)} tone={toneForNumber(item.ev)} /><MetricTile compact label={tr({ fi: "Trust", en: "Trust", es: "Confianza" })} value={finite(item.trustScore) === null ? "–" : `${decimal(item.trustScore)}/100`} tone="blue" /></div></button>; })}</div></section>
+          {selected && <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><SectionHeader eyebrow={tr({ fi: "Vaihe 2", en: "Step 2", es: "Paso 2" })} title={tr({ fi: "Päätös ja hintaraja", en: "Decision and price guard", es: "Decisión y límite de cuota" })} action={<DecisionBadge decision={decision} />} /><div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricTile label={tr({ fi: "Nykykerroin", en: "Current odds", es: "Cuota actual" })} value={decimal(selected.odds)} tone="blue" /><MetricTile label={tr({ fi: "Reilu kerroin", en: "Fair odds", es: "Cuota justa" })} value={decimal(selected.fairOdds)} /><MetricTile label={tr({ fi: "PLAY-raja", en: "PLAY floor", es: "Límite PLAY" })} value={decimal(selected.priceGuard?.minimumPlayOdds)} tone="green" /><MetricTile label={tr({ fi: "Hintapuskuri", en: "Price buffer", es: "Margen de cuota" })} value={decimal(selected.priceGuard?.buffer)} tone={toneForNumber(selected.priceGuard?.buffer)} /></div><div className="mt-5 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-5"><div className="text-xs font-black uppercase tracking-[0.17em] text-[var(--sc-brand)]">{tr({ fi: "Miksi tämä päätös?", en: "Why this decision?", es: "¿Por qué esta decisión?" })}</div><p className="mt-2 text-sm leading-6 text-[var(--sc-text-secondary)]">{selected.decisionReason || tr({ fi: "Päätös perustuu markkinakonsensukseen ja turvaportteihin.", en: "The decision is based on market consensus and safety gates.", es: "La decisión se basa en el consenso de mercado y filtros de seguridad." })}</p></div></section>}
+          <details className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><summary className="cursor-pointer list-none font-black text-[var(--sc-text)]">{tr({ fi: "Näytä Sports Intelligence -auditointi", en: "Show Sports Intelligence audit", es: "Mostrar auditoría de Sports Intelligence" })}</summary><p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tämä osio kertoo, mitä riippumatonta evidenssiä löytyi ja mitä puuttuu. Se ei korvaa markkinatodennäköisyyttä.", en: "This section shows which independent evidence was available and what is missing. It does not replace market probability.", es: "Esta sección muestra la evidencia independiente disponible y lo que falta. No sustituye la probabilidad de mercado." })}</p><div className="mt-4 grid gap-3 sm:grid-cols-3"><MetricTile label={tr({ fi: "Valmius", en: "Readiness", es: "Preparación" })} value={intelligenceState === "missing" ? "–" : intelligence.readiness?.level || "market-only"} tone="blue" /><MetricTile label={tr({ fi: "Lähteitä", en: "Sources", es: "Fuentes" })} value={intelligenceState === "missing" ? "–" : sourceCount ?? "–"} /><MetricTile label={tr({ fi: "Ristiriitoja", en: "Conflicts", es: "Conflictos" })} value={conflictCount ?? "–"} tone={conflictCount === null ? "default" : conflictCount > 0 ? "yellow" : "green"} /></div><div className="mt-4 space-y-3">{evidence.length === 0 && <EmptyState title={intelligenceState === "missing" ? tr({ fi: "Evidenssipayload puuttuu", en: "Evidence payload is missing", es: "Falta el payload de evidencia" }) : tr({ fi: "Riippumatonta evidenssiä ei ole saatavilla", en: "Independent evidence is unavailable", es: "No hay evidencia independiente" })} description={tr({ fi: "Markkinatodennäköisyys pysyy ainoana todennäköisyyslähteenä.", en: "Market probability remains the only probability source.", es: "La probabilidad de mercado sigue siendo la única fuente." })} />}{evidence.map((item, index) => <div key={`${item.category}-${item.subject}-${index}`} className="rounded-[1.1rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="font-black text-[var(--sc-text)]">{item.subject || item.category} · {item.status}</div><div className="mt-1 text-sm leading-6 text-[var(--sc-text-secondary)]">{item.detail}</div><div className="mt-1 text-xs text-[var(--sc-faint)]">{item.source} · {item.freshness}</div></div>)}</div>{(intelligence.readiness?.missing || []).length > 0 && <div className="mt-4 rounded-[1.1rem] border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-200">{tr({ fi: "Puuttuu", en: "Missing", es: "Falta" })}: {intelligence.readiness.missing.join(", ")}</div>}</details>
+          <details className="sc-surface rounded-[1.65rem] p-5 sm:p-6"><summary className="cursor-pointer list-none font-black text-[var(--sc-text)]">{tr({ fi: "Näytä vire- ja lepo-varjomalli", en: "Show form and rest shadow model", es: "Mostrar modelo sombra de forma y descanso" })}</summary><p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Varjomalli ei vaikuta PLAY-päätökseen, edgeen, EV:hen tai panokseen.", en: "The shadow model does not affect PLAY, edge, EV or stake.", es: "El modelo sombra no afecta PLAY, ventaja, EV ni importe." })}</p><div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricTile label={tr({ fi: "Tila", en: "Status", es: "Estado" })} value={formState === "missing" ? "unavailable" : formRest.status || "unavailable"} /><MetricTile label={tr({ fi: "Markkina", en: "Market", es: "Mercado" })} value={percent(formRest.marketProbability)} /><MetricTile label="Shadow" value={percent(formRest.shadowProbability)} tone="purple" /><MetricTile label="Δ" value={percent(formRest.probabilityDelta)} tone={toneForNumber(formRest.probabilityDelta)} /></div><div className="mt-4 grid gap-3 md:grid-cols-2"><MetricTile label={detail.homeTeam} value={formPublishable && finite(formRest.home?.sampleSize) !== null ? `${finite(formRest.home?.sampleSize)} ${tr({ fi: "ottelua", en: "games", es: "partidos" })}` : "–"} hint={`${tr({ fi: "lepo", en: "rest", es: "descanso" })} ${decimal(formRest.home?.restDays)} d · 7d ${formPublishable ? finite(formRest.home?.gamesLast7Days) ?? "–" : "–"}`} /><MetricTile label={detail.awayTeam} value={formPublishable && finite(formRest.away?.sampleSize) !== null ? `${finite(formRest.away?.sampleSize)} ${tr({ fi: "ottelua", en: "games", es: "partidos" })}` : "–"} hint={`${tr({ fi: "lepo", en: "rest", es: "descanso" })} ${decimal(formRest.away?.restDays)} d · 7d ${formPublishable ? finite(formRest.away?.gamesLast7Days) ?? "–" : "–"}`} /></div><div className="mt-3 text-xs text-[var(--sc-faint)]">{formState === "no-observations" ? tr({ fi: "Putki ajoi onnistuneesti, mutta havaintoja oli 0.", en: "The pipeline ran successfully, but there were 0 observations.", es: "El pipeline se ejecutó correctamente, pero hubo 0 observaciones." }) : formState === "missing" ? tr({ fi: "Form/rest-payload puuttuu; nollaa ei oleteta.", en: "The form/rest payload is missing; zero is not assumed.", es: "Falta el payload de forma/descanso; no se asume cero." }) : null}</div></details>
         </div>
-
-        <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start">
-          <section className="sc-surface rounded-[1.65rem] p-5">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Decision ticket</div>
-                <h2 className="mt-1 text-2xl font-black tracking-[-0.035em] text-[var(--sc-text)]">{selected?.selection || "–"}</h2>
-              </div>
-              <DecisionBadge decision={decision} />
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-2">
-              <MetricTile compact label={tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })} value={decimal(selected?.odds)} tone="blue" />
-              <MetricTile compact label="Edge" value={percent(selected?.edge)} tone={toneForNumber(selected?.edge)} />
-              <MetricTile compact label="EV" value={percent(selected?.ev)} tone={toneForNumber(selected?.ev)} />
-              <MetricTile compact label={tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })} value={percent(selected?.confidence)} tone="purple" />
-            </div>
-            <div className="mt-4 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Päätös kertoo nykyisen hinnan ja datan tilanteen, ei ottelun varmaa lopputulosta.", en: "The decision describes the current price and data state, not a guaranteed match outcome.", es: "La decisión describe la cuota y los datos actuales, no un resultado garantizado." })}</div>
-          </section>
-
-          <section className="sc-surface rounded-[1.65rem] p-5">
-            <SectionHeader
-              eyebrow={tr({ fi: "Vaihe 3", en: "Step 3", es: "Paso 3" })}
-              title={tr({ fi: "Valitse toiminto", en: "Choose an action", es: "Elige una acción" })}
-              description={tr({ fi: "Seuranta ei luo panosta. Paperiseuranta tallentaa vain simuloidun valinnan.", en: "Watchlist creates no stake. Paper tracking saves only a simulated selection.", es: "El seguimiento no crea importe. La simulación guarda solo una selección ficticia." })}
-            />
-            <button type="button" onClick={() => void watch()} disabled={busy !== "" || !selected} className="sc-button-secondary w-full disabled:opacity-50">{busy === "watch" ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Seuraa hintaa ja päätöstä", en: "Watch price and decision", es: "Seguir cuota y decisión" })}</button>
-
-            <details className="mt-3 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
-              <summary className="cursor-pointer font-black text-[var(--sc-text)]">{tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })}</summary>
-              <label className="mt-4 block text-sm font-bold text-[var(--sc-text-secondary)]">
-                {tr({ fi: "Paperipanos (€)", en: "Paper stake (€)", es: "Importe simulado (€)" })}
-                <input value={stake} onChange={(event) => setStake(event.target.value)} inputMode="decimal" className="sc-input mt-2 w-full" />
-              </label>
-              {maximumStake !== null && <div className="mt-2 text-xs text-[var(--sc-muted)]">{tr({ fi: "Oma enimmäispanos", en: "Your maximum stake", es: "Tu importe máximo" })}: {money(maximumStake)}</div>}
-              <button type="button" onClick={() => void savePaper()} disabled={busy !== "" || !selected || decision === "SKIP"} className="sc-button-primary mt-4 w-full disabled:opacity-40">{busy === "paper" ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Tallenna paperiseurantaan", en: "Save to paper tracking", es: "Guardar en seguimiento simulado" })}</button>
-              {decision === "SKIP" && <div className="mt-3 text-xs leading-5 text-rose-300">{tr({ fi: "SKIP-valintaa ei voi tallentaa paperiseurantaan tästä näkymästä.", en: "A SKIP selection cannot be saved to paper tracking from this view.", es: "Una selección SKIP no puede guardarse desde esta vista." })}</div>}
-            </details>
-            <div className="mt-4 text-xs leading-5 text-[var(--sc-faint)]">{tr({ fi: "Ei talletusta, maksua, vedonvälittäjälinkkiä tai oikean rahan vetoa.", en: "No deposit, payment, bookmaker link or real-money bet.", es: "Sin depósito, pago, enlace a casa de apuestas ni apuesta con dinero real." })}</div>
-          </section>
-
-          <Link href="/agent" className="sc-button-secondary flex w-full">{tr({ fi: "Avaa Agent-portfolio", en: "Open Agent portfolio", es: "Abrir cartera Agent" })}</Link>
-        </aside>
+        <aside className="space-y-5 xl:sticky xl:top-28 xl:self-start"><section className="sc-surface rounded-[1.65rem] p-5"><div className="flex items-center justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Decision ticket</div><h2 className="mt-1 text-2xl font-black tracking-[-0.035em] text-[var(--sc-text)]">{selected?.selection || "–"}</h2></div><DecisionBadge decision={decision} /></div><div className="mt-5 grid grid-cols-2 gap-2"><MetricTile compact label={tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })} value={decimal(selected?.odds)} tone="blue" /><MetricTile compact label="Edge" value={percent(selected?.edge)} tone={toneForNumber(selected?.edge)} /><MetricTile compact label="EV" value={percent(selected?.ev)} tone={toneForNumber(selected?.ev)} /><MetricTile compact label={tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" })} value={percent(selected?.confidence)} tone="purple" /></div><div className="mt-4 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Päätös kertoo nykyisen hinnan ja datan tilanteen, ei ottelun varmaa lopputulosta.", en: "The decision describes the current price and data state, not a guaranteed match outcome.", es: "La decisión describe la cuota y los datos actuales, no un resultado garantizado." })}</div></section><section className="sc-surface rounded-[1.65rem] p-5"><SectionHeader eyebrow={tr({ fi: "Vaihe 3", en: "Step 3", es: "Paso 3" })} title={tr({ fi: "Valitse toiminto", en: "Choose an action", es: "Elige una acción" })} description={tr({ fi: "Seuranta ei luo panosta. Paperiseuranta tallentaa vain simuloidun valinnan.", en: "Watchlist creates no stake. Paper tracking saves only a simulated selection.", es: "El seguimiento no crea importe. La simulación guarda solo una selección ficticia." })} /><button type="button" onClick={() => void watch()} disabled={busy !== "" || !selected} className="sc-button-secondary w-full disabled:opacity-50">{busy === "watch" ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Seuraa hintaa ja päätöstä", en: "Watch price and decision", es: "Seguir cuota y decisión" })}</button><details className="mt-3 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><summary className="cursor-pointer font-black text-[var(--sc-text)]">{tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento simulado" })}</summary><label className="mt-4 block text-sm font-bold text-[var(--sc-text-secondary)]">{tr({ fi: "Paperipanos (€)", en: "Paper stake (€)", es: "Importe simulado (€)" })}<input value={stake} onChange={(event) => setStake(event.target.value)} inputMode="decimal" className="sc-input mt-2 w-full" /></label>{maximumStake !== null && <div className="mt-2 text-xs text-[var(--sc-muted)]">{tr({ fi: "Oma enimmäispanos", en: "Your maximum stake", es: "Tu importe máximo" })}: {money(maximumStake)}</div>}<button type="button" onClick={() => void savePaper()} disabled={busy !== "" || !selected || decision === "SKIP" || !selectedOddsAvailable} className="sc-button-primary mt-4 w-full disabled:opacity-40">{busy === "paper" ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Tallenna paperiseurantaan", en: "Save to paper tracking", es: "Guardar en seguimiento simulado" })}</button>{decision === "SKIP" && <div className="mt-3 text-xs leading-5 text-rose-300">{tr({ fi: "SKIP-valintaa ei voi tallentaa paperiseurantaan tästä näkymästä.", en: "A SKIP selection cannot be saved to paper tracking from this view.", es: "Una selección SKIP no puede guardarse desde esta vista." })}</div>}{!selectedOddsAvailable && <div className="mt-3 text-xs leading-5 text-amber-300">{tr({ fi: "Paperitallennus on estetty, koska varmennettu nykykerroin puuttuu.", en: "Paper saving is disabled because the current verified odds are missing.", es: "El guardado simulado está desactivado porque falta la cuota verificada." })}</div>}</details><div className="mt-4 text-xs leading-5 text-[var(--sc-faint)]">{tr({ fi: "Ei talletusta, maksua, vedonvälittäjälinkkiä tai oikean rahan vetoa.", en: "No deposit, payment, bookmaker link or real-money bet.", es: "Sin depósito, pago, enlace a casa de apuestas ni apuesta con dinero real." })}</div></section><Link href="/agent" className="sc-button-secondary flex w-full">{tr({ fi: "Avaa Agent-portfolio", en: "Open Agent portfolio", es: "Abrir cartera Agent" })}</Link></aside>
       </section>
     </div>
   );
