@@ -6,6 +6,7 @@ import { useLanguage } from "../components/LanguageProvider";
 import { useProfessionalPreferences } from "../components/ProfessionalPreferencesProvider";
 
 function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -88,7 +89,7 @@ function ModelRoom({ models, tr }) {
           </div>
           <div className="mt-4 grid grid-cols-2 gap-2 text-xs">
             <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-3"><div className="text-[var(--sc-faint)]">{tr({ fi: "Todennäköisyys", en: "Probability", es: "Probabilidad" })}</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{probability(model.probability)}</div></div>
-            <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-3"><div className="text-[var(--sc-faint)]">N</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{finite(model.performance?.sampleSize) ?? "—"}</div></div>
+            <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-3"><div className="text-[var(--sc-faint)]">N</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{finite(model.performance?.sampleSize) > 0 ? finite(model.performance?.sampleSize) : "—"}</div></div>
           </div>
           <div className="mt-3 text-xs leading-5 text-[var(--sc-muted)]">
             {tr({ fi: "Päätöspaino", en: "Decision weight", es: "Peso de decisión" })}: <strong className="text-[var(--sc-text)]">{model.eligibleForDecisionWeight === true ? tr({ fi: "kelpoinen", en: "eligible", es: "apto" }) : tr({ fi: "ei", en: "no", es: "no" })}</strong> · {tr({ fi: "Riippumaton", en: "Independent", es: "Independiente" })}: <strong className="text-[var(--sc-text)]">{model.independentPredictiveModel === true ? tr({ fi: "kyllä", en: "yes", es: "sí" }) : tr({ fi: "ei", en: "no", es: "no" })}</strong>
@@ -146,6 +147,8 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
   const eligibleFeatures = Array.isArray(featureEngine.eligibleFeatures) ? featureEngine.eligibleFeatures : [];
   const missingEvidence = Array.isArray(intelligence.readiness?.missing) ? intelligence.readiness.missing : [];
   const gateReasons = Array.isArray(ensemble.researchRiskGate?.reasons) ? ensemble.researchRiskGate.reasons : [];
+  const featureTotal = finite(featureEngine.counts?.total);
+  const featureCoverageAvailable = featureTotal !== null && featureTotal > 0 && finite(featureEngine.eligibilityRate) !== null;
 
   return (
     <div className="space-y-6" data-match-intelligence-v2="true">
@@ -166,7 +169,7 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
 
         <div className="relative mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label={tr({ fi: "Analyysin valmius", en: "Analysis readiness", es: "Preparación" })} value={intelligence.readiness?.level || "market-only"} detail={`${intelligence.readiness?.verifiedCount ?? 0}/${intelligence.readiness?.totalChecks ?? 0} ${tr({ fi: "varmennettua tarkistusta", en: "verified checks", es: "comprobaciones verificadas" })}`} />
-          <MetricCard label={tr({ fi: "Feature coverage", en: "Feature coverage", es: "Cobertura" })} value={finite(featureEngine.eligibilityRate) === null ? "—" : pct(featureEngine.eligibilityRate, 0)} detail={`${featureEngine.counts?.eligible ?? 0}/${featureEngine.counts?.total ?? 0} ${tr({ fi: "kelpoista featurea", en: "eligible features", es: "features aptas" })}`} />
+          <MetricCard label={tr({ fi: "Feature coverage", en: "Feature coverage", es: "Cobertura" })} value={featureCoverageAvailable ? pct(featureEngine.eligibilityRate, 0) : "—"} detail={featureCoverageAvailable ? `${featureEngine.counts?.eligible ?? 0}/${featureTotal} ${tr({ fi: "kelpoista featurea", en: "eligible features", es: "features aptas" })}` : tr({ fi: "Ei feature-otosta", en: "No feature sample", es: "Sin muestra de features" })} />
           <MetricCard label={tr({ fi: "Research-mallit", en: "Research models", es: "Modelos research" })} value={ensemble.counts?.researchEligible ?? 0} detail={`${ensemble.counts?.calibrationReady ?? 0} ${tr({ fi: "kalibrointi-ready", en: "calibration-ready", es: "con calibración lista" })}`} />
           <MetricCard label={tr({ fi: "Mallien erimielisyys", en: "Model disagreement", es: "Desacuerdo" })} value={uncertainty.band || "unknown"} detail={finite(uncertainty.range) === null ? tr({ fi: "Range ei saatavilla", en: "Range unavailable", es: "Rango no disponible" }) : `${tr({ fi: "Range", en: "Range", es: "Rango" })}: ${pct(uncertainty.range, 1)}`} />
         </div>
@@ -197,7 +200,7 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
                   <span className="font-black text-[var(--sc-text)]">{item.id}</span>
                   <span className="rounded-full border border-[var(--sc-border)] px-2 py-1 text-[9px] font-black uppercase tracking-[0.1em] text-[var(--sc-muted)]">{item.family || item.role || "feature"}</span>
                 </div>
-                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--sc-border)]"><div className="h-full rounded-full bg-[var(--sc-brand)]" style={{ width: `${Math.max(8, Math.min(100, Math.round((finite(item.trust) ?? 0) * 100)))}%` }} /></div>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-[var(--sc-border)]"><div className="h-full rounded-full bg-[var(--sc-brand)]" style={{ width: finite(item.trust) === null ? "0%" : `${Math.max(8, Math.min(100, Math.round(finite(item.trust) * 100)))}%` }} /></div>
                 <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-[var(--sc-muted)]"><span>{item.source || tr({ fi: "varmennettu putki", en: "verified pipeline", es: "pipeline verificado" })}</span><span>{finite(item.trust) === null ? "trust —" : `trust ${pct(item.trust, 0)}`}</span></div>
               </div>
             ))}
@@ -218,7 +221,10 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
           <section className="sc-surface rounded-[1.65rem] p-5">
             <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">{tr({ fi: "Turvaraja", en: "Boundary", es: "Límite" })}</div>
             <p className="mt-3 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Näkymä tiivistää vain olemassa olevan varmennetun analyysin. Se ei keksi puuttuvia arvoja, muuta production-todennäköisyyksiä tai muuta tuotepäätöstä.", en: "This view summarizes existing verified analysis only. It does not invent missing values, change production probabilities, or alter product decisions.", es: "Esta vista solo resume el análisis verificado existente. No inventa valores ausentes ni cambia probabilidades o decisiones de producción." })}</p>
-            <Link href={`/event/${encodeURIComponent(detail.eventId)}?sport=${encodeURIComponent(detail.sportKey || sport)}`} className="sc-button-secondary mt-4 inline-flex">{tr({ fi: "Avaa täydellinen event-audit", en: "Open full event audit", es: "Abrir auditoría completa" })}</Link>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <Link href={`/event/${encodeURIComponent(detail.eventId)}?sport=${encodeURIComponent(detail.sportKey || sport)}`} className="sc-button-secondary inline-flex">{tr({ fi: "Avaa täydellinen event-audit", en: "Open full event audit", es: "Abrir auditoría completa" })}</Link>
+              <Link href={`/market-timeline?eventId=${encodeURIComponent(detail.eventId)}`} className="sc-button-secondary inline-flex" data-match-activity-link="true">{tr({ fi: "Avaa Activity / History", en: "Open Activity / History", es: "Abrir actividad / historial" })}</Link>
+            </div>
           </section>
         </div>
       </section>
