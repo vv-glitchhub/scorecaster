@@ -29,9 +29,24 @@ test("V2 exposes team comparison and Model Room without zero-imputing unavailabl
   assert.match(client, /Independent research models/);
 });
 
+test("missing evidence cannot masquerade as a real zero", () => {
+  assert.match(client, /value === null \|\| value === undefined \|\| value === ""/);
+  assert.match(client, /featureCoverageAvailable/);
+  assert.match(client, /featureTotal > 0/);
+  assert.match(client, /finite\(model\.performance\?\.sampleSize\) > 0/);
+  assert.match(client, /finite\(item\.trust\) === null \? "0%"/);
+  assert.match(client, /No feature sample/);
+});
+
 test("Pro-only model detail remains conditional", () => {
   assert.match(client, /proMode \? \(/);
   assert.match(client, /ModelRoom models=\{models\}/);
+});
+
+test("Match Intelligence links to event-specific Activity without adding a fetch", () => {
+  assert.match(client, /data-match-activity-link/);
+  assert.match(client, /\/market-timeline\?eventId=/);
+  assert.equal(count(client, "fetch("), 1);
 });
 
 test("V2 preserves the read-only production boundary", () => {

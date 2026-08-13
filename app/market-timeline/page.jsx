@@ -1,3 +1,4 @@
+import EventActivityClient from "./EventActivityClient";
 import MarketTimelineClient from "./MarketTimelineClient";
 
 export const metadata = {
@@ -5,6 +6,8 @@ export const metadata = {
   description: "Verified descriptive price history for watched Scorecaster selections."
 };
 
-export default function MarketTimelinePage() {
-  return <MarketTimelineClient />;
+export default async function MarketTimelinePage({ searchParams }) {
+  const resolved = await searchParams;
+  const eventId = String(resolved?.eventId || "").trim();
+  return eventId ? <EventActivityClient eventId={eventId} /> : <MarketTimelineClient />;
 }
