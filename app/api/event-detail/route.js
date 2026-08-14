@@ -1,5 +1,6 @@
 import { SPORTS } from "../../../lib/sports.js";
 import { buildEventDetail } from "../../../lib/event-detail.mjs";
+import { buildDecisionEvidenceContractV1, DECISION_EVIDENCE_CONTRACT_VERSION } from "../../../lib/decision-evidence-contract-v1.mjs";
 import { GET as getTopPicks } from "../top-picks/route.js";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,14 @@ function clean(value, maximum) {
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maximum);
+}
+
+function pickEventId(pick = {}) {
+  return clean(pick.gameId || pick.eventId || pick.id, 180);
+}
+
+function pickSelection(pick = {}) {
+  return clean(pick.selection || pick.label, 160);
 }
 
 export async function GET(request) {
@@ -46,10 +55,29 @@ export async function GET(request) {
     return Response.json({ ok: false, error: "The event is not present in the current verified analysis" }, { status: 404, headers: CACHE_HEADERS });
   }
 
+  const picks = Array.isArray(payload?.data) ? payload.data : [];
+  const eventPicks = picks.filter((pick) => pickEventId(pick) === eventId);
+  const evidenceBySelection = eventPicks.map((pick) => ({
+    selection: pickSelection(pick),
+    contract: buildDecisionEvidenceContractV1(pick)
+  }));
+  const selectedEvidence = evidenceBySelection.find((item) => selection && item.selection.toLowerCase() === selection.toLowerCase())
+    || evidenceBySelection.find((item) => item.selection === detail.selectedSelection)
+    || evidenceBySelection[0]
+    || null;
+
+  detail.selections = detail.selections.map((item) => ({
+    ...item,
+    decisionEvidence: evidenceBySelection.find((entry) => entry.selection === item.selection)?.contract || null
+  }));
+  detail.decisionEvidence = selectedEvidence?.contract || null;
+  detail.decisionEvidenceVersion = DECISION_EVIDENCE_CONTRACT_VERSION;
+
   return Response.json({
     ok: true,
     source: payload?.source || "no-vig-market-consensus",
     generatedAt: payload?.generatedAt || detail.generatedAt,
+    decisionEvidenceVersion: DECISION_EVIDENCE_CONTRACT_VERSION,
     detail
   }, { headers: CACHE_HEADERS });
 }
