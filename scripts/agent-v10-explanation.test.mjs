@@ -63,7 +63,7 @@ function sourceDecision(overrides = {}) {
 test("sanitizer keeps only the bounded non-personal decision contract", () => {
   const contract = sanitizeAgentExplanationInput(sourceDecision());
   assert.ok(contract);
-  assert.equal(contract.contractVersion, "agent-v10-grounded-2");
+  assert.equal(contract.contractVersion, "agent-v10-grounded-3");
   assert.equal(contract.decision, "PLAY");
   assert.equal(contract.paperOnly, true);
   assert.equal(contract.match, "Alpha vs Beta");
