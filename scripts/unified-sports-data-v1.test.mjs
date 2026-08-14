@@ -154,6 +154,39 @@ test("pregame verified coverage excludes only non-applicable and training-only f
   assert.equal(ledger.coverage.missingEvidenceStillCounts, true);
 });
 
+test("pregame evidence rejects synthetic zero rest when no completed history was verified", () => {
+  const factors = [
+    {
+      key: "recent-form",
+      status: "insufficient-sample",
+      confidence: 0,
+      trust: 0.72,
+      usedByAi: false,
+      evidence: [{ sampleSize: 0 }]
+    },
+    {
+      key: "rest-and-congestion",
+      status: "ready",
+      confidence: 0.72,
+      trust: 0.72,
+      usedByAi: true,
+      impact: 0,
+      evidence: [{ selectedRestHours: 0, opponentRestHours: 0 }],
+      missing: []
+    }
+  ];
+
+  const ledger = applyPregameEvidenceCoverage({ coverage: {}, factors });
+  const rest = ledger.factors.find((factor) => factor.key === "rest-and-congestion");
+  assert.equal(rest.status, "missing");
+  assert.equal(rest.confidence, 0);
+  assert.equal(rest.usedByAi, false);
+  assert.equal(rest.evidenceGuard, "synthetic-zero-rest-rejected");
+  assert.deepEqual(rest.missing, ["verified previous-game timestamps for both teams"]);
+  assert.equal(ledger.coverage.syntheticZeroRestRejected, true);
+  assert.equal(ledger.coverage.verifiedCoverageRate, 0);
+});
+
 test("secondary capture reports quota exhaustion without disguising it as repeated upstream failure", () => {
   const quotaProvider = {
     source: "sportsgameodds",
