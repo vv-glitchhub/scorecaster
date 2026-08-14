@@ -41,6 +41,16 @@ function decisionHash(contract) {
     .slice(0, 24);
 }
 
+function decisionEvidenceMetadata(contract) {
+  const seal = contract?.decisionEvidenceSeal || null;
+  return {
+    decisionEvidenceMode: seal ? "verified-signed-structured-seal-v1" : "unavailable",
+    decisionEvidenceVersion: seal?.contractVersion || null,
+    decisionEvidenceFingerprint: seal?.contractFingerprint || null,
+    decisionEvidenceSealFingerprint: seal?.sealFingerprint || null
+  };
+}
+
 function extractOutputText(payload) {
   if (typeof payload?.output_text === "string") return payload.output_text;
   for (const item of Array.isArray(payload?.output) ? payload.output : []) {
@@ -59,6 +69,7 @@ function fallbackResponse(contract, requestId, reason, language, status = 200) {
       authoritative: false,
       language,
       decisionHash: decisionHash(contract),
+      ...decisionEvidenceMetadata(contract),
       generatedAt: new Date().toISOString(),
       model: "deterministic",
       reason,
@@ -75,7 +86,8 @@ function systemInstruction(language) {
   return [
     "You are Scorecaster Agent V10's grounded explanation layer.",
     `Write the summary and limitation in ${requestedLanguage}.`,
-    "The deterministic decision object is the sole source of truth.",
+    "The deterministic decision object and its verified structured Decision Evidence seal are the sole source of truth.",
+    "Never change, reinterpret or omit the Decision Evidence contract fingerprint or its research-only boundaries.",
     "Never change or dispute its decision, probability, edge, EV, stake, price guard or portfolio allocation.",
     "Write only a qualitative summary and limitation without digits or new facts.",
     "For strongestEvidenceIndex, counterArgumentIndex and nextCheckIndexes, select only valid indexes from the supplied arrays.",
@@ -183,6 +195,15 @@ export async function POST(request) {
     return fallbackResponse(clientContract, requestId, "Enhanced explanation requires a current server-signed Agent decision", language);
   }
 
+  if (!verified.contract.decisionEvidenceSeal) {
+    return fallbackResponse(
+      verified.contract,
+      requestId,
+      "Enhanced explanation requires a current server-signed structured Decision Evidence seal",
+      language
+    );
+  }
+
   const limited = await enforceRateLimit(auth, requestId, {
     bucket: "agent_v10_explanation",
     limit: 12,
@@ -201,6 +222,7 @@ export async function POST(request) {
       authoritative: true,
       language,
       decisionHash: decisionHash(contract),
+      ...decisionEvidenceMetadata(contract),
       ticketExpiresAt: new Date(verified.expiresAt).toISOString(),
       generatedAt: new Date().toISOString(),
       model: generated.model,
