@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";
+import { INJURY_FETCHER_POLICY, sportToSportsDataLeague } from "../lib/injury-fetcher.js";
 
 const NOW = Date.parse("2026-07-18T12:00:00Z");
 const match = {
@@ -70,6 +71,14 @@ function playPick(selection = match.homeTeam) {
     sourceTrust: 0.9
   };
 }
+
+test("SportsData injury adapter covers WNBA before generic NBA matching", () => {
+  assert.equal(sportToSportsDataLeague("basketball_wnba", "WNBA"), "wnba");
+  assert.equal(sportToSportsDataLeague("basketball_nba", "NBA"), "nba");
+  assert.ok(INJURY_FETCHER_POLICY.supportedLeagues.includes("wnba"));
+  assert.ok(INJURY_FETCHER_POLICY.injuryCacheTtlMs > 0);
+  assert.ok(INJURY_FETCHER_POLICY.teamDirectoryTtlMs > INJURY_FETCHER_POLICY.injuryCacheTtlMs);
+});
 
 test("market-only context downgrades PLAY without changing probability", () => {
   const report = buildSportsIntelligenceReport({
@@ -160,6 +169,7 @@ test("provider loading is internal, authenticated and bounded", async () => {
   const route = await readFile(new URL("../app/api/intelligence/route.js", import.meta.url), "utf8");
   const service = await readFile(new URL("../lib/intelligence-service.js", import.meta.url), "utf8");
   const internal = await readFile(new URL("../lib/sports-intelligence-service.js", import.meta.url), "utf8");
+  const injuries = await readFile(new URL("../lib/injury-fetcher.js", import.meta.url), "utf8");
 
   assert.doesNotMatch(news, /apiKey=\$\{apiKey\}/);
   assert.match(news, /"X-Api-Key": apiKey/);
@@ -170,4 +180,6 @@ test("provider loading is internal, authenticated and bounded", async () => {
   assert.doesNotMatch(service, /\/api\/intelligence/);
   assert.match(internal, /CACHE_TTL_MS\s*=\s*5 \* 60 \* 1000/);
   assert.match(internal, /PROVIDER_MISS_LIMIT\s*=\s*72/);
+  assert.match(injuries, /TEAM_DIRECTORY_TTL_MS/);
+  assert.match(injuries, /\/v3\/\$\{selectedLeague\}\/scores\/json\/Teams/);
 });
