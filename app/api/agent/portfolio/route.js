@@ -19,6 +19,7 @@ import {
   agentDecisionSigningConfigured,
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
+import { buildDecisionEvidenceContractV1 } from "../../../../lib/decision-evidence-contract-v1.mjs";
 import { GET as getTopPicks } from "../../top-picks/route.js";
 import { SPORTS } from "../../../../lib/sports.js";
 
@@ -103,6 +104,23 @@ async function loadTopPicks(request, sports) {
   return { ok: true, payload };
 }
 
+function signedDecisionEvidence(decision = {}) {
+  const contract = buildDecisionEvidenceContractV1(decision);
+  const boundary = [
+    `Decision Evidence fingerprint ${contract.fingerprint}.`,
+    "Production decision inputs are market quality, price/value and the downgrade-only independent safety gate.",
+    "Research-only feature, ensemble, uncertainty and form/rest analysis did not change the production probability or product decision.",
+    "Context cannot upgrade the product decision."
+  ].join(" ");
+  return {
+    contract,
+    signedDecision: {
+      ...decision,
+      evidence: [...(Array.isArray(decision.evidence) ? decision.evidence : []), boundary]
+    }
+  };
+}
+
 export async function POST(request) {
   const requestId = getRequestId(request);
   if (!mutationOriginAllowed(request)) {
@@ -144,10 +162,15 @@ export async function POST(request) {
   const governedDecisions = applyModelLabSafety(portfolio.decisions, learningResult.modelLab);
   const governedSummary = summarizeGovernedDecisions(governedDecisions);
   const signingConfigured = agentDecisionSigningConfigured();
-  const decisions = governedDecisions.map((decision) => ({
-    ...decision,
-    explanationTicket: signingConfigured ? createAgentDecisionTicket(decision) : null
-  }));
+  const decisions = governedDecisions.map((decision) => {
+    const evidence = signedDecisionEvidence(decision);
+    return {
+      ...decision,
+      decisionEvidenceVersion: evidence.contract.version,
+      decisionEvidenceFingerprint: evidence.contract.fingerprint,
+      explanationTicket: signingConfigured ? createAgentDecisionTicket(evidence.signedDecision) : null
+    };
+  });
 
   return jsonResponse(
     {
@@ -161,6 +184,7 @@ export async function POST(request) {
       explanationMode: signingConfigured
         ? "signed-grounded-provider-or-fallback"
         : "deterministic-fallback-only",
+      decisionEvidenceMode: "signed-fingerprint-and-boundary-v1",
       learningMode: "chronological-champion-challenger-shadow",
       warnings: [learningResult.warning].filter(Boolean),
       settings,
