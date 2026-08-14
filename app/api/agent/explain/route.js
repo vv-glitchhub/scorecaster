@@ -61,7 +61,7 @@ function extractOutputText(payload) {
   return "";
 }
 
-function fallbackResponse(contract, requestId, reason, language, status = 200) {
+function fallbackResponse(contract, requestId, reason, language, status = 200, ticketExpiresAt = null) {
   return jsonResponse(
     {
       ok: true,
@@ -70,6 +70,7 @@ function fallbackResponse(contract, requestId, reason, language, status = 200) {
       language,
       decisionHash: decisionHash(contract),
       ...decisionEvidenceMetadata(contract),
+      ticketExpiresAt: Number.isFinite(ticketExpiresAt) ? new Date(ticketExpiresAt).toISOString() : null,
       generatedAt: new Date().toISOString(),
       model: "deterministic",
       reason,
@@ -200,7 +201,9 @@ export async function POST(request) {
       verified.contract,
       requestId,
       "Enhanced explanation requires a current server-signed structured Decision Evidence seal",
-      language
+      language,
+      200,
+      verified.expiresAt
     );
   }
 
@@ -213,7 +216,7 @@ export async function POST(request) {
 
   const contract = verified.contract;
   const generated = await generateGroundedExplanation(contract, language);
-  if (!generated.ok) return fallbackResponse(contract, requestId, generated.reason, language);
+  if (!generated.ok) return fallbackResponse(contract, requestId, generated.reason, language, 200, verified.expiresAt);
 
   return jsonResponse(
     {
