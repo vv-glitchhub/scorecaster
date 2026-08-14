@@ -7,7 +7,7 @@ import {
   applyPregameEvidenceCoverage,
   calculatePregameEvidenceCoverage
 } from "../lib/pregame-evidence-coverage-v1.mjs";
-import { summarizeUnifiedCaptureSecondaryPricing } from "../lib/unified-capture-enrichment-v1.mjs";
+import { summarizeUnifiedCaptureSecondaryPricing } from "../lib/unified-capture-secondary-summary-v1.mjs";
 
 const NOW = Date.parse("2026-07-22T12:00:00.000Z");
 
