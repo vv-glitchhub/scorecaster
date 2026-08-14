@@ -98,6 +98,45 @@ test("system guard blocks active provider and all-SKIP incidents", () => {
   assert.ok(guard.reasons.includes("active_system_incident"));
 });
 
+test("system guard watches optional and secondary-provider incidents while primary pricing is healthy", () => {
+  const guard = buildSystemGuard({
+    unifiedIncidents: [
+      { active: true, incident_type: "provider_health", severity: "high", provider_key: "sports-context-provider", details: { family: "context" }, title: "Context offline" },
+      { active: true, incident_type: "provider_health", severity: "high", provider_key: "sportsgameodds", details: { family: "odds" }, title: "Secondary pricing offline" },
+      { active: true, incident_type: "provider_divergence", severity: "high", event_id: "event-1", title: "One event disagrees" }
+    ],
+    diagnostics: { provider_health: { status: "healthy", score: 93 } },
+    settings: { autoPauseOnIncident: true }
+  });
+  assert.equal(guard.status, "watch");
+  assert.equal(guard.blockingIncidentCount, 0);
+  assert.equal(guard.watchedIncidentCount, 3);
+  assert.equal(guard.primaryProviderStatus, "healthy");
+  assert.deepEqual(guard.reasons, []);
+});
+
+test("system guard still blocks when current primary-provider diagnostics are down", () => {
+  const guard = buildSystemGuard({
+    decisionAlerts: [{ active: true, alert_type: "provider_health", severity: "high", title: "Primary pricing down" }],
+    unifiedIncidents: [{ active: true, incident_type: "provider_health", severity: "high", provider_key: "the-odds-api", details: { family: "odds" }, title: "Primary provider offline" }],
+    diagnostics: { provider_health: { status: "down", score: 0 } },
+    settings: { autoPauseOnIncident: true }
+  });
+  assert.equal(guard.status, "blocked");
+  assert.equal(guard.blockingIncidentCount, 2);
+  assert.ok(guard.reasons.includes("active_system_incident"));
+  assert.ok(guard.reasons.includes("provider_health_blocked"));
+});
+
+test("system guard fails closed for a high global odds incident when primary health is unknown", () => {
+  const guard = buildSystemGuard({
+    unifiedIncidents: [{ active: true, incident_type: "provider_health", severity: "high", provider_key: "unknown-odds", details: { family: "odds" }, title: "Pricing status unknown" }],
+    settings: { autoPauseOnIncident: true }
+  });
+  assert.equal(guard.status, "blocked");
+  assert.equal(guard.blockingIncidentCount, 1);
+});
+
 test("verified PLAY passes the V2 evidence, timing and user-risk gates", () => {
   const audit = evaluateAutonomousCandidate(verifiedDecision(), {
     settings: { minDataCoverage: 0.6, minProviderCount: 2, maxProviderDisagreement: 0.1, minOdds: 1.2, maxOdds: 5, minPriorityScore: 0.62 },
@@ -201,6 +240,7 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(worker, /runAutonomousPaperAgentV2/);
   assert.match(worker, /buildPerformanceGuard/);
   assert.match(worker, /buildSystemGuard/);
+  assert.match(worker, /event_id,provider_key,details/);
   assert.match(worker, /evaluateAutonomousCandidate/);
   assert.match(worker, /scorecaster-autonomous-v2/);
   assert.match(worker, /productionProbabilityChangedByLearning: false/);
