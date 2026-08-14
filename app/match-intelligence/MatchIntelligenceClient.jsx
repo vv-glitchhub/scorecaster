@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import { useProfessionalPreferences } from "../components/ProfessionalPreferencesProvider";
+import MatchJourneyV1 from "./MatchJourneyV1";
 
 function finite(value) {
   if (value === null || value === undefined || value === "") return null;
@@ -94,7 +95,7 @@ function ModelRoom({ models, tr }) {
 }
 
 export default function MatchIntelligenceClient({ eventId, sport }) {
-  const { tr } = useLanguage();
+  const { tr, locale } = useLanguage();
   const { proMode, toggleProMode } = useProfessionalPreferences();
   const [state, setState] = useState({ loading: true, error: "", detail: null });
 
@@ -115,8 +116,8 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
     return () => { cancelled = true; };
   }, [eventId, sport]);
 
-  if (state.loading) return <section className="sc-surface rounded-[1.65rem] p-6 text-[var(--sc-muted)]">{tr({ fi: "Rakennetaan Match Intelligence -näkymää…", en: "Building Match Intelligence…", es: "Construyendo Match Intelligence…" })}</section>;
-  if (!state.detail) return <section className="sc-surface rounded-[1.65rem] p-6"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Match Intelligence ei ole saatavilla", en: "Match Intelligence unavailable", es: "Match Intelligence no disponible" })}</div><div className="mt-2 text-sm text-[var(--sc-muted)]">{state.error}</div><Link href="/events" className="sc-button-secondary mt-4 inline-flex">{tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}</Link></section>;
+  if (state.loading) return <section className="sc-surface overflow-hidden rounded-[1.65rem] p-6" data-match-journey-loading="true"><div className="mx-auto grid max-w-2xl place-items-center py-8 text-center"><div className="grid h-16 w-16 rotate-45 place-items-center rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] shadow-[var(--sc-brand-shadow)]"><div className="h-5 w-5 rounded-md bg-[var(--sc-brand)]" /></div><div className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Match Journey V1</div><h1 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Kartoitetaan varmennettua evidenssiä…", en: "Mapping verified evidence…", es: "Mapeando evidencia verificada…" })}</h1><div className="mt-6 grid w-full grid-cols-4 gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--sc-muted)]"><span>{tr({ fi: "Tilanne", en: "Context", es: "Contexto" })}</span><span>{tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" })}</span><span>{tr({ fi: "Päätös", en: "Decision", es: "Decisión" })}</span><span>Story</span></div><div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--sc-border)]"><div className="h-full w-3/4 rounded-full bg-[var(--sc-brand)] motion-safe:animate-pulse" /></div></div></section>;
+  if (!state.detail) return <section className="sc-surface rounded-[1.65rem] p-6"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Match Journey ei ole saatavilla", en: "Match Journey unavailable", es: "Match Journey no disponible" })}</div><div className="mt-2 text-sm text-[var(--sc-muted)]">{state.error}</div><Link href="/events" className="sc-button-secondary mt-4 inline-flex">{tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}</Link></section>;
 
   const detail = state.detail;
   const intelligence = detail.sportsIntelligence || {};
@@ -146,7 +147,7 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
     <div className="space-y-6" data-match-intelligence-v2="true" data-evidence-semantics-v2="true">
       <section className="sc-surface relative overflow-hidden rounded-[2rem] p-6 sm:p-8">
         <div className="pointer-events-none absolute -right-24 -top-24 h-72 w-72 rounded-full bg-[var(--sc-brand-soft)] blur-3xl" />
-        <div className="relative flex flex-wrap items-start justify-between gap-4"><div className="max-w-3xl"><div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Match Intelligence V2</div><h1 className="mt-3 text-3xl font-black tracking-[-0.045em] text-[var(--sc-text)] sm:text-5xl">{detail.match}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Yksi visuaalinen näkymä varmennetusta kontekstista, mallipeitosta, joukkueiden form/rest-tilasta ja mallien erimielisyydestä. Puuttuva tieto pysyy puuttuvana.", en: "One visual view of verified context, model coverage, team form/rest state and model disagreement. Missing information stays missing.", es: "Una vista visual del contexto verificado, cobertura de modelos, forma/descanso y desacuerdo entre modelos. Los datos ausentes siguen ausentes." })}</p></div><button type="button" onClick={toggleProMode} className="sc-button-secondary" aria-pressed={proMode} data-match-intelligence-mode-toggle="true">{proMode ? tr({ fi: "Pro Mode", en: "Pro Mode", es: "Modo Pro" }) : tr({ fi: "Simple Mode", en: "Simple Mode", es: "Modo simple" })}</button></div>
+        <div className="relative flex flex-wrap items-start justify-between gap-4"><div className="max-w-3xl"><div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Match Journey V1 · Intelligence V2</div><h1 className="mt-3 text-3xl font-black tracking-[-0.045em] text-[var(--sc-text)] sm:text-5xl">{detail.match}</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Yksi visuaalinen näkymä varmennetusta kontekstista, mallipeitosta, joukkueiden form/rest-tilasta ja mallien erimielisyydestä. Puuttuva tieto pysyy puuttuvana.", en: "One visual view of verified context, model coverage, team form/rest state and model disagreement. Missing information stays missing.", es: "Una vista visual del contexto verificado, cobertura de modelos, forma/descanso y desacuerdo entre modelos. Los datos ausentes siguen ausentes." })}</p></div><button type="button" onClick={toggleProMode} className="sc-button-secondary" aria-pressed={proMode} data-match-intelligence-mode-toggle="true">{proMode ? tr({ fi: "Pro Mode", en: "Pro Mode", es: "Modo Pro" }) : tr({ fi: "Simple Mode", en: "Simple Mode", es: "Modo simple" })}</button></div>
         <div className="relative mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <MetricCard label={tr({ fi: "Analyysin valmius", en: "Analysis readiness", es: "Preparación" })} value={intelligenceState === "missing" ? "—" : intelligence.readiness?.level || "market-only"} detail={readinessDetail} />
           <MetricCard label={tr({ fi: "Feature coverage", en: "Feature coverage", es: "Cobertura" })} value={featureCoverageAvailable ? pct(featureEngine.eligibilityRate, 0) : featureState === "no-observations" ? "0%" : "—"} detail={featureDetail} />
@@ -154,6 +155,8 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
           <MetricCard label={tr({ fi: "Mallien erimielisyys", en: "Model disagreement", es: "Desacuerdo" })} value={ensembleState === "missing" ? "—" : uncertainty.band || "unknown"} detail={finite(uncertainty.range) === null ? tr({ fi: "Range ei saatavilla", en: "Range unavailable", es: "Rango no disponible" }) : `${tr({ fi: "Range", en: "Range", es: "Rango" })}: ${pct(uncertainty.range, 1)}`} />
         </div>
       </section>
+
+      <MatchJourneyV1 detail={detail} sport={sport} tr={tr} locale={locale} />
 
       <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6" data-team-comparison="true"><div className="flex flex-wrap items-end justify-between gap-3"><div><div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">{tr({ fi: "Joukkuekuva", en: "Team snapshot", es: "Vista de equipos" })}</div><h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Form & Rest", en: "Form & Rest", es: "Forma y descanso" })}</h2></div><div className="text-xs text-[var(--sc-muted)]">{formState === "observed" ? tr({ fi: "Chronology-safe shadow-data", en: "Chronology-safe shadow data", es: "Datos shadow cronológicamente seguros" }) : formState === "no-observations" ? tr({ fi: "Putki ajoi · 0 havaintoa", en: "Pipeline ran · 0 observations", es: "Pipeline ejecutado · 0 observaciones" }) : tr({ fi: "Form/rest-data puuttuu", en: "Form/rest data missing", es: "Faltan datos de forma/descanso" })}</div></div><div className="mt-5 grid gap-4 lg:grid-cols-2"><TeamSnapshot title={detail.homeTeam} team={formRest.home} state={homeState} tr={tr} /><TeamSnapshot title={detail.awayTeam} team={formRest.away} state={awayState} tr={tr} /></div></section>
 
