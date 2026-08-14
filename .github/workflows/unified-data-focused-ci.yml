@@ -1,0 +1,44 @@
+name: Scorecaster Unified Data Focused CI
+
+on:
+  pull_request:
+    paths:
+      - "lib/pregame-evidence-coverage-v1.mjs"
+      - "lib/unified-sports-data-v1.mjs"
+      - "lib/unified-sports-data-service.js"
+      - "lib/unified-capture-*.mjs"
+      - "app/api/internal/unified-data/route.js"
+      - "scripts/unified-sports-data-v1.test.mjs"
+      - ".github/workflows/unified-data-focused-ci.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  unified-data:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Unified Sports Data V1 focused regression
+        shell: bash
+        run: |
+          set +e
+          node --test scripts/unified-sports-data-v1.test.mjs 2>&1 | tee /tmp/unified-data-v1.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            detail="$(tail -n 24 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/unified-sports-data-v1.test.mjs,title=Unified Sports Data V1 regression::${detail}"
+          fi
+          exit "$status"

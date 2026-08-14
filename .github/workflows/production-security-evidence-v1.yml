@@ -42,11 +42,13 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
 
+      - name: Protected worker contract evidence
+        run: |
+          PROTECTED_WORKER_CONTRACT_REPORT_PATH=artifacts/protected-worker-contract.json node scripts/protected-worker-contract-audit.mjs
+          node -e 'const fs=require("node:fs"); const r=JSON.parse(fs.readFileSync("artifacts/protected-worker-contract.json","utf8")); console.log(`::notice file=config/protected-worker-implementation.json,line=1,title=Protected worker implementation fingerprint::${r.implementationFingerprint}`)'
+
       - name: Production security regressions
         run: node --test scripts/production-security-evidence.test.mjs
-
-      - name: Protected worker contract evidence
-        run: PROTECTED_WORKER_CONTRACT_REPORT_PATH=artifacts/protected-worker-contract.json node scripts/protected-worker-contract-audit.mjs
 
       - name: Repository secret check
         run: npm run security:check
