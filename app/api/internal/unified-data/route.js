@@ -171,7 +171,10 @@ export async function GET(request) {
       capturedAt,
       selections: capture.stored.length,
       providerObservations: capture.observationCount,
-      secondaryPricingCapture,
+      secondaryPricingCapture: {
+        ...secondaryPricingCapture,
+        acquisition: "protected-worker-only"
+      },
       providerQuality,
       closingRecords: { finalized: closing.finalized, latest: closing.records.slice(0, 12) },
       incidents: incidentSync,
