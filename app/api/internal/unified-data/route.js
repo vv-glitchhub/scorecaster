@@ -1,5 +1,8 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
-import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
+import {
+  enrichPicksForUnifiedCapture,
+  summarizeUnifiedCaptureSecondaryPricing
+} from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import {
   buildClosingRecord,
   buildProviderObservations,
@@ -157,13 +160,12 @@ export async function GET(request) {
 
     const publicPicks = Array.isArray(topPicks.data) ? topPicks.data : [];
     const capturePicks = await enrichPicksForUnifiedCapture(publicPicks, { now });
+    const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
     const providerQuality = await recentProviderQuality(admin, now);
     const incidents = evaluateUnifiedDataIncidents(capture.stored, providerQuality);
     const incidentSync = await syncIncidents(admin, incidents, capturedAt);
     const closing = await finalizeClosingRecords(admin, now);
-    const liveSecondary = capturePicks.filter((pick) => pick?.unifiedDataProviders?.secondaryOdds?.mode === "live").length;
-    const failedSecondary = capturePicks.filter((pick) => ["api_error", "fetch_error", "timeout"].includes(pick?.unifiedDataProviders?.secondaryOdds?.mode)).length;
 
     return response({
       ok: true,
@@ -171,12 +173,7 @@ export async function GET(request) {
       capturedAt,
       selections: capture.stored.length,
       providerObservations: capture.observationCount,
-      secondaryPricingCapture: {
-        requested: capturePicks.length,
-        live: liveSecondary,
-        failed: failedSecondary,
-        acquisition: "protected-worker-only"
-      },
+      secondaryPricingCapture,
       providerQuality,
       closingRecords: { finalized: closing.finalized, latest: closing.records.slice(0, 12) },
       incidents: incidentSync,
