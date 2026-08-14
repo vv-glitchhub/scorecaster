@@ -136,6 +136,20 @@ test("web console is trilingual and preserves the paper-only boundary", async ()
   assert.match(shell, /Autonomous Agent/);
 });
 
+test("first-run activation keeps explicit opt-in and queues only after readiness", async () => {
+  const activation = await source("app/autonomous-agent/FirstRunActivation.jsx");
+  const page = await source("app/autonomous-agent/page.jsx");
+  assert.match(page, /<FirstRunActivation \/>/);
+  assert.match(activation, /enabled: true/);
+  assert.match(activation, /body: JSON\.stringify\(settingsPayload\(current\.settings\)\)/);
+  assert.match(activation, /if \(!refreshed\?\.readiness\?\.ready\)/);
+  assert.match(activation, /method: "POST"/);
+  assert.match(activation, /Käynnistä 1 000 € paperiautomatiikka/);
+  assert.match(activation, /Ei oikeita vetoja, talletuksia, maksuja tai vedonvälittäjäkirjautumisia/);
+  assert.match(activation, /data\?\.settings\?\.enabled/);
+  assert.doesNotMatch(activation, /bookmaker.*password|payment.*card|bank.*credential/i);
+});
+
 test("operations, export, deletion and release manifest include autonomous audit data", async () => {
   const operations = await source("app/api/operations/route.js");
   const exportRoute = await source("app/api/account/export/route.js");
