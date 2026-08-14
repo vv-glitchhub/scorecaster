@@ -49,6 +49,24 @@ export type SportsIntelligenceReport = {
   marketProbabilityChanged?: false;
 };
 
+export type DecisionEvidenceSeal = {
+  version: "scorecaster-decision-evidence-seal-v1" | string;
+  contractVersion: string;
+  contractFingerprint: string;
+  sealFingerprint: string;
+  eventId?: string | null;
+  selection: string;
+  productDecision: "PLAY" | "CAUTION" | "SKIP";
+  boundaries: {
+    productionProbabilityChangedByResearch: false;
+    productionDecisionChangedByResearch: false;
+    contextCanUpgrade: false;
+    automaticModelPromotionAllowed: false;
+    paperOnly: true;
+    realMoneyActionAvailable: false;
+  };
+};
+
 export type Pick = {
   id?: string;
   eventId?: string;
@@ -118,6 +136,9 @@ export type AgentDecision = Pick & {
   counterArguments?: string[];
   missingEvidence?: string[];
   explanationTicket?: string | null;
+  decisionEvidenceVersion?: string;
+  decisionEvidenceFingerprint?: string;
+  decisionEvidenceSeal?: DecisionEvidenceSeal | null;
   selfLearning?: {
     version?: string;
     status?: string;
@@ -202,6 +223,7 @@ export type AgentPortfolio = {
   paperOnly: true;
   signingConfigured: boolean;
   explanationMode: string;
+  decisionEvidenceMode?: string;
   learningMode?: string;
   modelLab?: AgentModelLab;
   warnings?: string[];
@@ -218,6 +240,12 @@ export type AgentExplanationPayload = {
   enhanced: boolean;
   authoritative?: boolean;
   decisionHash?: string;
+  decisionEvidenceMode?: string;
+  decisionEvidenceVersion?: string | null;
+  decisionEvidenceFingerprint?: string | null;
+  decisionEvidenceSealFingerprint?: string | null;
+  ticketExpiresAt?: string | null;
+  generatedAt?: string;
   model?: string;
   reason?: string;
   explanation: {
