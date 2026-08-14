@@ -96,6 +96,7 @@ test("scheduler settles first and then runs the protected autonomous worker", as
   assert.match(workflow, /Run Autonomous Paper Agent cycle/);
   assert.match(workflow, /--max-time 55/);
   assert.doesNotMatch(autonomousBlock, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED/);
+  assert.match(workflow, /push:\s+branches: \[main\]\s+paths:\s+- "\.github\/workflows\/notification-delivery\.yml"/);
 });
 
 test("enabling the agent atomically bootstraps a conservative paper-only bankroll", async () => {
