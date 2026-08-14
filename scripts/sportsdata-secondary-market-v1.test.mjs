@@ -13,6 +13,7 @@ import {
 } from "../lib/secondary-odds-provider-chain-v1.mjs";
 import { buildUnifiedSportsDataLedger } from "../lib/unified-sports-data-v1.mjs";
 import { mergeSecondaryPricingIntoCaptureLedger } from "../lib/unified-capture-ledger-merge-v1.mjs";
+import { summarizeUnifiedCaptureSecondaryPricing } from "../lib/unified-capture-secondary-summary-v1.mjs";
 
 const match = {
   eventId: "wnba-1",
@@ -173,6 +174,29 @@ test("capture ledger records SportsDataIO as one secondary provider family", () 
   assert.equal(merged.ledger.captureEvidence.secondaryProviderFamily, "sportsdataio");
   assert.equal(merged.ledger.captureEvidence.probabilityChanged, false);
   assert.equal(merged.ledger.captureEvidence.decisionChanged, false);
+});
+
+test("capture diagnostics distinguish quota blockage from a live fallback provider", () => {
+  const summary = summarizeUnifiedCaptureSecondaryPricing([{ unifiedDataProviders: { secondaryOdds: {
+    source: "sportsdata",
+    providerFamily: "sportsdataio",
+    mode: "live",
+    fallbackAttempted: true,
+    fallbackUsed: true,
+    quotaPreflightBlocked: true,
+    usageRequestMade: true,
+    eventRequestMade: true,
+    upstream: { usage: { bindingLimits: ["per-month:entities"] } }
+  } } }]);
+
+  assert.equal(summary.live, 1);
+  assert.equal(summary.quotaBlocked, 1);
+  assert.equal(summary.quotaExhausted, true);
+  assert.equal(summary.fallbackAttempted, 1);
+  assert.equal(summary.fallbackLive, 1);
+  assert.equal(summary.sportsDataLive, 1);
+  assert.deepEqual(summary.liveProviderFamilies, ["sportsdataio"]);
+  assert.equal(summary.quotaBypassAttempted, false);
 });
 
 test("SportsData API key is transported in a header, never appended to the URL", async () => {
