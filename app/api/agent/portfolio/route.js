@@ -20,10 +20,7 @@ import {
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
 import { buildDecisionEvidenceContractV1 } from "../../../../lib/decision-evidence-contract-v1.mjs";
-import {
-  buildDecisionEvidenceSealV1,
-  decisionEvidenceBoundaryText
-} from "../../../../lib/decision-evidence-seal-v1.mjs";
+import { buildDecisionEvidenceSealV1 } from "../../../../lib/decision-evidence-seal-v1.mjs";
 import { GET as getTopPicks } from "../../top-picks/route.js";
 import { SPORTS } from "../../../../lib/sports.js";
 
@@ -117,11 +114,7 @@ function signedDecisionEvidence(decision = {}) {
     seal,
     signedDecision: {
       ...decision,
-      decisionEvidenceSeal: seal,
-      evidence: [
-        ...(Array.isArray(decision.evidence) ? decision.evidence : []),
-        decisionEvidenceBoundaryText(seal)
-      ]
+      decisionEvidenceSeal: seal
     }
   };
 }
