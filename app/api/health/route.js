@@ -1,4 +1,6 @@
 import { notificationDeliveryConfiguration } from "../../../lib/notification-delivery-config";
+import { autonomousAgentConfiguration } from "../../../lib/autonomous-agent-config.js";
+import { settlementMonitorConfiguration } from "../../../lib/settlement-monitor-config.js";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +13,8 @@ export async function GET() {
   const injuryProviderConfigured = Boolean(process.env.SPORTSDATA_API_KEY);
   const lineupProviderConfigured = Boolean(process.env.LINEUP_API_URL && process.env.LINEUP_API_KEY);
   const notificationDelivery = notificationDeliveryConfiguration();
+  const autonomousAgent = autonomousAgentConfiguration();
+  const settlementMonitor = settlementMonitorConfiguration();
 
   const services = {
     localQuickUse: true,
@@ -143,6 +147,17 @@ export async function GET() {
     paperBetSettlementApi: true,
     automaticH2hScoreSettlement: Boolean(process.env.ODDS_API_KEY),
     automaticSettlementHourlyQuota: true,
+    settlementMonitorV1: true,
+    settlementMonitorWorkerEnabled: settlementMonitor.enabledFlag,
+    settlementMonitorWorkerActive: settlementMonitor.monitorActive,
+    autonomousAgentV13: true,
+    autonomousAgentWorkerEnabled: autonomousAgent.enabledFlag,
+    autonomousAgentWorkerActive: autonomousAgent.agentActive,
+    autonomousAgentUserOptInRequired: true,
+    autonomousAgentPaperOnly: true,
+    autonomousAgentDefaultVirtualBankroll: 1000,
+    backgroundWorkerOrder: "settlement-before-autonomous",
+    autonomousWorkerSchedule: "github-actions-15m",
     paperBankrollApi: true,
     paperStakeApiValidation: true,
     paperStakeDatabaseEnforcement: true,

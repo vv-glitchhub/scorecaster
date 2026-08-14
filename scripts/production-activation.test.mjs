@@ -178,12 +178,14 @@ test("production activation remains separate from recurring workers", async () =
   const unified = await source(".github/workflows/unified-data-capture.yml");
   const collector = await source(".github/workflows/collector.yml");
   assert.doesNotMatch(activation, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED\s*==\s*'true'/);
-  assert.match(workers, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
+  assert.doesNotMatch(workers, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
   assert.match(workers, /api\/internal\/autonomous-agent/);
   assert.match(workers, /SCORECASTER_SHADOW_LEARNING_ENABLED == 'true'/);
   assert.match(workers, /api\/internal\/shadow-learning/);
   assert.match(workers, /SCORECASTER_WATCHLIST_MONITOR_ENABLED == 'true'/);
-  assert.match(workers, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true'/);
+  assert.doesNotMatch(workers, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED == 'true'/);
+  assert.match(workers, /autonomous:\s+needs: settle/);
+  assert.match(workers, /secrets\.CRON_SECRET/);
   assert.match(workers, /SCORECASTER_NOTIFICATION_DELIVERY_ENABLED == 'true'/);
   assert.match(diagnostics, /cron: "12 \* \* \* \*"/);
   assert.match(unified, /cron: "17,47 \* \* \* \*"/);

@@ -6,6 +6,8 @@ Production project: `rsukfxhgqzpofiszjtbf`
 
 Verification time: `2026-08-10T18:08:10.087375Z`
 
+Autonomous Paper Agent V2 follow-up verification: `2026-08-14T10:01:02.463185Z`
+
 This is a read-only, object-level production catalog verification of the 21 canonical Scorecaster Supabase migrations in `config/release-readiness.json`. No application rows, tokens, credentials, bookmaker accounts or payment data were read. The audit checked the distinctive tables, indexes, functions, triggers, RLS state, policies and role boundaries required by each migration.
 
 Later migrations and the production Public Schema Hardening V1.3 intentionally replace or narrow some earlier function definitions and grants. In those cases this evidence verifies that the earlier migration's structural contract exists and that the current production state is at least as restrictive as the reviewed contract.
@@ -128,6 +130,8 @@ Verified `autonomous_agent_settings`, `autonomous_agent_state`, `autonomous_agen
 
 Verified `autonomous_agent_decision_audit` and `autonomous_agent_daily_briefs`, all four V2 indexes, all 14 V2 settings columns, all 10 V2 state health/pause columns, `set_autonomous_agent_brief_updated_at()`, `complete_autonomous_agent_user_v2(...)`, the brief trigger, FORCE RLS, both read-only policies and service-role complete execution.
 
+On 2026-08-14, applied and re-read `schedule_autonomous_agent_for_user()` plus its enabled trigger. The function now creates a fixed 1,000-unit paper bankroll with 1% single-pick, 5% daily and 2.5% single-league exposure caps when—and only when—an enabled user has no bankroll row. Existing bankroll settings are preserved with `on conflict (user_id) do nothing`. The production catalog query confirmed the trigger is enabled, the fixed bootstrap is present and no enabled account lacks a bankroll. No user identifiers, application rows, credentials, bookmaker accounts or payment data were returned.
+
 ### scorecaster_autonomous_v13_hard_caps
 
 `supabase/scorecaster_autonomous_v13_hard_caps.sql`
@@ -142,6 +146,6 @@ Verified `shadow_learning_samples`, `shadow_learning_state`, `shadow_learning_cy
 
 ## Result
 
-All 21 canonical migration contracts were present in the production database at the verification timestamp. The migration registry can therefore be marked `applied` with this document as the non-secret object-level evidence reference.
+All 21 canonical migration contracts were present in the production database at the initial verification timestamp. The Autonomous Paper Agent V2 bootstrap extension was applied and reverified on 2026-08-14. The migration registry can therefore remain `applied` with this document as the non-secret object-level evidence reference.
 
 This evidence does **not** replace the separate controlled two-user RLS isolation test, concurrent hard-cap test, protected-worker runtime probes, provider activation evidence or external security review.

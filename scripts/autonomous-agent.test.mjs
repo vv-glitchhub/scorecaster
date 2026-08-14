@@ -77,16 +77,48 @@ test("cloud and internal routes fail closed and never expose worker credentials"
   assert.match(internal, /Unauthorized/);
   assert.match(config, /cronSecret\.length >= 16/);
   assert.match(config, /secret\.length < 16/);
+  assert.match(config, /SCORECASTER_AUTONOMOUS_AGENT_DISABLED === "true"/);
+  assert.match(config, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED === "false"/);
   assert.doesNotMatch(cloud, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 });
 
-test("scheduler is explicit opt-in and autonomous worker is independent", async () => {
+test("scheduler settles first and then runs the protected autonomous worker", async () => {
   const workflow = await source(".github/workflows/notification-delivery.yml");
-  assert.match(workflow, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED == 'true'/);
+  const settleStart = workflow.indexOf("  settle:");
+  const autonomousStart = workflow.indexOf("  autonomous:");
+  const shadowStart = workflow.indexOf("  shadow-learning:");
+  assert.ok(settleStart >= 0 && autonomousStart > settleStart && shadowStart > autonomousStart);
+  const autonomousBlock = workflow.slice(autonomousStart, shadowStart);
+  assert.match(autonomousBlock, /needs: settle/);
+  assert.match(autonomousBlock, /secrets\.CRON_SECRET/);
+  assert.match(autonomousBlock, /SCORECASTER_PRODUCTION_URL \|\| 'https:\/\/scorecaster\.vercel\.app'/);
   assert.match(workflow, /api\/internal\/autonomous-agent/);
   assert.match(workflow, /Run Autonomous Paper Agent cycle/);
   assert.match(workflow, /--max-time 55/);
-  assert.doesNotMatch(workflow, /needs: autonomous/);
+  assert.doesNotMatch(autonomousBlock, /SCORECASTER_AUTONOMOUS_AGENT_ENABLED/);
+});
+
+test("enabling the agent atomically bootstraps a conservative paper-only bankroll", async () => {
+  const sql = await source("supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.match(sql, /create or replace function public\.schedule_autonomous_agent_for_user\(\)/i);
+  assert.match(sql, /insert into public\.bankroll_settings/i);
+  assert.match(sql, /new\.user_id, 1000, 1, 5, 2\.5, 0\.025, 0\.58, true/i);
+  assert.match(sql, /on conflict \(user_id\) do nothing/i);
+  assert.match(sql, /insert into public\.autonomous_agent_state/i);
+  assert.match(sql, /where enabled = true/i);
+  assert.doesNotMatch(sql, /real.money|bookmaker|payment|wallet/i);
+});
+
+test("public health exposes worker readiness without exposing credentials", async () => {
+  const health = await source("app/api/health/route.js");
+  assert.match(health, /autonomousAgentWorkerEnabled: autonomousAgent\.enabledFlag/);
+  assert.match(health, /autonomousAgentWorkerActive: autonomousAgent\.agentActive/);
+  assert.match(health, /settlementMonitorWorkerActive: settlementMonitor\.monitorActive/);
+  assert.match(health, /autonomousAgentUserOptInRequired: true/);
+  assert.match(health, /autonomousAgentPaperOnly: true/);
+  assert.match(health, /autonomousAgentDefaultVirtualBankroll: 1000/);
+  assert.match(health, /backgroundWorkerOrder: "settlement-before-autonomous"/);
+  assert.doesNotMatch(health, /process\.env\.(CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY|ODDS_API_KEY)\s*[,}]/);
 });
 
 test("web console is trilingual and preserves the paper-only boundary", async () => {

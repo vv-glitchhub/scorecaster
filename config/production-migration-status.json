@@ -152,10 +152,10 @@
     {
       "path": "supabase/scorecaster_autonomous_agent_v2.sql",
       "status": "applied",
-      "verifiedAt": "2026-08-10T18:08:10.087375Z",
-      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "verifiedAt": "2026-08-14T10:01:02.463185Z",
+      "verifiedBy": "Codex production migration and catalog verification via Supabase connector",
       "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent-v2",
-      "notes": "V2 audit/brief tables, indexes, 24 extension columns, functions/trigger, FORCE RLS, policies and service-role completion verified."
+      "notes": "V2 audit/brief tables, indexes, extension columns, functions/trigger, FORCE RLS, policies and service-role completion verified. Follow-up verification confirms the enabled-agent trigger atomically creates a conservative 1,000-unit paper bankroll only when one is missing."
     },
     {
       "path": "supabase/scorecaster_autonomous_v13_hard_caps.sql",

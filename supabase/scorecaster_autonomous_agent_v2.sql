@@ -141,6 +141,47 @@ create trigger autonomous_agent_brief_set_updated_at
 before update on public.autonomous_agent_daily_briefs
 for each row execute function public.set_autonomous_agent_brief_updated_at();
 
+-- Enabling paper autonomy must be sufficient for a new account to run. The
+-- fixed bootstrap is intentionally stricter than the editable paper-bankroll
+-- defaults and never overwrites an existing user's settings.
+create or replace function public.schedule_autonomous_agent_for_user()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.enabled then
+    insert into public.bankroll_settings (
+      user_id,
+      bankroll,
+      max_stake_percent,
+      max_daily_exposure_percent,
+      max_single_league_exposure_percent,
+      min_edge,
+      min_confidence,
+      paper_trading_mode
+    ) values (
+      new.user_id, 1000, 1, 5, 2.5, 0.025, 0.58, true
+    )
+    on conflict (user_id) do nothing;
+
+    insert into public.autonomous_agent_state (user_id, next_check_at, last_status)
+    values (new.user_id, now(), 'idle')
+    on conflict (user_id) do update
+      set next_check_at = least(public.autonomous_agent_state.next_check_at, now()),
+          last_status = case
+            when public.autonomous_agent_state.last_status = 'running' then 'running'
+            else 'idle'
+          end,
+          last_error = null;
+  else
+    delete from public.autonomous_agent_state where user_id = new.user_id;
+  end if;
+  return new;
+end;
+$$;
+
 drop trigger if exists autonomous_agent_settings_schedule on public.autonomous_agent_settings;
 create trigger autonomous_agent_settings_schedule
 after insert or update of
@@ -151,6 +192,21 @@ after insert or update of
   auto_pause_on_incident, require_unified_data, adaptive_cadence, shadow_learning_enabled
 on public.autonomous_agent_settings
 for each row execute function public.schedule_autonomous_agent_for_user();
+
+insert into public.bankroll_settings (
+  user_id,
+  bankroll,
+  max_stake_percent,
+  max_daily_exposure_percent,
+  max_single_league_exposure_percent,
+  min_edge,
+  min_confidence,
+  paper_trading_mode
+)
+select user_id, 1000, 1, 5, 2.5, 0.025, 0.58, true
+from public.autonomous_agent_settings
+where enabled = true
+on conflict (user_id) do nothing;
 
 create or replace function public.claim_autonomous_agent_users(p_limit integer default 10)
 returns table(user_id uuid)

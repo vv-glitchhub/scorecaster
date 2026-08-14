@@ -52,7 +52,8 @@ test("manual and background settlement use the same bounded score provider", asy
 test("internal settlement route is secret protected and fail closed", async () => {
   const route = await source("app/api/internal/settlement-monitor/route.js");
   const config = await source("lib/settlement-monitor-config.js");
-  assert.match(config, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED === "true"/);
+  assert.match(config, /SCORECASTER_SETTLEMENT_MONITOR_DISABLED === "true"/);
+  assert.match(config, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED === "false"/);
   assert.match(config, /cronSecret\.length >= 16/);
   assert.match(config, /scoresProviderConfigured/);
   assert.match(config, /request\.headers\.get\("authorization"\) === `Bearer \$\{secret\}`/);
@@ -63,18 +64,22 @@ test("internal settlement route is secret protected and fail closed", async () =
   assert.doesNotMatch(route, /ODDS_API_KEY|SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET\s*:/);
 });
 
-test("scheduler keeps settlement independent and runs Shadow Learning after it", async () => {
+test("scheduler runs settlement before autonomous paper decisions and Shadow Learning", async () => {
   const workflow = await source(".github/workflows/notification-delivery.yml");
   const settleStart = workflow.indexOf("  settle:");
+  const autonomousStart = workflow.indexOf("  autonomous:");
   const shadowStart = workflow.indexOf("  shadow-learning:");
   const deliverStart = workflow.indexOf("  deliver:");
-  assert.ok(settleStart >= 0 && shadowStart > settleStart && deliverStart > shadowStart);
-  const settleBlock = workflow.slice(settleStart, shadowStart);
+  assert.ok(settleStart >= 0 && autonomousStart > settleStart && shadowStart > autonomousStart && deliverStart > shadowStart);
+  const settleBlock = workflow.slice(settleStart, autonomousStart);
+  const autonomousBlock = workflow.slice(autonomousStart, shadowStart);
   const shadowBlock = workflow.slice(shadowStart, deliverStart);
-  assert.match(settleBlock, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED/);
   assert.match(settleBlock, /Run Settlement Monitor cycle/);
   assert.match(settleBlock, /\/api\/internal\/settlement-monitor/);
   assert.doesNotMatch(settleBlock, /needs:/);
+  assert.doesNotMatch(settleBlock, /SCORECASTER_SETTLEMENT_MONITOR_ENABLED/);
+  assert.match(settleBlock, /secrets\.CRON_SECRET/);
+  assert.match(autonomousBlock, /needs: settle/);
   assert.match(shadowBlock, /needs: settle/);
   assert.match(shadowBlock, /SCORECASTER_SHADOW_LEARNING_ENABLED/);
   assert.match(shadowBlock, /\/api\/internal\/shadow-learning/);
