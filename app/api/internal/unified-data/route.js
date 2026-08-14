@@ -1,8 +1,6 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
-import {
-  enrichPicksForUnifiedCapture,
-  summarizeUnifiedCaptureSecondaryPricing
-} from "../../../../lib/unified-capture-enrichment-v1.mjs";
+import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
+import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
   buildClosingRecord,
   buildProviderObservations,
