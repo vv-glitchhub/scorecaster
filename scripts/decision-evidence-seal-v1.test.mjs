@@ -110,6 +110,8 @@ test("Agent explanation sanitizer preserves only a valid structured seal", () =>
   assert.equal(contract.eventId, "event-1");
   assert.equal(contract.decisionEvidenceSeal.contractFingerprint, seal.contractFingerprint);
   assert.equal(contract.decisionEvidenceSeal.sealFingerprint, seal.sealFingerprint);
+  assert.equal(contract.evidence[0], decisionEvidenceBoundaryText(seal));
+  assert.ok(contract.evidence[0].length <= 220);
 
   const otherSelectionSeal = buildDecisionEvidenceSealV1(buildDecisionEvidenceContractV1(pick({
     selection: "Away"
@@ -126,6 +128,6 @@ test("human-readable boundary is derived from the verified seal", () => {
 
   assert.match(boundary, new RegExp(seal.contractFingerprint));
   assert.match(boundary, new RegExp(seal.sealFingerprint));
-  assert.match(boundary, /Research-only feature, ensemble, uncertainty and form\/rest analysis did not change/);
-  assert.match(boundary, /Context cannot upgrade the product decision/);
+  assert.match(boundary, /Research non-voting/);
+  assert.match(boundary, /Context cannot upgrade/);
 });
