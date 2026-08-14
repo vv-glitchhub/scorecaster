@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { buildUnifiedSportsDataLedger, applyUnifiedDataSafety } from "../lib/unified-sports-data-v1.mjs";
 import { scoreNewsSource } from "../lib/news-source-reliability.mjs";
+import {
+  applyPregameEvidenceCoverage,
+  calculatePregameEvidenceCoverage
+} from "../lib/pregame-evidence-coverage-v1.mjs";
+import { summarizeUnifiedCaptureSecondaryPricing } from "../lib/unified-capture-enrichment-v1.mjs";
 
 const NOW = Date.parse("2026-07-22T12:00:00.000Z");
 
@@ -127,6 +132,57 @@ test("closing odds remain post-event learning only", () => {
   assert.equal(ledger.policy.closingOddsPregameLeakage, false);
 });
 
+test("pregame verified coverage excludes only non-applicable and training-only factors", () => {
+  const factors = [
+    { key: "odds-consensus", status: "verified", confidence: 0.9, trust: 0.9, usedByAi: true },
+    { key: "rest-and-congestion", status: "verified", confidence: 0.8, trust: 0.8, usedByAi: true },
+    { key: "injuries", status: "missing", confidence: 0, trust: 0, usedByAi: false },
+    { key: "closing-odds", status: "verified", confidence: 1, trust: 1, usedByAi: false, useMode: "training-and-calibration-only" },
+    { key: "weather", status: "not_applicable_indoor", confidence: 1, trust: 1, usedByAi: false }
+  ];
+  const coverage = calculatePregameEvidenceCoverage(factors);
+  assert.equal(coverage.totalFamilies, 5);
+  assert.equal(coverage.applicablePregameFamilies, 3);
+  assert.equal(coverage.verifiedPregameFamilies, 2);
+  assert.equal(coverage.applicableVerifiedCoverageRate, 0.667);
+  assert.deepEqual(coverage.excludedFamilies.sort(), ["closing-odds", "weather"]);
+  assert.equal(coverage.missingEvidenceStillCounts, true);
+  assert.equal(coverage.thresholdsChanged, false);
+
+  const ledger = applyPregameEvidenceCoverage({ coverage: { verifiedCoverageRate: 0.4 }, factors });
+  assert.equal(ledger.coverage.verifiedCoverageRate, 0.667);
+  assert.equal(ledger.coverage.missingEvidenceStillCounts, true);
+});
+
+test("secondary capture reports quota exhaustion without disguising it as repeated upstream failure", () => {
+  const quotaProvider = {
+    source: "sportsgameodds",
+    mode: "api_error",
+    quotaPreflightBlocked: true,
+    usageRequestMade: true,
+    eventRequestMade: false,
+    upstream: { usage: { bindingLimits: ["per-month:entities"] } }
+  };
+  const summary = summarizeUnifiedCaptureSecondaryPricing([
+    { unifiedDataProviders: { secondaryOdds: quotaProvider } },
+    { unifiedDataProviders: { secondaryOdds: quotaProvider } },
+    { unifiedDataProviders: { secondaryOdds: { source: "sportsgameodds", mode: "unsupported_league", usageRequestMade: false, eventRequestMade: false } } },
+    { unifiedDataProviders: { secondaryOdds: { source: "sportsgameodds", mode: "timeout", quotaPreflightBlocked: false, usageRequestMade: false, eventRequestMade: true } } },
+    { unifiedDataProviders: { secondaryOdds: { source: "sportsgameodds", mode: "live", usageRequestMade: true, eventRequestMade: true } } }
+  ]);
+  assert.equal(summary.requested, 5);
+  assert.equal(summary.live, 1);
+  assert.equal(summary.failed, 1);
+  assert.equal(summary.quotaBlocked, 2);
+  assert.equal(summary.quotaExhausted, true);
+  assert.deepEqual(summary.bindingLimits, ["per-month:entities"]);
+  assert.equal(summary.unsupported, 1);
+  assert.equal(summary.eventRequests, 2);
+  assert.equal(summary.quotaBypassAttempted, false);
+  assert.equal(summary.probabilityChanged, false);
+  assert.equal(summary.paperOnly, true);
+});
+
 test("news reliability explains trust and blocks weak stale sources", () => {
   const trusted = scoreNewsSource({ sourceType: "official_league", source: "League", url: "https://league.example/news", publishedAt: "2026-07-22T10:00:00.000Z" }, { now: NOW, corroboratingSources: 2 });
   const weak = scoreNewsSource({ sourceType: "fan_forum", source: "Forum", url: "https://forum.example/post", publishedAt: "2026-07-15T10:00:00.000Z" }, { now: NOW, corroboratingSources: 1 });
@@ -136,7 +192,7 @@ test("news reliability explains trust and blocks weak stale sources", () => {
 });
 
 test("unified data ships web API, cockpit, event provenance and native hub", async () => {
-  const [service, api, page, component, mobile, more, env, loader] = await Promise.all([
+  const [service, api, page, component, mobile, more, env, loader, captureRoute] = await Promise.all([
     readFile(new URL("../lib/unified-sports-data-service.js", import.meta.url), "utf8"),
     readFile(new URL("../app/api/data-layer/route.js", import.meta.url), "utf8"),
     readFile(new URL("../app/data-layer/UnifiedDataLayerClient.jsx", import.meta.url), "utf8"),
@@ -144,10 +200,12 @@ test("unified data ships web API, cockpit, event provenance and native hub", asy
     readFile(new URL("../mobile/src/screens/DataLayerScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../mobile/src/screens/MoreScreen.tsx", import.meta.url), "utf8"),
     readFile(new URL("../.env.example", import.meta.url), "utf8"),
-    readFile(new URL("../lib/agent-intelligence-loader.js", import.meta.url), "utf8")
+    readFile(new URL("../lib/agent-intelligence-loader.js", import.meta.url), "utf8"),
+    readFile(new URL("../app/api/internal/unified-data/route.js", import.meta.url), "utf8")
   ]);
   assert.match(service, /fetchSportsGameOddsForMatch/);
   assert.match(service, /fetchWeatherForMatch/);
+  assert.match(service, /applyPregameEvidenceCoverage/);
   assert.match(api, /contextCanUpgrade: false/);
   assert.match(page, /UnifiedDataLedger/);
   assert.match(component, /What data AI used and why/);
@@ -156,4 +214,6 @@ test("unified data ships web API, cockpit, event provenance and native hub", asy
   assert.match(env, /SPORTSGAMEODDS_API_KEY/);
   assert.match(env, /SPORTS_CONTEXT_API_URL/);
   assert.match(loader, /applyUnifiedDataSafety/);
+  assert.match(captureRoute, /summarizeUnifiedCaptureSecondaryPricing/);
+  assert.doesNotMatch(captureRoute, /quotaBypass|ignoreQuota|forceSecondary/i);
 });
