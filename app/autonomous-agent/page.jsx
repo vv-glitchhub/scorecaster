@@ -1,5 +1,6 @@
 import Link from "next/link";
 import AutonomousAgentClient from "./AutonomousAgentClient";
+import FirstRunActivation from "./FirstRunActivation";
 
 export const metadata = {
   title: "Autonomous Scorecaster V13 | Scorecaster",
@@ -9,6 +10,7 @@ export const metadata = {
 export default function AutonomousAgentPage() {
   return (
     <div className="space-y-7">
+      <FirstRunActivation />
       <section className="rounded-[1.5rem] border border-purple-300/25 bg-purple-300/10 p-5 sm:flex sm:items-center sm:justify-between sm:gap-5">
         <div>
           <div className="text-[10px] font-black uppercase tracking-[0.18em] text-purple-200">Autonomous Scorecaster V13</div>
