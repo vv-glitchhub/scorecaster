@@ -23,6 +23,7 @@ import {
   calculateCLV
 } from "../../lib/tracking-engine";
 import { formatPercent } from "../../lib/analysis-engine";
+import MatchStoryCard from "./MatchStoryCard";
 
 function resultStyle(result) {
   if (result === "win") return "border-emerald-300/30 bg-emerald-300/10 text-emerald-200";
@@ -104,11 +105,70 @@ export default function TrackingPage() {
           <label className="text-sm font-bold text-slate-300">{tr({ fi: "Järjestys", en: "Order", es: "Orden" })}<select aria-label={tr({ fi: "Järjestä paperikohteet", en: "Sort paper picks", es: "Ordenar pronósticos" })} value={sortOrder} onChange={(event) => setSortOrder(event.target.value)} className="mt-2 w-full rounded-xl border border-white/10 bg-slate-900 px-4 py-3 text-slate-100"><option value="newest">{tr({ fi: "Uusin ensin", en: "Newest first", es: "Más recientes primero" })}</option><option value="oldest">{tr({ fi: "Vanhin ensin", en: "Oldest first", es: "Más antiguos primero" })}</option></select></label>
         </div>
 
-        {filteredBets.length === 0 ? <EmptyState title={tr({ fi: "Tällä suodattimella ei ole kohteita", en: "No picks match this filter", es: "No hay pronósticos con este filtro" })} description={tr({ fi: "Lisää ensimmäinen kohde Kohteet- tai AI-agentti-sivulta.", en: "Add the first pick from Picks or the AI Agent.", es: "Añade el primer pronóstico desde Pronósticos o el agente IA." })} actionHref="/betting" actionLabel={tr({ fi: "Avaa kohteet", en: "Open picks", es: "Abrir pronósticos" })} /> : <div className="space-y-4">{filteredBets.map((bet) => {
-          const profit = calculateProfitLoss({ stake: bet.stake, odds: bet.odds, result: bet.result });
-          const clv = calculateCLV({ odds: bet.odds, closingOdds: bet.closingOdds });
-          return <article key={bet.id} className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-xl"><div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between"><div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full border px-3 py-1 text-xs font-black ${resultStyle(bet.result)}`}>{resultLabel(bet.result)}</span><span className="text-xs text-slate-500">{bet.createdAt ? new Date(bet.createdAt).toLocaleString(locale) : tr({ fi: "Päivämäärä puuttuu", en: "Date missing", es: "Falta la fecha" })}</span></div><h2 className="mt-3 text-xl font-black tracking-tight text-white md:text-2xl">{bet.match}</h2><div className="mt-2 text-slate-300"><strong>{bet.selection}</strong> @ {bet.odds}</div></div><MetricTile label={t("term.paperStake")} value={money(bet.stake)} tone="purple" /></div><div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5"><MetricTile label={t("term.edge")} value={formatPercent(bet.edge)} tone="green" /><MetricTile label={t("term.ev")} value={formatPercent(bet.ev)} tone="blue" /><label className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">{tr({ fi: "Päätöskerroin", en: "Closing odds", es: "Cuota de cierre" })}<input value={bet.closingOdds || ""} onChange={(event) => changeClosingOdds(bet.id, event.target.value)} placeholder="1.95" inputMode="decimal" className="mt-3 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-base font-black normal-case tracking-normal text-white" /></label><MetricTile label="CLV" value={formatPercent(clv)} tone={clv >= 0 ? "green" : "red"} /><MetricTile label={t("home.paperResult")} value={money(profit)} tone={profit >= 0 ? "green" : "red"} /></div>{bet.riskWarnings?.length > 0 && <details className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4"><summary className="cursor-pointer font-bold text-amber-200">{tr({ fi: "Näytä riskivaroitukset", en: "Show risk warnings", es: "Mostrar avisos de riesgo" })}</summary><ul className="mt-3 space-y-1 text-sm text-slate-300">{bet.riskWarnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul></details>}<div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">{bet.result === "pending" ? <><button onClick={() => settleBet(bet.id, "win")} className="sc-button-primary">{tr({ fi: "Merkitse voitoksi", en: "Mark as win", es: "Marcar victoria" })}</button><button onClick={() => settleBet(bet.id, "loss")} className="rounded-xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm font-black text-rose-100">{tr({ fi: "Merkitse tappioksi", en: "Mark as loss", es: "Marcar derrota" })}</button><button onClick={() => settleBet(bet.id, "push")} className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-black text-amber-100">{tr({ fi: "Merkitse palautukseksi", en: "Mark as push", es: "Marcar nulo" })}</button></> : <button onClick={() => settleBet(bet.id, "pending")} className="sc-button-secondary">{tr({ fi: "Avaa uudelleen", en: "Reopen", es: "Reabrir" })}</button>}<button onClick={() => removeBet(bet.id)} className="sc-button-ghost">{t("common.delete")}</button></div></article>;
-        })}</div>}
+        {filteredBets.length === 0 ? (
+          <EmptyState
+            title={tr({ fi: "Tällä suodattimella ei ole kohteita", en: "No picks match this filter", es: "No hay pronósticos con este filtro" })}
+            description={tr({ fi: "Lisää ensimmäinen kohde Kohteet- tai AI-agentti-sivulta.", en: "Add the first pick from Picks or the AI Agent.", es: "Añade el primer pronóstico desde Pronósticos o el agente IA." })}
+            actionHref="/betting"
+            actionLabel={tr({ fi: "Avaa kohteet", en: "Open picks", es: "Abrir pronósticos" })}
+          />
+        ) : (
+          <div className="space-y-4">
+            {filteredBets.map((bet) => {
+              const profit = calculateProfitLoss({ stake: bet.stake, odds: bet.odds, result: bet.result });
+              const closingOdds = Number(bet.closingOdds);
+              const closingOddsAvailable = Number.isFinite(closingOdds) && closingOdds > 1;
+              const clv = closingOddsAvailable ? calculateCLV({ odds: bet.odds, closingOdds }) : null;
+
+              return (
+                <article key={bet.id} className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 shadow-xl">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`rounded-full border px-3 py-1 text-xs font-black ${resultStyle(bet.result)}`}>{resultLabel(bet.result)}</span>
+                        <span className="text-xs text-slate-500">{bet.createdAt ? new Date(bet.createdAt).toLocaleString(locale) : tr({ fi: "Päivämäärä puuttuu", en: "Date missing", es: "Falta la fecha" })}</span>
+                      </div>
+                      <h2 className="mt-3 text-xl font-black tracking-tight text-white md:text-2xl">{bet.match}</h2>
+                      <div className="mt-2 text-slate-300"><strong>{bet.selection}</strong> @ {bet.odds}</div>
+                    </div>
+                    <MetricTile label={t("term.paperStake")} value={money(bet.stake)} tone="purple" />
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-2 gap-3 lg:grid-cols-5">
+                    <MetricTile label={t("term.edge")} value={formatPercent(bet.edge)} tone="green" />
+                    <MetricTile label={t("term.ev")} value={formatPercent(bet.ev)} tone="blue" />
+                    <label className="rounded-2xl border border-white/10 bg-black/20 p-4 text-xs font-bold uppercase tracking-[0.12em] text-slate-500">
+                      {tr({ fi: "Päätöskerroin", en: "Closing odds", es: "Cuota de cierre" })}
+                      <input value={bet.closingOdds || ""} onChange={(event) => changeClosingOdds(bet.id, event.target.value)} placeholder="1.95" inputMode="decimal" className="mt-3 w-full rounded-xl border border-white/10 bg-slate-900 px-3 py-2 text-base font-black normal-case tracking-normal text-white" />
+                    </label>
+                    <MetricTile label="CLV" value={clv === null ? "—" : formatPercent(clv)} tone={clv === null ? "default" : clv >= 0 ? "green" : "red"} />
+                    <MetricTile label={t("home.paperResult")} value={money(profit)} tone={profit >= 0 ? "green" : "red"} />
+                  </div>
+
+                  {bet.riskWarnings?.length > 0 ? (
+                    <details className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 p-4">
+                      <summary className="cursor-pointer font-bold text-amber-200">{tr({ fi: "Näytä riskivaroitukset", en: "Show risk warnings", es: "Mostrar avisos de riesgo" })}</summary>
+                      <ul className="mt-3 space-y-1 text-sm text-slate-300">{bet.riskWarnings.map((warning) => <li key={warning}>• {warning}</li>)}</ul>
+                    </details>
+                  ) : null}
+
+                  <MatchStoryCard bet={bet} tr={tr} locale={locale} />
+
+                  <div className="mt-5 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                    {bet.result === "pending" ? (
+                      <>
+                        <button onClick={() => settleBet(bet.id, "win")} className="sc-button-primary">{tr({ fi: "Merkitse voitoksi", en: "Mark as win", es: "Marcar victoria" })}</button>
+                        <button onClick={() => settleBet(bet.id, "loss")} className="rounded-xl border border-rose-300/30 bg-rose-300/10 px-4 py-3 text-sm font-black text-rose-100">{tr({ fi: "Merkitse tappioksi", en: "Mark as loss", es: "Marcar derrota" })}</button>
+                        <button onClick={() => settleBet(bet.id, "push")} className="rounded-xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm font-black text-amber-100">{tr({ fi: "Merkitse palautukseksi", en: "Mark as push", es: "Marcar nulo" })}</button>
+                      </>
+                    ) : <button onClick={() => settleBet(bet.id, "pending")} className="sc-button-secondary">{tr({ fi: "Avaa uudelleen", en: "Reopen", es: "Reabrir" })}</button>}
+                    <button onClick={() => removeBet(bet.id)} className="sc-button-ghost">{t("common.delete")}</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );
