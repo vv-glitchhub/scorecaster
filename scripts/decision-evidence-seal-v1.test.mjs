@@ -86,13 +86,24 @@ test("seal validation binds event, selection and product decision to the Agent c
   }));
   assert.equal(sanitizeDecisionEvidenceSealV1(seal, { eventId: "event-2" }), null);
   assert.equal(sanitizeDecisionEvidenceSealV1(seal, { selection: "Away" }), null);
-  assert.equal(sanitizeDecisionEvidenceSealV1(seal, { decision: "SKIP" }), null);
+  assert.ok(sanitizeDecisionEvidenceSealV1(seal, { decision: "WATCH" }));
+  assert.ok(sanitizeDecisionEvidenceSealV1(seal, { decision: "SKIP" }));
 
   const cautionSeal = buildDecisionEvidenceSealV1(buildDecisionEvidenceContractV1(pick({
     decision: "WATCH",
     productDecision: "CAUTION"
   })));
   assert.ok(sanitizeDecisionEvidenceSealV1(cautionSeal, { decision: "WATCH", selection: "Home" }));
+  assert.ok(sanitizeDecisionEvidenceSealV1(cautionSeal, { decision: "SKIP" }));
+  assert.equal(sanitizeDecisionEvidenceSealV1(cautionSeal, { decision: "PLAY" }), null);
+
+  const skipSeal = buildDecisionEvidenceSealV1(buildDecisionEvidenceContractV1(pick({
+    decision: "SKIP",
+    productDecision: "SKIP"
+  })));
+  assert.ok(sanitizeDecisionEvidenceSealV1(skipSeal, { decision: "SKIP" }));
+  assert.equal(sanitizeDecisionEvidenceSealV1(skipSeal, { decision: "WATCH" }), null);
+  assert.equal(sanitizeDecisionEvidenceSealV1(skipSeal, { decision: "PLAY" }), null);
 });
 
 test("Agent explanation sanitizer preserves only a valid structured seal", () => {
