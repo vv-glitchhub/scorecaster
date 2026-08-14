@@ -28,6 +28,51 @@ type FormRestShadow = {
   away?: { sampleSize?: number; restDays?: number | null; gamesLast7Days?: number };
 };
 
+const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/;
+
+function fingerprint(value: unknown) {
+  const normalized = String(value || "").toLowerCase();
+  return FINGERPRINT_PATTERN.test(normalized) ? normalized : null;
+}
+
+function shortFingerprint(value: unknown) {
+  const normalized = fingerprint(value);
+  return normalized ? `${normalized.slice(0, 8)}…${normalized.slice(-6)}` : "–";
+}
+
+function decisionEvidenceStatus(decision: AgentDecision) {
+  const seal = decision.decisionEvidenceSeal;
+  const contractFingerprint = fingerprint(seal?.contractFingerprint);
+  const sealFingerprint = fingerprint(seal?.sealFingerprint);
+  const boundaries = seal?.boundaries;
+  const verified = Boolean(
+    decision.explanationTicket
+    && seal?.version === "scorecaster-decision-evidence-seal-v1"
+    && contractFingerprint
+    && sealFingerprint
+    && decision.decisionEvidenceFingerprint === contractFingerprint
+    && boundaries?.productionProbabilityChangedByResearch === false
+    && boundaries?.productionDecisionChangedByResearch === false
+    && boundaries?.contextCanUpgrade === false
+    && boundaries?.automaticModelPromotionAllowed === false
+    && boundaries?.paperOnly === true
+    && boundaries?.realMoneyActionAvailable === false
+  );
+  return { verified, contractFingerprint, sealFingerprint };
+}
+
+function explanationEvidenceStatus(payload?: AgentExplanationPayload) {
+  const contractFingerprint = fingerprint(payload?.decisionEvidenceFingerprint);
+  const sealFingerprint = fingerprint(payload?.decisionEvidenceSealFingerprint);
+  return {
+    verified: payload?.decisionEvidenceMode === "verified-signed-structured-seal-v1"
+      && Boolean(contractFingerprint)
+      && Boolean(sealFingerprint),
+    contractFingerprint,
+    sealFingerprint
+  };
+}
+
 function decisionTone(decision: AgentDecision["decision"]) {
   if (decision === "PLAY") return null;
   if (decision === "WATCH") return styles.warningBadge;
@@ -107,12 +152,13 @@ export default function AgentScreen() {
   const improvement = modelLab?.challenger?.holdoutImprovement?.brier;
   const shadowImprovement = shadowLab?.challenger?.holdoutImprovement?.brier;
   const intelligenceCounts = useMemo(() => {
-    const counts = { verified: 0, partial: 0, marketOnly: 0 };
+    const counts = { verified: 0, partial: 0, marketOnly: 0, evidenceSealed: 0 };
     for (const decision of portfolio?.decisions || []) {
       const level = decision.sportsIntelligence?.readiness?.level;
       if (level === "verified") counts.verified += 1;
       else if (level === "partial") counts.partial += 1;
       else counts.marketOnly += 1;
+      if (decisionEvidenceStatus(decision).verified) counts.evidenceSealed += 1;
     }
     return counts;
   }, [portfolio]);
@@ -123,7 +169,7 @@ export default function AgentScreen() {
       {loading && <ActivityIndicator color="#34d399" size="large" />}
 
       {!loading && portfolio && <>
-        <Card><Text style={styles.cardTitle}>{tr({ fi: "AI-portfolio", en: "AI portfolio", es: "Cartera IA" })}</Text><Text style={styles.metric}>{money(portfolio.totalAllocated)}</Text><Text style={styles.muted}>PLAY {portfolio.counts.PLAY} · WATCH {portfolio.counts.WATCH} · SKIP {portfolio.counts.SKIP}</Text><Text style={styles.muted}>{tr({ fi: "Altistus", en: "Exposure", es: "Exposición" })} {percent(portfolio.exposurePercent)} · {tr({ fi: "kokonaiskatto", en: "total cap", es: "límite total" })} {money(portfolio.totalCap)} · {tr({ fi: "liigakatto", en: "league cap", es: "límite por liga" })} {money(portfolio.leagueCap)}</Text><Text style={styles.muted}>Sports Intelligence: {intelligenceCounts.verified} verified · {intelligenceCounts.partial} partial · {intelligenceCounts.marketOnly} market-only</Text>{(portfolio.warnings || []).map((warning) => <Text key={warning} style={styles.muted}>• {warning}</Text>)}</Card>
+        <Card><Text style={styles.cardTitle}>{tr({ fi: "AI-portfolio", en: "AI portfolio", es: "Cartera IA" })}</Text><Text style={styles.metric}>{money(portfolio.totalAllocated)}</Text><Text style={styles.muted}>PLAY {portfolio.counts.PLAY} · WATCH {portfolio.counts.WATCH} · SKIP {portfolio.counts.SKIP}</Text><Text style={styles.muted}>{tr({ fi: "Altistus", en: "Exposure", es: "Exposición" })} {percent(portfolio.exposurePercent)} · {tr({ fi: "kokonaiskatto", en: "total cap", es: "límite total" })} {money(portfolio.totalCap)} · {tr({ fi: "liigakatto", en: "league cap", es: "límite por liga" })} {money(portfolio.leagueCap)}</Text><Text style={styles.muted}>Sports Intelligence: {intelligenceCounts.verified} verified · {intelligenceCounts.partial} partial · {intelligenceCounts.marketOnly} market-only</Text><Text style={styles.muted}>Decision Evidence: {intelligenceCounts.evidenceSealed}/{portfolio.decisions.length} {tr({ fi: "palvelinsinetöity", en: "server-sealed", es: "sellado por el servidor" })}</Text>{(portfolio.warnings || []).map((warning) => <Text key={warning} style={styles.muted}>• {warning}</Text>)}</Card>
 
         <Card><Text style={styles.cardTitle}>Agent V11 Model Lab</Text><Text style={styles.value}>{modelLab?.status || "unavailable"}</Text><Text style={styles.muted}>{tr({ fi: "Otos", en: "Sample", es: "Muestra" })} {modelLab?.sampleSize || 0}/{modelLab?.minimumSamples || 120} · train {modelLab?.trainSize || 0} · holdout {modelLab?.holdoutSize || 0}</Text><Text style={styles.muted}>Holdout Brier {modelLab?.champion?.holdout ? optionalNumber(modelLab.champion.holdout.brierScore) : "–"} → {modelLab?.challenger?.holdout ? optionalNumber(modelLab.challenger.holdout.brierScore) : "–"} · Δ {optionalNumber(improvement)}</Text><Text style={styles.muted}>{tr({ fi: "Nykyinen markkinatodennäköisyys pysyy muuttumattomana.", en: "The current market probability remains unchanged.", es: "La probabilidad de mercado actual permanece sin cambios." })}</Text></Card>
 
@@ -138,14 +184,18 @@ export default function AgentScreen() {
           const readiness = intelligence?.readiness;
           const shadow = (decision as AgentDecision & { formRestShadow?: FormRestShadow }).formRestShadow;
           const shadowReady = shadow?.status === "ready";
+          const evidenceSeal = decisionEvidenceStatus(decision);
+          const explanationSeal = explanationEvidenceStatus(explanation);
           return <Card key={id}>
             <View style={styles.rowBetween}><View style={[styles.badge, decisionTone(decision.decision)]}><Text style={styles.badgeText}>{decision.decision}</Text></View><Text style={styles.muted}>{decision.leagueTitle || decision.league || decision.sportKey || "Sport"}</Text></View>
             <Text style={styles.cardTitle}>{decision.match || `${decision.homeTeam || ""} – ${decision.awayTeam || ""}`}</Text><Text style={styles.value}>{decision.selection || decision.label} · {Number(decision.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{decision.bookmaker || tr({ fi: "Paras saatavilla oleva hinta", en: "Best available price", es: "Mejor cuota disponible" })}</Text>
             <View style={styles.divider} /><Text style={styles.muted}>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(stress.probability)} · {tr({ fi: "stressialue", en: "stress range", es: "rango de estrés" })} {percent(stress.lower)}–{percent(stress.upper)}</Text><Text style={styles.muted}>{tr({ fi: "Perus-EV", en: "Base EV", es: "EV base" })} {percent(stress.baseEv)} · {tr({ fi: "alarajan EV", en: "downside EV", es: "EV a la baja" })} {percent(stress.downsideEv)} · robustness {percent(decision.robustnessScore)}</Text><Text style={styles.muted}>{tr({ fi: "Kerroinraja", en: "Odds floor", es: "Cuota mínima" })} {Number(price.minimumPlayOdds || 0).toFixed(2)} · {tr({ fi: "paperipanos", en: "paper stake", es: "importe simulado" })} {money(decision.suggestedStake)}</Text>
             <Text style={styles.value}>{tr({ fi: "Riippumaton evidenssi", en: "Independent evidence", es: "Evidencia independiente" })}: {readiness?.level || "market-only"}</Text><Text style={styles.muted}>{decision.evidenceGateReason || tr({ fi: "Intelligence ei muuttanut markkinatodennäköisyyttä.", en: "Intelligence did not change the market probability.", es: "La inteligencia no modificó la probabilidad de mercado." })}</Text>
+            <View style={[styles.badge, evidenceSeal.verified ? null : styles.warningBadge]}><Text style={styles.badgeText}>{evidenceSeal.verified ? tr({ fi: "EVIDENCE SINETÖITY", en: "EVIDENCE SEALED", es: "EVIDENCIA SELLADA" }) : tr({ fi: "SINETTI EI SAATAVILLA", en: "SEAL UNAVAILABLE", es: "SELLO NO DISPONIBLE" })}</Text></View>
+            {evidenceSeal.verified ? <Text style={styles.muted}>Contract {shortFingerprint(evidenceSeal.contractFingerprint)} · Seal {shortFingerprint(evidenceSeal.sealFingerprint)}</Text> : null}
             <Text style={styles.value}>{tr({ fi: "Vire & lepo", en: "Form & rest", es: "Forma y descanso" })}: {shadow?.status || "unavailable"}</Text><Text style={styles.muted}>{shadowReady ? `${tr({ fi: "markkina", en: "market", es: "mercado" })} ${percent(shadow?.marketProbability)} · shadow ${percent(shadow?.shadowProbability)} · Δ ${percent(shadow?.probabilityDelta)}` : tr({ fi: "Varjotodennäköisyyttä ei muodostettu tälle kohteelle.", en: "No shadow probability was produced for this pick.", es: "No se produjo probabilidad sombra para este pronóstico." })}</Text><Text style={styles.muted}>{tr({ fi: "Otokset koti/vieras", en: "Home/away samples", es: "Muestras local/visitante" })} {shadow?.home?.sampleSize || 0}/{shadow?.away?.sampleSize || 0} · {tr({ fi: "lepo", en: "rest", es: "descanso" })} {optionalNumber(shadow?.home?.restDays, 1)}/{optionalNumber(shadow?.away?.restDays, 1)} d · {tr({ fi: "ei päätöskäyttöä", en: "not used for decision", es: "no usado para decisión" })}</Text>
             <View style={styles.actionRow}><ActionButton label={busyId === id ? tr({ fi: "Odota…", en: "Wait…", es: "Espera…" }) : tr({ fi: "AI-selitys", en: "AI explanation", es: "Explicación IA" })} onPress={() => explain(decision, id)} disabled={busyId !== null} compact tone="secondary" /><ActionButton label={tr({ fi: "Paperiseurantaan", en: "Paper tracking", es: "Seguimiento simulado" })} onPress={() => save(decision, id)} disabled={busyId !== null || decision.decision !== "PLAY" || !decision.suggestedStake} compact /></View>
-            {explanation && <View style={{ gap: 8 }}><Text style={styles.cardTitle}>{explanation.enhanced && explanation.authoritative ? tr({ fi: "Valvottu AI-selitys", en: "Governed AI explanation", es: "Explicación IA controlada" }) : tr({ fi: "Deterministinen selitys", en: "Deterministic explanation", es: "Explicación determinista" })}</Text><Text style={styles.muted}>{explanation.explanation.summary}</Text><Text style={styles.value}>{tr({ fi: "Vahvin peruste", en: "Strongest reason", es: "Motivo principal" })}</Text><Text style={styles.muted}>{explanation.explanation.strongestReason}</Text><Text style={styles.value}>{tr({ fi: "Vastaväite", en: "Counterargument", es: "Contraargumento" })}</Text><Text style={styles.muted}>{explanation.explanation.counterpoint}</Text>{explanation.explanation.nextChecks.map((item) => <Text key={item} style={styles.muted}>• {item}</Text>)}<Text style={styles.muted}>{explanation.explanation.limitation}</Text></View>}
+            {explanation ? <View style={{ gap: 8 }}><Text style={styles.cardTitle}>{explanation.enhanced && explanation.authoritative ? tr({ fi: "Valvottu AI-selitys", en: "Governed AI explanation", es: "Explicación IA controlada" }) : tr({ fi: "Deterministinen selitys", en: "Deterministic explanation", es: "Explicación determinista" })}</Text><Text style={styles.value}>{explanationSeal.verified ? tr({ fi: "Decision Evidence varmennettu", en: "Decision Evidence verified", es: "Decision Evidence verificada" }) : tr({ fi: "Decision Evidence -sinetti ei saatavilla", en: "Decision Evidence seal unavailable", es: "Sello de Decision Evidence no disponible" })}</Text>{explanationSeal.verified ? <Text style={styles.muted}>Contract {shortFingerprint(explanationSeal.contractFingerprint)} · Seal {shortFingerprint(explanationSeal.sealFingerprint)}</Text> : null}<Text style={styles.muted}>{explanation.explanation.summary}</Text><Text style={styles.value}>{tr({ fi: "Vahvin peruste", en: "Strongest reason", es: "Motivo principal" })}</Text><Text style={styles.muted}>{explanation.explanation.strongestReason}</Text><Text style={styles.value}>{tr({ fi: "Vastaväite", en: "Counterargument", es: "Contraargumento" })}</Text><Text style={styles.muted}>{explanation.explanation.counterpoint}</Text>{explanation.explanation.nextChecks.map((item) => <Text key={item} style={styles.muted}>• {item}</Text>)}<Text style={styles.muted}>{explanation.explanation.limitation}</Text></View> : null}
           </Card>;
         })}
       </>}

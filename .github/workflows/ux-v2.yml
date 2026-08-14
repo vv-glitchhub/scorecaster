@@ -31,7 +31,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Decision Evidence Contract and Seal V1 tests
-        run: node --test scripts/decision-evidence-contract-v1.test.mjs scripts/decision-evidence-seal-v1.test.mjs
+        run: node --test scripts/decision-evidence-contract-v1.test.mjs scripts/decision-evidence-seal-v1.test.mjs scripts/agent-evidence-seal-ui.test.mjs
 
       - name: Match Intelligence regression tests
         run: node --test scripts/match-intelligence-v1.test.mjs scripts/match-intelligence-v2.test.mjs
