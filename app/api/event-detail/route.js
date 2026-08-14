@@ -50,13 +50,13 @@ export async function GET(request) {
     return Response.json({ ok: false, error: payload?.error || "Current analysis could not be loaded" }, { status: sourceResponse.status, headers: CACHE_HEADERS });
   }
 
-  const picks = Array.isArray(payload?.data) ? payload.data : [];
-  const eventPicks = picks.filter((pick) => pickEventId(pick) === eventId);
-  const detail = buildEventDetail(eventPicks, eventId, selection);
+  const detail = buildEventDetail(payload?.data || [], eventId, selection);
   if (!detail) {
     return Response.json({ ok: false, error: "The event is not present in the current verified analysis" }, { status: 404, headers: CACHE_HEADERS });
   }
 
+  const picks = Array.isArray(payload?.data) ? payload.data : [];
+  const eventPicks = picks.filter((pick) => pickEventId(pick) === eventId);
   const evidenceBySelection = eventPicks.map((pick) => ({
     selection: pickSelection(pick),
     contract: buildDecisionEvidenceContractV1(pick)
