@@ -59,6 +59,18 @@ test("signed decision tickets preserve the sanitized immutable contract", () => 
   assert.equal(verified.expiresAt, now + 600_000);
 });
 
+test("Decision Evidence boundary becomes part of the signed explanation evidence", () => {
+  const now = Date.parse("2026-08-14T06:45:00Z");
+  const boundary = "Decision Evidence fingerprint abcdef. Research-only analysis did not change the production probability or product decision. Context cannot upgrade the product decision.";
+  const ticket = createAgentDecisionTicket(decision({ evidence: ["Verified market evidence.", boundary] }), { key, now, ttlMs: 600_000 });
+  const verified = verifyAgentDecisionTicket(ticket, { key, now: now + 1_000 });
+
+  assert.equal(verified.ok, true);
+  assert.ok(verified.contract.evidence.includes(boundary));
+  assert.match(verified.contract.evidence.join(" "), /Research-only analysis did not change the production probability or product decision/);
+  assert.match(verified.contract.evidence.join(" "), /Context cannot upgrade the product decision/);
+});
+
 test("tampered, expired and wrong-key decision tickets fail closed", () => {
   const now = Date.parse("2026-07-17T03:30:00Z");
   const ticket = createAgentDecisionTicket(decision(), { key, now, ttlMs: 60_000 });
@@ -75,13 +87,21 @@ test("portfolio API is authenticated, rate-limited and signs only server-built d
   const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
   const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
   const governanceIndex = route.indexOf("applyModelLabSafety(portfolio.decisions");
-  const signingIndex = route.indexOf("createAgentDecisionTicket(decision)");
+  const evidenceIndex = route.indexOf("signedDecisionEvidence(decision)");
+  const signingIndex = route.indexOf("createAgentDecisionTicket(evidence.signedDecision)");
 
   assert.ok(authIndex >= 0);
   assert.ok(sourceIndex > authIndex);
   assert.ok(portfolioIndex > sourceIndex);
   assert.ok(governanceIndex > portfolioIndex);
-  assert.ok(signingIndex > governanceIndex);
+  assert.ok(evidenceIndex > governanceIndex);
+  assert.ok(signingIndex > evidenceIndex);
+  assert.match(route, /buildDecisionEvidenceContractV1\(decision\)/);
+  assert.match(route, /decisionEvidenceVersion:\s*evidence\.contract\.version/);
+  assert.match(route, /decisionEvidenceFingerprint:\s*evidence\.contract\.fingerprint/);
+  assert.match(route, /Research-only feature, ensemble, uncertainty and form\/rest analysis did not change the production probability or product decision/);
+  assert.match(route, /Context cannot upgrade the product decision/);
+  assert.match(route, /decisionEvidenceMode:\s*"signed-fingerprint-and-boundary-v1"/);
   assert.match(route, /bucket:\s*"agent_v11_portfolio"/);
   assert.match(route, /limit:\s*20/);
   assert.match(route, /windowSeconds:\s*300/);
