@@ -9,7 +9,7 @@ import {
 import { buildDecisionEvidenceContractV1 } from "../lib/decision-evidence-contract-v1.mjs";
 import {
   buildDecisionEvidenceSealV1,
-  decisionEvidenceBoundaryText
+  DECISION_EVIDENCE_SEAL_VERSION
 } from "../lib/decision-evidence-seal-v1.mjs";
 
 const key = "agent-ticket-test-key-that-is-longer-than-thirty-two-characters";
@@ -56,8 +56,7 @@ function sealedDecision(overrides = {}) {
   assert.ok(seal);
   return {
     ...source,
-    decisionEvidenceSeal: seal,
-    evidence: [...source.evidence, decisionEvidenceBoundaryText(seal)]
+    decisionEvidenceSeal: seal
   };
 }
 
@@ -100,8 +99,9 @@ test("structured Decision Evidence seal becomes part of the signed explanation c
     verified.contract.decisionEvidenceSeal.sealFingerprint,
     source.decisionEvidenceSeal.sealFingerprint
   );
+  assert.equal(verified.contract.decisionEvidenceSeal.version, DECISION_EVIDENCE_SEAL_VERSION);
   assert.match(verified.contract.evidence.join(" "), new RegExp(source.decisionEvidenceSeal.contractFingerprint));
-  assert.match(verified.contract.evidence.join(" "), /Context cannot upgrade the product decision/);
+  assert.match(verified.contract.evidence.join(" "), /Context cannot upgrade/);
 });
 
 test("tampered, expired and wrong-key decision tickets fail closed", () => {
@@ -131,7 +131,7 @@ test("portfolio API is authenticated, rate-limited and signs only server-built d
   assert.ok(signingIndex > evidenceIndex);
   assert.match(route, /buildDecisionEvidenceContractV1\(decision\)/);
   assert.match(route, /buildDecisionEvidenceSealV1\(contract\)/);
-  assert.match(route, /decisionEvidenceBoundaryText\(seal\)/);
+  assert.match(route, /decisionEvidenceSeal:\s*seal/);
   assert.match(route, /decisionEvidenceVersion:\s*evidence\.contract\.version/);
   assert.match(route, /decisionEvidenceFingerprint:\s*evidence\.contract\.fingerprint/);
   assert.match(route, /decisionEvidenceSeal:\s*evidence\.seal/);
