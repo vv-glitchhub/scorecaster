@@ -20,6 +20,10 @@ import {
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
 import { buildDecisionEvidenceContractV1 } from "../../../../lib/decision-evidence-contract-v1.mjs";
+import {
+  buildDecisionEvidenceSealV1,
+  decisionEvidenceBoundaryText
+} from "../../../../lib/decision-evidence-seal-v1.mjs";
 import { GET as getTopPicks } from "../../top-picks/route.js";
 import { SPORTS } from "../../../../lib/sports.js";
 
@@ -106,17 +110,18 @@ async function loadTopPicks(request, sports) {
 
 function signedDecisionEvidence(decision = {}) {
   const contract = buildDecisionEvidenceContractV1(decision);
-  const boundary = [
-    `Decision Evidence fingerprint ${contract.fingerprint}.`,
-    "Production decision inputs are market quality, price/value and the downgrade-only independent safety gate.",
-    "Research-only feature, ensemble, uncertainty and form/rest analysis did not change the production probability or product decision.",
-    "Context cannot upgrade the product decision."
-  ].join(" ");
+  const seal = buildDecisionEvidenceSealV1(contract);
+  if (!seal) return { contract, seal: null, signedDecision: null };
   return {
     contract,
+    seal,
     signedDecision: {
       ...decision,
-      evidence: [...(Array.isArray(decision.evidence) ? decision.evidence : []), boundary]
+      decisionEvidenceSeal: seal,
+      evidence: [
+        ...(Array.isArray(decision.evidence) ? decision.evidence : []),
+        decisionEvidenceBoundaryText(seal)
+      ]
     }
   };
 }
@@ -168,7 +173,10 @@ export async function POST(request) {
       ...decision,
       decisionEvidenceVersion: evidence.contract.version,
       decisionEvidenceFingerprint: evidence.contract.fingerprint,
-      explanationTicket: signingConfigured ? createAgentDecisionTicket(evidence.signedDecision) : null
+      decisionEvidenceSeal: evidence.seal,
+      explanationTicket: signingConfigured && evidence.signedDecision
+        ? createAgentDecisionTicket(evidence.signedDecision)
+        : null
     };
   });
 
@@ -184,7 +192,7 @@ export async function POST(request) {
       explanationMode: signingConfigured
         ? "signed-grounded-provider-or-fallback"
         : "deterministic-fallback-only",
-      decisionEvidenceMode: "signed-fingerprint-and-boundary-v1",
+      decisionEvidenceMode: "signed-structured-seal-v1",
       learningMode: "chronological-champion-challenger-shadow",
       warnings: [learningResult.warning].filter(Boolean),
       settings,
