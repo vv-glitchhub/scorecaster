@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 
-const CACHE_VERSION = "agent-v10-signed-grounded-4";
-const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
+const CACHE_VERSION = "agent-v10-evidence-seal-5";
+const CACHE_TTL_MS = 10 * 60 * 1000;
+const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/;
 
 function stableKey(pick = {}, language = "fi") {
   const source = JSON.stringify({
@@ -19,7 +20,9 @@ function stableKey(pick = {}, language = "fi") {
     downsideEv: pick.stressTest?.downsideEv,
     minimumPlayOdds: pick.priceGuard?.minimumPlayOdds,
     suggestedStake: pick.suggestedStake,
-    portfolioReason: pick.portfolioReason
+    portfolioReason: pick.portfolioReason,
+    decisionEvidenceFingerprint: pick.decisionEvidenceFingerprint,
+    decisionEvidenceSealFingerprint: pick.decisionEvidenceSeal?.sealFingerprint
   });
 
   let hash = 2166136261;
@@ -35,7 +38,9 @@ function readCache(key) {
     const raw = window.localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
-    if (!parsed?.savedAt || Date.now() - parsed.savedAt > CACHE_TTL_MS) {
+    const savedAt = Number(parsed?.savedAt);
+    const expiresAt = Number(parsed?.expiresAt) || savedAt + CACHE_TTL_MS;
+    if (!Number.isFinite(savedAt) || !Number.isFinite(expiresAt) || Date.now() >= expiresAt) {
       window.localStorage.removeItem(key);
       return null;
     }
@@ -47,7 +52,13 @@ function readCache(key) {
 
 function writeCache(key, payload) {
   try {
-    window.localStorage.setItem(key, JSON.stringify({ savedAt: Date.now(), payload }));
+    const savedAt = Date.now();
+    const ticketExpiresAt = Date.parse(payload?.ticketExpiresAt || "");
+    const expiresAt = Number.isFinite(ticketExpiresAt)
+      ? Math.min(savedAt + CACHE_TTL_MS, ticketExpiresAt)
+      : savedAt + CACHE_TTL_MS;
+    if (expiresAt <= savedAt) return;
+    window.localStorage.setItem(key, JSON.stringify({ savedAt, expiresAt, payload }));
   } catch {
     // Optional cache must never block the Agent UI.
   }
@@ -83,9 +94,40 @@ async function resolveServerDecision(pick) {
   return authoritative?.explanationTicket ? authoritative : pick;
 }
 
-function ExplanationBody({ payload, tr }) {
+function validFingerprint(value) {
+  const normalized = String(value || "").toLowerCase();
+  return FINGERPRINT_PATTERN.test(normalized) ? normalized : null;
+}
+
+function shortFingerprint(value) {
+  const fingerprint = validFingerprint(value);
+  return fingerprint ? `${fingerprint.slice(0, 10)}…${fingerprint.slice(-6)}` : "–";
+}
+
+function evidenceSealStatus(payload) {
+  const contractFingerprint = validFingerprint(payload?.decisionEvidenceFingerprint);
+  const sealFingerprint = validFingerprint(payload?.decisionEvidenceSealFingerprint);
+  return {
+    verified: payload?.decisionEvidenceMode === "verified-signed-structured-seal-v1"
+      && Boolean(contractFingerprint)
+      && Boolean(sealFingerprint),
+    contractFingerprint,
+    sealFingerprint
+  };
+}
+
+function expiryLabel(value, locale) {
+  const timestamp = Date.parse(value || "");
+  return Number.isFinite(timestamp)
+    ? new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(timestamp)
+    : null;
+}
+
+function ExplanationBody({ payload, tr, locale }) {
   const explanation = payload?.explanation;
   if (!explanation) return null;
+  const evidenceSeal = evidenceSealStatus(payload);
+  const expiresAt = expiryLabel(payload?.ticketExpiresAt, locale);
 
   return (
     <div className="mt-4 space-y-3 rounded-xl border border-fuchsia-400/20 bg-fuchsia-400/10 p-4">
@@ -96,6 +138,24 @@ function ExplanationBody({ payload, tr }) {
             ? tr({ fi: "Kielimalli · palvelimen päätös · validoitu", en: "Language model · server decision · validated", es: "Modelo de lenguaje · decisión del servidor · validada" })
             : tr({ fi: "Deterministinen varaselitys", en: "Deterministic fallback", es: "Explicación determinista alternativa" })}
         </div>
+      </div>
+      <div
+        className={`rounded-lg border p-3 text-xs ${evidenceSeal.verified ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-100" : "border-amber-300/20 bg-amber-300/10 text-amber-100"}`}
+        data-agent-evidence-seal={evidenceSeal.verified ? "verified" : "unavailable"}
+      >
+        <div className="font-black">
+          {evidenceSeal.verified
+            ? tr({ fi: "Decision Evidence varmennettu", en: "Decision Evidence verified", es: "Decision Evidence verificada" })
+            : tr({ fi: "Rakenteista Decision Evidence -sinettiä ei ollut saatavilla", en: "Structured Decision Evidence seal was unavailable", es: "El sello estructurado de Decision Evidence no estaba disponible" })}
+        </div>
+        {evidenceSeal.verified ? (
+          <div className="mt-1 font-mono text-[11px]" title={evidenceSeal.contractFingerprint || ""}>
+            {tr({ fi: "Sopimus", en: "Contract", es: "Contrato" })} {shortFingerprint(evidenceSeal.contractFingerprint)}
+            {" · "}
+            {tr({ fi: "Sinetti", en: "Seal", es: "Sello" })} {shortFingerprint(evidenceSeal.sealFingerprint)}
+            {expiresAt ? ` · ${tr({ fi: "voimassa", en: "valid until", es: "válido hasta" })} ${expiresAt}` : ""}
+          </div>
+        ) : null}
       </div>
       <p className="text-sm leading-6 text-slate-100">{explanation.summary}</p>
       <div className="grid gap-3 lg:grid-cols-2">
@@ -121,7 +181,7 @@ function ExplanationBody({ payload, tr }) {
 }
 
 export default function AgentExplanation({ pick }) {
-  const { language, tr } = useLanguage();
+  const { language, tr, locale } = useLanguage();
   const cacheKey = useMemo(() => stableKey(pick, language), [pick, language]);
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -175,7 +235,7 @@ export default function AgentExplanation({ pick }) {
         <span className="text-xs text-slate-500">{tr({ fi: "Palvelin vahvistaa saman päätöksen ennen kielimallia. Epäonnistuessa käytetään determinististä varaselitystä.", en: "The server verifies the same decision before the language model. On failure, a deterministic fallback is used.", es: "El servidor verifica la misma decisión antes del modelo de lenguaje. Si falla, se usa una explicación determinista." })}</span>
       </div>
       {error && <div className="mt-3 rounded-lg border border-red-400/20 bg-red-400/10 p-3 text-sm text-red-200">{error}</div>}
-      <ExplanationBody payload={payload} tr={tr} />
+      <ExplanationBody payload={payload} tr={tr} locale={locale} />
     </div>
   );
 }
