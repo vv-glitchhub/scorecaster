@@ -124,6 +124,16 @@ test("Agent explanation sanitizer preserves only a valid structured seal", () =>
   assert.equal(contract.evidence[0], decisionEvidenceBoundaryText(seal));
   assert.ok(contract.evidence[0].length <= 220);
 
+  const downgraded = sanitizeAgentExplanationInput({
+    ...pick(),
+    decision: "WATCH",
+    productDecision: "PLAY",
+    decisionEvidenceSeal: seal
+  });
+  assert.ok(downgraded);
+  assert.equal(downgraded.decision, "WATCH");
+  assert.equal(downgraded.decisionEvidenceSeal.productDecision, "PLAY");
+
   const otherSelectionSeal = buildDecisionEvidenceSealV1(buildDecisionEvidenceContractV1(pick({
     selection: "Away"
   })));
