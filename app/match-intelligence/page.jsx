@@ -22,5 +22,18 @@ export default async function MatchIntelligencePage({ searchParams }) {
     );
   }
 
-  return <MatchIntelligenceClient eventId={eventId} sport={sport} />;
+  return (
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Link
+          href={`/decision-evidence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}`}
+          className="sc-button-secondary inline-flex"
+          data-decision-evidence-link="true"
+        >
+          Decision Evidence
+        </Link>
+      </div>
+      <MatchIntelligenceClient eventId={eventId} sport={sport} />
+    </div>
+  );
 }
