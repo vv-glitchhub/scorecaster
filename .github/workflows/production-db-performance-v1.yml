@@ -3,7 +3,7 @@ name: Scorecaster Production DB Performance V1
 on:
   pull_request:
     paths:
-      - "supabase/scorecaster_production_performance_v1.sql"
+      - "scripts/apply-production-db-performance-v1.sql"
       - "scripts/production-db-performance-v1.test.mjs"
       - ".github/workflows/production-db-performance-v1.yml"
   workflow_dispatch:
