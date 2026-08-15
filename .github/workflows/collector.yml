@@ -9,13 +9,13 @@ permissions:
   contents: read
 
 concurrency:
-  group: scorecaster-collector
+  group: scorecaster-data-pipeline
   cancel-in-progress: false
 
 jobs:
   collect:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 12
     env:
       SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -29,15 +29,91 @@ jobs:
 
       - name: Collect rights-approved sports data
         run: |
-          curl --fail --silent --show-error \
+          status=$(curl --silent --show-error \
             --retry 2 \
             --max-time 150 \
+            -o /tmp/collector.json \
+            -w "%{http_code}" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$SCORECASTER_URL/api/internal/collector"
+            "$SCORECASTER_URL/api/internal/collector")
+          if [ "$status" != "200" ]; then
+            echo "Collector failed with HTTP $status"
+            exit 1
+          fi
+          if [ "$(jq -r '.ok // false' /tmp/collector.json)" != "true" ]; then
+            echo "Collector returned ok=false"
+            exit 1
+          fi
+          echo "Collector completed without exposing the worker payload."
+
+      - name: Check Unified Data freshness
+        id: freshness
+        shell: bash
+        run: |
+          status=$(curl --silent --show-error \
+            --retry 1 \
+            --max-time 30 \
+            -o /tmp/freshness.json \
+            -w "%{http_code}" \
+            "$SCORECASTER_URL/api/unified-data/freshness" || true)
+          required=true
+          if [ "$status" = "200" ] && [ -s /tmp/freshness.json ]; then
+            ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
+            if [ "$ok" = "true" ]; then
+              required=$(jq -r '.protectedWorkerRequired // true' /tmp/freshness.json 2>/dev/null || echo true)
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          if [ "$required" = "true" ]; then
+            echo "Unified Data capture is stale or freshness could not be verified."
+          else
+            echo "Unified Data capture is already fresh; provider acquisition will be skipped."
+          fi
+
+      - name: Capture fresh Unified Data after collection
+        if: steps.freshness.outputs.required == 'true'
+        run: |
+          status=$(curl --silent --show-error \
+            --retry 2 \
+            --max-time 150 \
+            -o /tmp/unified.json \
+            -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/unified-data")
+          if [ "$status" != "200" ]; then
+            echo "Unified Data worker failed with HTTP $status"
+            exit 1
+          fi
+          if [ "$(jq -r '.ok // false' /tmp/unified.json)" != "true" ]; then
+            echo "Unified Data worker returned ok=false"
+            exit 1
+          fi
+          echo "Unified Data captured fresh post-collector evidence."
+
+      - name: Capture normalized multi-sport analytics
+        if: steps.freshness.outputs.required == 'true'
+        run: |
+          status=$(curl --silent --show-error \
+            --retry 2 \
+            --max-time 150 \
+            -o /tmp/sports-analytics.json \
+            -w "%{http_code}" \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/sports-analytics")
+          if [ "$status" != "200" ]; then
+            echo "Sports Analytics worker failed with HTTP $status"
+            exit 1
+          fi
+          if [ "$(jq -r '.ok // false' /tmp/sports-analytics.json)" != "true" ]; then
+            echo "Sports Analytics worker returned ok=false"
+            exit 1
+          fi
+          echo "Sports Analytics completed without exposing the worker payload."
 
       - name: Verify collector health
         run: |
           curl --fail --silent --show-error \
             --retry 2 \
             --max-time 60 \
-            "$SCORECASTER_URL/api/collector/health"
+            "$SCORECASTER_URL/api/collector/health" >/dev/null
+          echo "Collector health check passed."
