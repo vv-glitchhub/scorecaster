@@ -1,0 +1,31 @@
+name: Scorecaster Form Rest Null Semantics V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/form-rest-shadow-model.mjs"
+      - "lib/unified-optional-numeric-sanitizer-v1.mjs"
+      - "lib/unified-lineup-provenance-v1.mjs"
+      - "scripts/form-rest-null-semantics-v1.test.mjs"
+      - "scripts/unified-null-semantics-v1.test.mjs"
+      - ".github/workflows/form-rest-null-semantics-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Missing numeric null semantics regression
+        run: node --test scripts/form-rest-null-semantics-v1.test.mjs scripts/unified-null-semantics-v1.test.mjs scripts/form-rest-shadow.test.mjs scripts/lineup-starter-provenance-v1.test.mjs
