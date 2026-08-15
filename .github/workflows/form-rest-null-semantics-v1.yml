@@ -4,7 +4,10 @@ on:
   pull_request:
     paths:
       - "lib/form-rest-shadow-model.mjs"
+      - "lib/unified-optional-numeric-sanitizer-v1.mjs"
+      - "lib/unified-lineup-provenance-v1.mjs"
       - "scripts/form-rest-null-semantics-v1.test.mjs"
+      - "scripts/unified-null-semantics-v1.test.mjs"
       - ".github/workflows/form-rest-null-semantics-v1.yml"
   workflow_dispatch:
 
@@ -25,4 +28,4 @@ jobs:
           node-version: 22
 
       - name: Missing numeric null semantics regression
-        run: node --test scripts/form-rest-null-semantics-v1.test.mjs scripts/form-rest-shadow.test.mjs
+        run: node --test scripts/form-rest-null-semantics-v1.test.mjs scripts/unified-null-semantics-v1.test.mjs scripts/form-rest-shadow.test.mjs scripts/lineup-starter-provenance-v1.test.mjs
