@@ -2,10 +2,14 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 
-const migrationUrl = new URL("../supabase/scorecaster_production_performance_v1.sql", import.meta.url);
+const migrationUrl = new URL("./apply-production-db-performance-v1.sql", import.meta.url);
 
 async function migration() {
   return readFile(migrationUrl, "utf8");
+}
+
+function executableSql(sql) {
+  return String(sql || "").replace(/^\s*--.*$/gm, "");
 }
 
 const FK_INDEXES = [
@@ -28,7 +32,7 @@ const FK_INDEXES = [
   ["unified_data_closing_records", "opening_snapshot_id"]
 ];
 
-test("production performance migration covers every advisor-reported foreign key", async () => {
+test("production performance patch covers every advisor-reported foreign key", async () => {
   const sql = await migration();
   const indexStatements = sql.match(/create index if not exists/gi) || [];
   assert.equal(indexStatements.length, FK_INDEXES.length);
@@ -39,7 +43,7 @@ test("production performance migration covers every advisor-reported foreign key
 });
 
 test("RLS optimization preserves ownership while eliminating per-row auth.uid evaluation", async () => {
-  const sql = await migration();
+  const sql = executableSql(await migration());
   const authCalls = sql.match(/auth\.uid\(\)/g) || [];
   const initPlanCalls = sql.match(/\(select auth\.uid\(\)\)/g) || [];
   assert.ok(authCalls.length > 30);
@@ -67,7 +71,7 @@ test("legacy duplicate bets policies are removed and the authenticated ownership
 });
 
 test("user_settings is narrowed to authenticated without broadening database privileges", async () => {
-  const sql = await migration();
+  const sql = executableSql(await migration());
   for (const name of [
     "Users can read own settings",
     "Users can insert own settings",
@@ -82,9 +86,10 @@ test("user_settings is narrowed to authenticated without broadening database pri
   assert.doesNotMatch(sql, /security\s+definer/i);
 });
 
-test("migration is performance-only and keeps the paper boundary explicit", async () => {
-  const sql = await migration();
-  assert.match(sql, /no real-money execution capability is introduced/i);
+test("patch is performance-only and keeps the paper boundary explicit", async () => {
+  const sql = executableSql(await migration());
+  const documented = await migration();
+  assert.match(documented, /no real-money execution capability is introduced/i);
   assert.doesNotMatch(sql, /bookmaker.*login/i);
   assert.doesNotMatch(sql, /deposit|withdrawal|cash out/i);
   assert.doesNotMatch(sql, /drop\s+table|truncate\s+table|delete\s+from/i);
