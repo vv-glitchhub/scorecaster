@@ -90,7 +90,7 @@ test("missing form and rest numerics cannot become available zero-valued Unified
   const form = factor(ledger, "recent-form");
   const rest = factor(ledger, "rest-and-congestion");
 
-  assert.equal(form.status, "not-verified");
+  assert.equal(form.status, "insufficient-sample");
   assert.equal(form.usedByAi, false);
   assert.equal(form.confidence, 0);
   assert.equal(rest.status, "missing");
