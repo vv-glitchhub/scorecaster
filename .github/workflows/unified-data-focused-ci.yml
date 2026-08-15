@@ -8,6 +8,7 @@ on:
       - "lib/unified-sports-data-service.js"
       - "lib/unified-lineup-provenance-v1.mjs"
       - "lib/form-depth-provenance-v1.mjs"
+      - "lib/rest-history-freshness-guard-v1.mjs"
       - "lib/unified-capture-*.mjs"
       - "lib/secondary-odds-provider-chain-v1.mjs"
       - "lib/sportsdata-fetcher.js"
@@ -30,6 +31,7 @@ on:
       - "scripts/team-form-history-backfill-v1.test.mjs"
       - "scripts/provider-blocker-diagnostics-v1.test.mjs"
       - "scripts/form-depth-provenance-v1.test.mjs"
+      - "scripts/rest-history-freshness-guard-v1.test.mjs"
       - "scripts/form-rest-shadow.test.mjs"
       - "scripts/sports-intelligence-v1.test.mjs"
       - ".github/workflows/unified-data-focused-ci.yml"
@@ -66,12 +68,13 @@ jobs:
             scripts/team-form-history-backfill-v1.test.mjs \
             scripts/provider-blocker-diagnostics-v1.test.mjs \
             scripts/form-depth-provenance-v1.test.mjs \
+            scripts/rest-history-freshness-guard-v1.test.mjs \
             scripts/form-rest-shadow.test.mjs \
             scripts/sports-intelligence-v1.test.mjs \
             2>&1 | tee /tmp/unified-data-v1.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            detail="$(tail -n 52 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
-            echo "::error file=scripts/form-depth-provenance-v1.test.mjs,title=Unified Sports Data regression::${detail}"
+            detail="$(tail -n 56 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/rest-history-freshness-guard-v1.test.mjs,title=Unified Sports Data regression::${detail}"
           fi
           exit "$status"
