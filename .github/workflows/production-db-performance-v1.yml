@@ -1,0 +1,28 @@
+name: Scorecaster Production DB Performance V1
+
+on:
+  pull_request:
+    paths:
+      - "scripts/apply-production-db-performance-v1.sql"
+      - "scripts/production-db-performance-v1.test.mjs"
+      - ".github/workflows/production-db-performance-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Production DB performance regression
+        run: node --test scripts/production-db-performance-v1.test.mjs
