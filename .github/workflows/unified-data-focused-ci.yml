@@ -29,6 +29,7 @@ on:
       - "scripts/wnba-provider-endpoints-v1.test.mjs"
       - "scripts/lineup-starter-provenance-v1.test.mjs"
       - "scripts/team-form-history-backfill-v1.test.mjs"
+      - "scripts/thesportsdb-capability-truth-v1.test.mjs"
       - "scripts/provider-blocker-diagnostics-v1.test.mjs"
       - "scripts/form-depth-provenance-v1.test.mjs"
       - "scripts/rest-history-freshness-guard-v1.test.mjs"
@@ -66,6 +67,7 @@ jobs:
             scripts/wnba-provider-endpoints-v1.test.mjs \
             scripts/lineup-starter-provenance-v1.test.mjs \
             scripts/team-form-history-backfill-v1.test.mjs \
+            scripts/thesportsdb-capability-truth-v1.test.mjs \
             scripts/provider-blocker-diagnostics-v1.test.mjs \
             scripts/form-depth-provenance-v1.test.mjs \
             scripts/rest-history-freshness-guard-v1.test.mjs \
@@ -74,7 +76,7 @@ jobs:
             2>&1 | tee /tmp/unified-data-v1.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            detail="$(tail -n 56 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
-            echo "::error file=scripts/rest-history-freshness-guard-v1.test.mjs,title=Unified Sports Data regression::${detail}"
+            detail="$(tail -n 60 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/thesportsdb-capability-truth-v1.test.mjs,title=Unified Sports Data regression::${detail}"
           fi
           exit "$status"
