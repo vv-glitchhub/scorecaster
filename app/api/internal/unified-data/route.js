@@ -16,6 +16,7 @@ const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff"
 };
+const MAX_FRESH_SKIP_MINUTES = 20;
 
 function response(payload, status = 200) {
   return Response.json(payload, { status, headers: HEADERS });
@@ -29,6 +30,42 @@ function authorized(request) {
 function migrationMissing(error) {
   const text = String(error?.message || error || "").toLowerCase();
   return text.includes("unified_data_") && (text.includes("does not exist") || text.includes("schema cache"));
+}
+
+function requestedFreshSkipMinutes(request) {
+  let parsed = 0;
+  try {
+    const raw = new URL(request.url).searchParams.get("skipIfFreshMinutes");
+    if (raw === null || raw === "") return 0;
+    parsed = Number(raw);
+  } catch {
+    return 0;
+  }
+  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
+  return Math.min(MAX_FRESH_SKIP_MINUTES, Math.max(1, Math.trunc(parsed)));
+}
+
+async function latestCaptureFreshness(admin, now, minutes) {
+  if (!minutes) return null;
+  const { data, error } = await admin
+    .from("unified_data_snapshots")
+    .select("captured_at")
+    .order("captured_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  const latestCapturedAt = data?.captured_at || null;
+  const latestMs = Date.parse(String(latestCapturedAt || ""));
+  if (!Number.isFinite(latestMs)) {
+    return { fresh: false, latestCapturedAt: null, ageMinutes: null, thresholdMinutes: minutes };
+  }
+  const ageMinutes = Math.max(0, (now - latestMs) / 60_000);
+  return {
+    fresh: ageMinutes < minutes,
+    latestCapturedAt,
+    ageMinutes: Number(ageMinutes.toFixed(2)),
+    thresholdMinutes: minutes
+  };
 }
 
 async function upsertSnapshots(admin, picks, capturedAt) {
@@ -145,6 +182,22 @@ export async function GET(request) {
 
   try {
     const now = Date.now();
+    const freshSkipMinutes = requestedFreshSkipMinutes(request);
+    const freshness = await latestCaptureFreshness(admin, now, freshSkipMinutes);
+    if (freshness?.fresh) {
+      return response({
+        ok: true,
+        version: "unified-sports-data-worker-v4",
+        skipped: true,
+        reason: "fresh-capture",
+        latestCapturedAt: freshness.latestCapturedAt,
+        ageMinutes: freshness.ageMinutes,
+        freshnessThresholdMinutes: freshness.thresholdMinutes,
+        providerRequestsMade: false,
+        paperOnly: true
+      });
+    }
+
     const capturedAt = new Date(now).toISOString();
     const origin = new URL(request.url).origin;
     const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
@@ -167,8 +220,10 @@ export async function GET(request) {
 
     return response({
       ok: true,
-      version: "unified-sports-data-worker-v3",
+      version: "unified-sports-data-worker-v4",
+      skipped: false,
       capturedAt,
+      freshnessThresholdMinutes: freshSkipMinutes || 0,
       selections: capture.stored.length,
       providerObservations: capture.observationCount,
       secondaryPricingCapture: {
