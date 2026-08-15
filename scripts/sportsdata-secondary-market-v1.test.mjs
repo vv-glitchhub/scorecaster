@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   americanToDecimal,
   normalizeSportsDataWnbaOdds,
+  sportsDataWnbaOddsDate,
   sportsDataWnbaOddsPath,
   SPORTSDATA_ODDS_POLICY
 } from "../lib/sportsdata-odds-provider.js";
@@ -88,8 +89,11 @@ test("SportsData WNBA adapter fails closed on ambiguous or wrong matchup", () =>
   assert.equal(wrong.mode, "event_not_found");
 });
 
-test("SportsData odds path uses the event day in US Eastern time", () => {
-  assert.equal(sportsDataWnbaOddsPath(match), "/v3/wnba/odds/json/GameOddsByDate/2026-08-14");
+test("SportsData WNBA odds path uses scores API and SportsData Eastern date format", () => {
+  assert.equal(sportsDataWnbaOddsDate(match.commenceTime), "2026-AUG-14");
+  assert.equal(sportsDataWnbaOddsPath(match), "/v3/wnba/scores/JSON/GameOddsByDate/2026-AUG-14");
+  assert.equal(SPORTSDATA_ODDS_POLICY.endpointFamily, "wnba-v3-scores-pregame-odds");
+  assert.equal(SPORTSDATA_ODDS_POLICY.dateFormat, "YYYY-MMM-DD-eastern");
 });
 
 test("WNBA provider chain falls back after SportsGameOdds quota block without bypassing quota", async () => {

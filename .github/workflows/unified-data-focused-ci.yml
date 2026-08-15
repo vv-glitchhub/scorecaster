@@ -11,12 +11,14 @@ on:
       - "lib/sportsdata-fetcher.js"
       - "lib/sportsdata-odds-provider.js"
       - "lib/sportsdata-soccer-lineup-provider.js"
+      - "lib/injury-fetcher.js"
       - "lib/lineup-fetcher.js"
       - "lib/sports-intelligence-v1.mjs"
       - "lib/sports-intelligence-service.js"
       - "app/api/internal/unified-data/route.js"
       - "scripts/unified-sports-data-v1.test.mjs"
       - "scripts/sportsdata-secondary-market-v1.test.mjs"
+      - "scripts/wnba-provider-endpoints-v1.test.mjs"
       - "scripts/sports-intelligence-v1.test.mjs"
       - ".github/workflows/unified-data-focused-ci.yml"
   workflow_dispatch:
@@ -47,11 +49,12 @@ jobs:
           node --test \
             scripts/unified-sports-data-v1.test.mjs \
             scripts/sportsdata-secondary-market-v1.test.mjs \
+            scripts/wnba-provider-endpoints-v1.test.mjs \
             scripts/sports-intelligence-v1.test.mjs \
             2>&1 | tee /tmp/unified-data-v1.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            detail="$(tail -n 32 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
-            echo "::error file=scripts/sports-intelligence-v1.test.mjs,title=Unified Sports Data regression::${detail}"
+            detail="$(tail -n 36 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/wnba-provider-endpoints-v1.test.mjs,title=Unified Sports Data regression::${detail}"
           fi
           exit "$status"
