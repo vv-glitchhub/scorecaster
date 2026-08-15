@@ -1,0 +1,31 @@
+name: Scorecaster Freshness-Aware Worker Chain V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/unified-capture-freshness-v1.mjs"
+      - "app/api/internal/unified-data/route.js"
+      - ".github/workflows/collector.yml"
+      - ".github/workflows/unified-data-capture.yml"
+      - "scripts/freshness-aware-worker-chain-v1.test.mjs"
+      - ".github/workflows/freshness-aware-worker-chain-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Freshness-aware worker chain regression
+        run: node --test scripts/freshness-aware-worker-chain-v1.test.mjs
