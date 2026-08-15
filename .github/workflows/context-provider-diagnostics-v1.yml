@@ -1,0 +1,31 @@
+name: Scorecaster Context Provider Diagnostics V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/context-provider-diagnostics-v1.mjs"
+      - "lib/provider-readiness-input-v1.mjs"
+      - "app/production-evidence/ContextProviderDiagnosticsPanel.jsx"
+      - "app/production-evidence/ProviderDiagnosticsClient.jsx"
+      - "scripts/context-provider-diagnostics-v1.test.mjs"
+      - ".github/workflows/context-provider-diagnostics-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Context provider diagnostics regression
+        run: node --test scripts/context-provider-diagnostics-v1.test.mjs
