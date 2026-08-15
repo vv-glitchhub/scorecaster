@@ -9,6 +9,7 @@ import {
 } from "../lib/injury-fetcher.js";
 import {
   fetchSportsDataOddsForMatch,
+  resetSportsDataOddsCacheForTests,
   sportsDataWnbaOddsPath,
   SPORTSDATA_ODDS_POLICY
 } from "../lib/sportsdata-odds-provider.js";
@@ -142,6 +143,7 @@ test("WNBA injury subscription failure stays fail-closed", async () => {
 });
 
 test("WNBA secondary odds fetch calls current scores GameOddsByDate endpoint and normalizes live prices", async () => {
+  resetSportsDataOddsCacheForTests();
   let requestedPath = null;
   const result = await fetchSportsDataOddsForMatch(WNBA_MATCH, {
     get: async (path) => {
@@ -149,6 +151,7 @@ test("WNBA secondary odds fetch calls current scores GameOddsByDate endpoint and
       return { ok: true, source: "sportsdata", mode: "live", status: 200, path, data: GAME_ODDS };
     }
   });
+  resetSportsDataOddsCacheForTests();
 
   assert.equal(requestedPath, "/v3/wnba/scores/JSON/GameOddsByDate/2026-AUG-14");
   assert.equal(requestedPath, sportsDataWnbaOddsPath(WNBA_MATCH));
@@ -163,6 +166,7 @@ test("WNBA secondary odds fetch calls current scores GameOddsByDate endpoint and
 });
 
 test("WNBA secondary odds subscription failure never becomes live", async () => {
+  resetSportsDataOddsCacheForTests();
   const result = await fetchSportsDataOddsForMatch(WNBA_MATCH, {
     get: async (path) => ({
       ok: false,
@@ -173,6 +177,8 @@ test("WNBA secondary odds subscription failure never becomes live", async () => 
       data: []
     })
   });
+  resetSportsDataOddsCacheForTests();
+
   assert.equal(result.ok, false);
   assert.equal(result.mode, "subscription_unavailable");
   assert.equal(result.subscriptionUnavailable, true);
