@@ -14,13 +14,19 @@ on:
       - "lib/sportsdata-soccer-lineup-provider.js"
       - "lib/injury-fetcher.js"
       - "lib/lineup-fetcher.js"
+      - "lib/results-provider.js"
+      - "lib/thesportsdb-team-history-v1.mjs"
+      - "lib/form-rest-shadow-model.mjs"
       - "lib/sports-intelligence-v1.mjs"
       - "lib/sports-intelligence-service.js"
+      - "lib/agent-intelligence-loader.js"
       - "app/api/internal/unified-data/route.js"
       - "scripts/unified-sports-data-v1.test.mjs"
       - "scripts/sportsdata-secondary-market-v1.test.mjs"
       - "scripts/wnba-provider-endpoints-v1.test.mjs"
       - "scripts/lineup-starter-provenance-v1.test.mjs"
+      - "scripts/team-form-history-backfill-v1.test.mjs"
+      - "scripts/form-rest-shadow.test.mjs"
       - "scripts/sports-intelligence-v1.test.mjs"
       - ".github/workflows/unified-data-focused-ci.yml"
   workflow_dispatch:
@@ -53,11 +59,13 @@ jobs:
             scripts/sportsdata-secondary-market-v1.test.mjs \
             scripts/wnba-provider-endpoints-v1.test.mjs \
             scripts/lineup-starter-provenance-v1.test.mjs \
+            scripts/team-form-history-backfill-v1.test.mjs \
+            scripts/form-rest-shadow.test.mjs \
             scripts/sports-intelligence-v1.test.mjs \
             2>&1 | tee /tmp/unified-data-v1.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            detail="$(tail -n 40 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
-            echo "::error file=scripts/lineup-starter-provenance-v1.test.mjs,title=Unified Sports Data regression::${detail}"
+            detail="$(tail -n 44 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/team-form-history-backfill-v1.test.mjs,title=Unified Sports Data regression::${detail}"
           fi
           exit "$status"
