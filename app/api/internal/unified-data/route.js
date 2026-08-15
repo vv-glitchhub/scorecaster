@@ -2,6 +2,10 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
+  evaluateUnifiedCaptureFreshness,
+  normalizeFreshSkipMinutes
+} from "../../../../lib/unified-capture-freshness-v1.mjs";
+import {
   buildClosingRecord,
   buildProviderObservations,
   buildUnifiedDataSnapshot,
@@ -16,7 +20,6 @@ const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff"
 };
-const MAX_FRESH_SKIP_MINUTES = 20;
 
 function response(payload, status = 200) {
   return Response.json(payload, { status, headers: HEADERS });
@@ -33,20 +36,15 @@ function migrationMissing(error) {
 }
 
 function requestedFreshSkipMinutes(request) {
-  let parsed = 0;
   try {
-    const raw = new URL(request.url).searchParams.get("skipIfFreshMinutes");
-    if (raw === null || raw === "") return 0;
-    parsed = Number(raw);
+    return normalizeFreshSkipMinutes(new URL(request.url).searchParams.get("skipIfFreshMinutes"));
   } catch {
     return 0;
   }
-  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
-  return Math.min(MAX_FRESH_SKIP_MINUTES, Math.max(1, Math.trunc(parsed)));
 }
 
 async function latestCaptureFreshness(admin, now, minutes) {
-  if (!minutes) return null;
+  if (!minutes) return evaluateUnifiedCaptureFreshness({ now, thresholdMinutes: 0 });
   const { data, error } = await admin
     .from("unified_data_snapshots")
     .select("captured_at")
@@ -54,18 +52,11 @@ async function latestCaptureFreshness(admin, now, minutes) {
     .limit(1)
     .maybeSingle();
   if (error) throw error;
-  const latestCapturedAt = data?.captured_at || null;
-  const latestMs = Date.parse(String(latestCapturedAt || ""));
-  if (!Number.isFinite(latestMs)) {
-    return { fresh: false, latestCapturedAt: null, ageMinutes: null, thresholdMinutes: minutes };
-  }
-  const ageMinutes = Math.max(0, (now - latestMs) / 60_000);
-  return {
-    fresh: ageMinutes < minutes,
-    latestCapturedAt,
-    ageMinutes: Number(ageMinutes.toFixed(2)),
+  return evaluateUnifiedCaptureFreshness({
+    latestCapturedAt: data?.captured_at || null,
+    now,
     thresholdMinutes: minutes
-  };
+  });
 }
 
 async function upsertSnapshots(admin, picks, capturedAt) {
@@ -184,7 +175,7 @@ export async function GET(request) {
     const now = Date.now();
     const freshSkipMinutes = requestedFreshSkipMinutes(request);
     const freshness = await latestCaptureFreshness(admin, now, freshSkipMinutes);
-    if (freshness?.fresh) {
+    if (freshness.fresh) {
       return response({
         ok: true,
         version: "unified-sports-data-worker-v4",
