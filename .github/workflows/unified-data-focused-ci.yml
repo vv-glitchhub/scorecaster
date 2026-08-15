@@ -6,6 +6,7 @@ on:
       - "lib/pregame-evidence-coverage-v1.mjs"
       - "lib/unified-sports-data-v1.mjs"
       - "lib/unified-sports-data-service.js"
+      - "lib/unified-lineup-provenance-v1.mjs"
       - "lib/unified-capture-*.mjs"
       - "lib/secondary-odds-provider-chain-v1.mjs"
       - "lib/sportsdata-fetcher.js"
@@ -19,6 +20,7 @@ on:
       - "scripts/unified-sports-data-v1.test.mjs"
       - "scripts/sportsdata-secondary-market-v1.test.mjs"
       - "scripts/wnba-provider-endpoints-v1.test.mjs"
+      - "scripts/lineup-starter-provenance-v1.test.mjs"
       - "scripts/sports-intelligence-v1.test.mjs"
       - ".github/workflows/unified-data-focused-ci.yml"
   workflow_dispatch:
@@ -50,11 +52,12 @@ jobs:
             scripts/unified-sports-data-v1.test.mjs \
             scripts/sportsdata-secondary-market-v1.test.mjs \
             scripts/wnba-provider-endpoints-v1.test.mjs \
+            scripts/lineup-starter-provenance-v1.test.mjs \
             scripts/sports-intelligence-v1.test.mjs \
             2>&1 | tee /tmp/unified-data-v1.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            detail="$(tail -n 36 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
-            echo "::error file=scripts/wnba-provider-endpoints-v1.test.mjs,title=Unified Sports Data regression::${detail}"
+            detail="$(tail -n 40 /tmp/unified-data-v1.log | tr '\n' ' ' | sed 's/%/%25/g; s/\r/%0D/g')"
+            echo "::error file=scripts/lineup-starter-provenance-v1.test.mjs,title=Unified Sports Data regression::${detail}"
           fi
           exit "$status"
