@@ -62,6 +62,7 @@ test("missing form and rest numerics cannot become available zero-valued Unified
     formRestShadow: {
       status: "insufficient_history",
       mode: "feature-only",
+      provider: { source: "thesportsdb", mode: "live", resultCount: 0 },
       home: {
         sampleSize: 0,
         formStrength: null,
@@ -117,6 +118,7 @@ test("real numeric zero still survives the Unified Data wrapper", () => {
     formRestShadow: {
       status: "feature_only",
       mode: "feature-only",
+      provider: { source: "thesportsdb", mode: "live", resultCount: 6 },
       home: { sampleSize: 3, formStrength: 0, restHours: 72, gamesLast7Days: 0, gamesLast14Days: 3 },
       away: { sampleSize: 3, formStrength: 0, restHours: 72, gamesLast7Days: 0, gamesLast14Days: 3 }
     }
