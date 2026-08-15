@@ -3,6 +3,12 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";
 import { INJURY_FETCHER_POLICY, sportToSportsDataLeague } from "../lib/injury-fetcher.js";
+import {
+  fetchSportsDataSoccerLineupForMatch,
+  normalizeSportsDataSoccerLineup,
+  sportsDataSoccerBoxScoresPath,
+  SPORTSDATA_SOCCER_LINEUP_POLICY
+} from "../lib/sportsdata-soccer-lineup-provider.js";
 
 const NOW = Date.parse("2026-07-18T12:00:00Z");
 const match = {
@@ -13,6 +19,46 @@ const match = {
   eventId: "event-1",
   commenceTime: "2026-07-18T18:00:00Z"
 };
+
+const mlsMatch = {
+  homeTeam: "LA Galaxy",
+  awayTeam: "Seattle Sounders FC",
+  sport: "soccer_usa_mls",
+  league: "MLS",
+  eventId: "mls-event-1",
+  commenceTime: "2026-08-15T02:00:00Z"
+};
+
+function starterRows(teamId, prefix, count = 11) {
+  return Array.from({ length: count }, (_, index) => ({
+    LineupId: teamId * 100 + index,
+    GameId: 501,
+    Type: "Starter",
+    TeamId: teamId,
+    PlayerId: teamId * 1000 + index,
+    Name: `${prefix} Starter ${index + 1}`,
+    Position: index === 0 ? "GK" : index < 5 ? "D" : index < 9 ? "M" : "A"
+  }));
+}
+
+function mlsBoxScore({ homeCount = 11, awayCount = 11, duplicate = false } = {}) {
+  const row = {
+    Game: {
+      GameId: 501,
+      HomeTeamId: 101,
+      AwayTeamId: 102,
+      HomeTeamName: "LA Galaxy",
+      AwayTeamName: "Seattle Sounders",
+      Updated: "2026-08-15T01:20:00Z"
+    },
+    Lineups: [
+      ...starterRows(101, "Home", homeCount),
+      ...starterRows(102, "Away", awayCount),
+      { LineupId: 9999, GameId: 501, Type: "Bench", TeamId: 101, PlayerId: 9999, Name: "Home Bench" }
+    ]
+  };
+  return duplicate ? [row, { ...row, Game: { ...row.Game, GameId: 502 } }] : [row];
+}
 
 function providerData({ injuries = [], lineups } = {}) {
   return {
@@ -78,6 +124,80 @@ test("SportsData injury adapter covers WNBA before generic NBA matching", () => 
   assert.ok(INJURY_FETCHER_POLICY.supportedLeagues.includes("wnba"));
   assert.ok(INJURY_FETCHER_POLICY.injuryCacheTtlMs > 0);
   assert.ok(INJURY_FETCHER_POLICY.teamDirectoryTtlMs > INJURY_FETCHER_POLICY.injuryCacheTtlMs);
+});
+
+test("SportsData soccer lineup adapter uses v4 competition-scoped live BoxScores", () => {
+  assert.equal(
+    sportsDataSoccerBoxScoresPath(mlsMatch),
+    "/v4/soccer/stats/JSON/BoxScoresByDate/8/2026-08-15"
+  );
+  assert.equal(
+    sportsDataSoccerBoxScoresPath({
+      ...mlsMatch,
+      sport: "soccer_norway_eliteserien",
+      league: "Eliteserien"
+    }),
+    "/v4/soccer/stats/JSON/BoxScoresByDate/42/2026-08-15"
+  );
+  assert.equal(
+    sportsDataSoccerBoxScoresPath({
+      ...mlsMatch,
+      sport: "soccer_sweden_allsvenskan",
+      league: "Allsvenskan"
+    }),
+    null
+  );
+  assert.equal(SPORTSDATA_SOCCER_LINEUP_POLICY.requiredStartersPerTeam, 11);
+  assert.equal(SPORTSDATA_SOCCER_LINEUP_POLICY.confirmationRule, "exactly-11-starters-for-both-teams");
+});
+
+test("SportsData soccer lineup becomes live only with one exact match and 11 starters per team", () => {
+  const verified = normalizeSportsDataSoccerLineup(mlsBoxScore(), mlsMatch);
+  assert.equal(verified.ok, true);
+  assert.equal(verified.mode, "live");
+  assert.equal(verified.matchConfidence, 1);
+  assert.deepEqual(verified.starterCounts, { home: 11, away: 11 });
+  assert.equal(verified.data.teams.length, 2);
+  assert.equal(verified.data.teams[0].startingPlayers.length, 11);
+  assert.equal(verified.data.teams[1].startingPlayers.length, 11);
+  assert.equal(verified.data.teams[0].startersConfirmed, true);
+
+  const incomplete = normalizeSportsDataSoccerLineup(mlsBoxScore({ homeCount: 10 }), mlsMatch);
+  assert.equal(incomplete.ok, true);
+  assert.equal(incomplete.mode, "not_confirmed");
+  assert.deepEqual(incomplete.starterCounts, { home: 10, away: 11 });
+  assert.deepEqual(incomplete.data.teams, []);
+
+  const ambiguous = normalizeSportsDataSoccerLineup(mlsBoxScore({ duplicate: true }), mlsMatch);
+  assert.equal(ambiguous.ok, false);
+  assert.equal(ambiguous.mode, "ambiguous_match");
+});
+
+test("SportsData soccer lineup fetch is capability-driven and does not call far-ahead fixtures", async () => {
+  let calls = 0;
+  const live = await fetchSportsDataSoccerLineupForMatch(mlsMatch, {
+    now: Date.parse("2026-08-15T00:00:00Z"),
+    get: async (path) => {
+      calls += 1;
+      assert.equal(path, "/v4/soccer/stats/JSON/BoxScoresByDate/8/2026-08-15");
+      return { ok: true, source: "sportsdata", mode: "live", data: mlsBoxScore() };
+    }
+  });
+  assert.equal(calls, 1);
+  assert.equal(live.mode, "live");
+  assert.equal(live.providerFamily, "sportsdataio");
+  assert.equal(live.competitionId, "8");
+
+  calls = 0;
+  const early = await fetchSportsDataSoccerLineupForMatch(mlsMatch, {
+    now: Date.parse("2026-08-14T12:00:00Z"),
+    get: async () => {
+      calls += 1;
+      return { ok: true, source: "sportsdata", mode: "live", data: mlsBoxScore() };
+    }
+  });
+  assert.equal(early.mode, "not_yet_available");
+  assert.equal(calls, 0);
 });
 
 test("market-only context downgrades PLAY without changing probability", () => {
@@ -164,12 +284,14 @@ test("Top Picks calculates market value before intelligence downgrade rules", as
   assert.match(route, /probabilityAdjustedByIntelligence:\s*false/);
 });
 
-test("provider loading is internal, authenticated and bounded", async () => {
+test("provider loading is internal, authenticated, bounded and uses verified lineup fallback", async () => {
   const news = await readFile(new URL("../lib/news-fetcher.js", import.meta.url), "utf8");
   const route = await readFile(new URL("../app/api/intelligence/route.js", import.meta.url), "utf8");
   const service = await readFile(new URL("../lib/intelligence-service.js", import.meta.url), "utf8");
   const internal = await readFile(new URL("../lib/sports-intelligence-service.js", import.meta.url), "utf8");
   const injuries = await readFile(new URL("../lib/injury-fetcher.js", import.meta.url), "utf8");
+  const lineups = await readFile(new URL("../lib/lineup-fetcher.js", import.meta.url), "utf8");
+  const soccerLineups = await readFile(new URL("../lib/sportsdata-soccer-lineup-provider.js", import.meta.url), "utf8");
 
   assert.doesNotMatch(news, /apiKey=\$\{apiKey\}/);
   assert.match(news, /"X-Api-Key": apiKey/);
@@ -182,4 +304,9 @@ test("provider loading is internal, authenticated and bounded", async () => {
   assert.match(internal, /PROVIDER_MISS_LIMIT\s*=\s*72/);
   assert.match(injuries, /TEAM_DIRECTORY_TTL_MS/);
   assert.match(injuries, /\/v3\/\$\{selectedLeague\}\/scores\/json\/Teams/);
+  assert.match(lineups, /fetchSportsDataSoccerLineupForMatch/);
+  assert.match(lineups, /fallbackRequiresBothTeamsConfirmed:\s*true/);
+  assert.match(soccerLineups, /\/v4\/soccer\/stats\/JSON\/BoxScoresByDate/);
+  assert.match(soccerLineups, /exactly-11-starters-for-both-teams/);
+  assert.doesNotMatch(soccerLineups, /\/v3\/soccer\/stats\/json\/BoxScoresByDate/);
 });
