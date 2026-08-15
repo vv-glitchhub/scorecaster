@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
+import ContextProviderDiagnosticsPanel from "./ContextProviderDiagnosticsPanel";
 import ProviderDiagnosticsPanel from "./ProviderDiagnosticsPanel";
 import ProviderUsageLimitsPanel from "./ProviderUsageLimitsPanel";
 
@@ -62,6 +63,7 @@ export default function ProviderDiagnosticsClient() {
       {!loading && !error ? (
         <>
           <ProviderDiagnosticsPanel data={data} tr={tr} />
+          <ContextProviderDiagnosticsPanel data={data} tr={tr} />
           <ProviderUsageLimitsPanel data={data} tr={tr} />
         </>
       ) : null}
