@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: scorecaster-data-pipeline
+  cancel-in-progress: false
+
 jobs:
   capture:
     runs-on: ubuntu-latest
@@ -23,18 +27,66 @@ jobs:
             exit 1
           fi
 
-      - name: Capture event ledgers and closing prices
+      - name: Check Unified Data freshness
+        id: freshness
+        shell: bash
         run: |
-          curl --fail --silent --show-error \
+          status=$(curl --silent --show-error \
+            --retry 1 \
+            --max-time 30 \
+            -o /tmp/freshness.json \
+            -w "%{http_code}" \
+            "$SCORECASTER_URL/api/unified-data/freshness" || true)
+          required=true
+          if [ "$status" = "200" ] && [ -s /tmp/freshness.json ]; then
+            ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
+            if [ "$ok" = "true" ]; then
+              required=$(jq -r '.protectedWorkerRequired // true' /tmp/freshness.json 2>/dev/null || echo true)
+            fi
+          fi
+          echo "required=$required" >> "$GITHUB_OUTPUT"
+          if [ "$required" = "true" ]; then
+            echo "Fallback capture is required."
+          else
+            echo "Post-collector Unified Data is still fresh; fallback provider acquisition is skipped."
+          fi
+
+      - name: Capture event ledgers and closing prices
+        if: steps.freshness.outputs.required == 'true'
+        run: |
+          status=$(curl --silent --show-error \
             --retry 2 \
             --max-time 150 \
+            -o /tmp/unified.json \
+            -w "%{http_code}" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$SCORECASTER_URL/api/internal/unified-data"
+            "$SCORECASTER_URL/api/internal/unified-data")
+          if [ "$status" != "200" ]; then
+            echo "Unified Data worker failed with HTTP $status"
+            exit 1
+          fi
+          if [ "$(jq -r '.ok // false' /tmp/unified.json)" != "true" ]; then
+            echo "Unified Data worker returned ok=false"
+            exit 1
+          fi
+          echo "Fallback schedule captured fresh Unified Data."
 
       - name: Capture normalized multi-sport analytics
+        if: steps.freshness.outputs.required == 'true'
         run: |
-          curl --fail --silent --show-error \
+          status=$(curl --silent --show-error \
             --retry 2 \
             --max-time 150 \
+            -o /tmp/sports-analytics.json \
+            -w "%{http_code}" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$SCORECASTER_URL/api/internal/sports-analytics"
+            "$SCORECASTER_URL/api/internal/sports-analytics")
+          if [ "$status" != "200" ]; then
+            echo "Sports Analytics worker failed with HTTP $status"
+            exit 1
+          fi
+          if [ "$(jq -r '.ok // false' /tmp/sports-analytics.json)" != "true" ]; then
+            echo "Sports Analytics worker returned ok=false"
+            exit 1
+          fi
+          echo "Sports Analytics completed without exposing the worker payload."
