@@ -1,5 +1,6 @@
 import Link from "next/link";
 import MatchIntelligenceClient from "./MatchIntelligenceClient";
+import VerifiedMarketJourneyClient from "./VerifiedMarketJourneyClient";
 
 export const metadata = {
   title: "Match Journey | Scorecaster",
@@ -34,6 +35,7 @@ export default async function MatchIntelligencePage({ searchParams }) {
         </Link>
       </div>
       <MatchIntelligenceClient eventId={eventId} sport={sport} />
+      <VerifiedMarketJourneyClient eventId={eventId} sport={sport} />
     </div>
   );
 }
