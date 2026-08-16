@@ -12,6 +12,7 @@ import releaseManifest from "../../../config/release-readiness.json";
 import { buildTrustedLiveDataCacheGateEvidence } from "../../../lib/live-data-cache-production-evidence.mjs";
 import { buildMigrationReleaseStatus } from "../../../lib/migration-release-status.mjs";
 import { buildProductionEvidence } from "../../../lib/production-evidence-v1.mjs";
+import { buildProductionEvidenceMarketJourneyV1 } from "../../../lib/production-evidence-market-journey-v1.mjs";
 import {
   applyProviderReadinessTelemetry,
   buildProviderReadinessInput
@@ -111,7 +112,7 @@ export async function GET(request) {
   const since = new Date(Date.now() - days * 86400000).toISOString();
   let snapshotQuery = admin
     .from("unified_data_snapshots")
-    .select("event_id,sport_key,league,commence_time,home_team,away_team,provider_count,provider_disagreement,coverage_score,decision,safety_action,captured_at")
+    .select("event_id,selection,sport_key,league,commence_time,home_team,away_team,provider_count,provider_disagreement,coverage_score,decision,safety_action,captured_at")
     .gte("captured_at", since)
     .order("captured_at", { ascending: false })
     .limit(10000);
@@ -188,7 +189,11 @@ export async function GET(request) {
       collectorRuns: collectorRuns.available
     }
   });
-  const report = applyProviderReadinessTelemetry(baseReport, providerReadinessInput);
+  const verifiedMarketJourney = buildProductionEvidenceMarketJourneyV1(snapshots.rows);
+  const report = {
+    ...applyProviderReadinessTelemetry(baseReport, providerReadinessInput),
+    verifiedMarketJourney
+  };
   const warnings = results.map((result) => result.warning).filter(Boolean);
 
   if (format === "csv") {
