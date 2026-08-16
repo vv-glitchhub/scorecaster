@@ -70,6 +70,7 @@ export default function ProductionEvidenceClient() {
 
   const summary = data?.summary || {};
   const worker = data?.worker || {};
+  const marketJourney = data?.verifiedMarketJourney || {};
 
   return (
     <div className="space-y-6">
@@ -138,6 +139,43 @@ export default function ProductionEvidenceClient() {
         <Metric label={tr({ fi: "Monilähdetapahtumat", en: "Multi-provider events", es: "Eventos multifuente" })} value={percent(summary.multiProviderEventRate)} />
         <Metric label="Closing-line coverage" value={percent(summary.closingLineCoverage)} detail={`${summary.closingEvents ?? 0}/${summary.closingEligibleEvents ?? 0}`} />
         <Metric label={tr({ fi: "Aktiiviset incidentit", en: "Active incidents", es: "Incidentes activos" })} value={summary.activeIncidents ?? 0} />
+      </section>
+
+      <section className="sc-surface rounded-3xl p-5 sm:p-6" data-market-journey-production-evidence="true">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sky-200">Verified Market Journey</p>
+            <h2 className="mt-2 text-2xl font-black tracking-[-0.035em] text-[var(--sc-text)]">
+              {tr({ fi: "Pregame-historian todellinen peitto", en: "Real pregame history coverage", es: "Cobertura real del historial previo" })}
+            </h2>
+            <p className="mt-2 max-w-3xl text-sm leading-6 text-[var(--sc-muted)]">
+              {tr({
+                fi: "Sama 3 snapshotin / 30 minuutin portti kuin Match Journeyssa. Luku on vain havaintoevidenssiä eikä muuta probabilitya, edgeä, EV:tä, päätöstä tai panosta.",
+                en: "Uses the same 3-snapshot / 30-minute gate as Match Journey. This is observational evidence only and never changes probability, edge, EV, decision or stake.",
+                es: "Usa la misma puerta de 3 snapshots / 30 minutos que Match Journey. Es evidencia observacional y no cambia probabilidad, ventaja, EV, decisión ni importe."
+              })}
+            </p>
+          </div>
+          <StatusPill value={(marketJourney.journeyReady ?? 0) > 0 ? "ready" : "degraded"} />
+        </div>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+          <Metric
+            label={tr({ fi: "Ready rate", en: "Ready rate", es: "Tasa lista" })}
+            value={presentNumber(marketJourney.readyRatePct) ? `${Number(marketJourney.readyRatePct).toFixed(1)} %` : "—"}
+            detail={`${marketJourney.journeyReady ?? 0}/${marketJourney.futureEventSelections ?? 0}`}
+          />
+          <Metric label={tr({ fi: "Varmennetut polut", en: "Verified paths", es: "Rutas verificadas" })} value={marketJourney.journeyReady ?? 0} />
+          <Metric label={tr({ fi: "Liian ohut historia", en: "Thin history", es: "Historial escaso" })} value={marketJourney.thinHistory ?? 0} />
+          <Metric label={tr({ fi: "Liian lyhyt aikajänne", en: "Short span", es: "Intervalo corto" })} value={marketJourney.shortSpan ?? 0} />
+          <Metric
+            label={tr({ fi: "Syvin havainto", en: "Deepest history", es: "Historial más profundo" })}
+            value={marketJourney.maxSnapshots ?? 0}
+            detail={presentNumber(marketJourney.maxSpanMinutes) ? `${Math.round(Number(marketJourney.maxSpanMinutes))} min max span` : "—"}
+          />
+        </div>
+        <p className="mt-3 text-xs leading-5 text-[var(--sc-faint)]">
+          {tr({ fi: "Aggregaatti ei paljasta event-ID:tä, valintaa tai raw-provider-dataa.", en: "The aggregate exposes no event IDs, selections or raw provider data.", es: "El agregado no expone IDs de eventos, selecciones ni datos brutos del proveedor." })}
+        </p>
       </section>
 
       <section className="grid gap-5 xl:grid-cols-[1.2fr_.8fr]">
