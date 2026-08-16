@@ -34,7 +34,7 @@ jobs:
         run: node --test scripts/decision-evidence-contract-v1.test.mjs scripts/decision-evidence-seal-v1.test.mjs scripts/agent-evidence-seal-ui.test.mjs
 
       - name: Match Journey and Match Story regression tests
-        run: node --test scripts/match-journey-story-v1.test.mjs scripts/match-intelligence-v1.test.mjs scripts/match-intelligence-v2.test.mjs
+        run: node --test scripts/match-journey-story-v1.test.mjs scripts/match-intelligence-v1.test.mjs scripts/match-intelligence-v2.test.mjs scripts/verified-market-journey-v1.test.mjs
 
       - name: Market Activity regression tests
         run: node --test scripts/market-activity-v2.test.mjs scripts/market-timeline.test.mjs
