@@ -1,6 +1,8 @@
 import { SPORTS } from "../../../lib/sports.js";
 import { buildEventDetail } from "../../../lib/event-detail.mjs";
 import { buildDecisionEvidenceContractV1, DECISION_EVIDENCE_CONTRACT_VERSION } from "../../../lib/decision-evidence-contract-v1.mjs";
+import { loadVerifiedMarketHistory } from "../../../lib/unified-capture-market-history-v1.mjs";
+import { buildVerifiedMarketJourneyV1, VERIFIED_MARKET_JOURNEY_VERSION } from "../../../lib/verified-market-journey-v1.mjs";
 import { GET as getTopPicks } from "../top-picks/route.js";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,16 @@ function pickEventId(pick = {}) {
 
 function pickSelection(pick = {}) {
   return clean(pick.selection || pick.label, 160);
+}
+
+async function verifiedMarketJourney(pick) {
+  if (!pick) return buildVerifiedMarketJourneyV1();
+  try {
+    const history = await loadVerifiedMarketHistory(pick);
+    return buildVerifiedMarketJourneyV1(history);
+  } catch {
+    return buildVerifiedMarketJourneyV1();
+  }
 }
 
 export async function GET(request) {
@@ -57,6 +69,10 @@ export async function GET(request) {
 
   const picks = Array.isArray(payload?.data) ? payload.data : [];
   const eventPicks = picks.filter((pick) => pickEventId(pick) === eventId);
+  const selectedPick = eventPicks.find((pick) => selection && pickSelection(pick).toLowerCase() === selection.toLowerCase())
+    || eventPicks.find((pick) => pickSelection(pick) === detail.selectedSelection)
+    || eventPicks[0]
+    || null;
   const evidenceBySelection = eventPicks.map((pick) => ({
     selection: pickSelection(pick),
     contract: buildDecisionEvidenceContractV1(pick)
@@ -72,12 +88,15 @@ export async function GET(request) {
   }));
   detail.decisionEvidence = selectedEvidence?.contract || null;
   detail.decisionEvidenceVersion = DECISION_EVIDENCE_CONTRACT_VERSION;
+  detail.marketHistory = await verifiedMarketJourney(selectedPick);
+  detail.marketHistoryVersion = VERIFIED_MARKET_JOURNEY_VERSION;
 
   return Response.json({
     ok: true,
     source: payload?.source || "no-vig-market-consensus",
     generatedAt: payload?.generatedAt || detail.generatedAt,
     decisionEvidenceVersion: DECISION_EVIDENCE_CONTRACT_VERSION,
+    marketHistoryVersion: VERIFIED_MARKET_JOURNEY_VERSION,
     detail
   }, { headers: CACHE_HEADERS });
 }
