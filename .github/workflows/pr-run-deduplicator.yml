@@ -1,0 +1,73 @@
+name: Scorecaster PR Run Deduplicator
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: scorecaster-pr-deduplicator-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  boundary-regression:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify PR-only cancellation boundary
+        run: node --test scripts/pr-run-deduplicator.test.mjs
+
+  cancel-stale-pr-runs:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GH_TOKEN: ${{ github.token }}
+      CURRENT_RUN_ID: ${{ github.run_id }}
+      CURRENT_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      PR_HEAD_REF: ${{ github.head_ref }}
+    steps:
+      - name: Cancel stale same-branch pull request runs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          response=$(gh api --method GET \
+            -H "Accept: application/vnd.github+json" \
+            "/repos/${GITHUB_REPOSITORY}/actions/runs" \
+            -f event=pull_request \
+            -f branch="$PR_HEAD_REF" \
+            -f per_page=100)
+
+          mapfile -t stale_ids < <(
+            jq -r \
+              --arg current_run "$CURRENT_RUN_ID" \
+              --arg current_sha "$CURRENT_HEAD_SHA" \
+              '.workflow_runs[]
+                | select(.event == "pull_request")
+                | select((.status == "queued") or (.status == "in_progress") or (.status == "waiting") or (.status == "pending"))
+                | select((.id | tostring) != $current_run)
+                | select(.head_sha != $current_sha)
+                | .id' \
+              <<<"$response"
+          )
+
+          cancelled=0
+          for run_id in "${stale_ids[@]}"; do
+            gh api --method POST \
+              -H "Accept: application/vnd.github+json" \
+              "/repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}/cancel" >/dev/null || true
+            cancelled=$((cancelled + 1))
+          done
+
+          echo "Cancelled ${cancelled} stale pull-request workflow run(s) for ${PR_HEAD_REF}."
+          echo "Scheduled workflows and push runs are outside this query and are never cancelled by this job."
