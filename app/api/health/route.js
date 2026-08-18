@@ -1,6 +1,7 @@
 import { notificationDeliveryConfiguration } from "../../../lib/notification-delivery-config";
 import { autonomousAgentConfiguration } from "../../../lib/autonomous-agent-config.js";
 import { settlementMonitorConfiguration } from "../../../lib/settlement-monitor-config.js";
+import { agentDecisionSigningReadiness } from "../../../lib/agent-decision-signing-key.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,7 @@ export async function GET() {
   const notificationDelivery = notificationDeliveryConfiguration();
   const autonomousAgent = autonomousAgentConfiguration();
   const settlementMonitor = settlementMonitorConfiguration();
+  const agentDecisionSigning = await agentDecisionSigningReadiness();
 
   const services = {
     localQuickUse: true,
@@ -39,9 +41,8 @@ export async function GET() {
     agentV10GroundedExplanationApi: true,
     agentV10ServerPortfolioApi: true,
     agentV10SignedDecisionTickets: true,
-    agentV10DecisionSigningConfigured: Boolean(
-      process.env.AGENT_DECISION_SIGNING_KEY && process.env.AGENT_DECISION_SIGNING_KEY.length >= 32
-    ),
+    agentV10DecisionSigningConfigured: agentDecisionSigning.configured,
+    agentV10DecisionSigningSource: agentDecisionSigning.source,
     agentV10TicketLifetimeMinutes: 10,
     agentV10ProviderRequiresSignedDecision: true,
     agentV10StructuredOutputValidation: true,
