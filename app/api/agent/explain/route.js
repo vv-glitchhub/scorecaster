@@ -8,6 +8,7 @@ import {
   readJsonBody
 } from "../../../../lib/api-security";
 import { verifyAgentDecisionTicket } from "../../../../lib/agent-decision-ticket.mjs";
+import { resolveAgentDecisionSigningKey } from "../../../../lib/agent-decision-signing-key.mjs";
 import {
   AGENT_EXPLANATION_JSON_SCHEMA,
   buildDeterministicAgentExplanation,
@@ -190,7 +191,8 @@ export async function POST(request) {
     return fallbackResponse(clientContract, requestId, "Sign in to use a server-authoritative Agent decision and optional enhanced explanation", language);
   }
 
-  const verified = verifyAgentDecisionTicket(body.data?.ticket);
+  const signing = await resolveAgentDecisionSigningKey();
+  const verified = verifyAgentDecisionTicket(body.data?.ticket, { key: signing.key });
   if (!verified.ok) {
     if (!clientContract) return jsonResponse({ ok: false, error: verified.error }, 400, requestId);
     return fallbackResponse(clientContract, requestId, "Enhanced explanation requires a current server-signed Agent decision", language);

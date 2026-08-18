@@ -117,18 +117,23 @@ test("tampered, expired and wrong-key decision tickets fail closed", () => {
 test("portfolio API is authenticated, rate-limited and signs only server-built decisions", async () => {
   const route = await readFile(new URL("../app/api/agent/portfolio/route.js", import.meta.url), "utf8");
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
-  const sourceIndex = route.indexOf("const [source, learningResult] = await Promise.all");
+  const quotaIndex = route.indexOf("const limited = await enforceRateLimit(auth, requestId");
+  const bodyIndex = route.indexOf("const body = await readJsonBody(request");
+  const sourceIndex = route.indexOf("const [source, learningResult, signing] = await Promise.all");
   const portfolioIndex = route.indexOf("buildAgentV9Portfolio(source.payload?.data");
   const governanceIndex = route.indexOf("applyModelLabSafety(portfolio.decisions");
   const evidenceIndex = route.indexOf("signedDecisionEvidence(decision)");
-  const signingIndex = route.indexOf("createAgentDecisionTicket(evidence.signedDecision)");
+  const signingIndex = route.indexOf("createAgentDecisionTicket(evidence.signedDecision, { key: signing.key })");
 
   assert.ok(authIndex >= 0);
-  assert.ok(sourceIndex > authIndex);
+  assert.ok(quotaIndex > authIndex);
+  assert.ok(bodyIndex > quotaIndex);
+  assert.ok(sourceIndex > bodyIndex);
   assert.ok(portfolioIndex > sourceIndex);
   assert.ok(governanceIndex > portfolioIndex);
   assert.ok(evidenceIndex > governanceIndex);
   assert.ok(signingIndex > evidenceIndex);
+  assert.match(route, /resolveAgentDecisionSigningKey\(\)/);
   assert.match(route, /buildDecisionEvidenceContractV1\(decision\)/);
   assert.match(route, /buildDecisionEvidenceSealV1\(contract\)/);
   assert.match(route, /decisionEvidenceSeal:\s*seal/);
@@ -148,14 +153,17 @@ test("portfolio API is authenticated, rate-limited and signs only server-built d
 test("enhanced explanation requires a verified signed ticket before provider use", async () => {
   const route = await readFile(new URL("../app/api/agent/explain/route.js", import.meta.url), "utf8");
   const authIndex = route.indexOf("const auth = await getAuthenticatedContext(request)");
+  const signingIndex = route.indexOf("const signing = await resolveAgentDecisionSigningKey()");
   const verifyIndex = route.indexOf("const verified = verifyAgentDecisionTicket");
   const quotaIndex = route.indexOf("const limited = await enforceRateLimit(auth, requestId");
   const providerIndex = route.indexOf("const generated = await generateGroundedExplanation(contract, language)");
 
   assert.ok(authIndex >= 0);
-  assert.ok(verifyIndex > authIndex);
+  assert.ok(signingIndex > authIndex);
+  assert.ok(verifyIndex > signingIndex);
   assert.ok(quotaIndex > verifyIndex);
   assert.ok(providerIndex > quotaIndex);
+  assert.match(route, /verifyAgentDecisionTicket\(body\.data\?\.ticket, \{ key: signing\.key \}\)/);
   assert.match(route, /Enhanced explanation requires a current server-signed Agent decision/);
   assert.match(route, /verified\.contract\.decisionEvidenceSeal/);
   assert.match(route, /Enhanced explanation requires a current server-signed structured Decision Evidence seal/);
