@@ -1,0 +1,34 @@
+name: Scorecaster Agent Signing Serverless Runtime
+
+on:
+  pull_request:
+    paths:
+      - "app/api/agent/portfolio/route.js"
+      - "app/api/agent/explain/route.js"
+      - "app/api/health/route.js"
+      - "lib/agent-decision-signing-key.mjs"
+      - "scripts/agent-signing-serverless-runtime.test.mjs"
+      - ".github/workflows/agent-signing-serverless-runtime.yml"
+  push:
+    branches: [main]
+    paths:
+      - "app/api/agent/portfolio/route.js"
+      - "app/api/agent/explain/route.js"
+      - "app/api/health/route.js"
+      - "lib/agent-decision-signing-key.mjs"
+      - "scripts/agent-signing-serverless-runtime.test.mjs"
+      - ".github/workflows/agent-signing-serverless-runtime.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  serverless-signing-runtime:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify request-scoped Vault signing runtime
+        run: node --test scripts/agent-signing-serverless-runtime.test.mjs
