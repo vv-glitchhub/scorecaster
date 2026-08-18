@@ -16,9 +16,9 @@ import {
 } from "../../../../lib/agent-model-governance.mjs";
 import { buildAgentV9Portfolio } from "../../../../lib/agent-v9-engine.mjs";
 import {
-  agentDecisionSigningConfigured,
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
+import { resolveAgentDecisionSigningKey } from "../../../../lib/agent-decision-signing-key.mjs";
 import { buildDecisionEvidenceContractV1 } from "../../../../lib/decision-evidence-contract-v1.mjs";
 import { buildDecisionEvidenceSealV1 } from "../../../../lib/decision-evidence-seal-v1.mjs";
 import { GET as getTopPicks } from "../../top-picks/route.js";
@@ -144,9 +144,10 @@ export async function POST(request) {
 
   const settings = normalizeSettings(body.data?.settings);
   const sports = parseSports(body.data?.sports);
-  const [source, learningResult] = await Promise.all([
+  const [source, learningResult, signing] = await Promise.all([
     loadTopPicks(request, sports),
-    loadLearning(auth)
+    loadLearning(auth),
+    resolveAgentDecisionSigningKey()
   ]);
 
   if (!source.ok) {
@@ -159,7 +160,7 @@ export async function POST(request) {
   });
   const governedDecisions = applyModelLabSafety(portfolio.decisions, learningResult.modelLab);
   const governedSummary = summarizeGovernedDecisions(governedDecisions);
-  const signingConfigured = agentDecisionSigningConfigured();
+  const signingConfigured = signing.configured === true && Boolean(signing.key);
   const decisions = governedDecisions.map((decision) => {
     const evidence = signedDecisionEvidence(decision);
     return {
@@ -168,7 +169,7 @@ export async function POST(request) {
       decisionEvidenceFingerprint: evidence.contract.fingerprint,
       decisionEvidenceSeal: evidence.seal,
       explanationTicket: signingConfigured && evidence.signedDecision
-        ? createAgentDecisionTicket(evidence.signedDecision)
+        ? createAgentDecisionTicket(evidence.signedDecision, { key: signing.key })
         : null
     };
   });
@@ -182,6 +183,7 @@ export async function POST(request) {
       generatedAt: new Date().toISOString(),
       paperOnly: true,
       signingConfigured,
+      signingSource: signingConfigured ? signing.source : "unconfigured",
       explanationMode: signingConfigured
         ? "signed-grounded-provider-or-fallback"
         : "deterministic-fallback-only",
