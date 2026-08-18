@@ -11,7 +11,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 21);
+  assert.equal(manifest.supabaseMigrations.length, 22);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -27,11 +27,13 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_agent_decision_signing_vault.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_community_feed_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_ai_intelligence_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
+  assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_agent_decision_signing_vault.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
   assert.deepEqual(manifest.mobileLocales.apple, ["fi", "en-US", "es-ES"]);
   assert.deepEqual(manifest.mobileLocales.googlePlay, ["fi-FI", "en-US", "es-ES"]);
