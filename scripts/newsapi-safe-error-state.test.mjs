@@ -1,12 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { fetchNewsForMatch, NEWS_API_PROVIDER_POLICY } from "../lib/news-fetcher.js";
+import {
+  fetchNewsForMatch,
+  NEWS_API_PROVIDER_POLICY,
+  resetNewsApiCircuitForTests
+} from "../lib/news-fetcher.js";
 
 const MATCH = Object.freeze({
   homeTeam: "Alpha United",
   awayTeam: "Beta City",
   sport: "soccer",
   league: "Test League"
+});
+
+test.afterEach(() => {
+  resetNewsApiCircuitForTests();
 });
 
 async function withNewsFetch(responseFactory, run) {
