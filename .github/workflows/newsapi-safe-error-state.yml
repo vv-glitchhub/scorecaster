@@ -1,0 +1,28 @@
+name: Scorecaster NewsAPI Safe Error State
+
+on:
+  pull_request:
+    paths:
+      - "lib/news-fetcher.js"
+      - "scripts/newsapi-safe-error-state.test.mjs"
+      - ".github/workflows/newsapi-safe-error-state.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/news-fetcher.js"
+      - "scripts/newsapi-safe-error-state.test.mjs"
+      - ".github/workflows/newsapi-safe-error-state.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  newsapi-state:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify safe NewsAPI failure classification
+        run: node --test scripts/newsapi-safe-error-state.test.mjs
