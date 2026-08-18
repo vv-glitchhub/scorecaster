@@ -8,6 +8,7 @@ on:
       - "app/api/health/route.js"
       - "lib/agent-decision-signing-key.mjs"
       - "scripts/agent-signing-serverless-runtime.test.mjs"
+      - "scripts/agent-signing-source-provenance.test.mjs"
       - ".github/workflows/agent-signing-serverless-runtime.yml"
   push:
     branches: [main]
@@ -17,6 +18,7 @@ on:
       - "app/api/health/route.js"
       - "lib/agent-decision-signing-key.mjs"
       - "scripts/agent-signing-serverless-runtime.test.mjs"
+      - "scripts/agent-signing-source-provenance.test.mjs"
       - ".github/workflows/agent-signing-serverless-runtime.yml"
 
 permissions:
@@ -30,5 +32,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify request-scoped Vault signing runtime
-        run: node --test scripts/agent-signing-serverless-runtime.test.mjs
+      - name: Verify request-scoped Vault signing runtime and provenance
+        run: node --test scripts/agent-signing-serverless-runtime.test.mjs scripts/agent-signing-source-provenance.test.mjs
