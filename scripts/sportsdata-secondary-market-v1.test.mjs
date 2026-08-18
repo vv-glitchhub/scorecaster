@@ -108,9 +108,13 @@ test("WNBA provider chain falls back after SportsGameOdds quota block without by
   assert.equal(result.providerFamily, "sportsdataio");
   assert.equal(result.fallbackUsed, true);
   assert.equal(result.quotaPreflightBlocked, true);
+  assert.equal(result.fallbackReason, "quota_exhausted");
+  assert.equal(result.fallbackFrom.mode, "quota_exhausted");
   assert.deepEqual(result.fallbackFrom.bindingLimits, ["per-month:entities"]);
+  assert.equal(result.providerAttempts[0].mode, "quota_exhausted");
   assert.equal(result.providerAttempts.length, 2);
   assert.equal(SECONDARY_ODDS_PROVIDER_CHAIN_POLICY.noQuotaBypass, true);
+  assert.equal(SECONDARY_ODDS_PROVIDER_CHAIN_POLICY.quotaPreflightMode, "quota_exhausted");
 });
 
 test("subscription failure never becomes verified secondary pricing", async () => {
@@ -127,10 +131,12 @@ test("subscription failure never becomes verified secondary pricing", async () =
     })
   });
 
+  assert.equal(result.mode, "quota_exhausted");
   assert.notEqual(result.mode, "live");
   assert.equal(result.fallbackUsed, false);
   assert.equal(result.fallbackAttempted, true);
   assert.equal(result.fallbackSubscriptionUnavailable, true);
+  assert.equal(result.providerAttempts[0].mode, "quota_exhausted");
 });
 
 test("non-WNBA leagues do not trigger the SportsData fallback", async () => {
@@ -143,7 +149,9 @@ test("non-WNBA leagues do not trigger the SportsData fallback", async () => {
     }
   });
   assert.equal(sportsDataCalls, 0);
+  assert.equal(result.mode, "quota_exhausted");
   assert.notEqual(result.mode, "live");
+  assert.equal(result.providerAttempts[0].mode, "quota_exhausted");
 });
 
 test("capture ledger records SportsDataIO as one secondary provider family", () => {
