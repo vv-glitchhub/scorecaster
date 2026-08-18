@@ -35,7 +35,7 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 21);
+  assert.equal(manifest.supabaseMigrations.length, 22);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -44,11 +44,13 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_agent_decision_signing_vault.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_community_feed_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_ai_intelligence_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
+  assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_agent_decision_signing_vault.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
   assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
   assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
@@ -57,7 +59,7 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /manifest\.productionPatches/);
-  assert.match(runner, /migrations\.length === 21/);
+  assert.match(runner, /migrations\.length === 22/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);

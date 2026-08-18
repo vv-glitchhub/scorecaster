@@ -9,6 +9,7 @@ const json = async (path) => JSON.parse(await readFile(new URL(path, root), "utf
 
 const manifest = await json("config/release-readiness.json");
 const canonicalStatus = await json("config/production-migration-status.json");
+const canonicalMigrationCount = manifest.supabaseMigrations.length;
 
 function allAppliedStatus() {
   return {
@@ -29,9 +30,10 @@ function allAppliedStatus() {
 test("canonical registry reports passed only after explicit production evidence is recorded", () => {
   const result = buildMigrationReleaseStatus({ manifest, statusDocument: canonicalStatus });
 
-  assert.equal(result.configuredMigrationCount, 21);
-  assert.equal(result.recordedMigrationCount, 21);
-  assert.equal(result.verifiedAppliedCount, 21);
+  assert.equal(canonicalMigrationCount, 22);
+  assert.equal(result.configuredMigrationCount, canonicalMigrationCount);
+  assert.equal(result.recordedMigrationCount, canonicalMigrationCount);
+  assert.equal(result.verifiedAppliedCount, canonicalMigrationCount);
   assert.equal(result.unverifiedCount, 0);
   assert.equal(result.unresolvedCount, 0);
   assert.equal(result.orderMatchesManifest, true);
@@ -100,7 +102,7 @@ test("explicit missing or blocked migration is a failed production state", () =>
     const result = buildMigrationReleaseStatus({ manifest, statusDocument });
     assert.equal(result.status, "failed");
     assert.equal(result.productionVerified, false);
-    assert.equal(result.verifiedAppliedCount, 20);
+    assert.equal(result.verifiedAppliedCount, canonicalMigrationCount - 1);
     assert.equal(result.unresolvedCount, 1);
   }
 });
