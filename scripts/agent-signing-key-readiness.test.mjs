@@ -143,6 +143,27 @@ test("startup leaves an existing dedicated environment key untouched", async () 
   }
 });
 
+test("serverless routes resolve the signing key inside each request instead of relying on startup mutation", async () => {
+  const [portfolio, explain, health] = await Promise.all([
+    readFile(resolve(root, "app/api/agent/portfolio/route.js"), "utf8"),
+    readFile(resolve(root, "app/api/agent/explain/route.js"), "utf8"),
+    readFile(resolve(root, "app/api/health/route.js"), "utf8")
+  ]);
+
+  assert.match(portfolio, /resolveAgentDecisionSigningKey\(\)/);
+  assert.match(portfolio, /createAgentDecisionTicket\(evidence\.signedDecision, \{ key: signing\.key \}\)/);
+  assert.match(portfolio, /signingSource: signingConfigured \? signing\.source : "unconfigured"/);
+  assert.doesNotMatch(portfolio, /agentDecisionSigningConfigured\(\)/);
+
+  assert.match(explain, /const signing = await resolveAgentDecisionSigningKey\(\)/);
+  assert.match(explain, /verifyAgentDecisionTicket\(body\.data\?\.ticket, \{ key: signing\.key \}\)/);
+
+  assert.match(health, /const agentDecisionSigning = await agentDecisionSigningReadiness\(\)/);
+  assert.match(health, /agentV10DecisionSigningConfigured: agentDecisionSigning\.configured/);
+  assert.match(health, /agentV10DecisionSigningSource: agentDecisionSigning\.source/);
+  assert.doesNotMatch(health, /AGENT_DECISION_SIGNING_KEY && process\.env\.AGENT_DECISION_SIGNING_KEY\.length/);
+});
+
 test("verification CLI accepts a synthetic environment key but never prints it", () => {
   const run = spawnSync(process.execPath, ["scripts/verify-agent-decision-signing-key.mjs", "--require-present"], {
     cwd: root,
