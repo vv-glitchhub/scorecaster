@@ -11,18 +11,20 @@ import {
 } from "./migration-inventory.mjs";
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const canonicalMigrationCount = 22;
+const signingVaultMigration = "supabase/scorecaster_agent_decision_signing_vault.sql";
 
 test("canonical repository migration inventory is complete and ordered", async () => {
   const inventory = await buildMigrationInventory({ root: repositoryRoot });
 
-  assert.equal(inventory.summary.configuredMigrationCount, 21);
-  assert.equal(inventory.summary.discoveredMigrationCount, 21);
+  assert.equal(inventory.summary.configuredMigrationCount, canonicalMigrationCount);
+  assert.equal(inventory.summary.discoveredMigrationCount, canonicalMigrationCount);
   assert.equal(inventory.summary.repositoryComplete, true);
   assert.deepEqual(inventory.validation.missingFiles, []);
   assert.deepEqual(inventory.validation.untrackedFiles, []);
   assert.deepEqual(inventory.validation.statusFailures, []);
   assert.equal(inventory.migrations[0].path, "supabase/scorecaster_schema.sql");
-  assert.equal(inventory.migrations.at(-1).path, "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.equal(inventory.migrations.at(-1).path, signingVaultMigration);
   assert.ok(inventory.migrations.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksumSha256)));
 });
 
@@ -79,15 +81,17 @@ test("markdown explicitly separates repository analysis from production evidence
   const inventory = await buildMigrationInventory({ root: repositoryRoot });
   const markdown = inventoryMarkdown(inventory);
   assert.match(markdown, /Production status is manual evidence/);
-  assert.match(markdown, /Configured migrations: 21/);
+  assert.match(markdown, new RegExp(`Configured migrations: ${canonicalMigrationCount}`));
   assert.doesNotMatch(markdown, /SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET|ODDS_API_KEY/);
 
   const status = JSON.parse(await readFile(path.join(repositoryRoot, "config/production-migration-status.json"), "utf8"));
   assert.equal(status.environment, "production");
-  assert.equal(status.migrations.length, 21);
+  assert.equal(status.migrations.length, canonicalMigrationCount);
   assert.ok(status.migrations.every((migration) => migration.status === "applied"));
   assert.ok(status.migrations.every((migration) => typeof migration.verifiedAt === "string" && migration.verifiedAt.length > 0));
   assert.ok(status.migrations.every((migration) => typeof migration.verifiedBy === "string" && migration.verifiedBy.length > 0));
-  assert.ok(status.migrations.every((migration) => /^docs\/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10\.md#/.test(migration.evidence || "")));
+  assert.ok(status.migrations.slice(0, -1).every((migration) => /^docs\/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10\.md#/.test(migration.evidence || "")));
+  assert.equal(status.migrations.at(-1).path, signingVaultMigration);
+  assert.equal(status.migrations.at(-1).evidence, "docs/PRODUCTION_AGENT_SIGNING_VAULT_EVIDENCE_2026_08_18.md");
   assert.equal(inventory.summary.productionVerified, true);
 });
