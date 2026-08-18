@@ -10,9 +10,39 @@ import {
   assessAgentDecisionSigningKey,
   generateAgentDecisionSigningKey
 } from "../lib/agent-signing-key-readiness.mjs";
+import {
+  AGENT_DECISION_SIGNING_VAULT_RPC,
+  clearAgentDecisionSigningKeyCacheForTests,
+  hydrateAgentDecisionSigningEnvironment,
+  resolveAgentDecisionSigningKey
+} from "../lib/agent-decision-signing-key.mjs";
+import { registerNodeRuntimeSecrets } from "../instrumentation-node.js";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const syntheticKey = "synthetic-agent-signing-key-for-ci-only-0123456789abcdef";
+const vaultSyntheticKey = "synthetic-vault-agent-signing-key-for-ci-only-0123456789abcdef";
+
+function fakeAdmin({ data = vaultSyntheticKey, error = null } = {}) {
+  return {
+    rpc: async (name) => {
+      assert.equal(name, AGENT_DECISION_SIGNING_VAULT_RPC);
+      return { data, error };
+    }
+  };
+}
+
+function withSigningEnvironmentCleared() {
+  const previousKey = process.env.AGENT_DECISION_SIGNING_KEY;
+  const previousSource = process.env.AGENT_DECISION_SIGNING_KEY_SOURCE;
+  delete process.env.AGENT_DECISION_SIGNING_KEY;
+  delete process.env.AGENT_DECISION_SIGNING_KEY_SOURCE;
+  return () => {
+    if (previousKey === undefined) delete process.env.AGENT_DECISION_SIGNING_KEY;
+    else process.env.AGENT_DECISION_SIGNING_KEY = previousKey;
+    if (previousSource === undefined) delete process.env.AGENT_DECISION_SIGNING_KEY_SOURCE;
+    else process.env.AGENT_DECISION_SIGNING_KEY_SOURCE = previousSource;
+  };
+}
 
 test("CSPRNG generator returns distinct sufficiently long URL-safe keys", () => {
   const first = generateAgentDecisionSigningKey();
@@ -51,6 +81,66 @@ test("valid synthetic key passes ticket round trip while keeping report redacted
   assert.doesNotMatch(serialized, new RegExp(syntheticKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.equal(Object.hasOwn(result, "key"), false);
   assert.equal(Object.hasOwn(result, "secret"), false);
+});
+
+test("server resolver prefers the dedicated environment key over Vault", async () => {
+  clearAgentDecisionSigningKeyCacheForTests();
+  let calls = 0;
+  const admin = { rpc: async () => { calls += 1; return { data: vaultSyntheticKey, error: null }; } };
+  const result = await resolveAgentDecisionSigningKey({ envKey: syntheticKey, admin, useCache: false });
+  assert.equal(result.configured, true);
+  assert.equal(result.source, "environment");
+  assert.equal(result.key, syntheticKey);
+  assert.equal(calls, 0);
+});
+
+test("server resolver uses the service-role-only Vault RPC when the env key is absent", async () => {
+  clearAgentDecisionSigningKeyCacheForTests();
+  const result = await resolveAgentDecisionSigningKey({ envKey: "", admin: fakeAdmin(), useCache: false });
+  assert.equal(result.configured, true);
+  assert.equal(result.source, "supabase-vault");
+  assert.equal(result.key, vaultSyntheticKey);
+});
+
+test("Vault lookup fails closed on RPC errors or undersized secret values", async () => {
+  clearAgentDecisionSigningKeyCacheForTests();
+  const errored = await resolveAgentDecisionSigningKey({ envKey: "", admin: fakeAdmin({ error: { message: "synthetic" } }), useCache: false });
+  assert.deepEqual(errored, { configured: false, key: null, source: "unconfigured" });
+
+  clearAgentDecisionSigningKeyCacheForTests();
+  const short = await resolveAgentDecisionSigningKey({ envKey: "", admin: fakeAdmin({ data: "short" }), useCache: false });
+  assert.deepEqual(short, { configured: false, key: null, source: "unconfigured" });
+});
+
+test("Next.js Node startup hydrates the existing synchronous ticket contract from Vault without logging the secret", async () => {
+  clearAgentDecisionSigningKeyCacheForTests();
+  const restore = withSigningEnvironmentCleared();
+  try {
+    const result = await registerNodeRuntimeSecrets({ admin: fakeAdmin(), useCache: false });
+    assert.equal(result.configured, true);
+    assert.equal(result.source, "supabase-vault");
+    assert.equal(result.secretValueIncluded, false);
+    assert.equal(process.env.AGENT_DECISION_SIGNING_KEY, vaultSyntheticKey);
+    assert.equal(process.env.AGENT_DECISION_SIGNING_KEY_SOURCE, "supabase-vault");
+  } finally {
+    restore();
+    clearAgentDecisionSigningKeyCacheForTests();
+  }
+});
+
+test("startup leaves an existing dedicated environment key untouched", async () => {
+  clearAgentDecisionSigningKeyCacheForTests();
+  const restore = withSigningEnvironmentCleared();
+  try {
+    process.env.AGENT_DECISION_SIGNING_KEY = syntheticKey;
+    const result = await hydrateAgentDecisionSigningEnvironment({ admin: fakeAdmin(), useCache: false });
+    assert.equal(result.configured, true);
+    assert.equal(result.source, "environment");
+    assert.equal(process.env.AGENT_DECISION_SIGNING_KEY, syntheticKey);
+  } finally {
+    restore();
+    clearAgentDecisionSigningKeyCacheForTests();
+  }
 });
 
 test("verification CLI accepts a synthetic environment key but never prints it", () => {
