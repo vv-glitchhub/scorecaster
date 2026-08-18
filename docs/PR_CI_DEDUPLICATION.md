@@ -11,7 +11,7 @@ Scorecaster runs a broad regression matrix on pull requests while production Col
 - it has `actions: write` only for cancellation and `contents: read` for the boundary regression;
 - scheduled production workflows such as Collector, Unified Data Capture and Notification Delivery are outside its query.
 
-The cancellation job is gated by `scripts/pr-run-deduplicator.test.mjs`. This boundary must remain fail-closed: if the reviewed static contract changes unexpectedly, stale-run cancellation does not execute.
+The static boundary regression runs in parallel with cancellation so stale PR work can be released immediately. The cancellation script itself independently re-checks `event == pull_request`, active status, current run ID and current head SHA before any cancellation request. A regression failure still blocks the PR even though the cancellation job starts without waiting for the test runner.
 
 Acceptance requires both static and live PR evidence: the boundary regression must pass, a newer synchronize SHA must be able to cancel still-running older pull-request runs on the same head branch, and current-SHA plus scheduled production runs must remain outside the cancellation selection.
 
