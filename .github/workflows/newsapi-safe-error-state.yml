@@ -5,12 +5,14 @@ on:
     paths:
       - "lib/news-fetcher.js"
       - "scripts/newsapi-safe-error-state.test.mjs"
+      - "scripts/newsapi-adaptive-backoff.test.mjs"
       - ".github/workflows/newsapi-safe-error-state.yml"
   push:
     branches: [main]
     paths:
       - "lib/news-fetcher.js"
       - "scripts/newsapi-safe-error-state.test.mjs"
+      - "scripts/newsapi-adaptive-backoff.test.mjs"
       - ".github/workflows/newsapi-safe-error-state.yml"
 
 permissions:
@@ -24,5 +26,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Verify safe NewsAPI failure classification
-        run: node --test scripts/newsapi-safe-error-state.test.mjs
+      - name: Verify safe NewsAPI failure classification and adaptive backoff
+        run: node --test scripts/newsapi-safe-error-state.test.mjs scripts/newsapi-adaptive-backoff.test.mjs
