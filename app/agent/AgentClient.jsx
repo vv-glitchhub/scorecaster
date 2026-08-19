@@ -248,9 +248,9 @@ export default function AgentClient() {
       <PageHero
         eyebrow="Agent V11 · Model Lab · Risk Control V1"
         title={tr({
-          fi: "Päätös ensin, riskitaso sinun hallinnassasi",
-          en: "Decision first, risk level under your control",
-          es: "Primero la decisión, con el riesgo bajo tu control"
+          fi: "Päätös ensin, auditointi tarvittaessa",
+          en: "Decision first, audit when needed",
+          es: "Primero la decisión, auditoría cuando sea necesaria"
         })}
         description={tr({
           fi: "Agentti järjestää palvelimella varmennetut kohteet PLAY-, WATCH- ja SKIP-päätöksiksi. Valitse kuinka tiukasti Agent suosittelee kohteita. Riskitaso ei muuta markkinatodennäköisyyttä, edgeä tai EV:tä.",
