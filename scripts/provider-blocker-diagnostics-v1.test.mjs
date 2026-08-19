@@ -53,6 +53,42 @@ test("injury blocker diagnostics preserve safe 401 evidence without raw payload 
   assert.equal("apiKey" in diagnostic, false);
 });
 
+test("NewsAPI rate-limit diagnostics preserve only allowlisted cooldown evidence", () => {
+  const secret = "news-secret-value";
+  const diagnostic = safeSportsProviderDiagnostic({
+    ok: false,
+    source: "newsapi",
+    mode: "rate_limited",
+    status: 429,
+    errorCode: "rateLimited",
+    retryAfterSeconds: 75,
+    backoffActive: true,
+    networkRequestMade: false,
+    message: `provider said ${secret}`,
+    raw: { apiKey: secret }
+  }, "news-provider");
+
+  assert.equal(diagnostic.source, "newsapi");
+  assert.equal(diagnostic.status, 429);
+  assert.equal(diagnostic.errorCode, "rateLimited");
+  assert.equal(diagnostic.retryAfterSeconds, 75);
+  assert.equal(diagnostic.backoffActive, true);
+  assert.equal(diagnostic.networkRequestMade, false);
+  assert.equal(diagnostic.rawPayloadRetained, false);
+  assert.equal(diagnostic.rawErrorMessageRetained, false);
+  assert.equal(diagnostic.credentialRetained, false);
+  assert.equal(JSON.stringify(diagnostic).includes(secret), false);
+  assert.equal("message" in diagnostic, false);
+  assert.equal("raw" in diagnostic, false);
+
+  const rejected = safeSportsProviderDiagnostic({
+    source: "newsapi",
+    mode: "rate_limited",
+    errorCode: "arbitrary-secret-bearing-code"
+  }, "news-provider");
+  assert.equal(rejected.errorCode, null);
+});
+
 test("lineup diagnostics preserve incomplete starter and fallback blockers", () => {
   const diagnostic = safeSportsProviderDiagnostic({
     ok: true,
@@ -134,7 +170,7 @@ test("budget exhaustion remains visible as a provider blocker", () => {
   assert.equal(attached.providerDiagnostics.lineup.mode, "budget_exhausted");
 });
 
-test("Unified Data service consumes Sports Intelligence diagnostics for injuries and lineups", async () => {
+test("Unified Data service consumes safe Sports Intelligence diagnostics including NewsAPI cooldown state", async () => {
   const service = await readFile(new URL("../lib/unified-sports-data-service.js", import.meta.url), "utf8");
   const intelligence = await readFile(new URL("../lib/sports-intelligence-service.js", import.meta.url), "utf8");
 
@@ -142,14 +178,22 @@ test("Unified Data service consumes Sports Intelligence diagnostics for injuries
   assert.match(intelligence, /reportWithDiagnostics/);
   assert.match(service, /safeDiagnostic\(sportsReport, "injuries"\)/);
   assert.match(service, /safeDiagnostic\(sportsReport, "lineup"\)/);
+  assert.match(service, /safeDiagnostic\(sportsReport, "news"\)/);
+  assert.match(service, /errorCode/);
+  assert.match(service, /retryAfterSeconds/);
+  assert.match(service, /backoffActive/);
+  assert.match(service, /networkRequestMade/);
   assert.match(service, /subscriptionUnavailable/);
   assert.match(service, /rawPayloadRetained:\s*false/);
+  assert.match(service, /rawErrorMessageRetained:\s*false/);
   assert.match(service, /credentialRetained:\s*false/);
 });
 
 test("diagnostics policy cannot change production decisions", () => {
   assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.rawPayloadRetained, false);
+  assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.rawErrorMessageRetained, false);
   assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.credentialRetained, false);
+  assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.newsApiErrorCodeAllowlist, true);
   assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.probabilityChanged, false);
   assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.decisionChanged, false);
   assert.equal(SPORTS_PROVIDER_DIAGNOSTICS_POLICY.stakeChanged, false);
