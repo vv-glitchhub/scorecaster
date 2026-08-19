@@ -1,0 +1,168 @@
+name: Scorecaster Advanced Model Readiness Bootstrap
+
+on:
+  push:
+    branches: [agent/advanced-model-readiness-v1]
+    paths:
+      - "lib/advanced-model-readiness-v1.mjs"
+      - "scripts/advanced-model-readiness-v1.test.mjs"
+      - ".github/workflows/advanced-model-readiness-bootstrap.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/advanced-model-readiness-v1
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Wire readiness through worker, holdout API and Model Lab
+        shell: python
+        run: |
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text()
+              if old not in text:
+                  raise SystemExit(f"missing patch anchor in {path}: {old[:100]!r}")
+              file.write_text(text.replace(old, new, 1))
+
+          route = "app/api/internal/sports-analytics/route.js"
+          replace_once(
+              route,
+              'import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";\n',
+              'import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";\nimport { ADVANCED_MODEL_READINESS_VERSION, buildAdvancedModelReadinessV1 } from "../../../../lib/advanced-model-readiness-v1.mjs";\n'
+          )
+          replace_once(
+              route,
+              '  const shadowModels = compactShadowModels(pick, observations, capturedAt);\n  const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });\n',
+              '  const shadowModels = compactShadowModels(pick, observations, capturedAt);\n  const advancedModels = eventLevelAdvancedModels(pick, observations, capturedAt);\n  const providerConfiguration = sportsAnalyticsProviderConfiguration();\n  const advancedModelReadiness = buildAdvancedModelReadinessV1({\n    sport: snapshot.canonical_sport,\n    models: advancedModels,\n    externalProvider: {\n      configured: providerConfiguration.configured,\n      source: external.source || providerConfiguration.source,\n      mode: external.mode,\n      ok: external.ok,\n      observationCount: external.observations.length\n    }\n  });\n  const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });\n'
+          )
+          replace_once(
+              route,
+              '    shadowModelCount: shadowModels.length,\n    marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,\n',
+              '    shadowModelCount: shadowModels.length,\n    advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,\n    advancedModelReadiness,\n    marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,\n'
+          )
+          replace_once(
+              route,
+              '    shadowModelsCaptured: shadowModels.length,\n    marketBenchmarkCaptured: Boolean(marketBenchmark)\n',
+              '    shadowModelsCaptured: shadowModels.length,\n    advancedModelReady: advancedModelReadiness.holdoutCaptureReady === true,\n    advancedModelBlocked: advancedModelReadiness.status === "blocked",\n    marketBenchmarkCaptured: Boolean(marketBenchmark)\n'
+          )
+          replace_once(
+              route,
+              '      shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",\n      marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,\n',
+              '      shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",\n      advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,\n      marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,\n'
+          )
+          replace_once(
+              route,
+              '      shadowModelsCaptured: stored.reduce((sum, item) => sum + item.shadowModelsCaptured, 0),\n      marketBenchmarksCaptured: stored.filter((item) => item.marketBenchmarkCaptured).length,\n',
+              '      shadowModelsCaptured: stored.reduce((sum, item) => sum + item.shadowModelsCaptured, 0),\n      advancedModelsReady: stored.filter((item) => item.advancedModelReady).length,\n      advancedModelsBlocked: stored.filter((item) => item.advancedModelBlocked).length,\n      marketBenchmarksCaptured: stored.filter((item) => item.marketBenchmarkCaptured).length,\n'
+          )
+
+          service = "lib/advanced-model-holdout-service.js"
+          replace_once(
+              service,
+              'import { buildAdvancedModelHoldoutV1 } from "./advanced-model-holdout-v1.mjs";\n',
+              'import { buildAdvancedModelHoldoutV1 } from "./advanced-model-holdout-v1.mjs";\nimport { summarizeAdvancedModelReadinessSnapshotsV1 } from "./advanced-model-readiness-v1.mjs";\n'
+          )
+          replace_once(
+              service,
+              '      report: buildAdvancedModelHoldoutV1([], [], { now }),\n      cached: false\n',
+              '      report: buildAdvancedModelHoldoutV1([], [], { now }),\n      advancedModelReadiness: summarizeAdvancedModelReadinessSnapshotsV1([]),\n      cached: false\n'
+          )
+          replace_once(
+              service,
+              '    const snapshots = (Array.isArray(data) ? data : []).filter(hasShadowModels);\n    const groups = new Map();\n',
+              '    const allSnapshots = Array.isArray(data) ? data : [];\n    const advancedModelReadiness = summarizeAdvancedModelReadinessSnapshotsV1(allSnapshots);\n    const snapshots = allSnapshots.filter(hasShadowModels);\n    const groups = new Map();\n'
+          )
+          replace_once(
+              service,
+              '      providerFailures,\n      report,\n      cached: false\n',
+              '      providerFailures,\n      advancedModelReadiness,\n      report,\n      cached: false\n'
+          )
+          replace_once(
+              service,
+              '      report: buildAdvancedModelHoldoutV1([], [], { now }),\n      cached: false\n',
+              '      report: buildAdvancedModelHoldoutV1([], [], { now }),\n      advancedModelReadiness: summarizeAdvancedModelReadinessSnapshotsV1([]),\n      cached: false\n'
+          )
+
+          api = "app/api/model-holdout/route.js"
+          replace_once(
+              api,
+              '        providerFailures: Array.isArray(result.providerFailures) ? result.providerFailures.slice(0, 20) : []\n',
+              '        providerFailures: Array.isArray(result.providerFailures) ? result.providerFailures.slice(0, 20) : [],\n        advancedModelReadiness: result.advancedModelReadiness || null\n'
+          )
+
+          ui = "app/model-lab/ModelHoldoutScorecard.jsx"
+          replace_once(
+              ui,
+              '  const collection = state.payload?.collection || {};\n',
+              '  const collection = state.payload?.collection || {};\n  const readiness = collection.advancedModelReadiness || {};\n  const readinessModels = Array.isArray(readiness.models) ? readiness.models : [];\n'
+          )
+          replace_once(
+              ui,
+              '          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">\n',
+              '          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">\n'
+          )
+          replace_once(
+              ui,
+              '              ["Market paired", report?.counts?.marketComparableEvaluations ?? 0],\n              ["Models", report?.counts?.models ?? 0]\n',
+              '              ["Market paired", report?.counts?.marketComparableEvaluations ?? 0],\n              ["Models", report?.counts?.models ?? 0],\n              ["Advanced ready", readiness.readyEvents ?? 0],\n              ["Advanced blocked", readiness.blockedEvents ?? 0]\n'
+          )
+          anchor = '          {models.length === 0 ? (\n'
+          panel = '''          {readinessModels.length > 0 && (\n            <div className="mt-5 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4" data-advanced-model-readiness-v1="true">\n              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--sc-brand)]">Advanced Model Input Readiness V1</div>\n              <h3 className="mt-1 text-lg font-black text-[var(--sc-text)]">{tr({ fi: "Mikä estää holdout-otoksen kertymisen?", en: "What is blocking holdout collection?", es: "¿Qué bloquea la recolección holdout?" })}</h3>\n              <p className="mt-1 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Näyttää viimeisimmän tilan per tapahtuma ja malli. Providerin raakavirheitä tai avaimia ei tallenneta.", en: "Shows the latest state per event and model. Raw provider errors and credentials are never retained.", es: "Muestra el último estado por evento y modelo. No se guardan errores sin procesar ni credenciales del proveedor." })}</p>\n              <div className="mt-3 grid gap-3 xl:grid-cols-2">\n                {readinessModels.map((model) => (\n                  <div key={`readiness-${model.modelVersion || model.modelId}`} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-3">\n                    <div className="flex items-start justify-between gap-3">\n                      <div><div className="text-xs font-black text-[var(--sc-text)]">{model.modelId || model.modelVersion || "advanced model"}</div><div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[var(--sc-faint)]">{clean(model.sport)}</div></div>\n                      <div className="text-right text-xs text-[var(--sc-muted)]"><strong className="text-emerald-300">{model.readyEvents || 0}</strong> ready · <strong className="text-amber-300">{model.blockedEvents || 0}</strong> blocked</div>\n                    </div>\n                    <div className="mt-2 text-xs leading-5 text-[var(--sc-muted)]">Provider: {Object.entries(model.providerModes || {}).map(([mode, count]) => `${clean(mode)} ${count}`).join(" · ") || "—"}</div>\n                    <div className="mt-2 flex flex-wrap gap-1.5">\n                      {(model.topBlockers || []).length ? model.topBlockers.map((item) => <span key={item.reason} className="rounded-full border border-amber-300/20 bg-amber-300/5 px-2 py-1 text-[10px] font-bold text-amber-100">{clean(item.reason)} · {item.count}</span>) : <span className="text-xs text-emerald-300">No current input blocker</span>}\n                    </div>\n                  </div>\n                ))}\n              </div>\n            </div>\n          )}\n\n'''
+          file = Path(ui)
+          text = file.read_text()
+          if anchor not in text:
+              raise SystemExit("missing ModelHoldoutScorecard readiness anchor")
+          file.write_text(text.replace(anchor, panel + anchor, 1))
+
+          docs = "docs/ADVANCED_MODEL_HOLDOUT_V1.md"
+          file = Path(docs)
+          text = file.read_text()
+          addition = '''\n\n## Advanced Model Input Readiness V1\n\nThe holdout now separates two questions that were previously easy to confuse:\n\n1. **Can an advanced model produce an immutable pregame prediction?**\n2. **If it can, has enough settled holdout evidence accumulated to compare it with the market?**\n\nEvery Sports Analytics capture retains a sanitized `advancedModelReadiness` record for the event's relevant advanced model, even when `shadowModels` is empty. The record may contain fixed missing-input blocker codes, safe provider mode, observation counts and model lineage. It never retains raw provider errors, credentials or market pricing as independent model evidence.\n\nThis makes states such as missing NHL xGF60/xGA60, missing confirmed starter GSAx60, or an unconfigured external analytics provider visible before the NHL holdout sample starts growing. Readiness remains observational only and cannot change production probability, decisions or promotion state.\n'''
+          if "## Advanced Model Input Readiness V1" not in text:
+              file.write_text(text.rstrip() + addition + "\n")
+
+          test = "scripts/advanced-model-readiness-v1.test.mjs"
+          file = Path(test)
+          text = file.read_text()
+          static_test = '''\n\ntest("Sports Analytics capture, holdout service and Model Lab wire readiness without provider raw errors", async () => {\n  const { readFile } = await import("node:fs/promises");\n  const worker = await readFile(new URL("../app/api/internal/sports-analytics/route.js", import.meta.url), "utf8");\n  const service = await readFile(new URL("../lib/advanced-model-holdout-service.js", import.meta.url), "utf8");\n  const api = await readFile(new URL("../app/api/model-holdout/route.js", import.meta.url), "utf8");\n  const ui = await readFile(new URL("../app/model-lab/ModelHoldoutScorecard.jsx", import.meta.url), "utf8");\n  assert.match(worker, /buildAdvancedModelReadinessV1/);\n  assert.match(worker, /advancedModelReadinessVersion/);\n  assert.match(worker, /advancedModelsReady/);\n  assert.match(worker, /advancedModelsBlocked/);\n  assert.match(service, /summarizeAdvancedModelReadinessSnapshotsV1/);\n  assert.match(api, /advancedModelReadiness/);\n  assert.match(ui, /Advanced Model Input Readiness V1/);\n  assert.doesNotMatch(worker, /advancedModelReadiness[\\s\\S]{0,800}reason:\\s*external\\.reason/);\n});\n'''
+          if "Sports Analytics capture, holdout service and Model Lab wire readiness" not in text:
+              file.write_text(text.rstrip() + static_test + "\n")
+
+          workflow = ".github/workflows/model-factory-v1.yml"
+          file = Path(workflow)
+          text = file.read_text()
+          for marker in ['      - "lib/advanced-model-holdout-v1.mjs"\n', '      - "lib/advanced-model-holdout-v1.mjs"\n']:
+              pass
+          text = text.replace('      - "lib/advanced-model-holdout-v1.mjs"\n', '      - "lib/advanced-model-holdout-v1.mjs"\n      - "lib/advanced-model-readiness-v1.mjs"\n')
+          text = text.replace('      - "app/api/model-holdout/route.js"\n', '      - "app/api/model-holdout/route.js"\n      - "app/model-lab/ModelHoldoutScorecard.jsx"\n')
+          text = text.replace('      - "scripts/advanced-model-holdout-v1.test.mjs"\n', '      - "scripts/advanced-model-holdout-v1.test.mjs"\n      - "scripts/advanced-model-readiness-v1.test.mjs"\n')
+          text = text.replace('scripts/advanced-model-holdout-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs', 'scripts/advanced-model-holdout-v1.test.mjs scripts/advanced-model-readiness-v1.test.mjs scripts/sports-analytics-provider-contract-v2.test.mjs')
+          file.write_text(text)
+
+      - name: Readiness focused tests
+        run: node --test scripts/advanced-model-readiness-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs
+
+      - name: Commit wired readiness
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add app/api/internal/sports-analytics/route.js lib/advanced-model-holdout-service.js app/api/model-holdout/route.js app/model-lab/ModelHoldoutScorecard.jsx docs/ADVANCED_MODEL_HOLDOUT_V1.md scripts/advanced-model-readiness-v1.test.mjs .github/workflows/model-factory-v1.yml
+          if git diff --cached --quiet; then
+            echo "No wiring changes needed"
+            exit 0
+          fi
+          git commit -m "Expose advanced model readiness through holdout"
+          git push origin HEAD:agent/advanced-model-readiness-v1
