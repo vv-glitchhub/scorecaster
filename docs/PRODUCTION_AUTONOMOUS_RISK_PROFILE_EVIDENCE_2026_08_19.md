@@ -15,6 +15,8 @@ Production Supabase migration registry contains:
 
 The migration was applied through the Supabase migration API before the application code that reads the new columns is deployed.
 
+The canonical clean-install dependency order is `Autonomous Agent V2 -> V13 hard caps -> Autonomous Risk Profile V1 -> Shadow Learning`. This preserves the existing requirement that database hard caps are installed immediately after V2 and before any selectable recommendation-risk extension. The production registry timestamp above records the actual historical application date of this additive migration and is not rewritten to imitate the canonical clean-install order.
+
 ## Verified schema state
 
 Object-level production verification confirmed:
