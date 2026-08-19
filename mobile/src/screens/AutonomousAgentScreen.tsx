@@ -4,6 +4,10 @@ import { useLanguage } from "../i18n";
 import { apiRequest } from "../lib/api";
 import { ActionButton, Card, styles } from "../ui";
 
+type RiskProfile = "conservative" | "balanced" | "aggressive";
+type RiskPolicy = { minConfidence?: number; minEdge?: number; minEv?: number; kellyFraction?: number };
+type RiskPayload = { riskProfile: RiskProfile; riskPolicy?: RiskPolicy; paperOnly: boolean; realMoneyBetting: boolean };
+
 type Settings = {
   enabled: boolean;
   sports: string[];
@@ -11,6 +15,7 @@ type Settings = {
   min_priority_score: number;
   min_odds: number;
   max_odds: number;
+  risk_profile?: RiskProfile;
   min_data_coverage: number;
   min_provider_count: number;
   max_provider_disagreement: number;
@@ -65,6 +70,8 @@ type AuditRow = {
   provider_count: number | null;
   provider_disagreement: number | null;
   odds: number | null;
+  risk_profile?: RiskProfile;
+  risk_policy?: RiskPolicy;
   created_at: string;
 };
 
@@ -148,13 +155,21 @@ export default function AutonomousAgentScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [requesting, setRequesting] = useState(false);
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>("balanced");
+  const [riskPolicy, setRiskPolicy] = useState<RiskPolicy | null>(null);
+  const [riskSaving, setRiskSaving] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      const next = await apiRequest<Payload>("/api/cloud/autonomous-agent");
+      const [next, risk] = await Promise.all([
+        apiRequest<Payload>("/api/cloud/autonomous-agent"),
+        apiRequest<RiskPayload>("/api/cloud/autonomous-agent/risk-profile")
+      ]);
       setPayload(next);
       setSettingsState(next.settings);
+      setRiskProfile(risk.riskProfile || next.settings.risk_profile || "balanced");
+      setRiskPolicy(risk.riskPolicy || null);
     } catch (error) {
       Alert.alert(tr({ fi: "Autonomous Agentia ei voitu ladata", en: "Autonomous Agent could not be loaded", es: "No se pudo cargar Autonomous Agent" }), error instanceof Error ? error.message : "Unknown error");
     } finally {
@@ -201,6 +216,23 @@ export default function AutonomousAgentScreen() {
     }
   }
 
+  async function saveRiskProfile(nextProfile: RiskProfile) {
+    if (riskSaving || nextProfile === riskProfile) return;
+    setRiskSaving(true);
+    try {
+      const next = await apiRequest<RiskPayload>("/api/cloud/autonomous-agent/risk-profile", {
+        method: "PUT",
+        body: { riskProfile: nextProfile }
+      });
+      setRiskProfile(next.riskProfile);
+      setRiskPolicy(next.riskPolicy || null);
+    } catch (error) {
+      Alert.alert(tr({ fi: "Riskitasoa ei voitu tallentaa", en: "Risk level could not be saved", es: "No se pudo guardar el riesgo" }), error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      setRiskSaving(false);
+    }
+  }
+
   async function requestRun() {
     setRequesting(true);
     try {
@@ -230,6 +262,11 @@ export default function AutonomousAgentScreen() {
   const brief = payload?.briefs?.[0]?.brief || state?.last_brief || null;
   const audit = payload?.audit || [];
   const allowed = useMemo(() => audit.filter((item) => item.allowed).length, [audit]);
+  const riskLabels: Record<RiskProfile, string> = {
+    conservative: tr({ fi: "Varovainen", en: "Conservative", es: "Conservador" }),
+    balanced: tr({ fi: "Tasapainoinen", en: "Balanced", es: "Equilibrado" }),
+    aggressive: tr({ fi: "Rohkea", en: "Aggressive", es: "Agresivo" })
+  };
 
   if (loading && !payload) return <View style={local.loading}><ActivityIndicator color="#c4b5fd" size="large" /></View>;
 
@@ -260,6 +297,23 @@ export default function AutonomousAgentScreen() {
         <View style={local.actions}><ActionButton label={saving ? tr({ fi: "Tallennetaan…", en: "Saving…", es: "Guardando…" }) : tr({ fi: "Tallenna", en: "Save", es: "Guardar" })} onPress={() => save()} disabled={saving || !settingsState} /><ActionButton label={requesting ? tr({ fi: "Jonotetaan…", en: "Queuing…", es: "Encolando…" }) : tr({ fi: "Pyydä ajo", en: "Queue run", es: "Solicitar" })} onPress={requestRun} tone="secondary" disabled={requesting || !settingsState?.enabled || !readiness?.ready} /><ActionButton label={tr({ fi: "Hätäpysäytys", en: "Emergency stop", es: "Parada" })} onPress={emergencyStop} tone="secondary" disabled={!settingsState?.enabled || saving} /></View>
       </Card>
 
+      <Card>
+        <Text style={styles.kicker}>AUTONOMOUS RISK CONTROL V1</Text>
+        <Text style={styles.cardTitle}>{tr({ fi: "Kuinka rohkeasti autonomia saa suositella?", en: "How aggressively may autonomy recommend?", es: "¿Con cuánto riesgo puede recomendar la autonomía?" })}</Text>
+        <Text style={styles.muted}>{tr({ fi: "Riskitaso muuttaa vain recommendation-portteja ja virtuaalista panostusta. Probability, edge ja EV eivät muutu, ja omat min edge / min confidence -rajasi pysyvät lisäturvana.", en: "Risk changes recommendation gates and virtual sizing only. Probability, edge and EV stay unchanged, and your min edge / min confidence remain extra safety floors.", es: "El riesgo solo cambia los filtros y el importe virtual. Probabilidad, edge y EV no cambian y tus mínimos siguen activos." })}</Text>
+        <View style={local.actions}>
+          {(["conservative", "balanced", "aggressive"] as RiskProfile[]).map((item) => <RiskChoice key={item} label={riskLabels[item]} active={riskProfile === item} disabled={riskSaving} onPress={() => void saveRiskProfile(item)} />)}
+        </View>
+        <View style={local.settingsList}>
+          <Row label={tr({ fi: "Valittu", en: "Selected", es: "Seleccionado" })} value={riskLabels[riskProfile]} />
+          <Row label="Min confidence" value={pct(riskPolicy?.minConfidence, 0)} />
+          <Row label="Min edge" value={pct(riskPolicy?.minEdge, 1)} />
+          <Row label="Min EV" value={pct(riskPolicy?.minEv, 1)} />
+          <Row label="Kelly" value={pct(riskPolicy?.kellyFraction, 1)} />
+        </View>
+        <Text style={[styles.muted, local.riskNote]}>{tr({ fi: "Hard capit pysyvät aina enintään 1 % / 5 % / 2,5 %. Ei oikean rahan vetoja.", en: "Hard caps always remain at most 1% / 5% / 2.5%. No real-money bets.", es: "Los límites siguen en 1% / 5% / 2,5%. Sin apuestas con dinero real." })}</Text>
+      </Card>
+
       {readiness?.blockers?.length ? <Card><Text style={styles.cardTitle}>{tr({ fi: "Aktiiviset estot", en: "Active blockers", es: "Bloqueos activos" })}</Text>{readiness.blockers.map((item) => <Text key={item} style={local.blocker}>• {item}</Text>)}{state?.pause_reason ? <Text style={styles.muted}>{state.pause_reason}</Text> : null}{state?.paused_until ? <Text style={styles.muted}>{tr({ fi: "Tauko päättyy", en: "Cooldown ends", es: "Pausa hasta" })}: {date(state.paused_until)}</Text> : null}</Card> : null}
 
       <Card>
@@ -273,7 +327,7 @@ export default function AutonomousAgentScreen() {
 
       <Card>
         <View style={styles.rowBetween}><View><Text style={styles.kicker}>DECISION AUDIT</Text><Text style={styles.cardTitle}>{tr({ fi: "Hyväksytyt ja estetyt", en: "Allowed and blocked", es: "Permitidos y bloqueados" })}</Text></View><Text style={local.auditCount}>{allowed}/{audit.length}</Text></View>
-        {audit.length === 0 ? <Text style={styles.muted}>{tr({ fi: "Ensimmäinen V2-sykli luo audit-historian.", en: "The first V2 cycle creates audit history.", es: "El primer ciclo V2 crea el historial." })}</Text> : audit.slice(0, 15).map((item) => <View key={item.id} style={local.audit}><View style={styles.rowBetween}><View style={local.flex}><Text style={styles.value}>{item.match}</Text><Text style={styles.muted}>{item.selection} · {item.league} · {Number(item.odds || 0).toFixed(2)}</Text></View><Text style={[local.status, item.allowed ? local.allowed : local.blocked]}>{item.allowed ? "ALLOWED" : "BLOCKED"}</Text></View><Text style={styles.muted}>Quality {Number(item.quality_score || 0).toFixed(0)} · coverage {pct(item.data_coverage, 0)} · providers {item.provider_count ?? "–"} · gap {pct(item.provider_disagreement, 1)}</Text>{item.reasons.map((reason) => <Text key={reason} style={local.reason}>• {reason}</Text>)}</View>)}
+        {audit.length === 0 ? <Text style={styles.muted}>{tr({ fi: "Ensimmäinen V2-sykli luo audit-historian.", en: "The first V2 cycle creates audit history.", es: "El primer ciclo V2 crea el historial." })}</Text> : audit.slice(0, 15).map((item) => <View key={item.id} style={local.audit}><View style={styles.rowBetween}><View style={local.flex}><Text style={styles.value}>{item.match}</Text><Text style={styles.muted}>{item.selection} · {item.league} · {Number(item.odds || 0).toFixed(2)}</Text></View><Text style={[local.status, item.allowed ? local.allowed : local.blocked]}>{item.allowed ? "ALLOWED" : "BLOCKED"}</Text></View><Text style={styles.muted}>Quality {Number(item.quality_score || 0).toFixed(0)} · coverage {pct(item.data_coverage, 0)} · providers {item.provider_count ?? "–"} · gap {pct(item.provider_disagreement, 1)}{item.risk_profile ? ` · ${riskLabels[item.risk_profile]}` : ""}</Text>{item.reasons.map((reason) => <Text key={reason} style={local.reason}>• {reason}</Text>)}</View>)}
       </Card>
 
       <Card><Text style={styles.cardTitle}>{tr({ fi: "Viimeisimmät syklit", en: "Recent cycles", es: "Ciclos recientes" })}</Text>{(payload?.runs || []).slice(0, 10).map((run) => <View key={run.id} style={local.audit}><View style={styles.rowBetween}><Text style={styles.value}>{String(run.status).toUpperCase()} · {String(run.health_status || "learning").toUpperCase()}</Text><Text style={styles.muted}>{date(run.completed_at || run.started_at)}</Text></View><Text style={styles.muted}>{run.candidate_count} candidates · {run.saved_count} saved · {Number(run.total_stake || 0).toFixed(2)} € · next {run.next_check_minutes || "–"} min</Text></View>)}</Card>
@@ -295,6 +349,10 @@ function Preset({ label, onPress }: { label: string; onPress: () => void }) {
   return <Pressable onPress={onPress} style={({ pressed }) => [local.preset, pressed && styles.cardPressed]}><Text style={local.presetText}>{label}</Text></Pressable>;
 }
 
+function RiskChoice({ label, active, disabled, onPress }: { label: string; active: boolean; disabled: boolean; onPress: () => void }) {
+  return <Pressable disabled={disabled} accessibilityRole="button" accessibilityState={{ selected: active, disabled }} onPress={onPress} style={({ pressed }) => [local.riskChoice, active && local.riskChoiceActive, disabled && local.riskChoiceDisabled, pressed && !disabled && styles.cardPressed]}><Text style={[local.riskChoiceText, active && local.riskChoiceTextActive]}>{label}</Text></Pressable>;
+}
+
 const local = StyleSheet.create({
   loading: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#07101f" },
   flex: { flex: 1 },
@@ -306,6 +364,12 @@ const local = StyleSheet.create({
   blocker: { color: "#fecaca", fontSize: 13, fontWeight: "700", marginTop: 6 },
   preset: { borderWidth: 1, borderColor: "#6d5fd2", backgroundColor: "#2e1f59", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10 },
   presetText: { color: "#ede9fe", fontWeight: "900", fontSize: 12 },
+  riskChoice: { borderWidth: 1, borderColor: "#334155", backgroundColor: "#101b2d", borderRadius: 14, paddingHorizontal: 14, paddingVertical: 11 },
+  riskChoiceActive: { borderColor: "#a78bfa", backgroundColor: "#2e1f59" },
+  riskChoiceDisabled: { opacity: 0.55 },
+  riskChoiceText: { color: "#cbd5e1", fontWeight: "900", fontSize: 12 },
+  riskChoiceTextActive: { color: "#f5f3ff" },
+  riskNote: { marginTop: 14 },
   settingsList: { marginTop: 14, gap: 8 },
   row: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12, borderTopWidth: 1, borderTopColor: "#263449", paddingTop: 10 },
   rowValue: { color: "#f8fafc", fontWeight: "900" },

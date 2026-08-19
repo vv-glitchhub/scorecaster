@@ -1,10 +1,11 @@
 import Link from "next/link";
 import AutonomousAgentClient from "./AutonomousAgentClient";
+import AutonomousRiskProfileCard from "./AutonomousRiskProfileCard";
 import FirstRunActivation from "./FirstRunActivation";
 
 export const metadata = {
   title: "Autonomous Scorecaster V13 | Scorecaster",
-  description: "V12 Mission Control combined with V13 candidate governance, safety cooldowns, decision audits and native emergency controls."
+  description: "V12 Mission Control combined with V13 candidate governance, safety cooldowns, selectable paper risk and decision audits."
 };
 
 export default function AutonomousAgentPage() {
@@ -19,6 +20,7 @@ export default function AutonomousAgentPage() {
         </div>
         <Link href="/mission-control" className="sc-button-primary mt-4 shrink-0 sm:mt-0">Avaa Mission Control</Link>
       </section>
+      <AutonomousRiskProfileCard />
       <AutonomousAgentClient />
     </div>
   );

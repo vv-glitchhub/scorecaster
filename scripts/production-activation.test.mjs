@@ -35,7 +35,7 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 22);
+  assert.equal(manifest.supabaseMigrations.length, 23);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -50,16 +50,18 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_ai_intelligence_v1.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_unified_data.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_sports_analytics.sql"));
+  assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_agent_decision_signing_vault.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
-  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent_v2.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /manifest\.productionPatches/);
-  assert.match(runner, /migrations\.length === 22/);
+  assert.match(runner, /migrations\.length === 23/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
@@ -83,6 +85,7 @@ test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Sh
   const unified = await source("supabase/scorecaster_unified_data.sql");
   const sportsAnalytics = await source("supabase/scorecaster_sports_analytics.sql");
   const autonomousV2 = await source("supabase/scorecaster_autonomous_agent_v2.sql");
+  const autonomousRisk = await source("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
   const shadow = await source("supabase/scorecaster_shadow_learning_v1.sql");
   const schema = await source("supabase/scorecaster_schema.sql");
   const auth = await source("supabase/scorecaster_auth_cloud.sql");
@@ -108,6 +111,9 @@ test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Sh
   assert.match(sql, /bets_enforce_paper_stake_limit/);
   assert.match(sql, /bets_capture_shadow_learning/);
   assert.match(sql, /autonomous_agent_settings_schedule/);
+  assert.match(autonomousRisk, /risk_profile/);
+  assert.match(autonomousRisk, /risk_policy/);
+  assert.match(autonomousRisk, /schedule_autonomous_agent_for_user/);
   assert.match(sql, /authenticated users must not delete Autonomous Agent settings directly/);
   assert.match(collectorMigration, /collector_runs/);
   assert.match(collectorMigration, /collector_records/);

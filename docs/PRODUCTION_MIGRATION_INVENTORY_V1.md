@@ -10,12 +10,12 @@ The product boundary remains sports analysis, risk control and virtual paper tra
 
 ## Canonical rollout
 
-The canonical ordered rollout contains 21 migrations. During this work package, two migrations were found in `supabase/` but missing from the release manifest:
+The canonical ordered rollout now contains 23 migrations. The inventory includes every reviewed `supabase/scorecaster_*.sql` migration, including the independently verified Agent signing migration and Autonomous Risk Profile V1. During the original inventory work package, two migrations were found in `supabase/` but missing from the release manifest:
 
 - `supabase/scorecaster_community_feed_v1.sql`
 - `supabase/scorecaster_ai_intelligence_v1.sql`
 
-Both are now included in the reviewed order. The final migration remains `supabase/scorecaster_shadow_learning_v1.sql`.
+Both are included in the reviewed order. The V13 database hard caps remain immediately after Autonomous Agent V2. `supabase/scorecaster_autonomous_agent_risk_profile_v1.sql` follows the hard-cap migration because it extends the V2 settings and audit tables without weakening the hard-cap trigger. The final migration remains `supabase/scorecaster_shadow_learning_v1.sql`.
 
 ## Files
 

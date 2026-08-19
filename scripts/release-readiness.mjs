@@ -111,6 +111,7 @@ const settlementIndex = migrations.indexOf("supabase/scorecaster_settlement_moni
 const autonomousV1Index = migrations.indexOf("supabase/scorecaster_autonomous_agent.sql");
 const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_agent_v2.sql");
 const autonomousV13HardCapsIndex = migrations.indexOf("supabase/scorecaster_autonomous_v13_hard_caps.sql");
+const autonomousRiskProfileIndex = migrations.indexOf("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
 const shadowLearningIndex = migrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
@@ -120,7 +121,8 @@ check(settlementIndex === sportsAnalyticsIndex + 1, "Settlement Monitor must run
 check(autonomousV1Index === settlementIndex + 1, "Autonomous Agent V1 must run immediately after Settlement Monitor");
 check(autonomousV2Index === autonomousV1Index + 1, "Autonomous Agent V2 must run immediately after V1");
 check(autonomousV13HardCapsIndex === autonomousV2Index + 1, "Autonomous V13 hard caps must run immediately after V2");
-check(shadowLearningIndex === autonomousV13HardCapsIndex + 1, "Shadow Learning must run immediately after V13 hard caps");
+check(autonomousRiskProfileIndex === autonomousV13HardCapsIndex + 1, "Autonomous Risk Profile V1 must run immediately after V13 hard caps");
+check(shadowLearningIndex === autonomousRiskProfileIndex + 1, "Shadow Learning must run immediately after Autonomous Risk Profile V1");
 check(shadowLearningIndex === migrations.length - 1, "Shadow Learning must be the final listed migration");
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);

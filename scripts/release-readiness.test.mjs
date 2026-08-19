@@ -11,7 +11,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 22);
+  assert.equal(manifest.supabaseMigrations.length, 23);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -19,10 +19,11 @@ test("release manifest defines the production origin, complete rollout and suppo
     "scripts/apply-verified-live-monitor-v1.sql"
   ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_agent_v2.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_settlement_monitor.sql");
+  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_autonomous_agent.sql");
+  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent_v2.sql");
+  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
   assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
@@ -66,6 +67,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-governance" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-database-hard-caps" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-audit" && item.blocking === true));
+  assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-risk-profile" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "autonomous-agent-v13-emergency-stop" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-storage" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-two-user-isolation" && item.blocking === true));
@@ -91,6 +93,7 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "scorecaster_autonomous_agent.sql",
     "scorecaster_autonomous_agent_v2.sql",
     "scorecaster_autonomous_v13_hard_caps.sql",
+    "scorecaster_autonomous_agent_risk_profile_v1.sql",
     "scorecaster_shadow_learning_v1.sql",
     "requiredSecurityHeaders",
     "mobile/store.config.json",
@@ -99,7 +102,8 @@ test("repository release audit verifies routes, SQL order, headers and store met
   ]) assert.match(audit, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(audit, /Autonomous Agent V2 must run immediately after V1/);
   assert.match(audit, /Autonomous V13 hard caps must run immediately after V2/);
-  assert.match(audit, /Shadow Learning must run immediately after V13 hard caps/);
+  assert.match(audit, /Autonomous Risk Profile V1 must run immediately after V13 hard caps/);
+  assert.match(audit, /Shadow Learning must run immediately after Autonomous Risk Profile V1/);
   assert.match(audit, /API responses must remain no-store/);
   assert.match(audit, /External verification still required/);
   assert.match(audit, /example\\\.com/);
