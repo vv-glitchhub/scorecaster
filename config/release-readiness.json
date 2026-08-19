@@ -102,6 +102,14 @@
       ]
     },
     {
+      "path": "/api/cloud/autonomous-agent/risk-profile",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        403
+      ]
+    },
+    {
       "path": "/api/cloud/autonomy-mission-control",
       "method": "GET",
       "allowedStatuses": [
