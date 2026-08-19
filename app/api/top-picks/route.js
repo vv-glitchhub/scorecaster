@@ -2,6 +2,7 @@ import { SPORTS } from "../../../lib/sports";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
+import { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";
 import {
   filterUpcomingPicks,
   isUsableLiveFixture
@@ -106,10 +107,11 @@ function gateFailureReasons(gate, edge, ev) {
 function preserveSafetyGate(marketDecision, pick) {
   if (marketDecision !== "BET") return marketDecision;
 
-  const report = pick.sportsIntelligence;
-  if (report?.readiness?.level !== "verified") return "WATCH";
-  if (Array.isArray(report?.conflicts) && report.conflicts.length > 0) return "WATCH";
-  if (Number(pick.intelligenceRelativeImpact || 0) <= -0.015) return "WATCH";
+  const intelligenceSafety = evaluateIndependentIntelligenceSafetyV1({
+    report: pick.sportsIntelligence,
+    relativeImpact: pick.intelligenceRelativeImpact
+  });
+  if (intelligenceSafety.downgrade) return "WATCH";
 
   return "BET";
 }
@@ -119,7 +121,7 @@ function decisionExplanation({ decision, marketDecision, gateFailures, gate, edg
     return `SKIP: ${gateFailures.join(" ") || "The selection does not pass the minimum market-data gate."}`;
   }
   if (marketDecision === "BET" && decision === "WATCH") {
-    return "CAUTION: the market threshold passed, but the independent-intelligence safety gate did not permit PLAY.";
+    return "CAUTION: the market threshold passed, but verified negative intelligence or an unresolved evidence conflict blocked PLAY.";
   }
   if (decision === "WAIT") {
     return `CAUTION: the selection is watchable but not yet playable (${gate.bookmakerCount} bookmakers, ${(gate.confidence * 100).toFixed(0)}% data confidence).`;
@@ -127,7 +129,7 @@ function decisionExplanation({ decision, marketDecision, gateFailures, gate, edg
   if (decision === "WATCH") {
     return `CAUTION: data is usable, but PLAY requires at least 2.0% edge and 3.0% EV. Current edge ${(edge * 100).toFixed(1)}%, EV ${(ev * 100).toFixed(1)}%.`;
   }
-  return "PLAY: price, market-data quality and independent-intelligence safety gates passed.";
+  return "PLAY: price and market-data gates passed, with no verified negative intelligence or unresolved evidence conflict blocking the selection.";
 }
 
 function applyQualityFallback(pick) {

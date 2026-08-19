@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";
+import { evaluateIndependentIntelligenceSafetyV1 } from "../lib/intelligence-play-safety-v1.mjs";
 import { INJURY_FETCHER_POLICY, sportToSportsDataLeague } from "../lib/injury-fetcher.js";
 import {
   fetchSportsDataSoccerLineupForMatch,
@@ -200,7 +201,7 @@ test("SportsData soccer lineup fetch is capability-driven and does not call far-
   assert.equal(calls, 0);
 });
 
-test("market-only context downgrades PLAY without changing probability", () => {
+test("market-only context is neutral and preserves a market-qualified PLAY", () => {
   const report = buildSportsIntelligenceReport({
     match,
     intelligence: {
@@ -213,8 +214,9 @@ test("market-only context downgrades PLAY without changing probability", () => {
   const gated = applySportsIntelligenceGate(playPick(), report);
 
   assert.equal(report.readiness.level, "market-only");
-  assert.equal(gated.productDecision, "CAUTION");
-  assert.equal(gated.decision, "WATCH");
+  assert.equal(gated.productDecision, "PLAY");
+  assert.equal(gated.decision, "BET");
+  assert.equal(gated.intelligenceSafety.missingEvidenceIsDowngrade, false);
   assert.equal(gated.consensusProbability, 0.55);
   assert.equal(gated.probabilityAdjustedByIntelligence, false);
 });
@@ -280,7 +282,8 @@ test("Top Picks calculates market value before intelligence downgrade rules", as
 
   assert.match(route, /MAX_INTELLIGENCE_ENRICHMENTS\s*=\s*12/);
   assert.ok(marketIndex >= 0 && safetyIndex > marketIndex);
-  assert.match(route, /readiness\?\.level !== "verified"/);
+  assert.match(route, /evaluateIndependentIntelligenceSafetyV1/);
+  assert.doesNotMatch(route, /readiness\?\.level !== "verified"/);
   assert.match(route, /probabilityAdjustedByIntelligence:\s*false/);
 });
 
@@ -310,3 +313,27 @@ test("provider loading is internal, authenticated, bounded and uses verified lin
   assert.match(soccerLineups, /exactly-11-starters-for-both-teams/);
   assert.doesNotMatch(soccerLineups, /\/v3\/soccer\/stats\/json\/BoxScoresByDate/);
 });
+
+test("PLAY safety downgrades only verified negative evidence or unresolved conflicts", () => {
+  const missing = evaluateIndependentIntelligenceSafetyV1({
+    report: { readiness: { level: "market-only" }, conflicts: [] },
+    relativeImpact: -0.08
+  });
+  assert.equal(missing.downgrade, false);
+  assert.equal(missing.missingEvidenceIsDowngrade, false);
+
+  const negative = evaluateIndependentIntelligenceSafetyV1({
+    report: { readiness: { level: "verified" }, conflicts: [] },
+    relativeImpact: -0.02
+  });
+  assert.equal(negative.downgrade, true);
+  assert.equal(negative.negativeVerifiedEvidence, true);
+
+  const conflict = evaluateIndependentIntelligenceSafetyV1({
+    report: { readiness: { level: "partial" }, conflicts: ["conflict"] },
+    relativeImpact: 0
+  });
+  assert.equal(conflict.downgrade, true);
+  assert.equal(conflict.criticalConflict, true);
+});
+

@@ -127,14 +127,16 @@ test("separates evidence downgrades from weak market-data gates", () => {
     productDecision: "CAUTION",
     decision: "WATCH",
     marketDecisionBeforeSafetyGate: "BET",
-    sportsIntelligence: { readiness: { level: "partial" }, conflicts: [] }
+    intelligenceRelativeImpact: -0.02,
+    sportsIntelligence: { readiness: { level: "verified" }, conflicts: [] }
   });
   const diagnostics = summarizeDecisionDiagnostics({ data: [downgraded] });
 
   assert.equal(diagnostics.safetyDowngrades.length, 1);
   assert.equal(diagnostics.safetyDowngrades[0].id, "downgraded");
   assert.ok(diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-safety-downgrade"));
-  assert.ok(diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-not-verified"));
+  assert.ok(diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-negative-verified"));
+  assert.ok(!diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-not-verified"));
 });
 
 test("creates league-level coverage without changing source picks", () => {
