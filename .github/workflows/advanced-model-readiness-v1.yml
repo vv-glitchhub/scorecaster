@@ -1,0 +1,59 @@
+name: Scorecaster Advanced Model Readiness V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/advanced-model-readiness-v1.mjs"
+      - "lib/advanced-model-holdout-service.js"
+      - "app/api/internal/sports-analytics/route.js"
+      - "app/api/model-holdout/route.js"
+      - "app/model-lab/ModelHoldoutScorecard.jsx"
+      - "scripts/advanced-model-readiness-v1.test.mjs"
+      - "scripts/advanced-model-holdout-v1.test.mjs"
+      - "docs/ADVANCED_MODEL_HOLDOUT_V1.md"
+      - ".github/workflows/advanced-model-readiness-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/advanced-model-readiness-v1.mjs"
+      - "lib/advanced-model-holdout-service.js"
+      - "app/api/internal/sports-analytics/route.js"
+      - "app/api/model-holdout/route.js"
+      - "app/model-lab/ModelHoldoutScorecard.jsx"
+      - "scripts/advanced-model-readiness-v1.test.mjs"
+      - "scripts/advanced-model-holdout-v1.test.mjs"
+      - "docs/ADVANCED_MODEL_HOLDOUT_V1.md"
+      - ".github/workflows/advanced-model-readiness-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  readiness:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Advanced Model readiness regressions
+        run: node --test scripts/advanced-model-readiness-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/nhl-xg-goalie-shadow-v1.test.mjs
+
+      - name: Repository security check
+        run: npm run security:check
+
+      - name: Production build
+        run: npm run build

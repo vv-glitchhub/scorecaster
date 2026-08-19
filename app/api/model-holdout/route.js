@@ -31,7 +31,8 @@ export async function GET(request) {
         shadowSnapshotRows: result.shadowSnapshotRows || 0,
         leaguesRequested: result.leaguesRequested || 0,
         resultsReceived: result.resultsReceived || 0,
-        providerFailures: Array.isArray(result.providerFailures) ? result.providerFailures.slice(0, 20) : []
+        providerFailures: Array.isArray(result.providerFailures) ? result.providerFailures.slice(0, 20) : [],
+        advancedModelReadiness: result.advancedModelReadiness || null
       },
       report: result.report,
       safety: {

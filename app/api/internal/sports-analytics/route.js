@@ -5,6 +5,7 @@ import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-
 import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-efficiency-shadow-v1.mjs";
 import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-offense-shadow-v1.mjs";
 import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";
+import { ADVANCED_MODEL_READINESS_VERSION, buildAdvancedModelReadinessV1 } from "../../../../lib/advanced-model-readiness-v1.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -163,12 +164,27 @@ async function storeEvent(admin, pick, capturedAt) {
   if (!snapshot.event_id) return null;
 
   const shadowModels = compactShadowModels(pick, observations, capturedAt);
+  const advancedModels = eventLevelAdvancedModels(pick, observations, capturedAt);
+  const providerConfiguration = sportsAnalyticsProviderConfiguration();
+  const advancedModelReadiness = buildAdvancedModelReadinessV1({
+    sport: snapshot.canonical_sport,
+    models: advancedModels,
+    externalProvider: {
+      configured: providerConfiguration.configured,
+      source: external.source || providerConfiguration.source,
+      mode: external.mode,
+      ok: external.ok,
+      observationCount: external.observations.length
+    }
+  });
   const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });
   snapshot.raw_summary = {
     ...(snapshot.raw_summary || {}),
     shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
     shadowModels,
     shadowModelCount: shadowModels.length,
+    advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,
+    advancedModelReadiness,
     marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
     marketBenchmark,
     marketBenchmarkCapturedBeforeStart: Boolean(marketBenchmark),
@@ -197,6 +213,8 @@ async function storeEvent(admin, pick, capturedAt) {
     externalMode: external.mode,
     golfShots: external.golfShots.length,
     shadowModelsCaptured: shadowModels.length,
+    advancedModelReady: advancedModelReadiness.holdoutCaptureReady === true,
+    advancedModelBlocked: advancedModelReadiness.status === "blocked",
     marketBenchmarkCaptured: Boolean(marketBenchmark)
   };
 }
@@ -223,6 +241,7 @@ export async function GET(request) {
       ok: failures.length === 0,
       version: "sports-analytics-worker-v6",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
+      advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,
       marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
       capturedAt,
       eventsRequested: picks.length,
@@ -231,6 +250,8 @@ export async function GET(request) {
       automaticObservations: stored.reduce((sum, item) => sum + item.automaticObservations, 0),
       externalObservations: stored.reduce((sum, item) => sum + item.externalObservations, 0),
       shadowModelsCaptured: stored.reduce((sum, item) => sum + item.shadowModelsCaptured, 0),
+      advancedModelsReady: stored.filter((item) => item.advancedModelReady).length,
+      advancedModelsBlocked: stored.filter((item) => item.advancedModelBlocked).length,
       marketBenchmarksCaptured: stored.filter((item) => item.marketBenchmarkCaptured).length,
       golfShots: stored.reduce((sum, item) => sum + item.golfShots, 0),
       externalProvider: sportsAnalyticsProviderConfiguration(),

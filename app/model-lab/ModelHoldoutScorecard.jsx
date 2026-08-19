@@ -60,6 +60,8 @@ export default function ModelHoldoutScorecard() {
   const report = state.payload?.report || null;
   const models = sortedModels(Array.isArray(report?.models) ? report.models : []);
   const collection = state.payload?.collection || {};
+  const readiness = collection.advancedModelReadiness || {};
+  const readinessModels = Array.isArray(readiness.models) ? readiness.models : [];
 
   return (
     <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6" data-model-holdout-scorecard-v1="true">
@@ -92,15 +94,46 @@ export default function ModelHoldoutScorecard() {
 
       {state.loaded && !state.error && (
         <>
-          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
             {[
               ["Status", clean(state.payload?.status)],
               ["Shadow snapshots", collection.shadowSnapshotRows ?? 0],
               ["Settled", report?.counts?.settledEvaluations ?? 0],
               ["Market paired", report?.counts?.marketComparableEvaluations ?? 0],
-              ["Models", report?.counts?.models ?? 0]
+              ["Models", report?.counts?.models ?? 0],
+              ["Advanced ready", readiness.readyEvents ?? 0],
+              ["Advanced blocked", readiness.blockedEvents ?? 0]
             ].map(([label, value]) => <div key={label} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-black uppercase tracking-[0.12em] text-[var(--sc-faint)]">{label}</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{value}</div></div>)}
           </div>
+
+          {readinessModels.length > 0 && (
+            <div className="mt-5 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4" data-advanced-model-readiness-v1="true">
+              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--sc-brand)]">Advanced Model Input Readiness V1</div>
+              <h3 className="mt-1 text-lg font-black text-[var(--sc-text)]">
+                {tr({ fi: "Mikä estää holdout-otoksen kertymisen?", en: "What is blocking holdout collection?", es: "¿Qué bloquea la recolección holdout?" })}
+              </h3>
+              <p className="mt-1 text-xs leading-5 text-[var(--sc-muted)]">
+                {tr({ fi: "Näyttää viimeisimmän tilan per tapahtuma ja malli. Providerin raakavirheitä tai avaimia ei tallenneta.", en: "Shows the latest state per event and model. Raw provider errors and credentials are never retained.", es: "Muestra el último estado por evento y modelo. No se guardan errores sin procesar ni credenciales del proveedor." })}
+              </p>
+              <div className="mt-3 grid gap-3 xl:grid-cols-2">
+                {readinessModels.map((model) => (
+                  <div key={`readiness-${model.modelVersion || model.modelId}`} className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="text-xs font-black text-[var(--sc-text)]">{model.modelId || model.modelVersion || "advanced model"}</div>
+                        <div className="mt-1 text-[10px] uppercase tracking-[0.1em] text-[var(--sc-faint)]">{clean(model.sport)}</div>
+                      </div>
+                      <div className="text-right text-xs text-[var(--sc-muted)]"><strong className="text-emerald-300">{model.readyEvents || 0}</strong> ready · <strong className="text-amber-300">{model.blockedEvents || 0}</strong> blocked</div>
+                    </div>
+                    <div className="mt-2 text-xs leading-5 text-[var(--sc-muted)]">Provider: {Object.entries(model.providerModes || {}).map(([mode, count]) => `${clean(mode)} ${count}`).join(" · ") || "—"}</div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {(model.topBlockers || []).length ? model.topBlockers.map((item) => <span key={item.reason} className="rounded-full border border-amber-300/20 bg-amber-300/5 px-2 py-1 text-[10px] font-bold text-amber-100">{clean(item.reason)} · {item.count}</span>) : <span className="text-xs text-emerald-300">No current input blocker</span>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {models.length === 0 ? (
             <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-sm leading-6 text-[var(--sc-muted)]">
