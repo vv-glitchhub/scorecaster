@@ -15,6 +15,7 @@ import {
   summarizeGovernedDecisions
 } from "../../../../lib/agent-model-governance.mjs";
 import { buildAgentV9Portfolio } from "../../../../lib/agent-v9-engine.mjs";
+import { normalizeAgentRiskProfile } from "../../../../lib/agent-risk-profile-v1.mjs";
 import {
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
@@ -42,7 +43,8 @@ function normalizeSettings(value = {}) {
     bankroll: boundedNumber(value.bankroll, { min: 0, max: 10_000_000, fallback: 1000 }),
     maxStakePercent: boundedNumber(value.maxStakePercent, { min: 0.1, max: 5, fallback: 1 }),
     maxTotalExposurePercent: boundedNumber(value.maxTotalExposurePercent, { min: 0.5, max: 20, fallback: 4 }),
-    maxLeagueExposurePercent: boundedNumber(value.maxLeagueExposurePercent, { min: 0.25, max: 10, fallback: 2 })
+    maxLeagueExposurePercent: boundedNumber(value.maxLeagueExposurePercent, { min: 0.25, max: 10, fallback: 2 }),
+    riskProfile: normalizeAgentRiskProfile(cleanText(value.riskProfile, 32))
   };
 }
 
@@ -191,6 +193,12 @@ export async function POST(request) {
       learningMode: "chronological-champion-challenger-shadow",
       warnings: [learningResult.warning].filter(Boolean),
       settings,
+      riskProfile: portfolio.riskProfile,
+      riskPolicy: portfolio.riskPolicy,
+      effectiveLimits: portfolio.effectiveLimits,
+      probabilityAdjustedByRisk: false,
+      edgeAdjustedByRisk: false,
+      evAdjustedByRisk: false,
       modelLab: learningResult.modelLab,
       counts: governedSummary.counts,
       totalAllocated: governedSummary.totalAllocated,
