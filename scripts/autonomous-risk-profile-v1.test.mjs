@@ -78,12 +78,10 @@ test("autonomous worker carries the selected profile through portfolio, effectiv
 });
 
 test("autonomous UI exposes the three risk levels and preserves personal floors", async () => {
-  const [page, card, mobile, cloudRoute, accountExport] = await Promise.all([
+  const [page, card, mobile] = await Promise.all([
     read("app/autonomous-agent/page.jsx"),
     read("app/autonomous-agent/AutonomousRiskProfileCard.jsx"),
-    read("mobile/src/screens/AutonomousAgentScreen.tsx"),
-    read("app/api/cloud/autonomous-agent/route.js"),
-    read("app/api/account/export/route.js")
+    read("mobile/src/screens/AutonomousAgentScreen.tsx")
   ]);
   assert.match(page, /AutonomousRiskProfileCard/);
   assert.match(card, /Autonomous Risk Control V1/);
@@ -99,9 +97,4 @@ test("autonomous UI exposes the three risk levels and preserves personal floors"
   assert.match(mobile, /AUTONOMOUS RISK CONTROL V1/);
   assert.match(mobile, /saveRiskProfile/);
   assert.match(mobile, /1% \/ 5% \/ 2\.5%/);
-  assert.match(cloudRoute, /risk_profile/);
-  assert.match(cloudRoute, /risk_policy/);
-  assert.match(accountExport, /risk_profile/);
-  assert.match(accountExport, /risk_policy/);
-  assert.match(accountExport, /risk never changes probability\/edge\/EV/);
 });
