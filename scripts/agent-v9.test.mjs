@@ -81,7 +81,15 @@ test("Agent V9 uses the uncertainty lower bound for stake sizing", () => {
   });
 
   assert.equal(decision.decision, "PLAY");
-  assert.ok(decision.suggestedStake > 0);
+  assert.ok(decision.suggestedStake > 0, JSON.stringify({
+    suggestedStake: decision.suggestedStake,
+    maxStakePercent: decision.maxStakePercent,
+    bankroll: decision.bankroll,
+    stressTest: decision.stressTest,
+    riskProfile: decision.riskProfile,
+    riskPolicy: decision.riskPolicy,
+    blockers: decision.blockers
+  }));
   assert.ok(decision.suggestedStake <= 10);
   assert.ok(decision.stressTest.robustPositive);
   assert.ok(decision.counterArguments.length >= 3);
