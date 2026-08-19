@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   ADVANCED_MODEL_READINESS_POLICY,
   ADVANCED_MODEL_READINESS_VERSION,
@@ -163,4 +164,21 @@ test("readiness policy never retains raw provider errors or credentials", () => 
   assert.equal(ADVANCED_MODEL_READINESS_POLICY.automaticPromotionAllowed, false);
   assert.equal(ADVANCED_MODEL_READINESS_POLICY.productionProbabilityChanged, false);
   assert.equal(ADVANCED_MODEL_READINESS_POLICY.paperOnly, true);
+});
+
+test("Sports Analytics capture, holdout service and Model Lab wire readiness without raw provider errors", async () => {
+  const worker = await readFile(new URL("../app/api/internal/sports-analytics/route.js", import.meta.url), "utf8");
+  const service = await readFile(new URL("../lib/advanced-model-holdout-service.js", import.meta.url), "utf8");
+  const api = await readFile(new URL("../app/api/model-holdout/route.js", import.meta.url), "utf8");
+  const ui = await readFile(new URL("../app/model-lab/ModelHoldoutScorecard.jsx", import.meta.url), "utf8");
+
+  assert.match(worker, /buildAdvancedModelReadinessV1/);
+  assert.match(worker, /advancedModelReadinessVersion/);
+  assert.match(worker, /advancedModelsReady/);
+  assert.match(worker, /advancedModelsBlocked/);
+  assert.match(service, /summarizeAdvancedModelReadinessSnapshotsV1/);
+  assert.match(api, /advancedModelReadiness/);
+  assert.match(ui, /Advanced Model Input Readiness V1/);
+  assert.match(ui, /data-advanced-model-readiness-v1/);
+  assert.doesNotMatch(worker, /advancedModelReadiness[\s\S]{0,800}reason:\s*external\.reason/);
 });
