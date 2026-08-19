@@ -53,6 +53,14 @@ The shared Agent policy continues to enforce the production paper hard caps:
 
 User-specific minimum edge and minimum confidence remain additional floors. Selecting a higher-risk profile cannot lower those personal minimums.
 
+## API security staging
+
+The dedicated authenticated endpoint `/api/cloud/autonomous-agent/risk-profile` is statically covered by the focused Autonomous Risk Profile regression: authentication is checked before protected data access, PUT is same-origin guarded, read/write calls are rate limited, responses use the shared no-store JSON path, and unsupported profiles fail closed.
+
+It is intentionally **not** added to the retained production protected-API probe set before its first production deployment. The existing 12-route retained probe evidence remains bound to the exact unchanged implementations it previously verified. After this route is live, an unauthenticated production probe must return the allowed fail-closed status and fresh no-store/cache evidence before the canonical retained probe set is expanded from 12 to 13. This avoids manufacturing production evidence for code that has not yet been deployed.
+
+For the same reason, this rollout does not modify the source of existing retained-evidence routes merely to display the new field. Risk provenance is already stored by the V13 worker in the database audit row; broader export/read parity can be added in a separately probed rollout after the new production surface is verified.
+
 ## Advisor review
 
 Security and performance advisors were re-run after the DDL change. No new risk-profile-specific RLS or performance finding was introduced. Existing unrelated advisor findings remain tracked separately and are not reclassified by this migration.
