@@ -35,8 +35,8 @@ test("canonical repository migration inventory is complete and ordered", async (
   const signingIndex = inventory.migrations.findIndex((migration) => migration.path === signingVaultMigration);
   const collectorIndex = inventory.migrations.findIndex((migration) => migration.path === collectorMigration);
   assert.equal(signingIndex, collectorIndex - 1);
-  assert.equal(inventory.migrations.at(-3).path, autonomousRiskMigration);
-  assert.equal(inventory.migrations.at(-2).path, v13HardCapsMigration);
+  assert.equal(inventory.migrations.at(-3).path, v13HardCapsMigration);
+  assert.equal(inventory.migrations.at(-2).path, autonomousRiskMigration);
   assert.equal(inventory.migrations.at(-1).path, shadowLearningMigration);
   assert.ok(inventory.migrations.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksumSha256)));
 });
@@ -113,8 +113,8 @@ test("markdown explicitly separates repository analysis from production evidence
   const signingIndex = status.migrations.findIndex((migration) => migration.path === signingVaultMigration);
   const collectorIndex = status.migrations.findIndex((migration) => migration.path === collectorMigration);
   assert.equal(signingIndex, collectorIndex - 1);
-  assert.equal(status.migrations.at(-3).path, autonomousRiskMigration);
-  assert.equal(status.migrations.at(-2).path, v13HardCapsMigration);
+  assert.equal(status.migrations.at(-3).path, v13HardCapsMigration);
+  assert.equal(status.migrations.at(-2).path, autonomousRiskMigration);
   assert.equal(status.migrations.at(-1).path, shadowLearningMigration);
   assert.equal(inventory.summary.productionVerified, true);
 });

@@ -15,7 +15,7 @@ The canonical ordered rollout now contains 23 migrations. The inventory includes
 - `supabase/scorecaster_community_feed_v1.sql`
 - `supabase/scorecaster_ai_intelligence_v1.sql`
 
-Both are included in the reviewed order. `supabase/scorecaster_autonomous_agent_risk_profile_v1.sql` is ordered after Autonomous Agent V2 and before the V13 database hard caps because it extends the V2 settings and audit tables. The final migration remains `supabase/scorecaster_shadow_learning_v1.sql`.
+Both are included in the reviewed order. The V13 database hard caps remain immediately after Autonomous Agent V2. `supabase/scorecaster_autonomous_agent_risk_profile_v1.sql` follows the hard-cap migration because it extends the V2 settings and audit tables without weakening the hard-cap trigger. The final migration remains `supabase/scorecaster_shadow_learning_v1.sql`.
 
 ## Files
 

@@ -228,8 +228,8 @@
     "supabase/scorecaster_settlement_monitor.sql",
     "supabase/scorecaster_autonomous_agent.sql",
     "supabase/scorecaster_autonomous_agent_v2.sql",
-    "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
     "supabase/scorecaster_autonomous_v13_hard_caps.sql",
+    "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
     "supabase/scorecaster_shadow_learning_v1.sql"
   ],
   "productionPatches": [
