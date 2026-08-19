@@ -24,6 +24,8 @@ import { buildAgentV9Portfolio } from "../../lib/agent-v9-engine.mjs";
 import { getSettings, saveSettings } from "../../lib/settings-storage";
 import { formatPercent } from "../../lib/analysis-engine";
 
+const RISK_PROFILES = ["conservative", "balanced", "aggressive"];
+
 function freshnessLabel(pick) {
   return pick.freshnessLabel || pick.dataQuality?.freshness || "unknown";
 }
@@ -40,6 +42,11 @@ function toneForDrift(status) {
   return "default";
 }
 
+function normalizeRiskProfile(value) {
+  const profile = String(value || "balanced").toLowerCase();
+  return RISK_PROFILES.includes(profile) ? profile : "balanced";
+}
+
 export default function AgentClient() {
   const { tr, t, locale } = useLanguage();
   const [rawPicks, setRawPicks] = useState([]);
@@ -52,6 +59,7 @@ export default function AgentClient() {
   const [maxStakePercent, setMaxStakePercent] = useState(1);
   const [maxTotalExposurePercent, setMaxTotalExposurePercent] = useState(4);
   const [maxLeagueExposurePercent, setMaxLeagueExposurePercent] = useState(2);
+  const [riskProfile, setRiskProfile] = useState("balanced");
   const [filter, setFilter] = useState("ALL");
   const [expandedId, setExpandedId] = useState(null);
   const money = (value) => new Intl.NumberFormat(locale, {
@@ -65,6 +73,7 @@ export default function AgentClient() {
     setMaxStakePercent(Number(settings.agentMaxStakePercent || 1));
     setMaxTotalExposurePercent(Number(settings.agentMaxTotalExposurePercent || 4));
     setMaxLeagueExposurePercent(Number(settings.agentMaxLeagueExposurePercent || 2));
+    setRiskProfile(normalizeRiskProfile(settings.agentRiskProfile));
     void loadAgentPicks();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -106,8 +115,9 @@ export default function AgentClient() {
     bankroll,
     maxStakePercent,
     maxTotalExposurePercent,
-    maxLeagueExposurePercent
-  }), [rawPicks, learning, bankroll, maxStakePercent, maxTotalExposurePercent, maxLeagueExposurePercent]);
+    maxLeagueExposurePercent,
+    riskProfile
+  }), [rawPicks, learning, bankroll, maxStakePercent, maxTotalExposurePercent, maxLeagueExposurePercent, riskProfile]);
 
   const modelLab = useMemo(() => buildSelfLearningReport(history), [history]);
   const portfolio = useMemo(() => {
@@ -130,6 +140,12 @@ export default function AgentClient() {
 
   function saveAgentSettings(next) {
     saveSettings({ ...getSettings(), ...next });
+  }
+
+  function selectRiskProfile(profile) {
+    const next = normalizeRiskProfile(profile);
+    setRiskProfile(next);
+    saveAgentSettings({ agentRiskProfile: next });
   }
 
   function updateNumber(setter, key, fallback, minimum, maximum) {
@@ -160,7 +176,10 @@ export default function AgentClient() {
       fairOdds: pick.fairOdds,
       stake: pick.suggestedStake,
       bankroll,
-      kellyMode: "agent-v11-shadow-governed-quarter-kelly",
+      riskProfile: pick.riskProfile || riskProfile,
+      riskPolicy: pick.riskPolicy || portfolio.riskPolicy,
+      probabilityAdjustedByRisk: false,
+      kellyMode: "agent-v11-shadow-governed-risk-profile",
       source: "scorecaster-agent-v11-model-lab",
       sportKey: pick.sportKey,
       marketKey: pick.marketKey || pick.market,
@@ -185,6 +204,7 @@ export default function AgentClient() {
       portfolioReason: pick.portfolioReason,
       riskWarnings: [
         "Agent V11 uses virtual paper tracking only.",
+        "The selected risk profile changes recommendation strictness and virtual sizing, not market probability, edge or EV.",
         "The challenger remains in shadow mode and does not alter the production probability.",
         "Critical drift freezes new PLAY exposure.",
         "No result or profit is guaranteed."
@@ -211,19 +231,31 @@ export default function AgentClient() {
     </div>
   );
 
+  const riskLabels = {
+    conservative: tr({ fi: "Varovainen", en: "Conservative", es: "Conservador" }),
+    balanced: tr({ fi: "Tasapainoinen", en: "Balanced", es: "Equilibrado" }),
+    aggressive: tr({ fi: "Rohkea", en: "Aggressive", es: "Agresivo" })
+  };
+
+  const riskDescriptions = {
+    conservative: tr({ fi: "Vain vahvimmat PLAY-kohteet, tiukemmat data- ja EV-rajat sekä pienempi virtuaalinen panos.", en: "Only the strongest PLAY candidates, stricter data and EV gates, and smaller virtual sizing.", es: "Solo los candidatos PLAY más fuertes, límites más estrictos y menor importe virtual." }),
+    balanced: tr({ fi: "Nykyinen Scorecaster-peruslinja: vahva stressitesti, quarter-Kelly ja maltillinen altistus.", en: "The Scorecaster default: robust stress testing, quarter Kelly and moderate exposure.", es: "La configuración estándar: prueba de estrés robusta, Kelly de un cuarto y exposición moderada." }),
+    aggressive: tr({ fi: "Hyväksyy enemmän rajatapauksia ja käyttää suurempaa virtuaalista altistusta, mutta vaatii edelleen positiivisen stressi-EV:n ja pysyy hard capien sisällä.", en: "Accepts more borderline candidates and uses higher virtual exposure, while still requiring positive stressed EV and respecting hard caps.", es: "Acepta más casos límite y mayor exposición virtual, pero exige EV estresado positivo y respeta los límites duros." })
+  };
+
   return (
     <div className="space-y-7">
       <PageHero
-        eyebrow="Agent V11 · Model Lab"
+        eyebrow="Agent V11 · Model Lab · Risk Control V1"
         title={tr({
-          fi: "Päätös ensin, auditointi tarvittaessa",
-          en: "Decision first, audit when needed",
-          es: "Primero la decisión, auditoría cuando haga falta"
+          fi: "Päätös ensin, riskitaso sinun hallinnassasi",
+          en: "Decision first, risk level under your control",
+          es: "Primero la decisión, con el riesgo bajo tu control"
         })}
         description={tr({
-          fi: "Agentti järjestää palvelimella varmennetut kohteet PLAY-, WATCH- ja SKIP-päätöksiksi. Stressitesti, portfolioportit ja oppimislaboratorio pysyvät mukana, mutta eivät peitä tärkeintä toimintoa.",
-          en: "The Agent ranks server-verified picks into PLAY, WATCH and SKIP decisions. Stress tests, portfolio gates and the learning lab remain available without hiding the main action.",
-          es: "El Agent ordena los pronósticos verificados en decisiones PLAY, WATCH y SKIP. Las pruebas de estrés, los límites de cartera y el laboratorio siguen disponibles sin ocultar la acción principal."
+          fi: "Agentti järjestää palvelimella varmennetut kohteet PLAY-, WATCH- ja SKIP-päätöksiksi. Valitse kuinka tiukasti Agent suosittelee kohteita. Riskitaso ei muuta markkinatodennäköisyyttä, edgeä tai EV:tä.",
+          en: "The Agent ranks server-verified picks into PLAY, WATCH and SKIP decisions. Choose how strict the recommendation gate should be. Risk level never changes market probability, edge or EV.",
+          es: "El Agent ordena los pronósticos verificados en PLAY, WATCH y SKIP. Elige la exigencia de las recomendaciones. El riesgo no cambia probabilidad, ventaja ni EV."
         })}
         actions={
           <>
@@ -239,12 +271,37 @@ export default function AgentClient() {
 
       <TrustBar items={[
         { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: source, tone: source === "error" ? "danger" : "default" },
+        { label: tr({ fi: "Riski", en: "Risk", es: "Riesgo" }), value: riskLabels[riskProfile], tone: riskProfile === "aggressive" ? "warning" : riskProfile === "conservative" ? "info" : "default" },
         { label: "Model Lab", value: modelLab.status, tone: toneForDrift(modelLab.drift?.status) },
         { label: tr({ fi: "Oppimisotos", en: "Learning sample", es: "Muestra" }), value: `${modelLab.sampleSize || 0}/${modelLab.minimumSamples || 120}`, tone: "info" },
         { label: tr({ fi: "Tila", en: "Mode", es: "Modo" }), value: tr({ fi: "vain paperiseuranta", en: "paper only", es: "solo simulado" }), tone: "warning" }
       ]} />
 
       {message && <div className="rounded-2xl border border-sky-300/25 bg-sky-300/10 p-4 text-sm text-sky-100">{message}</div>}
+
+      <section data-agent-risk-profile="true" className="rounded-3xl border border-white/10 bg-white/[0.035] p-5 md:p-6">
+        <SectionHeader
+          eyebrow={tr({ fi: "Risk Control V1", en: "Risk Control V1", es: "Risk Control V1" })}
+          title={tr({ fi: "Kuinka rohkeasti Agent suosittelee?", en: "How aggressively should the Agent recommend?", es: "¿Con cuánto riesgo debe recomendar el Agent?" })}
+          description={tr({ fi: "Tämä säätää recommendation-portteja ja virtuaalista panostusta. Se ei muuta mallin todennäköisyyttä, edgeä tai EV:tä eikä voi avata oikean rahan toimintoa.", en: "This changes recommendation gates and virtual sizing. It does not alter model probability, edge or EV and cannot enable real-money actions.", es: "Esto ajusta los límites de recomendación y el importe virtual. No cambia probabilidad, ventaja ni EV ni habilita dinero real." })}
+        />
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
+          {RISK_PROFILES.map((profile) => {
+            const active = riskProfile === profile;
+            return <button key={profile} type="button" onClick={() => selectRiskProfile(profile)} className={`rounded-2xl border p-4 text-left transition ${active ? "border-emerald-300/50 bg-emerald-300/12" : "border-white/10 bg-black/20 hover:border-white/20"}`}>
+              <div className={`font-black ${active ? "text-emerald-100" : "text-white"}`}>{riskLabels[profile]}</div>
+              <div className="mt-2 text-sm leading-6 text-slate-400">{riskDescriptions[profile]}</div>
+            </button>;
+          })}
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <MetricTile label={tr({ fi: "Min confidence", en: "Min confidence", es: "Confianza mín." })} value={formatPercent(portfolio.riskPolicy?.minConfidence)} tone="blue" />
+          <MetricTile label={tr({ fi: "Min edge", en: "Min edge", es: "Ventaja mín." })} value={formatPercent(portfolio.riskPolicy?.minEdge)} tone="green" />
+          <MetricTile label={tr({ fi: "Min EV", en: "Min EV", es: "EV mín." })} value={formatPercent(portfolio.riskPolicy?.minEv)} tone="green" />
+          <MetricTile label={tr({ fi: "Panoskatto", en: "Stake cap", es: "Límite importe" })} value={`${Number(portfolio.effectiveLimits?.maxStakePercent || 0).toFixed(2)} %`} tone="purple" />
+        </div>
+        <p className="mt-4 text-xs leading-5 text-slate-500">{tr({ fi: "Rohkeinkin tila vaatii positiivisen stressatun alarajan EV:n. Tuotannon hard capit pysyvät aina enintään 1 % / 5 % / 2,5 % (yksittäinen / kokonaisaltistus / liiga).", en: "Even Aggressive requires positive downside stressed EV. Production hard caps always remain at or below 1% / 5% / 2.5% (single / total exposure / league).", es: "Incluso Agresivo exige EV estresado positivo. Los límites duros siguen en 1% / 5% / 2,5% (individual / total / liga)." })}</p>
+      </section>
 
       <section>
         <SectionHeader
@@ -287,6 +344,7 @@ export default function AgentClient() {
 
                   <div className="mt-4 rounded-2xl border border-purple-300/20 bg-purple-300/10 p-4 text-sm leading-6 text-slate-200">{pick.decisionReason}</div>
                   <TrustBar className="mt-4" items={[
+                    { label: tr({ fi: "Riski", en: "Risk", es: "Riesgo" }), value: riskLabels[pick.riskProfile || riskProfile], tone: (pick.riskProfile || riskProfile) === "aggressive" ? "warning" : "default" },
                     { label: tr({ fi: "Data", en: "Data", es: "Datos" }), value: freshnessLabel(pick) },
                     { label: tr({ fi: "Lähteet", en: "Sources", es: "Fuentes" }), value: pick.bookmakerCount || 0, tone: "info" },
                     { label: tr({ fi: "PLAY-raja", en: "PLAY floor", es: "Límite PLAY" }), value: Number(priceGuard.minimumPlayOdds || 0).toFixed(2), tone: "warning" },
@@ -312,7 +370,7 @@ export default function AgentClient() {
           </div>
 
           <aside className="space-y-5 xl:sticky xl:top-32 xl:self-start">
-            <Panel title={tr({ fi: "Portfolio nyt", en: "Portfolio now", es: "Cartera actual" })} subtitle={tr({ fi: "Virtuaaliset rajat ja altistus", en: "Virtual limits and exposure", es: "Límites y exposición virtuales" })}>
+            <Panel title={tr({ fi: "Portfolio nyt", en: "Portfolio now", es: "Cartera actual" })} subtitle={`${riskLabels[riskProfile]} · ${tr({ fi: "virtuaaliset rajat", en: "virtual limits", es: "límites virtuales" })}`}>
               <div className="grid grid-cols-2 gap-3">
                 <MetricTile label={tr({ fi: "Suunniteltu", en: "Planned", es: "Previsto" })} value={money(portfolio.totalAllocated)} tone="blue" />
                 <MetricTile label={tr({ fi: "Kassa", en: "Bankroll", es: "Banca" })} value={money(bankroll)} />
@@ -323,7 +381,7 @@ export default function AgentClient() {
 
             <details className="rounded-3xl border border-white/10 bg-white/[0.035] p-5">
               <summary className="cursor-pointer font-black text-white">{tr({ fi: "Muokkaa paperirajoja", en: "Edit paper limits", es: "Editar límites simulados" })}</summary>
-              <p className="mt-2 text-sm leading-6 text-slate-400">{tr({ fi: "Näitä ei tarvitse muuttaa tavallisessa käytössä. Asetukset vaikuttavat vain virtuaaliseen paperiseurantaan.", en: "These do not need changing in normal use. Settings affect virtual paper tracking only.", es: "No hace falta cambiarlos en el uso normal. Solo afectan al seguimiento simulado." })}</p>
+              <p className="mt-2 text-sm leading-6 text-slate-400">{tr({ fi: "Nämä ovat riskiprofiilin lähtörajat. Lopulliset rajat kerrotaan valitun riskitason mukaan ja leikataan aina 1 % / 5 % / 2,5 % hard capeihin.", en: "These are baseline limits for the risk profile. Final limits are scaled by the selected risk level and always clipped to the 1% / 5% / 2.5% hard caps.", es: "Estos son límites base. El perfil de riesgo los ajusta y siempre se recortan a los límites duros 1% / 5% / 2,5%." })}</p>
               <div className="mt-4 space-y-3">
                 <NumberField label={t("term.bankroll")} value={bankroll} min={0} max={10000000} step={10} onChange={updateNumber(setBankroll, "bankroll", 1000, 0, 10000000)} />
                 <NumberField label={tr({ fi: "Yksittäinen panos %", en: "Single stake %", es: "Importe individual %" })} value={maxStakePercent} min={0.1} max={5} step={0.1} onChange={updateNumber(setMaxStakePercent, "agentMaxStakePercent", 1, 0.1, 5)} />
@@ -344,7 +402,7 @@ export default function AgentClient() {
               <div className="mt-3 text-xs leading-5 text-slate-500">{tr({ fi: "Haastajamalli pysyy varjotilassa eikä muuta tuotannon todennäköisyyttä ilman erillistä hyväksyntää.", en: "The challenger stays in shadow mode and never changes the production probability without separate approval.", es: "El challenger permanece en modo sombra y no cambia la probabilidad de producción sin aprobación separada." })}</div>
             </details>
 
-            <Panel title={tr({ fi: "Tuoteraja", en: "Product boundary", es: "Límite del producto" })} subtitle="Paper only"><div className="space-y-2 text-sm leading-6 text-slate-300"><p>• {tr({ fi: "Ei oikean rahan toimintoja.", en: "No real-money actions.", es: "Sin acciones con dinero real." })}</p><p>• {tr({ fi: "Ei keksittyjä uutisia, kokoonpanoja tai loukkaantumisia.", en: "No invented news, lineups or injuries.", es: "Sin noticias, alineaciones ni lesiones inventadas." })}</p><p>• {tr({ fi: "Ei tuottolupausta.", en: "No profit promise.", es: "Sin promesa de beneficios." })}</p></div></Panel>
+            <Panel title={tr({ fi: "Tuoteraja", en: "Product boundary", es: "Límite del producto" })} subtitle="Paper only"><div className="space-y-2 text-sm leading-6 text-slate-300"><p>• {tr({ fi: "Ei oikean rahan toimintoja.", en: "No real-money actions.", es: "Sin acciones con dinero real." })}</p><p>• {tr({ fi: "Riskitaso ei muuta probabilityä, edgeä tai EV:tä.", en: "Risk level does not change probability, edge or EV.", es: "El riesgo no cambia probabilidad, ventaja ni EV." })}</p><p>• {tr({ fi: "Ei keksittyjä uutisia, kokoonpanoja tai loukkaantumisia.", en: "No invented news, lineups or injuries.", es: "Sin noticias, alineaciones ni lesiones inventadas." })}</p><p>• {tr({ fi: "Ei tuottolupausta.", en: "No profit promise.", es: "Sin promesa de beneficios." })}</p></div></Panel>
           </aside>
         </div>
       </section>
