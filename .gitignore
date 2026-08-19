@@ -1,0 +1,10 @@
+node_modules/
+mobile/node_modules/
+.next/
+mobile/.expo/
+mobile/dist/
+coverage/
+*.log
+.env
+.env.*
+!.env.example
