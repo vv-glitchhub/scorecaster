@@ -27,6 +27,7 @@ const DEFAULT_SETTINGS = {
   min_priority_score: 0.62,
   min_odds: 1.2,
   max_odds: 5,
+  risk_profile: "balanced",
   min_data_coverage: 0.6,
   min_provider_count: 1,
   max_provider_disagreement: 0.12,
@@ -96,7 +97,7 @@ export async function GET(request) {
 
   const [settingsResult, stateResult, runsResult, auditResult, briefsResult, bankrollResult] = await Promise.all([
     auth.supabase.from("autonomous_agent_settings")
-      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at")
+      .select("enabled,sports,daily_pick_limit,min_priority_score,min_odds,max_odds,risk_profile,min_data_coverage,min_provider_count,max_provider_disagreement,max_drawdown_percent,max_daily_loss_percent,pause_after_losses,cooldown_hours,max_open_picks,minimum_minutes_before_start,maximum_hours_before_start,auto_pause_on_incident,require_unified_data,adaptive_cadence,shadow_learning_enabled,created_at,updated_at")
       .eq("user_id", auth.user.id).maybeSingle(),
     auth.supabase.from("autonomous_agent_state")
       .select("next_check_at,lease_expires_at,last_started_at,last_completed_at,last_status,last_error,last_run_id,last_candidate_count,last_selected_count,last_saved_count,last_skipped_count,last_total_stake,paused_until,pause_reason,health_status,health_score,resolved_sample,consecutive_losses,drawdown_percent,roi,average_clv,last_brief,updated_at")
@@ -107,7 +108,7 @@ export async function GET(request) {
       .order("created_at", { ascending: false })
       .limit(30),
     auth.supabase.from("autonomous_agent_decision_audit")
-      .select("id,run_id,event_id,match,selection,sport,league,allowed,reasons,warnings,quality_score,priority_score,odds,edge,confidence,data_coverage,provider_count,provider_disagreement,context_impact,minutes_before_start,proposed_stake,saved_bet_id,created_at")
+      .select("id,run_id,event_id,match,selection,sport,league,allowed,reasons,warnings,quality_score,priority_score,odds,edge,confidence,data_coverage,provider_count,provider_disagreement,context_impact,minutes_before_start,risk_profile,risk_policy,proposed_stake,saved_bet_id,created_at")
       .eq("user_id", auth.user.id)
       .order("created_at", { ascending: false })
       .limit(100),
