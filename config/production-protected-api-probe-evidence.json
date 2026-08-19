@@ -2,28 +2,133 @@
   "schemaVersion": 1,
   "product": "Scorecaster",
   "evidenceType": "vercel-production-unauthenticated-protected-api-probes-v1",
-  "implementationFingerprint": "4e3f8f3211da57d45eefd9edce33a3496ef0aaa195204f012767ca797a04686a",
+  "implementationFingerprint": "3b5f06108d2445b961465dd01b442a1d9ba2c222bda0d8ae8779c03298803b06",
   "verifiedDeployment": {
-    "deploymentId": "dpl_4nMnhEvsfo4f4o6fwoSmY2dj3qKf",
-    "commitSha": "51918b2d35a564178dcc814be3d53d651d4f5828",
+    "deploymentId": "dpl_3DvG3xjsuuBhXpmZpvvAGVD83XBs",
+    "commitSha": "1b0bee99f654bf4cbb8735872a7fc290d70106be",
     "environment": "production",
     "host": "scorecaster.vercel.app"
   },
-  "observedAt": "2026-08-08T18:00:24.000Z",
-  "evidenceRef": "github-issue-155#production-unauthenticated-protected-api-probes",
+  "observedAt": "2026-08-19T04:10:43.000Z",
+  "evidenceRef": "github-pr-autonomous-risk-production-evidence-v1",
   "probes": [
-    { "path": "/api/operations", "method": "GET", "observedAt": "2026-08-08T17:55:55.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/account", "method": "GET", "observedAt": "2026-08-08T17:56:19.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/account/export", "method": "GET", "observedAt": "2026-08-08T17:56:43.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/bets", "method": "GET", "observedAt": "2026-08-08T17:57:04.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/watchlist", "method": "GET", "observedAt": "2026-08-08T17:57:34.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/alerts", "method": "GET", "observedAt": "2026-08-08T17:58:03.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/notifications", "method": "GET", "observedAt": "2026-08-08T17:58:25.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/watchlist-monitor", "method": "GET", "observedAt": "2026-08-08T17:58:49.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/settlement-monitor", "method": "GET", "observedAt": "2026-08-08T17:59:10.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/autonomous-agent", "method": "GET", "observedAt": "2026-08-08T17:59:35.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/autonomy-mission-control", "method": "GET", "observedAt": "2026-08-08T18:00:02.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" },
-    { "path": "/api/cloud/polymarket-intelligence", "method": "GET", "observedAt": "2026-08-08T18:00:24.000Z", "httpStatus": 401, "cacheControl": "no-store, max-age=0", "ageSeconds": 0, "vercelCache": "MISS" }
+    {
+      "path": "/api/operations",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:06:40.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/account",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:07:00.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/account/export",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:07:24.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/bets",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:07:49.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/watchlist",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:08:11.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/alerts",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:08:34.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/notifications",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:08:56.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/watchlist-monitor",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:09:18.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/settlement-monitor",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:09:41.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/autonomous-agent",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:10:00.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/autonomy-mission-control",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:10:23.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/polymarket-intelligence",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:10:43.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    },
+    {
+      "path": "/api/cloud/autonomous-agent/risk-profile",
+      "method": "GET",
+      "observedAt": "2026-08-19T04:04:48.000Z",
+      "httpStatus": 401,
+      "cacheControl": "no-store, max-age=0",
+      "ageSeconds": 0,
+      "vercelCache": "MISS"
+    }
   ],
   "sessionCredentialSent": false,
   "bearerTokenSent": false,

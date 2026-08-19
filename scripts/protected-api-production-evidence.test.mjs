@@ -38,12 +38,12 @@ test("protected API implementation fingerprint is recomputed from the current ma
   }
 });
 
-test("reviewed 12-route production auth probe passes only for the exact current implementation", () => {
+test("reviewed 13-route production auth probe passes only for the exact current implementation", () => {
   const result = buildTrustedProtectedApiProbeEvidence({ trustedDocument, implementation, manifest });
   assert.equal(result.ok, true);
   assert.equal(result.status, "passed");
-  assert.equal(result.apiCount, 12);
-  assert.equal(result.passedApiCount, 12);
+  assert.equal(result.apiCount, 13);
+  assert.equal(result.passedApiCount, 13);
   assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
   assert.equal(Object.values(result.protectedApiProbeEvidence).every((entry) => entry.status === "passed"), true);
   assert.equal(result.evidenceBoundary.sessionCredentialSent, false);
@@ -123,7 +123,7 @@ test("secret-bearing evidence references and retained user/security material fai
   assert.doesNotMatch(serialized, /authorization\s*[:=]|bearer\s|service[_ -]?role|api[_ -]?key|password|cookie=/i);
 });
 
-test("canonical release artifact blocks declared protected APIs without evidence and clears only with trusted 12/12 evidence", () => {
+test("canonical release artifact blocks declared protected APIs without evidence and clears only with trusted 13/13 evidence", () => {
   const miniManifest = {
     product: "Scorecaster",
     productionBaseUrl: "https://scorecaster.vercel.app",
@@ -164,7 +164,7 @@ test("canonical release artifact blocks declared protected APIs without evidence
   const passed = buildProductionReleaseEvidence({ ...base, protectedApiProbeEvidence: trusted.protectedApiProbeEvidence });
   assert.ok(!passed.blockers.includes("protected-api-probes-unverified"));
   assert.equal(passed.evidenceSummary.protectedApiProbesPassed, true);
-  assert.equal(passed.protectedApiProbes.length, 12);
+  assert.equal(passed.protectedApiProbes.length, 13);
   assert.equal(passed.protectedApiProbes.every((probe) => probe.status === "passed"), true);
 });
 
