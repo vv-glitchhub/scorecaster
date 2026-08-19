@@ -4,14 +4,13 @@ on:
   push:
     branches: [agent/play-gate-intelligence-fix-v1]
     paths:
-      - "lib/intelligence-play-safety-v1.mjs"
       - ".github/workflows/play-gate-intelligence-fix-bootstrap.yml"
 
 permissions:
   contents: write
 
 jobs:
-  patch:
+  patch-copy:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -24,137 +23,50 @@ jobs:
         with:
           node-version: 22
 
-      - name: Patch intelligence PLAY gate
+      - name: Align diagnostics copy with neutral missing-evidence policy
         shell: python
         run: |
           from pathlib import Path
 
-          def replace_once(path, old, new):
-              p = Path(path)
-              text = p.read_text()
-              if old not in text:
-                  raise SystemExit(f"missing patch anchor in {path}: {old[:120]!r}")
-              p.write_text(text.replace(old, new, 1))
-
-          sports = "lib/sports-intelligence-v1.mjs"
-          replace_once(
-              sports,
-              'const HOUR_MS = 60 * 60 * 1000;\n',
-              'import { evaluateIndependentIntelligenceSafetyV1 } from "./intelligence-play-safety-v1.mjs";\n\nconst HOUR_MS = 60 * 60 * 1000;\n'
-          )
-          replace_once(
-              sports,
-              '  const negativeVerifiedEvidence = relativeImpact <= -0.015;\n  const criticalConflict = Array.isArray(report?.conflicts) && report.conflicts.length > 0;\n  const evidenceVerified = report?.readiness?.level === "verified";\n',
-              '  const intelligenceSafety = evaluateIndependentIntelligenceSafetyV1({ report, relativeImpact });\n  const negativeVerifiedEvidence = intelligenceSafety.negativeVerifiedEvidence;\n  const criticalConflict = intelligenceSafety.criticalConflict;\n  const evidenceVerified = intelligenceSafety.verified;\n'
-          )
-          replace_once(
-              sports,
-              '  if (initialDecision === "PLAY" && !evidenceVerified) {\n    productDecision = "CAUTION";\n    reasons.push(`Independent evidence is ${report?.readiness?.level || "unavailable"}.`);\n  }\n',
-              ''
-          )
-          replace_once(
-              sports,
-              '    intelligenceRelativeImpact: relativeImpact,\n    intelligenceUsedForUpgrade: false,\n',
-              '    intelligenceRelativeImpact: relativeImpact,\n    intelligenceSafety,\n    intelligenceUsedForUpgrade: false,\n'
-          )
-          replace_once(
-              sports,
-              '      : evidenceVerified\n        ? "Independent evidence is verified; it did not override the market probability."\n        : "Market consensus remains the only probability source."\n',
-              '      : evidenceVerified\n        ? "Independent evidence is verified; no verified negative signal or unresolved conflict blocked the market decision."\n        : "Independent evidence is incomplete; missing evidence is neutral and did not override the market decision."\n'
-          )
-
-          top = "app/api/top-picks/route.js"
-          replace_once(
-              top,
-              'import { calculatePickQuality } from "../../../lib/pick-quality-engine";\n',
-              'import { calculatePickQuality } from "../../../lib/pick-quality-engine";\nimport { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";\n'
-          )
-          replace_once(
-              top,
-              '  const report = pick.sportsIntelligence;\n  if (report?.readiness?.level !== "verified") return "WATCH";\n  if (Array.isArray(report?.conflicts) && report.conflicts.length > 0) return "WATCH";\n  if (Number(pick.intelligenceRelativeImpact || 0) <= -0.015) return "WATCH";\n\n  return "BET";\n',
-              '  const intelligenceSafety = evaluateIndependentIntelligenceSafetyV1({\n    report: pick.sportsIntelligence,\n    relativeImpact: pick.intelligenceRelativeImpact\n  });\n  if (intelligenceSafety.downgrade) return "WATCH";\n\n  return "BET";\n'
-          )
-          replace_once(
-              top,
-              '    return "CAUTION: the market threshold passed, but the independent-intelligence safety gate did not permit PLAY.";\n',
-              '    return "CAUTION: the market threshold passed, but verified negative intelligence or an unresolved evidence conflict blocked PLAY.";\n'
-          )
-          replace_once(
-              top,
-              '  return "PLAY: price, market-data quality and independent-intelligence safety gates passed.";\n',
-              '  return "PLAY: price and market-data gates passed, with no verified negative intelligence or unresolved evidence conflict blocking the selection.";\n'
-          )
-
-          diag = "lib/decision-diagnostics.mjs"
-          replace_once(
-              diag,
-              'const DEFAULT_THRESHOLDS = Object.freeze({\n',
-              'import { evaluateIndependentIntelligenceSafetyV1 } from "./intelligence-play-safety-v1.mjs";\n\nconst DEFAULT_THRESHOLDS = Object.freeze({\n'
-          )
-          replace_once(
-              diag,
-              '  const readiness = String(pick.sportsIntelligence?.readiness?.level || "market-only");\n  const conflicts = Array.isArray(pick.sportsIntelligence?.conflicts) ? pick.sportsIntelligence.conflicts.length : 0;\n',
-              '  const intelligenceSafety = evaluateIndependentIntelligenceSafetyV1({\n    report: pick.sportsIntelligence,\n    relativeImpact: pick.intelligenceRelativeImpact\n  });\n'
-          )
-          replace_once(
-              diag,
-              '    if (marketDecision === "BET" && rawDecision !== "BET") reasons.push("intelligence-safety-downgrade");\n    if (readiness !== "verified" && marketDecision === "BET") reasons.push("intelligence-not-verified");\n    if (conflicts > 0) reasons.push("intelligence-conflict");\n',
-              '    if (marketDecision === "BET" && rawDecision !== "BET") reasons.push("intelligence-safety-downgrade");\n    if (intelligenceSafety.negativeVerifiedEvidence) reasons.push("intelligence-negative-verified");\n    if (intelligenceSafety.criticalConflict) reasons.push("intelligence-conflict");\n'
-          )
-
-          tests = "scripts/sports-intelligence-v1.test.mjs"
-          replace_once(
-              tests,
-              'import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";\n',
-              'import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";\nimport { evaluateIndependentIntelligenceSafetyV1 } from "../lib/intelligence-play-safety-v1.mjs";\n'
-          )
-          replace_once(
-              tests,
-              'test("market-only context downgrades PLAY without changing probability", () => {\n',
-              'test("market-only context is neutral and preserves a market-qualified PLAY", () => {\n'
-          )
-          replace_once(
-              tests,
-              '  assert.equal(report.readiness.level, "market-only");\n  assert.equal(gated.productDecision, "CAUTION");\n  assert.equal(gated.decision, "WATCH");\n  assert.equal(gated.consensusProbability, 0.55);\n',
-              '  assert.equal(report.readiness.level, "market-only");\n  assert.equal(gated.productDecision, "PLAY");\n  assert.equal(gated.decision, "BET");\n  assert.equal(gated.intelligenceSafety.missingEvidenceIsDowngrade, false);\n  assert.equal(gated.consensusProbability, 0.55);\n'
-          )
-          replace_once(
-              tests,
-              '  assert.match(route, /readiness\\?\\.level !== "verified"/);\n  assert.match(route, /probabilityAdjustedByIntelligence:\\s*false/);\n',
-              '  assert.match(route, /evaluateIndependentIntelligenceSafetyV1/);\n  assert.doesNotMatch(route, /readiness\\?\\.level !== "verified"/);\n  assert.match(route, /probabilityAdjustedByIntelligence:\\s*false/);\n'
-          )
-          append = '''\n\ntest("PLAY safety downgrades only verified negative evidence or unresolved conflicts", () => {\n  const missing = evaluateIndependentIntelligenceSafetyV1({\n    report: { readiness: { level: "market-only" }, conflicts: [] },\n    relativeImpact: -0.08\n  });\n  assert.equal(missing.downgrade, false);\n  assert.equal(missing.missingEvidenceIsDowngrade, false);\n\n  const negative = evaluateIndependentIntelligenceSafetyV1({\n    report: { readiness: { level: "verified" }, conflicts: [] },\n    relativeImpact: -0.02\n  });\n  assert.equal(negative.downgrade, true);\n  assert.equal(negative.negativeVerifiedEvidence, true);\n\n  const conflict = evaluateIndependentIntelligenceSafetyV1({\n    report: { readiness: { level: "partial" }, conflicts: ["conflict"] },\n    relativeImpact: 0\n  });\n  assert.equal(conflict.downgrade, true);\n  assert.equal(conflict.criticalConflict, true);\n});\n'''
-          p = Path(tests)
-          text = p.read_text()
-          if 'PLAY safety downgrades only verified negative evidence' not in text:
-              p.write_text(text.rstrip() + append + "\n")
-
-          diagtest = "scripts/decision-diagnostics.test.mjs"
-          replace_once(
-              diagtest,
-              '    marketDecisionBeforeSafetyGate: "BET",\n    sportsIntelligence: { readiness: { level: "partial" }, conflicts: [] }\n',
-              '    marketDecisionBeforeSafetyGate: "BET",\n    intelligenceRelativeImpact: -0.02,\n    sportsIntelligence: { readiness: { level: "verified" }, conflicts: [] }\n'
-          )
-          replace_once(
-              diagtest,
-              '  assert.ok(diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-not-verified"));\n',
-              '  assert.ok(diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-negative-verified"));\n  assert.ok(!diagnostics.safetyDowngrades[0].diagnosticReasonCodes.includes("intelligence-not-verified"));\n'
-          )
+          path = Path("app/diagnostics/DiagnosticsClient.jsx")
+          text = path.read_text()
+          old = '''    "intelligence-safety-downgrade": {
+      title: tr({ fi: "Evidenssiportti alensi PLAYn", en: "Evidence gate downgraded PLAY", es: "La evidencia rebajó PLAY" }),
+      description: tr({ fi: "Markkinaraja täyttyi, mutta riippumaton evidenssi ei sallinut PLAY-päätöstä.", en: "The market threshold passed, but independent evidence did not permit PLAY.", es: "El mercado pasó, pero la evidencia no permitió PLAY." }),
+      tone: "yellow"
+    },
+    "intelligence-not-verified": {
+      title: tr({ fi: "Riippumatonta evidenssiä ei ole varmennettu", en: "Independent evidence is not verified", es: "La evidencia no está verificada" }),
+      description: tr({ fi: "Markkina voi olla vahva, mutta PLAY vaatii varmennetun evidenssitilan.", en: "The market may be strong, but PLAY requires verified evidence readiness.", es: "El mercado puede ser fuerte, pero PLAY exige evidencia verificada." }),
+      tone: "yellow"
+    },
+'''
+          new = '''    "intelligence-safety-downgrade": {
+      title: tr({ fi: "Evidenssiportti alensi PLAYn", en: "Evidence gate downgraded PLAY", es: "La evidencia rebajó PLAY" }),
+      description: tr({ fi: "Markkinaraja täyttyi, mutta varmennettu negatiivinen signaali tai ratkaisematon evidenssiristiriita esti PLAYn.", en: "The market threshold passed, but verified negative intelligence or an unresolved evidence conflict blocked PLAY.", es: "El mercado pasó, pero una señal negativa verificada o un conflicto de evidencia bloqueó PLAY." }),
+      tone: "yellow"
+    },
+    "intelligence-negative-verified": {
+      title: tr({ fi: "Varmennettu negatiivinen signaali", en: "Verified negative intelligence", es: "Señal negativa verificada" }),
+      description: tr({ fi: "Joukkueeseen kohdistuva varmennettu riippumaton evidenssi ylitti negatiivisen downgrade-rajan.", en: "Verified team-attributed independent evidence crossed the negative downgrade threshold.", es: "La evidencia independiente verificada del equipo superó el umbral negativo." }),
+      tone: "yellow"
+    },
+'''
+          if old not in text:
+              raise SystemExit("diagnostics copy anchor missing")
+          path.write_text(text.replace(old, new, 1))
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
 
-      - name: Focused PLAY gate regressions
+      - name: Focused regressions
         run: node --test scripts/sports-intelligence-v1.test.mjs scripts/decision-diagnostics.test.mjs
 
-      - name: Security check
-        run: npm run security:check
-
-      - name: Commit patched PLAY gate
+      - name: Commit diagnostics copy
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add lib/sports-intelligence-v1.mjs lib/intelligence-play-safety-v1.mjs app/api/top-picks/route.js lib/decision-diagnostics.mjs scripts/sports-intelligence-v1.test.mjs scripts/decision-diagnostics.test.mjs
+          git add app/diagnostics/DiagnosticsClient.jsx
           git diff --cached --quiet && exit 0
-          git commit -m "Treat missing intelligence as neutral for PLAY"
+          git commit -m "Align PLAY diagnostics with neutral missing evidence"
           git push origin HEAD:agent/play-gate-intelligence-fix-v1
