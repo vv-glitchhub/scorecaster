@@ -6,6 +6,11 @@ import {
   buildAgentV9Portfolio,
   buildProbabilityStressTest
 } from "../lib/agent-v9-engine.mjs";
+import {
+  AGENT_RISK_HARD_CAPS,
+  getEffectiveAgentRiskLimits,
+  normalizeAgentRiskProfile
+} from "../lib/agent-risk-profile-v1.mjs";
 
 function strongPick(overrides = {}) {
   return {
@@ -77,10 +82,88 @@ test("Agent V9 uses the uncertainty lower bound for stake sizing", () => {
 
   assert.equal(decision.decision, "PLAY");
   assert.ok(decision.suggestedStake > 0);
-  assert.ok(decision.suggestedStake <= 50);
+  assert.ok(decision.suggestedStake <= 10);
   assert.ok(decision.stressTest.robustPositive);
   assert.ok(decision.counterArguments.length >= 3);
   assert.ok(decision.priceGuard.minimumPlayOdds > decision.priceGuard.breakEvenOdds);
+});
+
+test("Agent risk profile can be selected without changing probability edge or EV", () => {
+  const pick = strongPick({
+    confidence: 0.53,
+    trustScore: 60,
+    edge: 0.018,
+    ev: 0.025,
+    odds: 2,
+    bookmakerCount: 6
+  });
+  const balanced = buildAgentV9Decision({ pick, riskProfile: "balanced" });
+  const aggressive = buildAgentV9Decision({ pick, riskProfile: "aggressive" });
+
+  assert.equal(balanced.decision, "WATCH");
+  assert.equal(aggressive.decision, "PLAY");
+  assert.equal(aggressive.riskProfile, "aggressive");
+  assert.equal(aggressive.consensusProbability, pick.consensusProbability);
+  assert.equal(aggressive.edge, pick.edge);
+  assert.equal(aggressive.ev, pick.ev);
+  assert.equal(aggressive.probabilityAdjustedByRisk, false);
+  assert.equal(aggressive.edgeAdjustedByRisk, false);
+  assert.equal(aggressive.evAdjustedByRisk, false);
+  assert.equal(aggressive.paperOnly, true);
+});
+
+test("conservative risk profile uses smaller virtual stake than balanced", () => {
+  const conservative = buildAgentV9Decision({
+    pick: strongPick(),
+    bankroll: 1000,
+    maxStakePercent: 1,
+    riskProfile: "conservative"
+  });
+  const balanced = buildAgentV9Decision({
+    pick: strongPick(),
+    bankroll: 1000,
+    maxStakePercent: 1,
+    riskProfile: "balanced"
+  });
+
+  assert.equal(conservative.decision, "PLAY");
+  assert.equal(balanced.decision, "PLAY");
+  assert.ok(conservative.suggestedStake > 0);
+  assert.ok(conservative.suggestedStake < balanced.suggestedStake);
+  assert.ok(conservative.maxStakePercent <= 0.5);
+});
+
+test("aggressive risk profile cannot exceed production paper hard caps", () => {
+  const limits = getEffectiveAgentRiskLimits({
+    riskProfile: "aggressive",
+    maxStakePercent: 5,
+    maxTotalExposurePercent: 20,
+    maxLeagueExposurePercent: 10
+  });
+  const portfolio = buildAgentV9Portfolio([
+    strongPick({ id: "a", gameId: "a" }),
+    strongPick({ id: "b", gameId: "b" }),
+    strongPick({ id: "c", gameId: "c" })
+  ], {
+    bankroll: 1000,
+    maxStakePercent: 5,
+    maxTotalExposurePercent: 20,
+    maxLeagueExposurePercent: 10,
+    riskProfile: "aggressive"
+  });
+
+  assert.equal(limits.maxStakePercent, AGENT_RISK_HARD_CAPS.maxStakePercent);
+  assert.equal(limits.maxTotalExposurePercent, AGENT_RISK_HARD_CAPS.maxTotalExposurePercent);
+  assert.equal(limits.maxLeagueExposurePercent, AGENT_RISK_HARD_CAPS.maxLeagueExposurePercent);
+  assert.ok(portfolio.totalCap <= 50);
+  assert.ok(portfolio.leagueCap <= 25);
+  assert.ok(portfolio.decisions.every((item) => Number(item.suggestedStake || 0) <= 10));
+  assert.equal(portfolio.probabilityAdjustedByRisk, false);
+});
+
+test("unknown risk profile fails closed to balanced", () => {
+  assert.equal(normalizeAgentRiskProfile("YOLO"), "balanced");
+  assert.equal(normalizeAgentRiskProfile(null), "balanced");
 });
 
 test("Agent V9 learning waits for a quality sample and never edits probability", () => {
