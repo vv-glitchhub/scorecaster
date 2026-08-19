@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, ScrollView, Text, View } from "react-native";
+import * as SecureStore from "expo-secure-store";
 import { useLanguage } from "../i18n";
 import { apiRequest } from "../lib/api";
 import type { AgentDecision, AgentExplanationPayload, AgentPortfolio, Bankroll } from "../types";
@@ -27,8 +28,16 @@ type FormRestShadow = {
   home?: { sampleSize?: number; restDays?: number | null; gamesLast7Days?: number };
   away?: { sampleSize?: number; restDays?: number | null; gamesLast7Days?: number };
 };
+type RiskProfile = "conservative" | "balanced" | "aggressive";
 
 const FINGERPRINT_PATTERN = /^[a-f0-9]{64}$/;
+const AGENT_RISK_PROFILE_STORAGE_KEY = "scorecaster_agent_risk_profile_v1";
+const RISK_PROFILES: RiskProfile[] = ["conservative", "balanced", "aggressive"];
+
+function normalizeRiskProfile(value: unknown): RiskProfile {
+  const normalized = String(value || "balanced").trim().toLowerCase();
+  return RISK_PROFILES.includes(normalized as RiskProfile) ? normalized as RiskProfile : "balanced";
+}
 
 function fingerprint(value: unknown) {
   const normalized = String(value || "").toLowerCase();
@@ -96,9 +105,10 @@ export default function AgentScreen() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [explanations, setExplanations] = useState<Record<string, AgentExplanationPayload>>({});
+  const [riskProfile, setRiskProfile] = useState<RiskProfile>("balanced");
   const money = (value: unknown) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
 
-  async function load() {
+  async function load(profile: RiskProfile = riskProfile) {
     setLoading(true);
     try {
       const bankrollResponse = await apiRequest<{ data: Bankroll }>("/api/cloud/bankroll");
@@ -107,7 +117,7 @@ export default function AgentScreen() {
         apiRequest<AgentPortfolio>("/api/agent/portfolio", {
           method: "POST",
           timeoutMs: 45000,
-          body: { settings: { bankroll: bankroll.bankroll, maxStakePercent: bankroll.max_stake_percent, maxTotalExposurePercent: bankroll.max_daily_exposure_percent, maxLeagueExposurePercent: bankroll.max_single_league_exposure_percent ?? 4 } }
+          body: { settings: { bankroll: bankroll.bankroll, maxStakePercent: bankroll.max_stake_percent, maxTotalExposurePercent: bankroll.max_daily_exposure_percent, maxLeagueExposurePercent: bankroll.max_single_league_exposure_percent ?? 4, riskProfile: profile } }
         }),
         apiRequest<ShadowLabPayload>("/api/agent/form-rest-lab", { timeoutMs: 30000 }).catch(() => null)
       ]);
@@ -122,7 +132,21 @@ export default function AgentScreen() {
     }
   }
 
-  useEffect(() => { void load(); }, []);
+  useEffect(() => {
+    void (async () => {
+      const stored = await SecureStore.getItemAsync(AGENT_RISK_PROFILE_STORAGE_KEY).catch(() => null);
+      const profile = normalizeRiskProfile(stored);
+      setRiskProfile(profile);
+      await load(profile);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function selectRiskProfile(profile: RiskProfile) {
+    setRiskProfile(profile);
+    await SecureStore.setItemAsync(AGENT_RISK_PROFILE_STORAGE_KEY, profile).catch(() => undefined);
+    await load(profile);
+  }
 
   async function explain(decision: AgentDecision, id: string) {
     setBusyId(id);
@@ -140,9 +164,9 @@ export default function AgentScreen() {
     try {
       await apiRequest("/api/cloud/bets", {
         method: "POST",
-        body: { bets: [{ id, eventId: decision.gameId || decision.eventId || decision.id, match: decision.match || [decision.homeTeam, decision.awayTeam].filter(Boolean).join(" – "), homeTeam: decision.homeTeam, awayTeam: decision.awayTeam, selection: decision.selection || decision.label, odds: decision.odds, stake: decision.suggestedStake, edge: decision.edge, ev: decision.ev, confidence: decision.confidence, league: decision.league || decision.leagueTitle, sport: decision.sportKey, bookmaker: decision.bookmaker, decision: decision.decision, qualityScore: decision.trustScore, modelProbability: decision.stressTest?.probability || decision.consensusProbability, impliedProbability: decision.marketProbability, source: "scorecaster-mobile-agent-v11-sports-intelligence-v1", agentVersion: decision.agentVersion, probabilityAdjustedByLearning: false, probabilityAdjustedByIntelligence: false }] }
+        body: { bets: [{ id, eventId: decision.gameId || decision.eventId || decision.id, match: decision.match || [decision.homeTeam, decision.awayTeam].filter(Boolean).join(" – "), homeTeam: decision.homeTeam, awayTeam: decision.awayTeam, selection: decision.selection || decision.label, odds: decision.odds, stake: decision.suggestedStake, edge: decision.edge, ev: decision.ev, confidence: decision.confidence, league: decision.league || decision.leagueTitle, sport: decision.sportKey, bookmaker: decision.bookmaker, decision: decision.decision, qualityScore: decision.trustScore, modelProbability: decision.stressTest?.probability || decision.consensusProbability, impliedProbability: decision.marketProbability, source: `scorecaster-mobile-agent-v11-risk-${riskProfile}`, agentVersion: decision.agentVersion, probabilityAdjustedByLearning: false, probabilityAdjustedByIntelligence: false, probabilityAdjustedByRisk: false }] }
       });
-      Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: "Palvelin varmisti kohteen ja tallensi vire- ja leposnapshotin auditointia varten. Varjomalli ei muuttanut päätöstä.", en: "The server verified the pick and stored the form-and-rest snapshot for audit. The shadow model did not change the decision.", es: "El servidor verificó el pronóstico y guardó el snapshot de forma y descanso para auditoría. El modelo sombra no cambió la decisión." }));
+      Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: "Palvelin varmisti kohteen. Riskitaso vaikutti vain suosituksen tiukkuuteen ja virtuaaliseen panokseen; markkinatodennäköisyys ei muuttunut.", en: "The server verified the pick. Risk level affected only recommendation strictness and virtual sizing; market probability did not change.", es: "El servidor verificó el pronóstico. El riesgo solo afectó la exigencia y el importe virtual; la probabilidad de mercado no cambió." }));
     } catch (error) {
       Alert.alert(tr({ fi: "Tallennus epäonnistui", en: "Save failed", es: "No se pudo guardar" }), error instanceof Error ? error.message : tr({ fi: "Tuntematon virhe", en: "Unknown error", es: "Error desconocido" }));
     } finally { setBusyId(null); }
@@ -163,13 +187,32 @@ export default function AgentScreen() {
     return counts;
   }, [portfolio]);
 
+  const riskLabel = riskProfile === "conservative"
+    ? tr({ fi: "Varovainen", en: "Conservative", es: "Conservador" })
+    : riskProfile === "aggressive"
+      ? tr({ fi: "Rohkea", en: "Aggressive", es: "Agresivo" })
+      : tr({ fi: "Tasapainoinen", en: "Balanced", es: "Equilibrado" });
+
   return (
     <ScrollView contentContainerStyle={styles.screen}>
-      <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.title}>Agent V11</Text><Text style={styles.subtitle}>{tr({ fi: "Stressitesti, portfoliohallinta, Sports Intelligence sekä vire- ja lepovarjomalli. Vain paperiseuranta.", en: "Stress testing, portfolio management, Sports Intelligence and a form-and-rest shadow model. Paper tracking only.", es: "Prueba de estrés, gestión de cartera, Sports Intelligence y modelo sombra de forma y descanso. Solo seguimiento simulado." })}</Text></View><ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={load} compact tone="secondary" disabled={loading || busyId !== null} /></View>
+      <View style={styles.rowBetween}><View style={{ flex: 1 }}><Text style={styles.title}>Agent V11</Text><Text style={styles.subtitle}>{tr({ fi: "Stressitesti, portfoliohallinta, Sports Intelligence ja käyttäjän valitsema recommendation-riskitaso. Vain paperiseuranta.", en: "Stress testing, portfolio management, Sports Intelligence and user-selected recommendation risk. Paper tracking only.", es: "Prueba de estrés, gestión de cartera, Sports Intelligence y riesgo de recomendación elegido por el usuario. Solo seguimiento simulado." })}</Text></View><ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={() => load(riskProfile)} compact tone="secondary" disabled={loading || busyId !== null} /></View>
       {loading && <ActivityIndicator color="#34d399" size="large" />}
 
       {!loading && portfolio && <>
-        <Card><Text style={styles.cardTitle}>{tr({ fi: "AI-portfolio", en: "AI portfolio", es: "Cartera IA" })}</Text><Text style={styles.metric}>{money(portfolio.totalAllocated)}</Text><Text style={styles.muted}>PLAY {portfolio.counts.PLAY} · WATCH {portfolio.counts.WATCH} · SKIP {portfolio.counts.SKIP}</Text><Text style={styles.muted}>{tr({ fi: "Altistus", en: "Exposure", es: "Exposición" })} {percent(portfolio.exposurePercent)} · {tr({ fi: "kokonaiskatto", en: "total cap", es: "límite total" })} {money(portfolio.totalCap)} · {tr({ fi: "liigakatto", en: "league cap", es: "límite por liga" })} {money(portfolio.leagueCap)}</Text><Text style={styles.muted}>Sports Intelligence: {intelligenceCounts.verified} verified · {intelligenceCounts.partial} partial · {intelligenceCounts.marketOnly} market-only</Text><Text style={styles.muted}>Decision Evidence: {intelligenceCounts.evidenceSealed}/{portfolio.decisions.length} {tr({ fi: "palvelinsinetöity", en: "server-sealed", es: "sellado por el servidor" })}</Text>{(portfolio.warnings || []).map((warning) => <Text key={warning} style={styles.muted}>• {warning}</Text>)}</Card>
+        <Card>
+          <Text style={styles.cardTitle}>{tr({ fi: "Risk Control V1", en: "Risk Control V1", es: "Risk Control V1" })}</Text>
+          <Text style={styles.value}>{tr({ fi: "Kuinka rohkeasti Agent suosittelee?", en: "How aggressively should the Agent recommend?", es: "¿Con cuánto riesgo debe recomendar el Agent?" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Riskitaso muuttaa vain PLAY-porttien tiukkuutta ja virtuaalista panostusta. Se ei muuta probabilityä, edgeä tai EV:tä.", en: "Risk level changes only PLAY-gate strictness and virtual sizing. It does not change probability, edge or EV.", es: "El riesgo solo cambia la exigencia de PLAY y el importe virtual. No cambia probabilidad, ventaja ni EV." })}</Text>
+          <View style={styles.actionRow}>
+            <ActionButton label={tr({ fi: "Varovainen", en: "Conservative", es: "Conservador" })} onPress={() => selectRiskProfile("conservative")} compact tone={riskProfile === "conservative" ? undefined : "secondary"} disabled={loading || busyId !== null} />
+            <ActionButton label={tr({ fi: "Tasapainoinen", en: "Balanced", es: "Equilibrado" })} onPress={() => selectRiskProfile("balanced")} compact tone={riskProfile === "balanced" ? undefined : "secondary"} disabled={loading || busyId !== null} />
+            <ActionButton label={tr({ fi: "Rohkea", en: "Aggressive", es: "Agresivo" })} onPress={() => selectRiskProfile("aggressive")} compact tone={riskProfile === "aggressive" ? undefined : "secondary"} disabled={loading || busyId !== null} />
+          </View>
+          <Text style={styles.muted}>{tr({ fi: "Valittu", en: "Selected", es: "Seleccionado" })}: {riskLabel}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Rohkeinkin tila vaatii positiivisen stressatun alarajan EV:n ja pysyy 1 % / 5 % / 2,5 % hard capeissa.", en: "Even Aggressive requires positive downside stressed EV and remains inside the 1% / 5% / 2.5% hard caps.", es: "Incluso Agresivo exige EV estresado positivo y respeta los límites 1% / 5% / 2,5%." })}</Text>
+        </Card>
+
+        <Card><Text style={styles.cardTitle}>{tr({ fi: "AI-portfolio", en: "AI portfolio", es: "Cartera IA" })}</Text><Text style={styles.metric}>{money(portfolio.totalAllocated)}</Text><Text style={styles.muted}>{riskLabel} · PLAY {portfolio.counts.PLAY} · WATCH {portfolio.counts.WATCH} · SKIP {portfolio.counts.SKIP}</Text><Text style={styles.muted}>{tr({ fi: "Altistus", en: "Exposure", es: "Exposición" })} {percent(portfolio.exposurePercent)} · {tr({ fi: "kokonaiskatto", en: "total cap", es: "límite total" })} {money(portfolio.totalCap)} · {tr({ fi: "liigakatto", en: "league cap", es: "límite por liga" })} {money(portfolio.leagueCap)}</Text><Text style={styles.muted}>Sports Intelligence: {intelligenceCounts.verified} verified · {intelligenceCounts.partial} partial · {intelligenceCounts.marketOnly} market-only</Text><Text style={styles.muted}>Decision Evidence: {intelligenceCounts.evidenceSealed}/{portfolio.decisions.length} {tr({ fi: "palvelinsinetöity", en: "server-sealed", es: "sellado por el servidor" })}</Text>{(portfolio.warnings || []).map((warning) => <Text key={warning} style={styles.muted}>• {warning}</Text>)}</Card>
 
         <Card><Text style={styles.cardTitle}>Agent V11 Model Lab</Text><Text style={styles.value}>{modelLab?.status || "unavailable"}</Text><Text style={styles.muted}>{tr({ fi: "Otos", en: "Sample", es: "Muestra" })} {modelLab?.sampleSize || 0}/{modelLab?.minimumSamples || 120} · train {modelLab?.trainSize || 0} · holdout {modelLab?.holdoutSize || 0}</Text><Text style={styles.muted}>Holdout Brier {modelLab?.champion?.holdout ? optionalNumber(modelLab.champion.holdout.brierScore) : "–"} → {modelLab?.challenger?.holdout ? optionalNumber(modelLab.challenger.holdout.brierScore) : "–"} · Δ {optionalNumber(improvement)}</Text><Text style={styles.muted}>{tr({ fi: "Nykyinen markkinatodennäköisyys pysyy muuttumattomana.", en: "The current market probability remains unchanged.", es: "La probabilidad de mercado actual permanece sin cambios." })}</Text></Card>
 
@@ -189,7 +232,7 @@ export default function AgentScreen() {
           return <Card key={id}>
             <View style={styles.rowBetween}><View style={[styles.badge, decisionTone(decision.decision)]}><Text style={styles.badgeText}>{decision.decision}</Text></View><Text style={styles.muted}>{decision.leagueTitle || decision.league || decision.sportKey || "Sport"}</Text></View>
             <Text style={styles.cardTitle}>{decision.match || `${decision.homeTeam || ""} – ${decision.awayTeam || ""}`}</Text><Text style={styles.value}>{decision.selection || decision.label} · {Number(decision.odds || 0).toFixed(2)}</Text><Text style={styles.muted}>{decision.bookmaker || tr({ fi: "Paras saatavilla oleva hinta", en: "Best available price", es: "Mejor cuota disponible" })}</Text>
-            <View style={styles.divider} /><Text style={styles.muted}>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(stress.probability)} · {tr({ fi: "stressialue", en: "stress range", es: "rango de estrés" })} {percent(stress.lower)}–{percent(stress.upper)}</Text><Text style={styles.muted}>{tr({ fi: "Perus-EV", en: "Base EV", es: "EV base" })} {percent(stress.baseEv)} · {tr({ fi: "alarajan EV", en: "downside EV", es: "EV a la baja" })} {percent(stress.downsideEv)} · robustness {percent(decision.robustnessScore)}</Text><Text style={styles.muted}>{tr({ fi: "Kerroinraja", en: "Odds floor", es: "Cuota mínima" })} {Number(price.minimumPlayOdds || 0).toFixed(2)} · {tr({ fi: "paperipanos", en: "paper stake", es: "importe simulado" })} {money(decision.suggestedStake)}</Text>
+            <View style={styles.divider} /><Text style={styles.muted}>{riskLabel} · {tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(stress.probability)} · {tr({ fi: "stressialue", en: "stress range", es: "rango de estrés" })} {percent(stress.lower)}–{percent(stress.upper)}</Text><Text style={styles.muted}>{tr({ fi: "Perus-EV", en: "Base EV", es: "EV base" })} {percent(stress.baseEv)} · {tr({ fi: "alarajan EV", en: "downside EV", es: "EV a la baja" })} {percent(stress.downsideEv)} · robustness {percent(decision.robustnessScore)}</Text><Text style={styles.muted}>{tr({ fi: "Kerroinraja", en: "Odds floor", es: "Cuota mínima" })} {Number(price.minimumPlayOdds || 0).toFixed(2)} · {tr({ fi: "paperipanos", en: "paper stake", es: "importe simulado" })} {money(decision.suggestedStake)}</Text>
             <Text style={styles.value}>{tr({ fi: "Riippumaton evidenssi", en: "Independent evidence", es: "Evidencia independiente" })}: {readiness?.level || "market-only"}</Text><Text style={styles.muted}>{decision.evidenceGateReason || tr({ fi: "Intelligence ei muuttanut markkinatodennäköisyyttä.", en: "Intelligence did not change the market probability.", es: "La inteligencia no modificó la probabilidad de mercado." })}</Text>
             <View style={[styles.badge, evidenceSeal.verified ? null : styles.warningBadge]}><Text style={styles.badgeText}>{evidenceSeal.verified ? tr({ fi: "EVIDENCE SINETÖITY", en: "EVIDENCE SEALED", es: "EVIDENCIA SELLADA" }) : tr({ fi: "SINETTI EI SAATAVILLA", en: "SEAL UNAVAILABLE", es: "SELLO NO DISPONIBLE" })}</Text></View>
             {evidenceSeal.verified ? <Text style={styles.muted}>Contract {shortFingerprint(evidenceSeal.contractFingerprint)} · Seal {shortFingerprint(evidenceSeal.sealFingerprint)}</Text> : null}
