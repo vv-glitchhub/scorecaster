@@ -1,31 +1,193 @@
 {
   "schemaVersion": 1,
   "environment": "production",
-  "updatedAt": "2026-08-18T02:56:26Z",
+  "updatedAt": "2026-08-19T03:37:04Z",
   "updatedBy": "ChatGPT production migration and catalog verification via Supabase connector",
-  "notes": "Repository file presence never proves production application. The original 21 entries were object-level verified in production. The independent Agent signing Vault migration is placed before the Collector dependency chain in the canonical manifest, but it was actually applied later on 2026-08-18 through the Supabase migration API and separately re-verified with redacted catalog and privilege evidence.",
+  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. Agent signing and Autonomous Risk Profile V1 were applied through the Supabase migration API and separately verified with redacted catalog, RLS and privilege evidence.",
   "migrations": [
-    {"path":"supabase/scorecaster_schema.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-schema","notes":"8 base tables and 4 named indexes verified in production."},
-    {"path":"supabase/scorecaster_auth_cloud.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-auth-cloud","notes":"Account tables, indexes, functions, triggers, FORCE RLS and reviewed ownership policies verified; later hardening narrows client grants."},
-    {"path":"supabase/scorecaster_community_feed_v1.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-community-feed-v1","notes":"Community table, 2 indexes, RLS and all 4 comment policies verified."},
-    {"path":"supabase/scorecaster_paper_risk_limits.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-paper-risk-limits","notes":"SECURITY DEFINER paper-risk function and full bets trigger column set verified."},
-    {"path":"supabase/scorecaster_api_rate_limits.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-api-rate-limits","notes":"Rate-limit table/index, FORCE RLS, consume/cleanup RPCs and reviewed execution boundary verified."},
-    {"path":"supabase/scorecaster_watchlist_alerts.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-alerts","notes":"Watchlist table/indexes, update function/trigger, FORCE RLS and ownership policy verified."},
-    {"path":"supabase/scorecaster_market_timeline.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-market-timeline","notes":"Market timeline table/indexes, FORCE RLS and ownership policy verified."},
-    {"path":"supabase/scorecaster_alert_inbox.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-alert-inbox","notes":"Alert inbox table, 5 indexes, function/trigger, FORCE RLS and ownership policy verified."},
-    {"path":"supabase/scorecaster_notification_registry.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-registry","notes":"Notification tables/indexes/functions/triggers, FORCE RLS, policies and authenticated device-claim RPC verified."},
-    {"path":"supabase/scorecaster_notification_delivery.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-delivery","notes":"Delivery table/indexes/functions/trigger, FORCE RLS, read policy and service-role-only claim boundary verified."},
-    {"path":"supabase/scorecaster_watchlist_monitor.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-monitor","notes":"Monitor state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified."},
-    {"path":"supabase/scorecaster_decision_diagnostics.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-decision-diagnostics","notes":"Diagnostics tables, 5 indexes, alert function/trigger, FORCE RLS and read-only policies verified."},
-    {"path":"supabase/scorecaster_agent_decision_signing_vault.sql","status":"applied","verifiedAt":"2026-08-18T02:56:26Z","verifiedBy":"ChatGPT production migration and catalog verification via Supabase connector","evidence":"docs/PRODUCTION_AGENT_SIGNING_VAULT_EVIDENCE_2026_08_18.md","notes":"Supabase migration registry version 20260818025626. Dedicated Vault secret exists with 96-character decrypted length; service-role-only SECURITY DEFINER RPC verified with constrained search_path and no PUBLIC/anon/authenticated EXECUTE."},
-    {"path":"supabase/scorecaster_collector_v1.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-collector-v1","notes":"Collector tables, 6 indexes, FORCE RLS, browser closure and service-role CRUD verified."},
-    {"path":"supabase/scorecaster_ai_intelligence_v1.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-ai-intelligence-v1","notes":"Intelligence tables, 3 indexes and RLS verified; V1.3 hardening closes direct browser grants."},
-    {"path":"supabase/scorecaster_unified_data.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-unified-data","notes":"4 Unified Data tables, 12 indexes, function/triggers, FORCE RLS and 4 read-only policies verified."},
-    {"path":"supabase/scorecaster_sports_analytics.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-sports-analytics","notes":"Analytics tables, 7 indexes, FORCE RLS, browser closure and service-role CRUD verified."},
-    {"path":"supabase/scorecaster_settlement_monitor.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-settlement-monitor","notes":"Settlement state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified."},
-    {"path":"supabase/scorecaster_autonomous_agent.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent","notes":"V1 settings/state/runs, indexes, functions, triggers, FORCE RLS, policies and worker/manual-run boundaries verified."},
-    {"path":"supabase/scorecaster_autonomous_agent_v2.sql","status":"applied","verifiedAt":"2026-08-14T10:01:02.463185Z","verifiedBy":"Codex production migration and catalog verification via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent-v2","notes":"V2 audit/brief tables, indexes, extension columns, functions/trigger, FORCE RLS, policies and service-role completion verified. Follow-up verification confirms the enabled-agent trigger atomically creates a conservative 1,000-unit paper bankroll only when one is missing."},
-    {"path":"supabase/scorecaster_autonomous_v13_hard_caps.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-v13-hard-caps","notes":"V13 hard-cap SECURITY DEFINER function and bets trigger verified; direct browser EXECUTE closed."},
-    {"path":"supabase/scorecaster_shadow_learning_v1.sql","status":"applied","verifiedAt":"2026-08-10T18:08:10.087375Z","verifiedBy":"ChatGPT production catalog audit via Supabase connector","evidence":"docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-shadow-learning-v1","notes":"3 Shadow Learning tables, 5 indexes, 6 functions, 3 triggers, FORCE RLS, policies, service worker boundary and safety constraint verified."}
+    {
+      "path": "supabase/scorecaster_schema.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-schema",
+      "notes": "8 base tables and 4 named indexes verified in production."
+    },
+    {
+      "path": "supabase/scorecaster_auth_cloud.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-auth-cloud",
+      "notes": "Account tables, indexes, functions, triggers, FORCE RLS and reviewed ownership policies verified; later hardening narrows client grants."
+    },
+    {
+      "path": "supabase/scorecaster_community_feed_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-community-feed-v1",
+      "notes": "Community table, 2 indexes, RLS and all 4 comment policies verified."
+    },
+    {
+      "path": "supabase/scorecaster_paper_risk_limits.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-paper-risk-limits",
+      "notes": "SECURITY DEFINER paper-risk function and full bets trigger column set verified."
+    },
+    {
+      "path": "supabase/scorecaster_api_rate_limits.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-api-rate-limits",
+      "notes": "Rate-limit table/index, FORCE RLS, consume/cleanup RPCs and reviewed execution boundary verified."
+    },
+    {
+      "path": "supabase/scorecaster_watchlist_alerts.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-alerts",
+      "notes": "Watchlist table/indexes, update function/trigger, FORCE RLS and ownership policy verified."
+    },
+    {
+      "path": "supabase/scorecaster_market_timeline.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-market-timeline",
+      "notes": "Market timeline table/indexes, FORCE RLS and ownership policy verified."
+    },
+    {
+      "path": "supabase/scorecaster_alert_inbox.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-alert-inbox",
+      "notes": "Alert inbox table, 5 indexes, function/trigger, FORCE RLS and ownership policy verified."
+    },
+    {
+      "path": "supabase/scorecaster_notification_registry.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-registry",
+      "notes": "Notification tables/indexes/functions/triggers, FORCE RLS, policies and authenticated device-claim RPC verified."
+    },
+    {
+      "path": "supabase/scorecaster_notification_delivery.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-delivery",
+      "notes": "Delivery table/indexes/functions/trigger, FORCE RLS, read policy and service-role-only claim boundary verified."
+    },
+    {
+      "path": "supabase/scorecaster_watchlist_monitor.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-monitor",
+      "notes": "Monitor state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified."
+    },
+    {
+      "path": "supabase/scorecaster_decision_diagnostics.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-decision-diagnostics",
+      "notes": "Diagnostics tables, 5 indexes, alert function/trigger, FORCE RLS and read-only policies verified."
+    },
+    {
+      "path": "supabase/scorecaster_agent_decision_signing_vault.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-18T02:56:26Z",
+      "verifiedBy": "ChatGPT production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_AGENT_SIGNING_VAULT_EVIDENCE_2026_08_18.md",
+      "notes": "Supabase migration registry version 20260818025626. Dedicated Vault secret exists with 96-character decrypted length; service-role-only SECURITY DEFINER RPC verified with constrained search_path and no PUBLIC/anon/authenticated EXECUTE."
+    },
+    {
+      "path": "supabase/scorecaster_collector_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-collector-v1",
+      "notes": "Collector tables, 6 indexes, FORCE RLS, browser closure and service-role CRUD verified."
+    },
+    {
+      "path": "supabase/scorecaster_ai_intelligence_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-ai-intelligence-v1",
+      "notes": "Intelligence tables, 3 indexes and RLS verified; V1.3 hardening closes direct browser grants."
+    },
+    {
+      "path": "supabase/scorecaster_unified_data.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-unified-data",
+      "notes": "4 Unified Data tables, 12 indexes, function/triggers, FORCE RLS and 4 read-only policies verified."
+    },
+    {
+      "path": "supabase/scorecaster_sports_analytics.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-sports-analytics",
+      "notes": "Analytics tables, 7 indexes, FORCE RLS, browser closure and service-role CRUD verified."
+    },
+    {
+      "path": "supabase/scorecaster_settlement_monitor.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-settlement-monitor",
+      "notes": "Settlement state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified."
+    },
+    {
+      "path": "supabase/scorecaster_autonomous_agent.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent",
+      "notes": "V1 settings/state/runs, indexes, functions, triggers, FORCE RLS, policies and worker/manual-run boundaries verified."
+    },
+    {
+      "path": "supabase/scorecaster_autonomous_agent_v2.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-14T10:01:02.463185Z",
+      "verifiedBy": "Codex production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent-v2",
+      "notes": "V2 audit/brief tables, indexes, extension columns, functions/trigger, FORCE RLS, policies and service-role completion verified. Follow-up verification confirms the enabled-agent trigger atomically creates a conservative 1,000-unit paper bankroll only when one is missing."
+    },
+    {
+      "path": "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-19T03:37:04Z",
+      "verifiedBy": "ChatGPT production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_AUTONOMOUS_RISK_PROFILE_EVIDENCE_2026_08_19.md",
+      "notes": "Production migration registry version 20260819033704. Risk profile and policy columns, balanced backfill, constraints, scheduling trigger, RLS and FORCE RLS verified with aggregate-only evidence."
+    },
+    {
+      "path": "supabase/scorecaster_autonomous_v13_hard_caps.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-v13-hard-caps",
+      "notes": "V13 hard-cap SECURITY DEFINER function and bets trigger verified; direct browser EXECUTE closed."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_learning_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-shadow-learning-v1",
+      "notes": "3 Shadow Learning tables, 5 indexes, 6 functions, 3 triggers, FORCE RLS, policies, service worker boundary and safety constraint verified."
+    }
   ]
 }
