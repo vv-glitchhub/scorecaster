@@ -1,0 +1,44 @@
+name: Scorecaster Autonomous Risk Security Staging Bootstrap
+
+on:
+  push:
+    branches: [agent/autonomous-risk-profile-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  stage-security:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout branch and main
+        uses: actions/checkout@v4
+        with:
+          ref: agent/autonomous-risk-profile-v1
+          fetch-depth: 0
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Restore unchanged protected API sources
+        run: |
+          git show origin/main:app/api/cloud/autonomous-agent/route.js > app/api/cloud/autonomous-agent/route.js
+          git show origin/main:app/api/account/export/route.js > app/api/account/export/route.js
+      - name: Stage new risk API outside retained production probe set
+        run: node scripts/apply-autonomous-risk-security-staging.mjs
+      - name: Verify release and protected API security contracts
+        run: |
+          node scripts/release-readiness.mjs
+          node --test scripts/api-security.test.mjs scripts/autonomous-risk-profile-v1.test.mjs
+      - name: Remove one-time staging files
+        run: rm .github/workflows/autonomous-risk-security-staging-bootstrap.yml scripts/apply-autonomous-risk-security-staging.mjs
+      - name: Commit truthful staged rollout
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "Stage autonomous risk API before production probe evidence"
+          git push origin HEAD:agent/autonomous-risk-profile-v1
