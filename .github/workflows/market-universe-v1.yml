@@ -1,0 +1,51 @@
+name: Scorecaster Market Universe V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/market-universe-v1.mjs"
+      - "lib/market-universe-sport-catalog.mjs"
+      - "app/api/market-universe/**"
+      - "app/market-universe/**"
+      - "app/betting/page.jsx"
+      - "app/pro/page.jsx"
+      - "scripts/market-universe-v1.test.mjs"
+      - ".github/workflows/market-universe-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/market-universe-v1.mjs"
+      - "lib/market-universe-sport-catalog.mjs"
+      - "app/api/market-universe/**"
+      - "app/market-universe/**"
+      - "app/betting/page.jsx"
+      - "app/pro/page.jsx"
+      - "scripts/market-universe-v1.test.mjs"
+      - ".github/workflows/market-universe-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  market-universe-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Market Universe settlement regression
+        run: node scripts/market-universe-v1.test.mjs
+      - name: Existing market consensus regression
+        run: node scripts/market-consensus.test.mjs
+      - name: Repository secret boundary
+        run: npm run security:check
+      - name: Production build
+        run: npm run build
