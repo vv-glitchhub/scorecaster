@@ -1,0 +1,42 @@
+name: Scorecaster Autonomous Market Scanner V1
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/autonomous-market-scanner-v1.mjs"
+      - "lib/autonomous-paper-agent-governed-v13.js"
+      - "scripts/autonomous-market-scanner-v1.test.mjs"
+      - ".github/workflows/autonomous-market-scanner-v1.yml"
+  push:
+    branches: [main]
+    paths:
+      - "lib/autonomous-market-scanner-v1.mjs"
+      - "lib/autonomous-paper-agent-governed-v13.js"
+      - "scripts/autonomous-market-scanner-v1.test.mjs"
+      - ".github/workflows/autonomous-market-scanner-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  autonomous-market-scanner-v1:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --ignore-scripts
+      - name: Autonomous Market Scanner regression
+        run: node scripts/autonomous-market-scanner-v1.test.mjs
+      - name: Existing Agent V9 regression
+        run: node scripts/agent-v9.test.mjs
+      - name: Repository secret boundary
+        run: npm run security:check
+      - name: Production build
+        run: npm run build
