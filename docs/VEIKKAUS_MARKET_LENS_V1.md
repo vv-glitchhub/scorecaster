@@ -12,7 +12,15 @@ The current adapter uses the independent Odds-API.io service and filters its fee
 
 The API key is server-only in `VEIKKAUS_ODDS_API_IO_KEY`. Never expose it through `NEXT_PUBLIC_*`, `EXPO_PUBLIC_*`, browser storage, telemetry or provider diagnostics.
 
-Commercial, redistribution and model-training rights must follow the account and data-provider terms. This adapter does not itself grant or infer those rights.
+Odds-API.io's terms allow analytical and application-development uses but restrict resale/redistribution. Their free tier is described as development/testing and production commercial use requires a suitable paid plan. Scorecaster therefore requires explicit activation rather than inferring rights from the presence of a key.
+
+Activation flags:
+
+- `VEIKKAUS_ODDS_ENABLED=true` opts the read-only adapter in;
+- production additionally requires `VEIKKAUS_ODDS_COMMERCIAL_ALLOWED=true` after the operator has verified the active account/plan permits that production use; and
+- absent, disabled or unverified rights state causes zero Veikkaus network requests.
+
+This adapter does not grant, infer or broaden commercial, redistribution or model-training rights.
 
 ## Matching contract
 
@@ -54,6 +62,16 @@ Scorecaster does not add a probability boost because a price came from Veikkaus.
 - zero secondary network requests;
 - primary odds remain unchanged;
 - provider state is `not-configured`.
+
+Key present but `VEIKKAUS_ODDS_ENABLED` false:
+
+- zero secondary network requests;
+- provider state is `disabled`.
+
+Production without explicit commercial-use approval:
+
+- zero secondary network requests;
+- provider state is `rights-unverified`.
 
 Provider auth, quota, upstream or network failure:
 
