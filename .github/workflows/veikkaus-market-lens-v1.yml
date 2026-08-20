@@ -39,7 +39,7 @@ jobs:
         run: node scripts/market-consensus.test.mjs
 
       - name: Repository secret boundary
-        run: npm run security
+        run: npm run security:check
 
       - name: Production build
         run: npm run build
