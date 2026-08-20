@@ -16,7 +16,7 @@ function NavIcon({ name, size = 19 }) {
 export default function AppShell({ children }) {
   const pathname = usePathname();
   const { t, tr } = useLanguage();
-  const { bookmakerLabel, proMode } = useProfessionalPreferences();
+  const { bookmakerLabel, proMode, proProfile } = useProfessionalPreferences();
   const [menuOpen, setMenuOpen] = useState(false);
 
   const primaryItems = useMemo(() => [
@@ -36,6 +36,7 @@ export default function AppShell({ children }) {
   const secondaryItems = useMemo(() => [
     { href: "/brief", label: tr({ fi: "Päivän briefi", en: "Daily Brief", es: "Informe diario" }) },
     { href: "/changes", label: tr({ fi: "Markkinamuutokset", en: "Market changes", es: "Cambios de mercado" }) },
+    { href: "/pro", label: tr({ fi: "Pro Bettor Desk", en: "Pro Bettor Desk", es: "Pro Bettor Desk" }) },
     ...groups,
     { href: "/autonomous-agent", label: "Autonomous Agent" },
     { href: "/watchlist", label: tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" }) },
@@ -102,7 +103,7 @@ export default function AppShell({ children }) {
 
             <div className="relative flex items-center gap-2">
               <span className="sr-only">{t("mode.paper")}</span>
-              <div className="hidden max-w-[220px] items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em] text-[var(--sc-text-secondary)] xl:flex" title={`${bookmakerLabel} · ${proMode ? "Pro Mode" : "Simple mode"}`}><AppIcon name="shield" size={14} /><span className="truncate">{bookmakerLabel}</span><span aria-hidden="true">·</span><span>{proMode ? "PRO" : "SIMPLE"}</span></div>
+              <div className="hidden max-w-[250px] items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em] text-[var(--sc-text-secondary)] xl:flex" title={`${bookmakerLabel} · ${proMode ? `Pro Bettor ${proProfile}` : "Simple mode"}`}><AppIcon name="shield" size={14} /><span className="truncate">{bookmakerLabel}</span><span aria-hidden="true">·</span><span>{proMode ? `PRO:${String(proProfile || "standard").toUpperCase()}` : "SIMPLE"}</span></div>
               <ThemeToggle labelDark={tr({ fi: "Tumma tila", en: "Dark mode", es: "Modo oscuro" })} labelLight={tr({ fi: "Vaalea tila", en: "Light mode", es: "Modo claro" })} />
               <LanguageSwitcher compact />
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="sc-icon-button" aria-expanded={menuOpen} aria-controls="scorecaster-more-menu" aria-label={tr({ fi: "Avaa lisävalikko", en: "Open more menu", es: "Abrir menú" })}><NavIcon name="more" /></button>

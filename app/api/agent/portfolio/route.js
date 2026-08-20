@@ -17,6 +17,10 @@ import {
 import { buildAgentV9Portfolio } from "../../../../lib/agent-v9-engine.mjs";
 import { normalizeAgentRiskProfile } from "../../../../lib/agent-risk-profile-v1.mjs";
 import {
+  applyProfessionalQualification,
+  normalizeProfessionalProfile
+} from "../../../../lib/pro-bettor-policy-v1.mjs";
+import {
   createAgentDecisionTicket
 } from "../../../../lib/agent-decision-ticket.mjs";
 import { resolveAgentDecisionSigningKey } from "../../../../lib/agent-decision-signing-key.mjs";
@@ -44,7 +48,9 @@ function normalizeSettings(value = {}) {
     maxStakePercent: boundedNumber(value.maxStakePercent, { min: 0.1, max: 5, fallback: 1 }),
     maxTotalExposurePercent: boundedNumber(value.maxTotalExposurePercent, { min: 0.5, max: 20, fallback: 4 }),
     maxLeagueExposurePercent: boundedNumber(value.maxLeagueExposurePercent, { min: 0.25, max: 10, fallback: 2 }),
-    riskProfile: normalizeAgentRiskProfile(cleanText(value.riskProfile, 32))
+    riskProfile: normalizeAgentRiskProfile(cleanText(value.riskProfile, 32)),
+    proMode: value.proMode === true,
+    proProfile: normalizeProfessionalProfile(cleanText(value.proProfile, 32))
   };
 }
 
@@ -161,9 +167,13 @@ export async function POST(request) {
     learning: learningResult.learning
   });
   const governedDecisions = applyModelLabSafety(portfolio.decisions, learningResult.modelLab);
-  const governedSummary = summarizeGovernedDecisions(governedDecisions);
+  const professional = applyProfessionalQualification(governedDecisions, {
+    enabled: settings.proMode,
+    profile: settings.proProfile
+  });
+  const governedSummary = summarizeGovernedDecisions(professional.decisions);
   const signingConfigured = signing.configured === true && Boolean(signing.key);
-  const decisions = governedDecisions.map((decision) => {
+  const decisions = professional.decisions.map((decision) => {
     const evidence = signedDecisionEvidence(decision);
     return {
       ...decision,
@@ -199,6 +209,15 @@ export async function POST(request) {
       probabilityAdjustedByRisk: false,
       edgeAdjustedByRisk: false,
       evAdjustedByRisk: false,
+      professionalMode: professional.enabled,
+      professionalProfile: professional.profile,
+      professionalPolicy: professional.policy,
+      professionalCounts: professional.counts,
+      professionalQualifiedPaperStake: professional.qualifiedPaperStake,
+      professionalDowngradeOnly: true,
+      probabilityAdjustedByProfessionalMode: false,
+      edgeAdjustedByProfessionalMode: false,
+      evAdjustedByProfessionalMode: false,
       modelLab: learningResult.modelLab,
       counts: governedSummary.counts,
       totalAllocated: governedSummary.totalAllocated,
