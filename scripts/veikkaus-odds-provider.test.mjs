@@ -13,6 +13,11 @@ function response(data, status = 200) {
   });
 }
 
+const activeEnv = {
+  VEIKKAUS_ODDS_API_IO_KEY: "secret-key-that-must-not-leak",
+  VEIKKAUS_ODDS_ENABLED: "true"
+};
+
 const baseGame = {
   id: "event-1",
   sport_key: "basketball_wnba",
@@ -70,6 +75,37 @@ const veikkausPayload = {
 {
   const config = veikkausOddsConfiguration({});
   assert.equal(config.configured, false);
+  assert.equal(config.active, false);
+  assert.equal(config.mode, "not-configured");
+}
+
+{
+  const config = veikkausOddsConfiguration({ VEIKKAUS_ODDS_API_IO_KEY: "x" });
+  assert.equal(config.configured, true);
+  assert.equal(config.active, false);
+  assert.equal(config.mode, "disabled");
+}
+
+{
+  const config = veikkausOddsConfiguration({
+    VEIKKAUS_ODDS_API_IO_KEY: "x",
+    VEIKKAUS_ODDS_ENABLED: "true",
+    VERCEL_ENV: "production"
+  });
+  assert.equal(config.configured, true);
+  assert.equal(config.active, false);
+  assert.equal(config.mode, "rights-unverified");
+}
+
+{
+  const config = veikkausOddsConfiguration({
+    VEIKKAUS_ODDS_API_IO_KEY: "x",
+    VEIKKAUS_ODDS_ENABLED: "true",
+    VEIKKAUS_ODDS_COMMERCIAL_ALLOWED: "true",
+    VERCEL_ENV: "production"
+  });
+  assert.equal(config.active, true);
+  assert.equal(config.mode, "ready");
 }
 
 {
@@ -85,6 +121,27 @@ const veikkausPayload = {
   });
   assert.equal(calls, 0);
   assert.equal(result.state.mode, "not-configured");
+  assert.equal(result.state.networkRequestMade, false);
+  assert.deepEqual(result.games, [baseGame]);
+}
+
+{
+  let calls = 0;
+  const result = await enrichGamesWithVeikkaus({
+    games: [baseGame],
+    sportKey: "basketball_wnba",
+    env: {
+      VEIKKAUS_ODDS_API_IO_KEY: "x",
+      VEIKKAUS_ODDS_ENABLED: "true",
+      VERCEL_ENV: "production"
+    },
+    fetchImpl: async () => {
+      calls += 1;
+      throw new Error("must not call network without production rights flag");
+    }
+  });
+  assert.equal(calls, 0);
+  assert.equal(result.state.mode, "rights-unverified");
   assert.equal(result.state.networkRequestMade, false);
   assert.deepEqual(result.games, [baseGame]);
 }
@@ -112,7 +169,7 @@ const veikkausPayload = {
     games: [baseGame],
     sportKey: "basketball_wnba",
     markets: ["h2h", "spreads", "totals"],
-    env: { VEIKKAUS_ODDS_API_IO_KEY: "secret-key-that-must-not-leak" },
+    env: activeEnv,
     fetchImpl,
     now: Date.parse("2026-08-20T08:02:00Z")
   });
@@ -130,6 +187,7 @@ const veikkausPayload = {
   assert.ok(veikkaus);
   assert.equal(veikkaus.title, "Veikkaus");
   assert.equal(veikkaus.source_provider, "odds-api.io");
+  assert.equal(veikkaus.source_id, "odds_api_io_veikkaus");
   assert.equal(veikkaus.markets.length, 3);
   assert.equal(JSON.stringify(veikkaus).includes("betslip"), false);
 
@@ -175,7 +233,7 @@ const veikkausPayload = {
   const result = await enrichGamesWithVeikkaus({
     games: [duplicateGame],
     sportKey: "basketball_wnba",
-    env: { VEIKKAUS_ODDS_API_IO_KEY: "x" },
+    env: { VEIKKAUS_ODDS_API_IO_KEY: "x", VEIKKAUS_ODDS_ENABLED: "true" },
     fetchImpl,
     now: Date.parse("2026-08-20T08:02:00Z")
   });
@@ -188,7 +246,7 @@ const veikkausPayload = {
   const result = await enrichGamesWithVeikkaus({
     games: [baseGame],
     sportKey: "basketball_wnba",
-    env: { VEIKKAUS_ODDS_API_IO_KEY: "x" },
+    env: { VEIKKAUS_ODDS_API_IO_KEY: "x", VEIKKAUS_ODDS_ENABLED: "true" },
     fetchImpl: async () => {
       calls += 1;
       return response({ error: "quota and raw provider text that must not escape" }, 429);
@@ -207,7 +265,7 @@ const veikkausPayload = {
   const result = await enrichGamesWithVeikkaus({
     games: [baseGame],
     sportKey: "basketball_wnba",
-    env: { VEIKKAUS_ODDS_API_IO_KEY: "x" },
+    env: { VEIKKAUS_ODDS_API_IO_KEY: "x", VEIKKAUS_ODDS_ENABLED: "true" },
     fetchImpl: async (url) => {
       calls += 1;
       if (url.includes("/events?")) {
