@@ -1,4 +1,5 @@
 import { SPORTS } from "../../../lib/sports";
+import { enrichGamesWithVeikkaus } from "../../../lib/veikkaus-odds-provider.mjs";
 
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const ALLOWED_MARKETS = new Set(["h2h", "spreads", "totals"]);
@@ -95,16 +96,31 @@ export async function GET(request) {
       );
     }
 
+    // Veikkaus is an optional second bookmaker feed. It is read-only and fail-open:
+    // if the dedicated provider key is missing, rate-limited or unavailable, the
+    // canonical The Odds API market remains untouched and usable.
+    const veikkaus = await enrichGamesWithVeikkaus({
+      games: data,
+      sportKey: sport,
+      markets: markets.split(",")
+    });
+
     return json({
       ok: true,
       source: "live",
-      mode: data.length ? "live" : "live-empty",
+      mode: veikkaus.games.length ? "live" : "live-empty",
       sport,
       markets,
       regions: "eu",
-      count: data.length,
+      count: veikkaus.games.length,
       providerHeaders,
-      data
+      bookmakerSources: {
+        primary: "the-odds-api",
+        veikkaus: veikkaus.state
+      },
+      paperOnly: true,
+      realMoneyBetting: false,
+      data: veikkaus.games
     });
   } catch (error) {
     const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
