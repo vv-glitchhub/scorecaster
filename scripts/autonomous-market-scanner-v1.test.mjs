@@ -4,6 +4,7 @@ import {
   autonomousMarketGroupForEvent,
   autonomousMarketScanPlan,
   marketUniverseSelectionToAgentCandidate,
+  loadAutonomousMarketUniverseGroup,
   mergeAutonomousMarketCandidates,
   scanAutonomousMarketUniverse,
   shouldRunAutonomousMarketScan
@@ -111,6 +112,22 @@ const priceOnly = marketUniverseSelectionToAgentCandidate({
   seed
 });
 assert.equal(priceOnly, null);
+
+const envelopeLoad = await loadAutonomousMarketUniverseGroup({
+  origin: "https://scorecaster.vercel.app",
+  sportKey: "soccer_epl",
+  eventId: "evt-envelope",
+  group: "goals",
+  fetchImpl: async () => new Response(JSON.stringify({
+    ok: true,
+    providerHeaders: { requestsRemaining: "777", requestsUsed: "23" },
+    data: { event: { id: "evt-envelope" }, markets: [] }
+  }), { status: 200, headers: { "content-type": "application/json" } })
+});
+assert.equal(envelopeLoad.ok, true);
+assert.equal(envelopeLoad.payload.event.id, "evt-envelope");
+assert.equal(envelopeLoad.requestsRemaining, 777);
+assert.equal(envelopeLoad.requestsUsed, 23);
 
 const mockUniverse = {
   ok: true,
