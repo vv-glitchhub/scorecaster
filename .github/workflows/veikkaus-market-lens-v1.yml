@@ -5,10 +5,12 @@ on:
     paths:
       - "lib/veikkaus-odds-provider.mjs"
       - "app/api/odds/route.js"
+      - "app/api/veikkaus-status/route.js"
       - "app/api/health/route.js"
       - "app/betting/BettingClient.jsx"
       - "lib/market-consensus-engine.mjs"
       - "scripts/veikkaus-odds-provider.test.mjs"
+      - "scripts/veikkaus-status.test.mjs"
       - ".env.example"
       - ".github/workflows/veikkaus-market-lens-v1.yml"
   workflow_dispatch:
@@ -34,6 +36,9 @@ jobs:
 
       - name: Veikkaus provider safety regression
         run: node scripts/veikkaus-odds-provider.test.mjs
+
+      - name: Veikkaus safe status regression
+        run: node scripts/veikkaus-status.test.mjs
 
       - name: Market consensus regression
         run: node scripts/market-consensus.test.mjs
