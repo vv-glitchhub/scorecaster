@@ -1,0 +1,45 @@
+name: Scorecaster Veikkaus Market Lens V1
+
+on:
+  pull_request:
+    paths:
+      - "lib/veikkaus-odds-provider.mjs"
+      - "app/api/odds/route.js"
+      - "app/api/health/route.js"
+      - "app/betting/BettingClient.jsx"
+      - "lib/market-consensus-engine.mjs"
+      - "scripts/veikkaus-odds-provider.test.mjs"
+      - ".env.example"
+      - ".github/workflows/veikkaus-market-lens-v1.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  veikkaus-market-lens:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Veikkaus provider safety regression
+        run: node scripts/veikkaus-odds-provider.test.mjs
+
+      - name: Market consensus regression
+        run: node scripts/market-consensus.test.mjs
+
+      - name: Repository secret boundary
+        run: npm run security
+
+      - name: Production build
+        run: npm run build
