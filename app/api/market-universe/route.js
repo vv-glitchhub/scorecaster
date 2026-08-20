@@ -1,10 +1,12 @@
 import { SPORTS } from "../../../lib/sports";
 import {
   buildMarketUniverse,
-  getMarketUniverseGroups,
-  getMarketUniverseRequestMarkets,
   normalizeMarketUniverseGroup
 } from "../../../lib/market-universe-v1.mjs";
+import {
+  getSafeMarketUniverseGroups,
+  getSafeMarketUniverseRequestMarkets
+} from "../../../lib/market-universe-sport-catalog.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -41,13 +43,14 @@ export async function GET(request) {
   const sport = String(requestUrl.searchParams.get("sport") || "").trim();
   const eventId = validEventId(requestUrl.searchParams.get("eventId"));
   const group = normalizeMarketUniverseGroup(requestUrl.searchParams.get("group"));
-  const markets = group ? getMarketUniverseRequestMarkets(sport, group) : [];
+  const markets = group ? getSafeMarketUniverseRequestMarkets(sport, group) : [];
+  const supportedGroups = ALLOWED_SPORTS.has(sport) ? getSafeMarketUniverseGroups(sport) : [];
 
   if (!ALLOWED_SPORTS.has(sport) || !eventId || !group || !markets.length) {
     return json({
       ok: false,
       reason: "Unsupported sport, event or market group",
-      supportedGroups: ALLOWED_SPORTS.has(sport) ? getMarketUniverseGroups(sport) : [],
+      supportedGroups,
       data: null
     }, 400);
   }
@@ -64,6 +67,7 @@ export async function GET(request) {
       sport,
       eventId,
       group,
+      supportedGroups,
       data: null
     }, 503, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
   }
@@ -97,6 +101,7 @@ export async function GET(request) {
         eventId,
         group,
         requestedMarkets: markets,
+        supportedGroups,
         providerHeaders,
         data: null
       }, response.status >= 400 && response.status < 500 ? 502 : 503, {
@@ -119,7 +124,7 @@ export async function GET(request) {
       eventId,
       group,
       requestedMarkets: markets,
-      supportedGroups: getMarketUniverseGroups(sport),
+      supportedGroups,
       providerHeaders,
       paperOnly: true,
       realMoneyBetting: false,
@@ -135,6 +140,7 @@ export async function GET(request) {
       sport,
       eventId,
       group,
+      supportedGroups,
       data: null
     }, 503, { "Cache-Control": "public, s-maxage=15", "X-Content-Type-Options": "nosniff" });
   }
