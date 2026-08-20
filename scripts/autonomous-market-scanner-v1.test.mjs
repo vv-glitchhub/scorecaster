@@ -203,7 +203,20 @@ const portfolio = buildAgentV9Portfolio(merged, {
 });
 const sameEvent = portfolio.decisions.filter((item) => item.gameId === "evt-1");
 assert.equal(sameEvent.filter((item) => item.decision === "PLAY").length <= 1, true, "one-play-per-event must remain enforced");
-assert.equal(portfolio.decisions.find((item) => item.marketKey === "team_totals")?.stressTest?.probability, 0.66);
-assert.equal(portfolio.riskPolicy.probabilityAdjustedByRisk, false);
+const balancedTeamGoal = portfolio.decisions.find((item) => item.marketKey === "team_totals");
+assert.equal(balancedTeamGoal?.stressTest?.probability, 0.66);
+
+const aggressivePortfolio = buildAgentV9Portfolio(merged, {
+  bankroll: 1000,
+  maxStakePercent: 1,
+  maxTotalExposurePercent: 5,
+  maxLeagueExposurePercent: 2.5,
+  riskProfile: "aggressive"
+});
+const aggressiveTeamGoal = aggressivePortfolio.decisions.find((item) => item.marketKey === "team_totals");
+assert.equal(aggressiveTeamGoal?.stressTest?.probability, balancedTeamGoal?.stressTest?.probability);
+assert.equal(aggressiveTeamGoal?.edge, balancedTeamGoal?.edge);
+assert.equal(aggressiveTeamGoal?.ev, balancedTeamGoal?.ev);
+assert.equal(aggressiveTeamGoal?.probabilityAdjustedByScanner, false);
 
 console.log("Autonomous Market Scanner V1 regression passed.");
