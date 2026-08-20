@@ -1,0 +1,81 @@
+name: Temporary Autonomous Market Scanner Bootstrap
+
+on:
+  push:
+    branches: [agent/autonomous-market-scanner-v1]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: agent/autonomous-market-scanner-v1
+          fetch-depth: 0
+      - name: Patch governed autonomous Agent
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path('lib/autonomous-paper-agent-governed-v13.js')
+          text = path.read_text()
+
+          import_anchor = 'import { normalizeAgentRiskProfile } from "./agent-risk-profile-v1.mjs";\n'
+          scanner_import = '''import {\n  mergeAutonomousMarketCandidates,\n  scanAutonomousMarketUniverse\n} from "./autonomous-market-scanner-v1.mjs";\n'''
+          if scanner_import not in text:
+              if import_anchor not in text:
+                  raise SystemExit('risk-profile import anchor missing')
+              text = text.replace(import_anchor, import_anchor + scanner_import, 1)
+
+          old_loader = '''async function loadTopPicks(origin, sports) {\n  const target = new URL("/api/top-picks", origin);\n  if (sports.length) target.searchParams.set("sports", sports.join(","));\n  const response = await getTopPicks(new Request(target, { method: "GET" }));\n  const payload = await response.json();\n  if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Autonomous Agent source data could not be loaded");\n  return {\n    picks: Array.isArray(payload?.data) ? payload.data : [],\n    source: text(payload?.source, 100, "no-vig-market-consensus"),\n    fixtureSource: text(payload?.fixtureSource, 100, "live-odds-provider-only")\n  };\n}\n'''
+          new_loader = '''async function loadTopPicks(origin, sports, now = new Date()) {\n  const target = new URL("/api/top-picks", origin);\n  if (sports.length) target.searchParams.set("sports", sports.join(","));\n  const response = await getTopPicks(new Request(target, { method: "GET" }));\n  const payload = await response.json();\n  if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Autonomous Agent source data could not be loaded");\n\n  const basePicks = Array.isArray(payload?.data) ? payload.data : [];\n  let marketScanner = {\n    version: "autonomous-market-scanner-v1",\n    enabled: true,\n    due: false,\n    scanned: false,\n    candidates: 0,\n    providerFailures: 0,\n    paperOnly: true,\n    probabilityChangedByScanner: false\n  };\n  let advancedPicks = [];\n  try {\n    const scan = await scanAutonomousMarketUniverse({ picks: basePicks, origin, now });\n    advancedPicks = scan.candidates;\n    marketScanner = scan.diagnostics;\n  } catch {\n    marketScanner = {\n      ...marketScanner,\n      due: true,\n      providerFailures: 1,\n      failureMode: "h2h-fallback"\n    };\n  }\n\n  return {\n    picks: mergeAutonomousMarketCandidates(basePicks, advancedPicks),\n    basePickCount: basePicks.length,\n    advancedPickCount: advancedPicks.length,\n    source: advancedPicks.length\n      ? `${text(payload?.source, 100, "no-vig-market-consensus")}+market-universe-v1`\n      : text(payload?.source, 100, "no-vig-market-consensus"),\n    fixtureSource: text(payload?.fixtureSource, 100, "live-odds-provider-only"),\n    marketScanner\n  };\n}\n'''
+          if old_loader in text:
+              text = text.replace(old_loader, new_loader, 1)
+          elif new_loader not in text:
+              raise SystemExit('loadTopPicks anchor missing')
+
+          old_call = 'sourceCache.set(entry.sourceKey, await loadTopPicks(origin, entry.context.settings.sports));'
+          new_call = 'sourceCache.set(entry.sourceKey, await loadTopPicks(origin, entry.context.settings.sports, startedAt));'
+          if old_call in text:
+              text = text.replace(old_call, new_call, 1)
+          elif new_call not in text:
+              raise SystemExit('loadTopPicks call anchor missing')
+
+          summary_anchor = '''      source: source.source,\n      fixtureSource: source.fixtureSource,\n      modelLabStatus: modelLab?.status || null,\n'''
+          summary_replacement = '''      source: source.source,\n      fixtureSource: source.fixtureSource,\n      marketScanner: source.marketScanner || null,\n      basePickCount: source.basePickCount ?? source.picks.length,\n      advancedPickCount: source.advancedPickCount || 0,\n      probabilityChangedByScanner: false,\n      modelLabStatus: modelLab?.status || null,\n'''
+          if summary_anchor in text:
+              text = text.replace(summary_anchor, summary_replacement, 1)
+          elif summary_replacement not in text:
+              raise SystemExit('summary anchor missing')
+
+          return_anchor = '''    sourceGroups: sourceCache.size,\n    failedSourceGroups: sourceFailures.size,\n    activeSystemIncidents: globalSafety.decisionAlerts.length + globalSafety.unifiedIncidents.length,\n'''
+          return_replacement = '''    sourceGroups: sourceCache.size,\n    failedSourceGroups: sourceFailures.size,\n    marketScanner: {\n      sourceGroupsDue: [...sourceCache.values()].filter((source) => source.marketScanner?.due).length,\n      sourceGroupsScanned: [...sourceCache.values()].filter((source) => source.marketScanner?.scanned).length,\n      advancedCandidates: [...sourceCache.values()].reduce((sum, source) => sum + finite(source.advancedPickCount), 0),\n      providerFailures: [...sourceCache.values()].reduce((sum, source) => sum + finite(source.marketScanner?.providerFailures), 0),\n      priceOnlySkipped: [...sourceCache.values()].reduce((sum, source) => sum + finite(source.marketScanner?.priceOnlySkipped), 0),\n      probabilityChangedByScanner: false,\n      paperOnly: true\n    },\n    activeSystemIncidents: globalSafety.decisionAlerts.length + globalSafety.unifiedIncidents.length,\n'''
+          if return_anchor in text:
+              text = text.replace(return_anchor, return_replacement, 1)
+          elif return_replacement not in text:
+              raise SystemExit('return summary anchor missing')
+
+          path.write_text(text)
+
+          for marker in [
+              Path('scripts/.autonomous-market-scanner-bootstrap-note'),
+              Path('scripts/.autonomous-market-scanner-bootstrap-note-2'),
+              Path('.github/workflows/tmp-autonomous-market-scanner-bootstrap.yml')
+          ]:
+              if marker.exists():
+                  marker.unlink()
+          PY
+      - name: Commit integration
+        run: |
+          git config user.name "scorecaster-bootstrap"
+          git config user.email "actions@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No changes"
+            exit 0
+          fi
+          git commit -m "Integrate autonomous market scanner into governed Agent"
+          git push origin HEAD:agent/autonomous-market-scanner-v1
