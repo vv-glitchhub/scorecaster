@@ -15,6 +15,8 @@ The governed V13 worker loads the normal Top Picks pool first and then, only whe
 
 A scanner failure is intentionally non-fatal: the worker keeps the original H2H pool and records scanner diagnostics in the autonomous run summary. Scanner diagnostics explicitly state `probabilityChangedByScanner: false`.
 
+The production Market Universe route returns the normalized universe inside its JSON `data` envelope. The scanner explicitly unwraps that envelope before candidate shaping, while quota telemetry remains read from the outer provider-header metadata. This response shape is covered by a focused regression test rather than only mocked internal objects.
+
 ## Quota governance
 
 The worker runs every 15 minutes, but advanced-market scanning is due only once per hour. Each scan is capped at three unique events and one market group per event. Market groups rotate deterministically so coverage expands over repeated cycles instead of requesting every market for every event at once.
