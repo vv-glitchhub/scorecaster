@@ -4,7 +4,7 @@ import {
   normalizeVeikkausBookmaker,
   veikkausOddsConfiguration
 } from "../lib/veikkaus-odds-provider.mjs";
-import { getConsensusPrices } from "../lib/market-consensus-engine.mjs";
+import { getBookmakerCatalog, getConsensusPrices } from "../lib/market-consensus-engine.mjs";
 
 function response(data, status = 200) {
   return new Response(JSON.stringify(data), {
@@ -132,6 +132,12 @@ const veikkausPayload = {
   assert.equal(veikkaus.source_provider, "odds-api.io");
   assert.equal(veikkaus.markets.length, 3);
   assert.equal(JSON.stringify(veikkaus).includes("betslip"), false);
+
+  const catalog = getBookmakerCatalog(result.games, "h2h");
+  const catalogVeikkaus = catalog.find((book) => book.key === "veikkaus");
+  assert.ok(catalogVeikkaus);
+  assert.equal(catalogVeikkaus.title, "Veikkaus");
+  assert.equal(catalogVeikkaus.eventCount, 1);
 
   const consensus = getConsensusPrices(result.games[0], "h2h");
   const sun = consensus.find((item) => item.selection === "Connecticut Sun");
