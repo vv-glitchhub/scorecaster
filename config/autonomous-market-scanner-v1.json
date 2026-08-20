@@ -1,0 +1,13 @@
+{
+  "version": "autonomous-market-scanner-v1",
+  "enabled": true,
+  "paperOnly": true,
+  "probabilityChangedByScanner": false,
+  "intervalMinutes": 60,
+  "maxEventsPerScan": 3,
+  "maxGroupsPerEvent": 1,
+  "quotaReserve": 100,
+  "priceOnlyExcluded": true,
+  "existingAgentRiskGatesAuthoritative": true,
+  "onePlayPerEventPreserved": true
+}
