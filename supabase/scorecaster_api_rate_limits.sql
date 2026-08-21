@@ -1,6 +1,11 @@
 -- Scorecaster authenticated API rate limiter
 -- Run after scorecaster_schema.sql and scorecaster_auth_cloud.sql.
 -- Safe to run more than once.
+--
+-- Security boundary:
+-- - browser/mobile clients never mutate quota state directly
+-- - the application verifies the user JWT first
+-- - only the server-side service_role RPC can increment a user's quota bucket
 
 create table if not exists public.api_rate_limits (
   user_id uuid not null references auth.users(id) on delete cascade,
@@ -18,13 +23,18 @@ create index if not exists idx_api_rate_limits_updated
 alter table public.api_rate_limits enable row level security;
 alter table public.api_rate_limits force row level security;
 
--- Clients never access this table directly. The SECURITY DEFINER function
--- derives user identity from the verified Supabase JWT and performs one atomic
--- upsert, which also makes concurrent requests count correctly.
+revoke all on public.api_rate_limits from public;
 revoke all on public.api_rate_limits from anon;
 revoke all on public.api_rate_limits from authenticated;
+grant select, insert, update, delete on public.api_rate_limits to service_role;
 
-create or replace function public.consume_api_quota(
+-- Retire the legacy authenticated SECURITY DEFINER RPC. It accepted caller-supplied
+-- limit/window values, which meant a client could directly manipulate its own
+-- quota-window semantics outside the reviewed API route.
+drop function if exists public.consume_api_quota(text, integer, integer);
+
+create or replace function public.consume_api_quota_for_user(
+  p_user_id uuid,
   p_bucket text,
   p_limit integer,
   p_window_seconds integer
@@ -32,17 +42,16 @@ create or replace function public.consume_api_quota(
 returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
-  v_user_id uuid := auth.uid();
   v_now timestamptz := clock_timestamp();
   v_window_started_at timestamptz;
   v_request_count integer;
   v_retry_after integer;
 begin
-  if v_user_id is null then
-    raise exception 'Authentication required' using errcode = '42501';
+  if p_user_id is null then
+    raise exception 'User id is required' using errcode = '22023';
   end if;
 
   if p_bucket is null or p_bucket !~ '^[a-z0-9:_-]{1,80}$' then
@@ -60,7 +69,7 @@ begin
     request_count,
     updated_at
   )
-  values (v_user_id, p_bucket, v_now, 1, v_now)
+  values (p_user_id, p_bucket, v_now, 1, v_now)
   on conflict (user_id, bucket) do update
   set
     window_started_at = case
@@ -93,9 +102,10 @@ begin
 end;
 $$;
 
-revoke all on function public.consume_api_quota(text, integer, integer) from public;
-revoke all on function public.consume_api_quota(text, integer, integer) from anon;
-grant execute on function public.consume_api_quota(text, integer, integer) to authenticated;
+revoke all on function public.consume_api_quota_for_user(uuid, text, integer, integer) from public;
+revoke all on function public.consume_api_quota_for_user(uuid, text, integer, integer) from anon;
+revoke all on function public.consume_api_quota_for_user(uuid, text, integer, integer) from authenticated;
+grant execute on function public.consume_api_quota_for_user(uuid, text, integer, integer) to service_role;
 
 -- Remove stale counters during maintenance without retaining user activity
 -- longer than needed. This function is server/service-role only.
@@ -103,7 +113,7 @@ create or replace function public.delete_stale_api_rate_limits()
 returns integer
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, pg_temp
 as $$
 declare
   deleted_rows integer;
@@ -118,3 +128,4 @@ $$;
 revoke all on function public.delete_stale_api_rate_limits() from public;
 revoke all on function public.delete_stale_api_rate_limits() from anon;
 revoke all on function public.delete_stale_api_rate_limits() from authenticated;
+grant execute on function public.delete_stale_api_rate_limits() to service_role;
