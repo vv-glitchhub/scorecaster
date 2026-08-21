@@ -64,14 +64,16 @@ assert(periods?.markets.includes("totals_h1"), "football periods should request 
 assert(getSafeMarketUniverseRequestMarkets("soccer_epl", "players").includes("player_first_goal_scorer"));
 
 const route = await source("app/api/market-universe/route.js");
+const catalog = await source("lib/market-universe-sport-catalog.mjs");
 assert.match(route, /buildFootballMarketCoverage/);
 assert.match(route, /group === "players" \? "us" : "eu,uk"/);
 assert.match(route, /offeredMarketKeys/);
 assert.match(route, /marketCoverage:/);
-assert.match(route, /h2h_3_way_h1/);
-assert.match(route, /totals_h1/);
 assert.match(route, /paperOnly: true/);
 assert.match(route, /realMoneyBetting: false/);
+assert.match(catalog, /h2h_3_way_h1/);
+assert.match(catalog, /totals_h1/);
+assert.match(catalog, /alternate_spreads/);
 
 const panel = await source("app/market-universe/FootballMarketReferencePanel.jsx");
 assert.match(panel, /data-football-market-taxonomy/);
