@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
+// public-schema-hardening-v1.4 regression contract. The original V1.3 apply
+// remains intentionally idempotent; V1.4 adds the server-owned quota boundary
+// and corresponding read-only production verification.
 const internalRelations = [
   "bankroll_entries", "bookmakers", "live_player_stats", "live_team_stats",
   "match_context", "match_context_snapshots", "match_model_outputs", "matches",
