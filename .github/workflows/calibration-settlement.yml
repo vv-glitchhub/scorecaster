@@ -27,6 +27,14 @@ jobs:
             exit 1
           fi
 
+      - name: Settle rejected shadow candidates
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 150 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/shadow-candidate-settlement"
+
       - name: Build trusted CLV and calibration observations
         run: |
           curl --fail --silent --show-error \
@@ -34,6 +42,14 @@ jobs:
             --max-time 150 \
             -H "Authorization: Bearer $CRON_SECRET" \
             "$SCORECASTER_URL/api/internal/calibration-settlement"
+
+      - name: Run shadow learning cycle
+        run: |
+          curl --fail --silent --show-error \
+            --retry 2 \
+            --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$SCORECASTER_URL/api/internal/shadow-learning"
 
       - name: Read redacted Calibration Lab health
         run: |
