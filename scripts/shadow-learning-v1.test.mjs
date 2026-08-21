@@ -41,6 +41,22 @@ test("normalizes only settled binary observations with valid original probabilit
   assert.equal(rows[0].probability, 0.72);
 });
 
+test("missing closing evidence stays null and does not create synthetic CLV", () => {
+  const rows = normalizeShadowLearningSamples([
+    sample(0, { clv: null, closingOdds: null })
+  ]);
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].clv, null);
+  assert.equal(rows[0].closingOdds, null);
+
+  const report = buildShadowLearningCycle(rows);
+  assert.equal(report.sampleSize, 1);
+  assert.equal(report.clvSample, 0);
+  assert.equal(report.metrics.averageClv, null);
+  assert.equal(report.metrics.positiveClvRate, null);
+  assert.equal(report.promotion.automaticPromotionAllowed, false);
+});
+
 test("small samples remain in evidence collection and never enable automatic promotion", () => {
   const report = buildShadowLearningCycle(
     Array.from({ length: 120 }, (_, index) => sample(index))
