@@ -63,9 +63,9 @@ requireMatch(rateLimitSql, /drop function if exists public\.consume_api_quota\(t
 requireMatch(rateLimitSql, /create or replace function public\.consume_api_quota_for_user/i, "Server-owned quota RPC must exist");
 requireMatch(rateLimitSql, /revoke all on function public\.consume_api_quota_for_user\([^;]+\) from authenticated/i, "Authenticated users must not execute server-owned quota RPC");
 requireMatch(rateLimitSql, /grant execute on function public\.consume_api_quota_for_user\([^;]+\) to service_role/i, "service_role must execute server-owned quota RPC");
-requireMatch(apiSecurity, /getSupabaseAdmin/), "API security must use the server admin client for quota mutation";
-requireMatch(apiSecurity, /rpc\("consume_api_quota_for_user"/), "API security must call the server-owned quota RPC";
-requireMatch(apiSecurity, /p_user_id:\s*auth\.user\.id/), "API security must bind quota mutation to the verified user id";
+requireMatch(apiSecurity, /getSupabaseAdmin/, "API security must use the server admin client for quota mutation");
+requireMatch(apiSecurity, /rpc\("consume_api_quota_for_user"/, "API security must call the server-owned quota RPC");
+requireMatch(apiSecurity, /p_user_id:\s*auth\.user\.id/, "API security must bind quota mutation to the verified user id");
 
 const executable = executableSql(apply);
 if (/drop\s+(table|column)|truncate\s+table|delete\s+from/i.test(executable)) {
