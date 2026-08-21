@@ -1,4 +1,4 @@
--- Read-only verification for Scorecaster public-schema hardening V1.3.
+-- Read-only verification for Scorecaster public-schema hardening V1.4.
 -- This script changes no schema or data. Any failed invariant raises and stops
 -- the production verification run.
 
@@ -83,8 +83,8 @@ begin
 end;
 $$;
 
--- Reviewed internal relations expose no browser privileges. Views are included
--- even though RLS itself does not apply to them.
+-- Reviewed Scorecaster internal relations expose no browser privileges. Views are
+-- included even though RLS itself does not apply to them.
 do $$
 declare
   internal_exposure text[];
@@ -274,13 +274,15 @@ end;
 $$;
 
 -- SECURITY DEFINER execution is service_role-only by default. Anonymous execute
--- is forbidden globally; authenticated execute is limited to three reviewed RPCs.
+-- is forbidden globally. Only the two reviewed user-scoped RPCs remain directly
+-- callable by authenticated users. API quota mutation is server/service-role only.
 do $$
 declare
   anon_exposure text[];
   unexpected_authenticated text[];
   missing_service text[];
   expected_rpc text;
+  quota_rpc regprocedure;
 begin
   select array_agg(p.oid::regprocedure::text order by p.oid::regprocedure::text)
   into anon_exposure
@@ -299,7 +301,6 @@ begin
   where n.nspname = 'public' and p.prosecdef
     and has_function_privilege('authenticated', p.oid, 'EXECUTE')
     and p.oid::regprocedure::text not in (
-      'consume_api_quota(text,integer,integer)',
       'claim_notification_device(text,text,text,text)',
       'request_autonomous_agent_run()'
     );
@@ -318,7 +319,6 @@ begin
   end if;
 
   foreach expected_rpc in array array[
-    'consume_api_quota(text,integer,integer)',
     'claim_notification_device(text,text,text,text)',
     'request_autonomous_agent_run()'
   ]
@@ -330,12 +330,27 @@ begin
       raise exception 'Required authenticated RPC EXECUTE is missing: %', expected_rpc;
     end if;
   end loop;
+
+  if to_regprocedure('public.consume_api_quota(text,integer,integer)') is not null then
+    raise exception 'Legacy authenticated quota RPC still exists';
+  end if;
+
+  quota_rpc := to_regprocedure('public.consume_api_quota_for_user(uuid,text,integer,integer)');
+  if quota_rpc is null then
+    raise exception 'Server-owned quota RPC is missing';
+  end if;
+  if has_function_privilege('authenticated', quota_rpc, 'EXECUTE') then
+    raise exception 'Authenticated users can execute server-owned quota RPC';
+  end if;
+  if not has_function_privilege('service_role', quota_rpc, 'EXECUTE') then
+    raise exception 'service_role quota RPC execution is missing';
+  end if;
 end;
 $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'public-schema-hardening-v1.3',
+  'version', 'public-schema-hardening-v1.4',
   'rlsEnabledForTables', true,
   'viewsProtectedByGrantRevocation', true,
   'forceRlsEnabled', true,
@@ -348,10 +363,10 @@ select json_build_object(
   'reviewedClientGrantsPolicyBacked', true,
   'securityDefinerAnonExecute', 0,
   'securityDefinerAuthenticatedAllowlist', json_build_array(
-    'consume_api_quota(text,integer,integer)',
     'claim_notification_device(text,text,text,text)',
     'request_autonomous_agent_run()'
   ),
+  'apiQuotaMutation', 'service_role-only',
   'serverAccess', 'service_role',
   'paperOnly', true,
   'verifiedAt', now()
