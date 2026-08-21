@@ -5,6 +5,13 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/calibration-settlement.yml"
+      - "app/api/internal/shadow-candidate-settlement/**"
+      - "app/api/internal/calibration-settlement/**"
+      - "app/api/internal/shadow-learning/**"
+      - "lib/shadow-learning-worker.js"
+      - "lib/shadow-learning-config.js"
+      - "lib/calibration-settlement-activation.mjs"
+      - "supabase/scorecaster_shadow_candidate_*.sql"
   schedule:
     - cron: "42 * * * *"
   workflow_dispatch:
