@@ -7,6 +7,7 @@ import {
   getSafeMarketUniverseGroups,
   getSafeMarketUniverseRequestMarkets
 } from "../../../lib/market-universe-sport-catalog.mjs";
+import { buildFootballMarketCoverage } from "../../../lib/football-market-taxonomy-v2.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,10 @@ const CACHE_HEADERS = {
   "Cache-Control": "public, s-maxage=45, stale-while-revalidate=90",
   "X-Content-Type-Options": "nosniff"
 };
+const MARKET_TITLES = Object.freeze({
+  h2h_3_way_h1: "1st half 1X2",
+  totals_h1: "1st half goals total"
+});
 
 function json(data, status = 200, headers = CACHE_HEADERS) {
   return Response.json(data, { status, headers });
@@ -29,6 +34,38 @@ function canonicalRequestUrl(request, sport, eventId, group) {
   const canonical = new URL(request.url);
   canonical.search = new URLSearchParams({ sport, eventId, group }).toString();
   return canonical;
+}
+
+function regionsForGroup(group) {
+  // The Odds API documents soccer player props as US-bookmaker coverage. Other
+  // football market families use European + UK books for a stronger local view.
+  return group === "players" ? "us" : "eu,uk";
+}
+
+function offeredMarketKeys(event = {}) {
+  const keys = new Set();
+  for (const bookmaker of Array.isArray(event.bookmakers) ? event.bookmakers : []) {
+    for (const market of Array.isArray(bookmaker?.markets) ? bookmaker.markets : []) {
+      if (market?.key) keys.add(String(market.key));
+    }
+  }
+  return [...keys].sort();
+}
+
+function applyDisplayTitles(universe) {
+  return {
+    ...universe,
+    markets: (universe?.markets || []).map((market) => ({
+      ...market,
+      title: MARKET_TITLES[market.key] || market.title
+    }))
+  };
+}
+
+function footballCoverage(sport, group, offered = null) {
+  return String(sport || "").startsWith("soccer_")
+    ? buildFootballMarketCoverage(group, offered)
+    : null;
 }
 
 export async function GET(request) {
@@ -51,6 +88,7 @@ export async function GET(request) {
       ok: false,
       reason: "Unsupported sport, event or market group",
       supportedGroups,
+      marketCoverage: group ? footballCoverage(sport, group) : null,
       data: null
     }, 400);
   }
@@ -67,15 +105,19 @@ export async function GET(request) {
       sport,
       eventId,
       group,
+      requestedMarkets: markets,
       supportedGroups,
+      marketCoverage: footballCoverage(sport, group),
       data: null
     }, 503, { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" });
   }
 
+  const regions = regionsForGroup(group);
+
   try {
     const url = new URL(`https://api.the-odds-api.com/v4/sports/${sport}/events/${eventId}/odds`);
     url.searchParams.set("apiKey", apiKey);
-    url.searchParams.set("regions", "eu,uk");
+    url.searchParams.set("regions", regions);
     url.searchParams.set("markets", markets.join(","));
     url.searchParams.set("oddsFormat", "decimal");
     url.searchParams.set("dateFormat", "iso");
@@ -100,9 +142,11 @@ export async function GET(request) {
         sport,
         eventId,
         group,
+        regions,
         requestedMarkets: markets,
         supportedGroups,
         providerHeaders,
+        marketCoverage: footballCoverage(sport, group),
         data: null
       }, response.status >= 400 && response.status < 500 ? 502 : 503, {
         "Cache-Control": "public, s-maxage=15",
@@ -110,12 +154,13 @@ export async function GET(request) {
       });
     }
 
-    const universe = buildMarketUniverse(data, {
+    const offeredMarkets = offeredMarketKeys(data);
+    const universe = applyDisplayTitles(buildMarketUniverse(data, {
       requestedMarkets: markets,
       bankroll: 1000,
       kellyMode: "quarter",
       maxStakePercent: 1
-    });
+    }));
 
     return json({
       ok: true,
@@ -123,9 +168,13 @@ export async function GET(request) {
       sport,
       eventId,
       group,
+      regions,
       requestedMarkets: markets,
+      offeredMarkets,
       supportedGroups,
       providerHeaders,
+      marketCoverage: footballCoverage(sport, group, offeredMarkets),
+      quotaBoundary: "The provider charges only unique markets returned x regions for event odds; empty market data is not counted by the provider.",
       paperOnly: true,
       realMoneyBetting: false,
       decisionBoundary: "Only mathematically valid complete no-vig market units can receive PLAY/CAUTION/SKIP; other markets are PRICE_ONLY.",
@@ -140,7 +189,9 @@ export async function GET(request) {
       sport,
       eventId,
       group,
+      regions,
       supportedGroups,
+      marketCoverage: footballCoverage(sport, group),
       data: null
     }, 503, { "Cache-Control": "public, s-maxage=15", "X-Content-Type-Options": "nosniff" });
   }
