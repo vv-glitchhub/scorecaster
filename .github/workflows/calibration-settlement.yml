@@ -1,6 +1,10 @@
 name: Scorecaster Calibration Settlement
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/calibration-settlement.yml"
   schedule:
     - cron: "42 * * * *"
   workflow_dispatch:
