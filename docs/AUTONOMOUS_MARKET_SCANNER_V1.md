@@ -9,6 +9,14 @@ Autonomous Market Scanner V1 lets the paper-only Autonomous Scorecaster compare 
 - `PRICE_ONLY` Market Universe outcomes are excluded from Agent recommendations.
 - Existing Agent V9/V13 recommendation gates, one-play-per-event control and hard exposure caps remain authoritative.
 
+## Governed Agent integration
+
+The governed V13 worker loads the normal Top Picks pool first and then, only when the hourly scanner is due, adds eligible Market Universe candidates before `buildAgentV9Portfolio`. H2H and advanced-market candidates therefore pass through the same probability stress test, confidence/trust gates, risk profile, one-play-per-event rule and portfolio exposure allocation.
+
+A scanner failure is intentionally non-fatal: the worker keeps the original H2H pool and records scanner diagnostics in the autonomous run summary. Scanner diagnostics explicitly state `probabilityChangedByScanner: false`.
+
+The production Market Universe route returns the normalized universe inside its JSON `data` envelope. The scanner explicitly unwraps that envelope before candidate shaping, while quota telemetry remains read from the outer provider-header metadata. This response shape is covered by a focused regression test rather than only mocked internal objects.
+
 ## Quota governance
 
 The worker runs every 15 minutes, but advanced-market scanning is due only once per hour. Each scan is capped at three unique events and one market group per event. Market groups rotate deterministically so coverage expands over repeated cycles instead of requesting every market for every event at once.

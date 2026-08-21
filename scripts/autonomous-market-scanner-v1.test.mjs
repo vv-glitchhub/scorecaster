@@ -4,6 +4,7 @@ import {
   autonomousMarketGroupForEvent,
   autonomousMarketScanPlan,
   marketUniverseSelectionToAgentCandidate,
+  loadAutonomousMarketUniverseGroup,
   mergeAutonomousMarketCandidates,
   scanAutonomousMarketUniverse,
   shouldRunAutonomousMarketScan
@@ -112,6 +113,22 @@ const priceOnly = marketUniverseSelectionToAgentCandidate({
 });
 assert.equal(priceOnly, null);
 
+const envelopeLoad = await loadAutonomousMarketUniverseGroup({
+  origin: "https://scorecaster.vercel.app",
+  sportKey: "soccer_epl",
+  eventId: "evt-envelope",
+  group: "goals",
+  fetchImpl: async () => new Response(JSON.stringify({
+    ok: true,
+    providerHeaders: { requestsRemaining: "777", requestsUsed: "23" },
+    data: { event: { id: "evt-envelope" }, markets: [] }
+  }), { status: 200, headers: { "content-type": "application/json" } })
+});
+assert.equal(envelopeLoad.ok, true);
+assert.equal(envelopeLoad.payload.event.id, "evt-envelope");
+assert.equal(envelopeLoad.requestsRemaining, 777);
+assert.equal(envelopeLoad.requestsUsed, 23);
+
 const mockUniverse = {
   ok: true,
   event: {
@@ -203,7 +220,20 @@ const portfolio = buildAgentV9Portfolio(merged, {
 });
 const sameEvent = portfolio.decisions.filter((item) => item.gameId === "evt-1");
 assert.equal(sameEvent.filter((item) => item.decision === "PLAY").length <= 1, true, "one-play-per-event must remain enforced");
-assert.equal(portfolio.decisions.find((item) => item.marketKey === "team_totals")?.stressTest?.probability, 0.66);
-assert.equal(portfolio.riskPolicy.probabilityAdjustedByRisk, false);
+const balancedTeamGoal = portfolio.decisions.find((item) => item.marketKey === "team_totals");
+assert.equal(balancedTeamGoal?.stressTest?.probability, 0.66);
+
+const aggressivePortfolio = buildAgentV9Portfolio(merged, {
+  bankroll: 1000,
+  maxStakePercent: 1,
+  maxTotalExposurePercent: 5,
+  maxLeagueExposurePercent: 2.5,
+  riskProfile: "aggressive"
+});
+const aggressiveTeamGoal = aggressivePortfolio.decisions.find((item) => item.marketKey === "team_totals");
+assert.equal(aggressiveTeamGoal?.stressTest?.probability, balancedTeamGoal?.stressTest?.probability);
+assert.equal(aggressiveTeamGoal?.edge, balancedTeamGoal?.edge);
+assert.equal(aggressiveTeamGoal?.ev, balancedTeamGoal?.ev);
+assert.equal(aggressiveTeamGoal?.probabilityAdjustedByScanner, false);
 
 console.log("Autonomous Market Scanner V1 regression passed.");
