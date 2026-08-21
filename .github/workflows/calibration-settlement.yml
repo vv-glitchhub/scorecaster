@@ -1,4 +1,5 @@
 name: Scorecaster Calibration Settlement
+# A workflow-file push intentionally replays the protected production learning chain.
 
 on:
   push:
