@@ -6,22 +6,26 @@ on:
     paths:
       - "lib/market-universe-v1.mjs"
       - "lib/market-universe-sport-catalog.mjs"
+      - "lib/football-market-taxonomy-v2.mjs"
       - "app/api/market-universe/**"
       - "app/market-universe/**"
       - "app/betting/page.jsx"
       - "app/pro/page.jsx"
       - "scripts/market-universe-v1.test.mjs"
+      - "scripts/football-market-taxonomy-v2.test.mjs"
       - ".github/workflows/market-universe-v1.yml"
   push:
     branches: [main]
     paths:
       - "lib/market-universe-v1.mjs"
       - "lib/market-universe-sport-catalog.mjs"
+      - "lib/football-market-taxonomy-v2.mjs"
       - "app/api/market-universe/**"
       - "app/market-universe/**"
       - "app/betting/page.jsx"
       - "app/pro/page.jsx"
       - "scripts/market-universe-v1.test.mjs"
+      - "scripts/football-market-taxonomy-v2.test.mjs"
       - ".github/workflows/market-universe-v1.yml"
 
 permissions:
@@ -42,6 +46,8 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Market Universe settlement regression
         run: node scripts/market-universe-v1.test.mjs
+      - name: Football Market Taxonomy V2 regression
+        run: node scripts/football-market-taxonomy-v2.test.mjs
       - name: Existing market consensus regression
         run: node scripts/market-consensus.test.mjs
       - name: Repository secret boundary
