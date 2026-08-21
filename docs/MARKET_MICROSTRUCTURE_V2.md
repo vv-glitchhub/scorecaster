@@ -90,11 +90,16 @@ GET /api/internal/market-microstructure
 Authorization: Bearer <CRON_SECRET>
 ```
 
-The scheduled GitHub workflow runs hourly. Actual provider calls remain disabled until this Vercel variable is enabled:
+The scheduled GitHub workflow runs hourly. Production capture is intentionally enabled by the reviewed repository activation policy after the production storage and source-rights gates have been verified. Non-production environments remain disabled by default.
+
+`MARKET_MICROSTRUCTURE_ENABLED` remains an explicit operational override:
 
 ```text
-MARKET_MICROSTRUCTURE_ENABLED=true
+MARKET_MICROSTRUCTURE_ENABLED=false  # immediate emergency stop
+MARKET_MICROSTRUCTURE_ENABLED=true   # explicit enable, including controlled non-production testing
 ```
+
+Unknown non-empty values fail closed. The public health response exposes only the activation mode, never environment-variable values or secrets.
 
 Optional controls:
 
@@ -103,7 +108,7 @@ MARKET_MICROSTRUCTURE_SPORTS=soccer_epl,basketball_nba
 MARKET_MICROSTRUCTURE_MARKETS=h2h
 ```
 
-No more than six sports and three supported markets are requested in one run.
+No more than six sports and three supported markets are requested in one run. The production default remains `h2h` to limit provider usage while opening/closing and CLV evidence accumulates.
 
 ## Public evidence
 
@@ -126,11 +131,12 @@ The public response contains normalized display evidence only. It does not redis
 1. Merge the repository implementation.
 2. Run `scripts/apply-market-microstructure-v2.sql` in Supabase SQL Editor.
 3. Run `scripts/verify-market-microstructure-v2.sql` and require `ok: true`.
-4. Set `MARKET_MICROSTRUCTURE_ENABLED=true` in Vercel production.
+4. Confirm `/api/market-microstructure/health` reports repository production activation or an intentional explicit override.
 5. Optionally define the sports and markets lists.
-6. Trigger the GitHub workflow manually once.
+6. Run the protected scheduled workflow.
 7. Check `/api/market-microstructure/health` for `healthy` or `awaiting-first-run`.
 8. Confirm an event audit shows only normalized prices and no closing line before kickoff.
+9. Use `MARKET_MICROSTRUCTURE_ENABLED=false` if an immediate capture stop is required.
 
 ## Limitations
 
