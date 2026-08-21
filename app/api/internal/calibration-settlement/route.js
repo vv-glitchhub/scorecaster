@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { resolveCalibrationSettlementActivation } from "../../../../lib/calibration-settlement-activation.mjs";
 import {
   binaryBrierScore,
   binaryLogLoss,
@@ -28,7 +29,6 @@ const iso = (value) => {
   const date = new Date(value);
   return Number.isFinite(date.getTime()) ? date.toISOString() : null;
 };
-const enabled = () => ["1", "true", "yes", "on"].includes(String(process.env.CALIBRATION_SETTLEMENT_ENABLED || "").toLowerCase());
 
 function authorized(request) {
   const secret = process.env.CRON_SECRET;
@@ -219,12 +219,16 @@ function observationFromBet(bet, eventRows) {
 export async function GET(request) {
   if (!process.env.CRON_SECRET) return response({ ok: false, error: "CRON_SECRET is not configured" }, 503);
   if (!authorized(request)) return response({ ok: false, error: "Unauthorized" }, 401);
-  if (!enabled()) {
+
+  const activation = resolveCalibrationSettlementActivation();
+  if (!activation.enabled) {
     return response({
       ok: true,
       version: "scorecaster-calibration-settlement-v1",
       status: "disabled",
-      reason: "CALIBRATION_SETTLEMENT_ENABLED is not true",
+      reason: activation.mode,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       simulatedClosingUsed: false,
       paperOnly: true
     });
@@ -278,6 +282,8 @@ export async function GET(request) {
       startedAt,
       completedAt,
       status,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       settledBetsSeen: settled.length,
       pending: pending.length,
       eligibleObservationsWritten: eligible,
@@ -309,6 +315,8 @@ export async function GET(request) {
       requiredPatches: missingPatch(error)
         ? ["scripts/apply-market-microstructure-v2.sql", "scripts/apply-calibration-lab-v1.sql"]
         : undefined,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       paperOnly: true
     }, missingPatch(error) ? 503 : 500);
   }
