@@ -8,6 +8,7 @@ on:
       - "app/api/internal/shadow-candidate-settlement/**"
       - "app/api/internal/calibration-settlement/**"
       - "app/api/internal/shadow-learning/**"
+      - "lib/shadow-learning-v1.mjs"
       - "lib/shadow-learning-worker.js"
       - "lib/shadow-learning-config.js"
       - "lib/calibration-settlement-activation.mjs"
