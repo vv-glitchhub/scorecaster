@@ -25,15 +25,17 @@ function executableSql(sql) {
     .join("\n");
 }
 
-const [apply, verify, regression, docs, workflow] = await Promise.all([
+const [apply, verify, regression, docs, workflow, rateLimitSql, apiSecurity] = await Promise.all([
   source("scripts/apply-public-schema-hardening-v1.sql"),
   source("scripts/verify-public-schema-hardening-v1.sql"),
   source("scripts/public-schema-hardening.test.mjs"),
   source("docs/PUBLIC_SCHEMA_HARDENING_V1.md"),
-  source(".github/workflows/public-schema-hardening.yml")
+  source(".github/workflows/public-schema-hardening.yml"),
+  source("supabase/scorecaster_api_rate_limits.sql"),
+  source("lib/api-security.js")
 ]);
 
-requireMatch(apply, /public-schema hardening V1\.3/i, "Public-schema hardening must identify V1.3");
+requireMatch(apply, /public-schema hardening V1\.3/i, "Public-schema hardening apply patch must identify V1.3");
 requireMatch(apply, /begin;/i, "Public-schema hardening must run in a transaction");
 requireMatch(apply, /commit;/i, "Public-schema hardening must commit explicitly");
 requireMatch(apply, /enable row level security/i, "Public-schema hardening must enable RLS");
@@ -53,10 +55,17 @@ requireMatch(apply, /grant insert, update, delete on table public\.community_com
 requireMatch(apply, /where n\.nspname = 'public'\s+and p\.prosecdef/s, "V1.3 must enumerate current public SECURITY DEFINER functions");
 requireMatch(apply, /grant execute on function %s to service_role/i, "SECURITY DEFINER functions must default to service_role execution");
 for (const rpc of [
-  /consume_api_quota\(text, integer, integer\).*authenticated/s,
   /claim_notification_device\(text, text, text, text\).*authenticated/s,
   /request_autonomous_agent_run\(\).*authenticated/s
-]) requireMatch(apply, rpc, "Authenticated SECURITY DEFINER RPC allowlist is incomplete");
+]) requireMatch(apply, rpc, "Reviewed authenticated SECURITY DEFINER RPC allowlist is incomplete");
+
+requireMatch(rateLimitSql, /drop function if exists public\.consume_api_quota\(text, integer, integer\)/i, "Legacy client-callable quota RPC must be retired");
+requireMatch(rateLimitSql, /create or replace function public\.consume_api_quota_for_user/i, "Server-owned quota RPC must exist");
+requireMatch(rateLimitSql, /revoke all on function public\.consume_api_quota_for_user\([^;]+\) from authenticated/i, "Authenticated users must not execute server-owned quota RPC");
+requireMatch(rateLimitSql, /grant execute on function public\.consume_api_quota_for_user\([^;]+\) to service_role/i, "service_role must execute server-owned quota RPC");
+requireMatch(apiSecurity, /getSupabaseAdmin/, "API security must use the server admin client for quota mutation");
+requireMatch(apiSecurity, /rpc\("consume_api_quota_for_user"/, "API security must call the server-owned quota RPC");
+requireMatch(apiSecurity, /p_user_id:\s*auth\.user\.id/, "API security must bind quota mutation to the verified user id");
 
 const executable = executableSql(apply);
 if (/drop\s+(table|column)|truncate\s+table|delete\s+from/i.test(executable)) {
@@ -77,14 +86,17 @@ for (const token of [
   "legacy Users insert own profile policy remains",
   "Anonymous SECURITY DEFINER execution remains",
   "Unexpected authenticated SECURITY DEFINER execution remains",
-  "public-schema-hardening-v1.3",
+  "Legacy authenticated quota RPC still exists",
+  "Authenticated users can execute server-owned quota RPC",
+  "public-schema-hardening-v1.4",
   "reviewedClientGrantsPolicyBacked",
+  "apiQuotaMutation",
   "paperOnly"
 ]) {
   if (!verify.includes(token)) failures.push(`Public-schema verification is missing invariant: ${token}`);
 }
 
-if (!regression.includes("public-schema-hardening-v1.3")) failures.push("Public-schema hardening regression suite is not V1.3-aware");
+if (!regression.includes("public-schema-hardening-v1.4")) failures.push("Public-schema hardening regression suite is not V1.4-aware");
 if (!regression.includes("SECURITY DEFINER")) failures.push("Public-schema hardening regression suite must cover SECURITY DEFINER execution");
 if (!docs.includes("production Supabase") || !docs.includes("production evidence")) failures.push("Public-schema hardening documentation must describe production apply/evidence");
 if (!workflow.includes("scripts/public-schema-hardening.test.mjs")) failures.push("Public-schema hardening workflow must run its regression suite");
@@ -94,6 +106,6 @@ if (failures.length) {
   failures.forEach((message) => console.error(`- ${message}`));
   process.exitCode = 1;
 } else {
-  console.log("Scorecaster public-schema V1.3 repository gate passed: policy-backed client grants, global dangerous-grant removal, SECURITY DEFINER allowlisting, service-role preservation and verification SQL are present.");
-  console.log("External verification still required: apply the exact hardening SQL in production Supabase, run the read-only verification SQL, rerun Supabase security advisors and retain non-secret production evidence before production activation.");
+  console.log("Scorecaster public-schema V1.4 repository gate passed: policy-backed client grants, global dangerous-grant removal, server-owned quota mutation, SECURITY DEFINER allowlisting, service-role preservation and verification SQL are present.");
+  console.log("External verification still required: deploy the matching server code, apply the exact rate-limit/public-schema SQL in production Supabase, run the read-only verification SQL, rerun Supabase security advisors and retain non-secret production evidence before production activation.");
 }

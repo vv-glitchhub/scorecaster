@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-source-registry.mjs";
+import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 import { normalizeMarketProviderGames } from "../../../../lib/market-microstructure-v2.mjs";
 import { SPORTS } from "../../../../lib/sports.js";
 import { GET as getOddsRoute } from "../../odds/route.js";
@@ -20,7 +21,6 @@ const clean = (value, maximum = 240) => String(value ?? "")
   .replace(/\s+/g, " ")
   .trim()
   .slice(0, maximum);
-const enabled = () => ["1", "true", "yes", "on"].includes(String(process.env.MARKET_MICROSTRUCTURE_ENABLED || "").toLowerCase());
 
 function authorized(request) {
   const secret = process.env.CRON_SECRET;
@@ -102,12 +102,15 @@ export async function GET(request) {
     return response({ ok: false, status: "source-blocked", reason: permission.reason, paperOnly: true }, 503);
   }
 
-  if (!enabled()) {
+  const activation = resolveMarketMicrostructureActivation();
+  if (!activation.enabled) {
     return response({
       ok: true,
       version: "scorecaster-market-microstructure-worker-v2",
       status: "disabled",
-      reason: "MARKET_MICROSTRUCTURE_ENABLED is not true",
+      reason: activation.mode,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       sourceId: "the_odds_api",
       probabilityChanged: false,
       paperOnly: true
@@ -183,6 +186,8 @@ export async function GET(request) {
       startedAt,
       completedAt,
       status,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       sports,
       markets,
       events: eventIds.size,
@@ -214,6 +219,8 @@ export async function GET(request) {
         ? "Market Microstructure V2 production patch is not active"
         : process.env.NODE_ENV === "production" ? "Market capture failed" : String(error),
       requiredPatch: missingPatch(error) ? "scripts/apply-market-microstructure-v2.sql" : undefined,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       paperOnly: true
     }, missingPatch(error) ? 503 : 500);
   }

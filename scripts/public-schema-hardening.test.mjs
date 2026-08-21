@@ -5,6 +5,9 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
+// public-schema-hardening-v1.4 regression contract. The original V1.3 apply
+// remains intentionally idempotent; V1.4 adds the server-owned quota boundary
+// and corresponding read-only production verification.
 const internalRelations = [
   "bankroll_entries", "bookmakers", "live_player_stats", "live_team_stats",
   "match_context", "match_context_snapshots", "match_model_outputs", "matches",
@@ -17,7 +20,6 @@ const internalRelations = [
 ];
 const legacyUserOwned = ["bet_slips", "bet_slip_items", "tracked_bets", "pick_explanations", "agent_feedback", "risk_events"];
 const authenticatedSecurityDefinerAllowlist = [
-  "consume_api_quota(text,integer,integer)",
   "claim_notification_device(text,text,text,text)",
   "request_autonomous_agent_run()"
 ];
@@ -26,7 +28,7 @@ function executableSql(sql) {
   return sql.split("\n").filter((line) => !line.trimStart().startsWith("--")).join("\n");
 }
 
-test("public-schema-hardening-v1.3 is transactional, idempotent and non-destructive", async () => {
+test("public-schema-hardening-v1.3 apply patch is transactional, idempotent and non-destructive", async () => {
   const sql = await source("scripts/apply-public-schema-hardening-v1.sql");
   assert.match(sql, /public-schema hardening V1\.3/i);
   assert.match(sql, /begin;/i);
@@ -75,7 +77,7 @@ test("current reviewed client grants remain exact and policy-backed", async () =
   assert.match(sql, /grant insert, update, delete on table public\.community_comments to authenticated/i);
 });
 
-test("SECURITY DEFINER functions default to service role with only reviewed authenticated RPC exceptions", async () => {
+test("SECURITY DEFINER functions default to service role with reviewed authenticated RPC exceptions", async () => {
   const sql = await source("scripts/apply-public-schema-hardening-v1.sql");
   assert.match(sql, /SECURITY DEFINER/);
   assert.match(sql, /where n\.nspname = 'public'\s+and p\.prosecdef/s);
@@ -88,7 +90,7 @@ test("SECURITY DEFINER functions default to service role with only reviewed auth
   assert.match(sql, /revoke all privileges on function public\.request_autonomous_agent_run\(\) from anon/i);
 });
 
-test("verification covers global grants, exact client matrices and SECURITY DEFINER execution", async () => {
+test("V1.4 verification covers global grants and the server-owned quota RPC", async () => {
   const sql = await source("scripts/verify-public-schema-hardening-v1.sql");
   assert.match(sql, /relrowsecurity/);
   assert.match(sql, /relforcerowsecurity/);
@@ -102,13 +104,16 @@ test("verification covers global grants, exact client matrices and SECURITY DEFI
   assert.match(sql, /legacy Users insert own profile policy remains/);
   assert.match(sql, /Anonymous SECURITY DEFINER execution remains/);
   assert.match(sql, /Unexpected authenticated SECURITY DEFINER execution remains/);
-  assert.match(sql, /public-schema-hardening-v1\.3/);
+  assert.match(sql, /Legacy authenticated quota RPC still exists/);
+  assert.match(sql, /Authenticated users can execute server-owned quota RPC/);
+  assert.match(sql, /public-schema-hardening-v1\.4/);
   assert.match(sql, /reviewedClientGrantsPolicyBacked/);
+  assert.match(sql, /apiQuotaMutation/);
   assert.match(sql, /paperOnly/);
   for (const signature of authenticatedSecurityDefinerAllowlist) assert.match(sql, new RegExp(signature.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
 });
 
-test("server routes use the reviewed authenticated RPC allowlist and server clients for internal data", async () => {
+test("server routes use server-owned quota mutation and reviewed authenticated user RPCs", async () => {
   const valueBets = await source("app/api/value-bets/route.js");
   const feedback = await source("app/api/feedback/route.js");
   const track = await source("app/api/track/route.js");
@@ -120,19 +125,21 @@ test("server routes use the reviewed authenticated RPC allowlist and server clie
   assert.match(feedback, /supabaseAdmin/);
   assert.match(track, /supabaseAdmin/);
   assert.match(supabase, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(apiSecurity, /rpc\("consume_api_quota"/);
+  assert.match(apiSecurity, /getSupabaseAdmin/);
+  assert.match(apiSecurity, /rpc\("consume_api_quota_for_user"/);
+  assert.match(apiSecurity, /p_user_id:\s*auth\.user\.id/);
   assert.match(notifications, /rpc\("claim_notification_device"/);
   assert.match(autonomous, /rpc\("request_autonomous_agent_run"/);
 });
 
-test("canonical release audit includes the V1.3 public-schema repository gate", async () => {
+test("canonical release audit includes the public-schema repository gate", async () => {
   const packageJson = JSON.parse(await source("package.json"));
   const gate = await source("scripts/public-schema-release-gate.mjs");
   assert.match(packageJson.scripts["release:audit"], /release-readiness\.mjs/);
   assert.match(packageJson.scripts["release:audit"], /public-schema-release-gate\.mjs/);
   assert.match(gate, /apply-public-schema-hardening-v1\.sql/);
   assert.match(gate, /verify-public-schema-hardening-v1\.sql/);
-  assert.match(gate, /public-schema-hardening-v1\.3/);
+  assert.match(gate, /public-schema-hardening-v1\.4/);
   assert.match(gate, /SECURITY DEFINER/);
   assert.match(gate, /production Supabase/);
   assert.match(gate, /External verification still required/);

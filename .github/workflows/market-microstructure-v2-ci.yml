@@ -30,7 +30,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Market Microstructure regression tests
-        run: node --test scripts/market-microstructure-v2.test.mjs
+        run: node --test scripts/market-microstructure-v2.test.mjs scripts/market-microstructure-activation.test.mjs
 
       - name: Context and probability boundary regressions
         run: |

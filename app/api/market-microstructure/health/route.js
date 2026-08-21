@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-source-registry.mjs";
+import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,8 @@ function missingPatch(error) {
 export async function GET() {
   const source = getCollectorSource("the_odds_api");
   const permission = sourceCanCollect(source, { production: process.env.NODE_ENV === "production" });
-  const workerEnabled = ["1", "true", "yes", "on"].includes(String(process.env.MARKET_MICROSTRUCTURE_ENABLED || "").toLowerCase());
+  const activation = resolveMarketMicrostructureActivation();
+  const workerEnabled = activation.enabled;
   const admin = getSupabaseAdmin();
   if (!admin) {
     return json({
@@ -21,6 +23,8 @@ export async function GET() {
       status: "database-unconfigured",
       storageAvailable: false,
       workerEnabled,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       sourceAllowed: permission.allowed,
       sourceReason: permission.reason,
       paperOnly: true
@@ -66,6 +70,9 @@ export async function GET() {
       status,
       storageAvailable: true,
       workerEnabled,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
+      repositoryDefaultEnabled: activation.repositoryDefault,
       sourceAllowed: permission.allowed,
       sourceReason: permission.reason,
       sourceId: "the_odds_api",
@@ -84,6 +91,8 @@ export async function GET() {
       storageAvailable: false,
       requiredPatch: missingPatch(error) ? "scripts/apply-market-microstructure-v2.sql" : undefined,
       workerEnabled,
+      activationMode: activation.mode,
+      emergencyStopAvailable: activation.emergencyStopAvailable,
       sourceAllowed: permission.allowed,
       secretsExposed: false,
       paperOnly: true
