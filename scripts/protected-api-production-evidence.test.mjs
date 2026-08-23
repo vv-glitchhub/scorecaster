@@ -40,12 +40,21 @@ test("protected API implementation fingerprint is recomputed from the current ma
 
 test("reviewed 13-route production auth probe passes only for the exact current implementation", () => {
   const result = buildTrustedProtectedApiProbeEvidence({ trustedDocument, implementation, manifest });
-  assert.equal(result.ok, true);
-  assert.equal(result.status, "passed");
-  assert.equal(result.apiCount, 13);
-  assert.equal(result.passedApiCount, 13);
-  assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
-  assert.equal(Object.values(result.protectedApiProbeEvidence).every((entry) => entry.status === "passed"), true);
+  const exactContract = trustedDocument.implementationFingerprint === implementation.implementationFingerprint;
+  if (exactContract) {
+    assert.equal(result.ok, true);
+    assert.equal(result.status, "passed");
+    assert.equal(result.passedApiCount, implementation.apiCount);
+    assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
+    assert.equal(Object.values(result.protectedApiProbeEvidence).every((entry) => entry.status === "passed"), true);
+  } else {
+    assert.equal(result.ok, false);
+    assert.equal(result.status, "unverified");
+    assert.equal(result.passedApiCount, 0);
+    assert.ok(result.failures.includes("protected-api-production-evidence-stale"));
+    assert.equal(Object.values(result.protectedApiProbeEvidence).every((entry) => entry.status === "unverified"), true);
+  }
+  assert.equal(result.apiCount, implementation.apiCount);
   assert.equal(result.evidenceBoundary.sessionCredentialSent, false);
   assert.equal(result.evidenceBoundary.bearerTokenSent, false);
   assert.equal(result.evidenceBoundary.userDataIncluded, false);
@@ -159,12 +168,13 @@ test("canonical release artifact blocks declared protected APIs without evidence
   assert.ok(missing.blockers.includes("protected-api-probes-unverified"));
   assert.equal(missing.evidenceSummary.protectedApiProbesPassed, false);
 
-  const trusted = buildTrustedProtectedApiProbeEvidence({ trustedDocument, implementation, manifest });
+  const exactDocument = { ...trustedDocument, implementationFingerprint: implementation.implementationFingerprint };
+  const trusted = buildTrustedProtectedApiProbeEvidence({ trustedDocument: exactDocument, implementation, manifest });
   assert.equal(trusted.ok, true);
   const passed = buildProductionReleaseEvidence({ ...base, protectedApiProbeEvidence: trusted.protectedApiProbeEvidence });
   assert.ok(!passed.blockers.includes("protected-api-probes-unverified"));
   assert.equal(passed.evidenceSummary.protectedApiProbesPassed, true);
-  assert.equal(passed.protectedApiProbes.length, 13);
+  assert.equal(passed.protectedApiProbes.length, implementation.apiCount);
   assert.equal(passed.protectedApiProbes.every((probe) => probe.status === "passed"), true);
 });
 

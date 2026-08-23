@@ -11,7 +11,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 23);
+  assert.equal(manifest.supabaseMigrations.length, 28);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -19,12 +19,16 @@ test("release manifest defines the production origin, complete rollout and suppo
     "scripts/apply-verified-live-monitor-v1.sql"
   ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent_v2.sql");
-  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.equal(manifest.supabaseMigrations.at(-8), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-7), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
+  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.deepEqual(manifest.supabaseMigrations.slice(-5), [
+    "supabase/scorecaster_shadow_candidate_observations_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
+    "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
+    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql"
+  ]);
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_decision_diagnostics.sql"));
@@ -53,6 +57,7 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/unified-data" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/sports-analytics" && item.method === "GET"));
   assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/shadow-learning" && item.method === "GET"));
+  assert.ok(manifest.internalWorkers.some((item) => item.path === "/api/internal/shadow-candidate-settlement" && item.method === "GET"));
   assert.ok(manifest.protectedApis.length + manifest.internalWorkers.length >= 21);
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-history-worker" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "unified-data-closing-line" && item.blocking === true));

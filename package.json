@@ -54,6 +54,7 @@
     "test:transparency": "node --test scripts/open-transparency.test.mjs",
     "test:ux-v2": "node --test scripts/ux-v2.test.mjs",
     "test:ready-app": "node --test scripts/scorecaster-ready-app.test.mjs",
+    "test:paper-flow": "node --test scripts/end-to-end-paper-flow.test.mjs",
     "test:sports-intelligence": "node --test scripts/sports-intelligence-v1.test.mjs",
     "test:sports-analytics": "node --test scripts/sports-analytics-catalog.test.mjs scripts/sports-analytics-ingestion.test.mjs scripts/sports-analytics-insights.test.mjs scripts/sports-analytics-activation.test.mjs scripts/sports-analytics-quality.test.mjs",
     "test:collector": "node --test scripts/collector-v1.test.mjs scripts/collector-v2.test.mjs",
@@ -66,21 +67,21 @@
     "test:easy-use": "node --test scripts/easy-use-ui.test.mjs scripts/daily-brief.test.mjs",
     "test:i18n": "node --test scripts/i18n.test.mjs",
     "test:fixtures": "node --test scripts/fixture-integrity.test.mjs",
-    "test": "npm run test:security && npm run test:production-security && npm run test:cache-boundary && npm run test:model && npm run test:1x2-evaluation && npm run test:model-candidate-registry && npm run test:feature-ensemble && npm run test:settlement && npm run test:settlement-monitor && npm run test:operations && npm run test:release-readiness && npm run test:production-activation && npm run test:migration-inventory && npm run test:autonomous-agent && npm run test:shadow-learning && npm run test:polymarket && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-signing-key-handoff && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:market-changes && npm run test:intelligence && npm run test:intelligence-v3 && npm run test:intelligence-v4 && npm run test:production-control-center && npm run test:production-evidence && npm run test:transparency && npm run test:ux-v2 && npm run test:ready-app && npm run test:sports-intelligence && npm run test:sports-analytics && npm run test:collector && npm run test:unified-data && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:match-journey-story && npm run test:diagnostics && npm run test:easy-use && npm run test:i18n && npm run test:fixtures",
+    "test": "npm run test:security && npm run test:production-security && npm run test:cache-boundary && npm run test:model && npm run test:1x2-evaluation && npm run test:model-candidate-registry && npm run test:feature-ensemble && npm run test:settlement && npm run test:settlement-monitor && npm run test:operations && npm run test:release-readiness && npm run test:production-activation && npm run test:migration-inventory && npm run test:autonomous-agent && npm run test:shadow-learning && npm run test:polymarket && npm run test:apps && npm run test:agent-v9 && npm run test:agent-v10 && npm run test:agent-ticket && npm run test:agent-signing-key-handoff && npm run test:agent-v11 && npm run test:watchlist && npm run test:watchlist-monitor && npm run test:alert-inbox && npm run test:notification-registry && npm run test:notification-delivery && npm run test:market-timeline && npm run test:market-changes && npm run test:intelligence && npm run test:intelligence-v3 && npm run test:intelligence-v4 && npm run test:production-control-center && npm run test:production-evidence && npm run test:transparency && npm run test:ux-v2 && npm run test:ready-app && npm run test:paper-flow && npm run test:sports-intelligence && npm run test:sports-analytics && npm run test:collector && npm run test:unified-data && npm run test:provider-firewall && npm run test:form-rest && npm run test:event-detail && npm run test:match-journey-story && npm run test:diagnostics && npm run test:easy-use && npm run test:i18n && npm run test:fixtures",
     "migration:inventory": "node scripts/migration-inventory.mjs --check --write",
     "test:migration-inventory": "node --test scripts/migration-inventory.test.mjs"
   },
   "dependencies": {
-    "@supabase/ssr": "latest",
-    "@supabase/supabase-js": "latest",
+    "@supabase/ssr": "0.12.4",
+    "@supabase/supabase-js": "2.112.3",
     "next": "16.2.1",
-    "react": "latest",
-    "react-dom": "latest"
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "latest",
-    "autoprefixer": "latest",
-    "postcss": "latest",
-    "tailwindcss": "latest"
+    "@tailwindcss/postcss": "4.3.3",
+    "autoprefixer": "10.5.4",
+    "postcss": "8.5.26",
+    "tailwindcss": "4.3.3"
   }
 }

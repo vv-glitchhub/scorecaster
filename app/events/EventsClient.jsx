@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import MarketPickExplanation from "../components/MarketPickExplanation";
-import { addTrackedBet } from "../../lib/tracking-storage";
 import {
   DecisionBadge,
   EmptyState,
@@ -49,7 +48,6 @@ export default function EventsClient() {
   const [error, setError] = useState("");
   const [generatedAt, setGeneratedAt] = useState(null);
   const [source, setSource] = useState("loading");
-  const [savedEventId, setSavedEventId] = useState("");
 
   const load = useCallback(async (selected = filter) => {
     setLoading(true);
@@ -108,36 +106,6 @@ export default function EventsClient() {
     ? new Date(generatedAt).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : tr({ fi: "ei saatavilla", en: "unavailable", es: "no disponible" });
 
-  function savePaperPick(event, pick) {
-    if (!pick || decision(pick) === "SKIP") return;
-    addTrackedBet({
-      eventId: event.id,
-      match: event.match,
-      homeTeam: event.homeTeam,
-      awayTeam: event.awayTeam,
-      selection: pick.selection || pick.label,
-      odds: Number(pick.odds || 0),
-      bookmaker: pick.bookmaker || "live-odds-provider",
-      sportKey: event.sportKey,
-      marketKey: pick.marketKey || "h2h",
-      edge: Number(pick.edge || 0),
-      ev: Number(pick.ev || 0),
-      confidence: Number(pick.confidence || 0),
-      modelProbability: Number(pick.consensusProbability || pick.modelProbability || 0),
-      marketProbability: Number(pick.marketProbability || 0),
-      fairOdds: Number(pick.fairOdds || 0),
-      stake: Number(pick.suggestedStake || 0),
-      decision: decision(pick),
-      decisionReason: pick.decisionReason,
-      source: "scorecaster-events",
-      modelMode: pick.modelMode || "market-consensus",
-      edgeType: pick.edgeType || "best-price-vs-no-vig-consensus",
-      paperOnly: true
-    });
-    setSavedEventId(event.id);
-    window.setTimeout(() => setSavedEventId(""), 2500);
-  }
-
   return (
     <div className="space-y-7">
       <PageHero
@@ -145,9 +113,9 @@ export default function EventsClient() {
         eyebrow="Daily Flow V3 · Event Detail V1"
         title={tr({ fi: "Valitse ottelu, tarkista päätös ja jatka oikeaan toimintoon", en: "Choose an event, verify the decision and continue to the right action", es: "Elige un evento, verifica la decisión y continúa con la acción adecuada" })}
         description={tr({
-          fi: "Hakemisto näyttää varmennetut live-ottelut. Jokaisessa kortissa näkyvät paras valinta, päätös, laskelmat, lähteet ja suora paperiseuranta.",
-          en: "The directory shows verified live events. Every card exposes the best selection, verdict, calculations, sources and a direct paper-tracking action.",
-          es: "El directorio muestra eventos verificados. Cada tarjeta incluye selección, decisión, cálculos, fuentes y seguimiento simulado."
+          fi: "Hakemisto näyttää varmennetut live-ottelut. Jokainen kortti johtaa samaan palvelimen varmentamaan seuranta- ja paperitallennuspolkuun.",
+          en: "The directory shows verified live events. Every card continues through the same server-verified watchlist and paper-save flow.",
+          es: "El directorio muestra eventos verificados. Cada tarjeta continúa por el mismo flujo verificado de seguimiento y simulación."
         })}
         actions={
           <>
@@ -171,7 +139,7 @@ export default function EventsClient() {
         <SectionHeader
           eyebrow={tr({ fi: "Otteluhakemisto", en: "Event directory", es: "Directorio de eventos" })}
           title={tr({ fi: "Lähiajan varmennetut ottelut", en: "Verified near-term events", es: "Eventos próximos verificados" })}
-          description={tr({ fi: "Suodata liigaa, avaa AI-selitys tai lisää hyväksytty kohde suoraan paperiseurantaan.", en: "Filter by league, open the AI explanation or add an accepted pick directly to paper tracking.", es: "Filtra por liga, abre la explicación IA o añade un pronóstico al seguimiento simulado." })}
+          description={tr({ fi: "Suodata liigaa, avaa AI-selitys ja varmista valinta vielä ottelusivulla ennen tallennusta.", en: "Filter by league, inspect the AI explanation and re-verify the selection on the event page before saving.", es: "Filtra por liga, revisa la explicación IA y vuelve a verificar la selección antes de guardarla." })}
         />
 
         <div className="mb-5 flex flex-wrap gap-2">
@@ -183,7 +151,7 @@ export default function EventsClient() {
         </div>
 
         {error && <div className="rounded-[1.25rem] border border-rose-400/25 bg-rose-400/10 p-4 text-rose-200">{error}</div>}
-        {!loading && events.length === 0 && !error && <EmptyState title={tr({ fi: "Otteluita ei löytynyt tällä suodattimella", en: "No events found for this filter", es: "No se encontraron eventos con este filtro" })} description={tr({ fi: "Nykyinen Top Picks -analyysi ei sisällä tämän liigan lähiajan tapahtumia.", en: "The current Top Picks analysis has no near-term events for this league.", es: "El análisis actual no contiene eventos próximos de esta liga." })} actionHref="/betting" actionLabel={tr({ fi: "Avaa kaikki kohteet", en: "Open all picks", es: "Abrir todos" })} />}
+        {!loading && events.length === 0 && !error && <EmptyState title={tr({ fi: "Otteluita ei löytynyt tällä suodattimella", en: "No events found for this filter", es: "No se encontraron eventos con este filtro" })} description={tr({ fi: "Nykyinen Top Picks -analyysi ei sisällä tämän liigan lähiajan tapahtumia.", en: "The current Top Picks analysis has no near-term events for this league.", es: "El análisis actual no contiene eventos próximos de esta liga." })} actionHref="/" actionLabel={tr({ fi: "Avaa päivän näkymä", en: "Open Today", es: "Abrir Hoy" })} />}
 
         <div className="grid gap-4 lg:grid-cols-2">
           {events.map((event) => {
@@ -222,11 +190,12 @@ export default function EventsClient() {
                   </>
                 )}
 
-                <div className="mt-5 grid gap-2 border-t border-[var(--sc-border)] pt-4 sm:grid-cols-2">
-                  <Link href={href} className="sc-button-secondary text-center">{tr({ fi: "Avaa syväanalyysi", en: "Open deep analysis", es: "Abrir análisis" })}</Link>
-                  <button type="button" disabled={!best || eventDecision === "SKIP"} onClick={() => savePaperPick(event, best)} className="sc-button-primary disabled:cursor-not-allowed disabled:opacity-40">
-                    {savedEventId === event.id ? tr({ fi: "Lisätty paperiseurantaan", en: "Added to paper tracking", es: "Añadido al seguimiento" }) : eventDecision === "SKIP" ? tr({ fi: "SKIP – ei tallenneta", en: "SKIP – not saved", es: "SKIP – no guardar" }) : tr({ fi: "Lisää paperiseurantaan", en: "Add to paper tracking", es: "Añadir al seguimiento" })}
-                  </button>
+                <div className="mt-5 border-t border-[var(--sc-border)] pt-4">
+                  <Link href={href} className="sc-button-primary flex w-full justify-center text-center">
+                    {eventDecision === "SKIP"
+                      ? tr({ fi: "Avaa SKIP-perustelu", en: "Open SKIP reasoning", es: "Abrir motivo SKIP" })
+                      : tr({ fi: "Tarkista ja valitse toiminto", en: "Review and choose an action", es: "Revisar y elegir una acción" })}
+                  </Link>
                 </div>
               </article>
             );

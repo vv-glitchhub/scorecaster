@@ -43,14 +43,14 @@ test("retained production probes pass only for the exact current worker contract
   if (exactContract) {
     assert.equal(result.ok, true);
     assert.equal(result.status, "passed");
-    assert.equal(result.workerCount, 9);
-    assert.equal(result.passedWorkerCount, 9);
+    assert.equal(result.workerCount, implementation.workerCount);
+    assert.equal(result.passedWorkerCount, implementation.workerCount);
     assert.equal(Object.values(result.workerProbeEvidence).every((entry) => entry.status === "passed"), true);
     assert.equal(result.probes.every((probe) => probe.httpStatus === 401), true);
   } else {
     assert.equal(result.ok, false);
     assert.equal(result.status, "unverified");
-    assert.equal(result.workerCount, 9);
+    assert.equal(result.workerCount, implementation.workerCount);
     assert.equal(result.passedWorkerCount, 0);
     assert.ok(result.failures.includes("worker-production-evidence-stale"));
     assert.equal(Object.values(result.workerProbeEvidence).every((entry) => entry.status === "unverified"), true);

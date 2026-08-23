@@ -36,6 +36,7 @@ const report = {
   sportsAnalyticsVerified: false,
   autonomousV13HardCapsVerified: false,
   shadowLearningVerified: false,
+  shadowCandidateSettlementVerified: false,
   marketMicrostructureVerified: false,
   calibrationLabVerified: false,
   aiCoachVerified: false,
@@ -121,6 +122,8 @@ async function verifySchema() {
   report.sportsAnalyticsVerified = true;
   runPsql(["--file=scripts/verify-autonomous-v13-hard-caps.sql"], "Autonomous V13 hard-cap verification");
   report.autonomousV13HardCapsVerified = true;
+  runPsql(["--file=scripts/verify-shadow-candidate-schema.sql"], "Shadow Candidate schema verification");
+  report.shadowCandidateSettlementVerified = true;
   runPsql(["--file=scripts/verify-market-microstructure-v2.sql"], "Market Microstructure verification");
   report.marketMicrostructureVerified = true;
   runPsql(["--file=scripts/verify-calibration-lab-v1.sql"], "Calibration Lab verification");
@@ -135,7 +138,7 @@ async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
   const productionPatches = Array.isArray(manifest.productionPatches) ? manifest.productionPatches : [];
-  assert(migrations.length === 23, "Release manifest does not contain the complete canonical rollout");
+  assert(migrations.length === 28, "Release manifest does not contain the complete canonical rollout");
   assert(
     JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
     "Release manifest does not contain the reviewed production patches"
@@ -186,6 +189,7 @@ async function probeWorkers() {
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
     "/api/internal/shadow-learning",
+    "/api/internal/shadow-candidate-settlement",
     "/api/internal/notification-delivery",
     "/api/internal/decision-diagnostics",
     "/api/internal/unified-data",
@@ -193,13 +197,14 @@ async function probeWorkers() {
   ];
 
   for (const workerPath of workers) {
+    const timeoutMs = workerPath === "/api/internal/shadow-candidate-settlement" ? 130_000 : 60_000;
     const response = await fetch(`${baseUrl}${workerPath}`, {
       headers: {
         Accept: "application/json",
         Authorization: `Bearer ${cronSecret}`
       },
       cache: "no-store",
-      signal: AbortSignal.timeout(60_000)
+      signal: AbortSignal.timeout(timeoutMs)
     });
     const payload = await parseResponse(response);
     const probeOk = response.ok && payload?.ok !== false && payload?.skipped !== true;

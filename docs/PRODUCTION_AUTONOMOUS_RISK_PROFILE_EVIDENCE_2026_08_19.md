@@ -17,7 +17,7 @@ The migration was applied through the Supabase migration API before the applicat
 
 The canonical clean-install dependency order is `Autonomous Agent V2 -> V13 hard caps -> Autonomous Risk Profile V1 -> Shadow Learning`. This preserves the existing requirement that database hard caps are installed immediately after V2 and before any selectable recommendation-risk extension. The production registry timestamp above records the actual historical application date of this additive migration and is not rewritten to imitate the canonical clean-install order.
 
-The manual Production Activation runner and its regression contract now require exactly 23 canonical migrations, so a future reviewed activation cannot silently omit this migration or fall back to the previous 22-migration rollout.
+At the time of this evidence the manual Production Activation runner required 23 canonical migrations, so it could not silently omit this migration or fall back to the previous 22-migration rollout. The current canonical rollout has since expanded to 28 with the production-verified Shadow Candidate chain and final function-ACL hardening.
 
 ## Verified schema state
 

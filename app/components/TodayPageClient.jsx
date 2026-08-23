@@ -28,7 +28,7 @@ export default function TodayPageClient() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [saved, setSaved] = useState([]);
+  const [watchState, setWatchState] = useState({});
 
   async function load({ silent = false } = {}) {
     if (!silent) setLoading(true);
@@ -46,11 +46,6 @@ export default function TodayPageClient() {
   }
 
   useEffect(() => {
-    try {
-      setSaved(JSON.parse(localStorage.getItem("scorecaster-today-saved") || "[]"));
-    } catch {
-      setSaved([]);
-    }
     void load();
     const timer = window.setInterval(() => load({ silent: true }), 300000);
     return () => window.clearInterval(timer);
@@ -64,13 +59,16 @@ export default function TodayPageClient() {
       rank: index + 1,
       title: eventTitle(event, pick.eventId),
       meta: eventMeta(event),
+      selection: pick.selection || event.selection || "",
+      sport: pick.sport || event.sport || "",
+      market: pick.market || event.market || "h2h",
       event
     };
   }), [data, eventMap]);
 
   const accumulator = useMemo(() => {
     const legs = picks
-      .filter((pick) => ["WATCH", "CAUTION"].includes(pick.decision) && Number(pick.bestOdds) > 1)
+      .filter((pick) => pick.decision === "WATCH" && pick.selection && Number(pick.bestOdds) > 1)
       .slice(0, 3);
     const combinedOdds = legs.reduce((total, pick) => total * Number(pick.bestOdds), 1);
     const averageScore = legs.length ? legs.reduce((total, pick) => total + Number(pick.score || 0), 0) / legs.length : 0;
@@ -81,12 +79,42 @@ export default function TodayPageClient() {
   const updated = data?.generatedAt ? new Date(data.generatedAt).toLocaleString(locale) : "–";
   const summary = data?.controlCenter?.summary || {};
 
-  function toggleSaved(eventId) {
-    setSaved((current) => {
-      const next = current.includes(eventId) ? current.filter((id) => id !== eventId) : [...current, eventId];
-      localStorage.setItem("scorecaster-today-saved", JSON.stringify(next));
-      return next;
-    });
+  function eventHref(pick) {
+    const query = new URLSearchParams();
+    if (pick.sport) query.set("sport", pick.sport);
+    if (pick.selection) query.set("selection", pick.selection);
+    const suffix = query.toString();
+    return `/event/${encodeURIComponent(pick.eventId)}${suffix ? `?${suffix}` : ""}`;
+  }
+
+  async function addToWatchlist(pick) {
+    if (!pick.selection || !pick.sport) {
+      setWatchState((current) => ({
+        ...current,
+        [pick.eventId]: { state: "error", message: tr({ fi: "Avaa ottelu ja valitse ensin varmennettu kohde.", en: "Open the event and choose a verified selection first.", es: "Abre el evento y elige primero una selección verificada." }) }
+      }));
+      return;
+    }
+
+    setWatchState((current) => ({ ...current, [pick.eventId]: { state: "saving", message: "" } }));
+    try {
+      const response = await fetch("/api/cloud/watchlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId: pick.eventId, selection: pick.selection, sport: pick.sport })
+      });
+      const payload = await response.json();
+      if (!response.ok) throw new Error(payload?.error || "Watchlist save failed");
+      setWatchState((current) => ({
+        ...current,
+        [pick.eventId]: { state: "saved", message: tr({ fi: "Lisätty varmennettuun seurantaan.", en: "Added to the verified watchlist.", es: "Añadido a la lista verificada." }) }
+      }));
+    } catch (cause) {
+      setWatchState((current) => ({
+        ...current,
+        [pick.eventId]: { state: "error", message: cause?.message || "Watchlist save failed" }
+      }));
+    }
   }
 
   return (
@@ -131,7 +159,7 @@ export default function TodayPageClient() {
             <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">Top 3</div>
             <h2 className="mt-1 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "AI:n parhaat saatavilla olevat havainnot", en: "AI's best available observations", es: "Mejores observaciones disponibles" })}</h2>
           </div>
-          <Link href="/betting" className="text-sm font-black text-[var(--sc-brand)] hover:underline">{tr({ fi: "Näytä kaikki kohteet", en: "Show all picks", es: "Ver todos" })}</Link>
+          <Link href="/events" className="text-sm font-black text-[var(--sc-brand)] hover:underline">{tr({ fi: "Näytä kaikki kohteet", en: "Show all picks", es: "Ver todos" })}</Link>
         </div>
 
         {loading && <div className="grid gap-4 lg:grid-cols-3">{[1, 2, 3].map((item) => <div key={item} className="h-96 animate-pulse rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)]" />)}</div>}
@@ -156,6 +184,11 @@ export default function TodayPageClient() {
 
               <p className="mt-4 text-sm leading-6 text-[var(--sc-muted)]">{pick.reason}</p>
 
+              <div className="mt-4 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
+                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Nykyinen valinta", en: "Current selection", es: "Selección actual" })}</div>
+                <div className="mt-1 font-black text-[var(--sc-text)]">{pick.selection || tr({ fi: "Valinta varmistetaan ottelusivulla", en: "Selection is verified on the event page", es: "La selección se verifica en el evento" })}</div>
+              </div>
+
               <div className="mt-5 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">AI score</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(pick.score, 0)}</div></div>
                 <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">Edge</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{percent(pick.edge)}</div></div>
@@ -165,9 +198,10 @@ export default function TodayPageClient() {
               <div className="mt-4"><DecisionTransparencyCard explanation={pick.explanation} compact /></div>
 
               <div className="mt-auto flex gap-2 pt-5">
-                <Link href={`/events?eventId=${encodeURIComponent(pick.eventId)}`} className="flex-1 rounded-xl bg-[var(--sc-brand)] px-3 py-3 text-center text-sm font-black text-[var(--sc-brand-ink)]">{tr({ fi: "Syväanalyysi", en: "Deep analysis", es: "Análisis" })}</Link>
-                <button type="button" onClick={() => toggleSaved(pick.eventId)} aria-label={tr({ fi: "Tallenna kohde", en: "Save pick", es: "Guardar" })} className="rounded-xl border border-[var(--sc-border)] px-4 py-3 text-sm font-black text-[var(--sc-text-secondary)]">{saved.includes(pick.eventId) ? "★" : "☆"}</button>
+                <Link href={eventHref(pick)} className="flex-1 rounded-xl bg-[var(--sc-brand)] px-3 py-3 text-center text-sm font-black text-[var(--sc-brand-ink)]">{tr({ fi: "Avaa ottelu", en: "Open event", es: "Abrir evento" })}</Link>
+                <button type="button" onClick={() => void addToWatchlist(pick)} disabled={watchState[pick.eventId]?.state === "saving" || watchState[pick.eventId]?.state === "saved"} className="rounded-xl border border-[var(--sc-border)] px-4 py-3 text-sm font-black text-[var(--sc-text-secondary)] disabled:opacity-50">{watchState[pick.eventId]?.state === "saved" ? "✓" : watchState[pick.eventId]?.state === "saving" ? "…" : tr({ fi: "Seuraa", en: "Watch", es: "Seguir" })}</button>
               </div>
+              {watchState[pick.eventId]?.message ? <div className={`mt-3 text-xs leading-5 ${watchState[pick.eventId]?.state === "error" ? "text-amber-200" : "text-emerald-200"}`}>{watchState[pick.eventId].message}{/sign|auth|session|kirjaudu/i.test(watchState[pick.eventId].message) ? <Link href="/login" className="ml-1 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link> : null}</div> : null}
             </article>
           ))}
         </div>
@@ -177,12 +211,12 @@ export default function TodayPageClient() {
         <div className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-6">
           <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">{tr({ fi: "Päivän pitkäveto", en: "Daily accumulator", es: "Combinada del día" })}</div>
           <h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "AI-paperiyhdistelmä", en: "AI paper accumulator", es: "Combinada simulada IA" })}</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Yhdistelmä rakennetaan vain WATCH- tai CAUTION-korteista, joilla on kelvollinen kerroin. Se on aina paper-only.", en: "The accumulator uses only WATCH or CAUTION cards with valid odds. It is always paper-only.", es: "La combinada usa solo WATCH o CAUTION con cuotas válidas. Siempre es simulada." })}</p>
+          <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Yhdistelmä rakennetaan vain WATCH-korteista, joilla on varmennettu valinta ja kelvollinen kerroin. Se on aina paper-only.", en: "The accumulator uses only WATCH cards with a verified selection and valid odds. It is always paper-only.", es: "La combinada usa solo tarjetas WATCH con selección y cuota verificadas. Siempre es simulada." })}</p>
 
           {accumulator.available ? (
             <>
               <div className="mt-5 space-y-3">
-                {accumulator.legs.map((pick) => <div key={pick.eventId} className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div><div className="font-black text-[var(--sc-text)]">{pick.title}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">AI {number(pick.score, 0)} · {pick.decision}</div></div><div className="text-lg font-black text-[var(--sc-text)]">{number(pick.bestOdds)}</div></div>)}
+                {accumulator.legs.map((pick) => <div key={pick.eventId} className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div><div className="font-black text-[var(--sc-text)]">{pick.title}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{pick.selection} · AI {number(pick.score, 0)} · {pick.decision}</div></div><div className="text-lg font-black text-[var(--sc-text)]">{number(pick.bestOdds)}</div></div>)}
               </div>
               <div className="mt-5 flex items-end justify-between rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5">
                 <div><div className="text-xs font-bold uppercase text-[var(--sc-muted)]">{tr({ fi: "Yhteiskerroin", en: "Combined odds", es: "Cuota combinada" })}</div><div className="mt-1 text-4xl font-black text-[var(--sc-text)]">{number(accumulator.combinedOdds)}</div></div>
@@ -193,7 +227,7 @@ export default function TodayPageClient() {
           ) : (
             <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/5 p-5">
               <div className="font-black text-amber-100">{tr({ fi: "Ei vielä turvallisesti rakennettavaa yhdistelmää", en: "No supportable accumulator yet", es: "Aún no hay combinada justificable" })}</div>
-              <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tarvitaan vähintään kaksi WATCH- tai CAUTION-kohdetta, joilla on kelvollinen kerroin. Tyhjää kerrointa tai 0/100-arvoa ei enää esitetä valmiina tuotteena.", en: "At least two WATCH or CAUTION cards with valid odds are required. Empty odds and 0/100 placeholders are no longer presented as a finished product.", es: "Se requieren al menos dos tarjetas válidas. Ya no se muestran valores vacíos como producto final." })}</p>
+              <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tarvitaan vähintään kaksi WATCH-kohdetta, joilla on varmennettu valinta ja kerroin. CAUTION ei riitä yhdistelmän rakentamiseen.", en: "At least two WATCH cards with a verified selection and odds are required. CAUTION is not enough to build an accumulator.", es: "Se requieren al menos dos tarjetas WATCH con selección y cuota verificadas. CAUTION no es suficiente." })}</p>
             </div>
           )}
         </div>

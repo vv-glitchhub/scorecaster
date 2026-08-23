@@ -31,6 +31,14 @@ function decisionTone(decision) {
   return "border-slate-500/30 bg-slate-500/10 text-slate-200";
 }
 
+function eventHref(post) {
+  const query = new URLSearchParams();
+  if (post.sport) query.set("sport", post.sport);
+  if (post.selection) query.set("selection", post.selection);
+  const suffix = query.toString();
+  return `/event/${encodeURIComponent(post.eventId)}${suffix ? `?${suffix}` : ""}`;
+}
+
 export default function FeedClient() {
   const { tr, locale } = useLanguage();
   const [data, setData] = useState(null);
@@ -92,6 +100,8 @@ export default function FeedClient() {
         rank: index + 1,
         title: eventTitle(event, pick.eventId),
         meta: eventMeta(event),
+        sport: pick.sport || event.sport || "",
+        selection: pick.selection || event.selection || "",
         createdAt,
         commentCount: eventComments.length,
         localScore: (liked.includes(pick.eventId) ? 10 : 0) + eventComments.length * 2 + Number(pick.score || 0)
@@ -210,6 +220,7 @@ export default function FeedClient() {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{new Date(post.createdAt).toLocaleString(locale)}</span><span>·</span><span>{post.meta}</span></div>
                     <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{post.title}</h2>
+                    {post.selection ? <div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{post.selection} @ {number(post.bestOdds)}</div> : null}
                     <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-black ${decisionTone(post.decision)}`}>{post.decision || "SKIP"}</div>
                   </div>
                 </div>
@@ -230,7 +241,7 @@ export default function FeedClient() {
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--sc-border)] pt-4">
                   <button type="button" onClick={() => toggleStored(post.eventId, liked, setLiked, "scorecaster-feed-liked")} className={`rounded-xl px-4 py-2 text-sm font-black ${isLiked ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)]"}`}>{isLiked ? "♥" : "♡"} {tr({ fi: "Tykkää", en: "Like", es: "Me gusta" })}</button>
                   <button type="button" onClick={() => toggleStored(post.eventId, saved, setSaved, "scorecaster-feed-saved")} className={`rounded-xl px-4 py-2 text-sm font-black ${isSaved ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)]"}`}>{isSaved ? "★" : "☆"} {tr({ fi: "Tallenna", en: "Save", es: "Guardar" })}</button>
-                  <Link href={`/events?eventId=${encodeURIComponent(post.eventId)}`} className="rounded-xl px-4 py-2 text-sm font-black text-[var(--sc-brand)] hover:bg-[var(--sc-brand-soft)]">{tr({ fi: "Syväanalyysi", en: "Deep analysis", es: "Análisis completo" })}</Link>
+                  <Link href={eventHref(post)} className="rounded-xl px-4 py-2 text-sm font-black text-[var(--sc-brand)] hover:bg-[var(--sc-brand-soft)]">{tr({ fi: "Syväanalyysi", en: "Deep analysis", es: "Análisis completo" })}</Link>
                   <div className="ml-auto rounded-xl px-3 py-2 text-sm font-bold text-[var(--sc-muted)]">{postComments.length} {tr({ fi: "kommenttia", en: "comments", es: "comentarios" })}</div>
                 </div>
               </div>

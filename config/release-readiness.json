@@ -160,6 +160,14 @@
       ]
     },
     {
+      "path": "/api/internal/shadow-candidate-settlement",
+      "method": "GET",
+      "allowedStatuses": [
+        401,
+        503
+      ]
+    },
+    {
       "path": "/api/internal/notification-delivery",
       "method": "GET",
       "allowedStatuses": [
@@ -230,7 +238,12 @@
     "supabase/scorecaster_autonomous_agent_v2.sql",
     "supabase/scorecaster_autonomous_v13_hard_caps.sql",
     "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
-    "supabase/scorecaster_shadow_learning_v1.sql"
+    "supabase/scorecaster_shadow_learning_v1.sql",
+    "supabase/scorecaster_shadow_candidate_observations_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
+    "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
+    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql"
   ],
   "productionPatches": [
     "scripts/apply-market-microstructure-v2.sql",

@@ -40,6 +40,26 @@ function selection(value = {}) {
   return cleanText(value.selection || value.label, 160);
 }
 
+function evidenceModelMode(pick = {}, current = {}) {
+  return cleanText(pick.modelMode || current.modelMode, 120).toLowerCase();
+}
+
+function independentModelProbability(pick = {}, current = {}) {
+  const explicit = finiteProbability(
+    pick.independentModelProbability ??
+    pick.independent_model_probability ??
+    pick.predictedProbability ??
+    pick.predicted_probability
+  );
+  if (explicit !== null) return explicit;
+
+  const mode = evidenceModelMode(pick, current);
+  const marketOnly = mode.includes("market") && (
+    mode.includes("consensus") || mode.includes("benchmark") || mode.includes("implied")
+  );
+  return marketOnly ? null : finiteProbability(pick.modelProbability ?? pick.probability);
+}
+
 function clientRef(value = {}, index = 0) {
   const match = cleanText(value.match, 240);
   const label = selection(value);
@@ -88,11 +108,14 @@ function forwardedRequest(request, bets) {
 
 function decisionEvidence(item, current) {
   const pick = item.pick || {};
-  const modelProbability = finiteProbability(
-    pick.modelProbability ?? pick.consensusProbability ?? pick.probability
-  );
+  const modelMode = cleanText(pick.modelMode || current.modelMode, 120) || null;
+  const modelProbability = independentModelProbability(pick, current);
   const entryMarketProbability = finiteProbability(
-    pick.marketProbability ?? pick.impliedProbability ?? pick.consensusProbability
+    pick.marketConsensusProbability ??
+    pick.consensusProbability ??
+    pick.marketProbability ??
+    pick.impliedProbability ??
+    (modelProbability === null ? pick.modelProbability : null)
   );
   return {
     auditVersion: "scorecaster-paper-decision-audit-v1",
@@ -105,7 +128,7 @@ function decisionEvidence(item, current) {
       pick.modelVersion || pick.agentVersion || current.agentVersion || current.modelMode || "unknown",
       120
     ) || "unknown",
-    modelMode: cleanText(pick.modelMode || current.modelMode, 120) || null,
+    modelMode,
     decision: cleanText(pick.productDecision || pick.decision, 30).toUpperCase() || null,
     analysisGeneratedAt: current.generatedAt,
     commenceTime: iso(pick.commenceTime ?? pick.commence_time),

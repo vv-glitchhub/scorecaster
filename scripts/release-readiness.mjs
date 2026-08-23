@@ -113,6 +113,11 @@ const autonomousV2Index = migrations.indexOf("supabase/scorecaster_autonomous_ag
 const autonomousV13HardCapsIndex = migrations.indexOf("supabase/scorecaster_autonomous_v13_hard_caps.sql");
 const autonomousRiskProfileIndex = migrations.indexOf("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
 const shadowLearningIndex = migrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
+const shadowCandidateObservationsIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_observations_v1.sql");
+const shadowCandidateBatchIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql");
+const shadowCandidateTriggerSafetyIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql");
+const shadowCandidateBatchFixIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql");
+const shadowCandidateAclIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_function_acl_v1.sql");
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
 check(unifiedDataIndex === aiIntelligenceIndex + 1, "Unified Data must run immediately after AI Intelligence");
@@ -123,7 +128,12 @@ check(autonomousV2Index === autonomousV1Index + 1, "Autonomous Agent V2 must run
 check(autonomousV13HardCapsIndex === autonomousV2Index + 1, "Autonomous V13 hard caps must run immediately after V2");
 check(autonomousRiskProfileIndex === autonomousV13HardCapsIndex + 1, "Autonomous Risk Profile V1 must run immediately after V13 hard caps");
 check(shadowLearningIndex === autonomousRiskProfileIndex + 1, "Shadow Learning must run immediately after Autonomous Risk Profile V1");
-check(shadowLearningIndex === migrations.length - 1, "Shadow Learning must be the final listed migration");
+check(shadowCandidateObservationsIndex === shadowLearningIndex + 1, "Shadow Candidate observations must run after Shadow Learning");
+check(shadowCandidateBatchIndex === shadowCandidateObservationsIndex + 1, "Shadow Candidate settlement batch must run after observations");
+check(shadowCandidateTriggerSafetyIndex === shadowCandidateBatchIndex + 1, "Shadow Candidate trigger safety must run after the initial batch RPC");
+check(shadowCandidateBatchFixIndex === shadowCandidateTriggerSafetyIndex + 1, "Shadow Candidate batch fix must run after trigger safety");
+check(shadowCandidateAclIndex === shadowCandidateBatchFixIndex + 1, "Shadow Candidate ACL hardening must run after all helper definitions");
+check(shadowCandidateAclIndex === migrations.length - 1, "Shadow Candidate ACL hardening must be the final listed migration");
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);
@@ -181,6 +191,7 @@ for (const requiredFile of [
   "scripts/verify-production-schema.sql",
   "scripts/verify-sports-analytics-schema.sql",
   "scripts/verify-autonomous-v13-hard-caps.sql",
+  "scripts/verify-shadow-candidate-schema.sql",
   ".github/workflows/production-activation.yml",
   "docs/PRODUCTION_ACTIVATION_V1.md",
   "docs/SHADOW_LEARNING_V1.md",

@@ -38,6 +38,12 @@ function latestRecord(records = [], metric = null) {
     .sort((a, b) => new Date(b.observedAt || 0) - new Date(a.observedAt || 0))[0] || null;
 }
 
+function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function eventIdentity(records = []) {
   const snapshot = latestRecord(records, "event_snapshot")?.payload || {};
   const newestPayload = latestRecord(records)?.payload || {};
@@ -46,8 +52,34 @@ function eventIdentity(records = []) {
     homeTeam: cleanText(payload.homeTeam || payload.home_team || payload.home || payload.team_home),
     awayTeam: cleanText(payload.awayTeam || payload.away_team || payload.away || payload.team_away),
     eventName: cleanText(payload.eventName || payload.event_name || payload.name || payload.title),
-    startTime: payload.startTime || payload.start_time || payload.commenceTime || payload.commence_time || null
+    startTime: payload.startTime || payload.start_time || payload.commenceTime || payload.commence_time || null,
+    selection: cleanText(payload.selection || payload.pick || payload.outcome),
+    market: cleanText(payload.market || payload.marketKey || payload.market_key, 80),
+    bookmaker: cleanText(payload.bookmaker || payload.bookmakerName || payload.bookmaker_name, 120),
+    snapshotOdds: finite(payload.bestOdds ?? payload.best_odds ?? payload.odds)
   };
+}
+
+function enrichDailyCards(controlCenter = {}, events = []) {
+  const eventMap = new Map(events.map((event) => [event.eventId, event]));
+  const dailyTop3 = (controlCenter.dailyTop3 || []).map((pick) => {
+    const event = eventMap.get(pick.eventId) || {};
+    const bestOdds = finite(pick.bestOdds) ?? finite(event.snapshotOdds);
+    return {
+      ...pick,
+      homeTeam: event.homeTeam || null,
+      awayTeam: event.awayTeam || null,
+      commenceTime: event.startTime || null,
+      sport: event.sport || null,
+      league: event.league || null,
+      market: event.market || null,
+      selection: event.selection || null,
+      bookmaker: event.bookmaker || null,
+      bestOdds,
+      actionableSelection: Boolean(event.selection && bestOdds !== null && bestOdds > 1)
+    };
+  });
+  return { ...controlCenter, dailyTop3 };
 }
 
 function groupEvents(records = []) {
@@ -160,7 +192,8 @@ export async function GET(request) {
       collectorHealth
     });
     const visibleObservations = buildVisibleObservations(events, { now: Date.now(), limit: 12 });
-    const controlCenter = withVisibleDailyTop3(strictControlCenter, visibleObservations);
+    const visibleControlCenter = withVisibleDailyTop3(strictControlCenter, visibleObservations);
+    const controlCenter = enrichDailyCards(visibleControlCenter, events);
     const intelligenceV4 = buildIntelligenceV4(events, { iterations: 10000, bankroll: 1000 });
     const selected = events.find((event) => event.eventId === selectedEventId) || events[0] || null;
     const intelligenceV3 = selected

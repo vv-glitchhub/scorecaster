@@ -59,14 +59,15 @@ test("profile is useful in local mode and no longer exposes Production Status", 
   assert.match(overview, /saveSettings/);
 });
 
-test("event cards expose reasoning and direct paper tracking", async () => {
+test("event cards expose reasoning and continue through verified paper tracking", async () => {
   const [events, explanation] = await Promise.all([
     file("app/events/EventsClient.jsx"),
     file("app/components/MarketPickExplanation.jsx")
   ]);
   assert.match(events, /MarketPickExplanation/);
-  assert.match(events, /addTrackedBet/);
-  assert.match(events, /Lisää paperiseurantaan/);
+  assert.match(events, /Tarkista ja valitse toiminto/);
+  assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
+  assert.doesNotMatch(events, /addTrackedBet/);
   assert.match(explanation, /p_market = 1 \/ odds/);
   assert.match(explanation, /edge = p_consensus/);
   assert.match(explanation, /EV = p_consensus/);

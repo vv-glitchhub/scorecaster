@@ -24,6 +24,7 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [message, setMessage] = useState("");
+  const [successHref, setSuccessHref] = useState("");
   const [error, setError] = useState("");
 
   const load = useCallback(async () => {
@@ -53,12 +54,13 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
 
   async function watch() {
     if (!selected || !detail) return;
-    setBusy("watch"); setMessage(""); setError("");
+    setBusy("watch"); setMessage(""); setSuccessHref(""); setError("");
     try {
       const response = await fetch("/api/cloud/watchlist", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: detail.eventId, selection: selected.selection, sport: detail.sportKey }) });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Watchlist save failed");
       setMessage(tr({ fi: "Kohde lisättiin varmennettuun seurantaan. Panosta ei luotu.", en: "The selection was added to the verified watchlist. No stake was created.", es: "La selección se añadió a la lista verificada. No se creó ningún importe." }));
+      setSuccessHref("/watchlist");
     } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Watchlist save failed"); } finally { setBusy(""); }
   }
 
@@ -68,12 +70,13 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
     if (verifiedOdds === null || verifiedOdds <= 1) { setError(tr({ fi: "Nykyinen varmennettu kerroin puuttuu. Paperivalintaa ei tallenneta nollalla tai arvauksella.", en: "The current verified odds are missing. The paper selection is not saved with zero or an invented price.", es: "Falta la cuota verificada actual. La selección simulada no se guarda con cero ni con una cuota inventada." })); return; }
     const paperStake = Number(String(stake).replace(",", "."));
     if (!Number.isFinite(paperStake) || paperStake <= 0 || (maximumStake !== null && paperStake > maximumStake + 0.001)) { setError(maximumStake === null ? tr({ fi: "Tarkista paperipanos ja kirjaudu sisään.", en: "Check the paper stake and sign in.", es: "Revisa el importe simulado e inicia sesión." }) : tr({ fi: `Paperipanos saa olla enintään ${money(maximumStake)}.`, en: `The paper stake may be at most ${money(maximumStake)}.`, es: `El importe simulado puede ser como máximo ${money(maximumStake)}.` })); return; }
-    setBusy("paper"); setError(""); setMessage("");
+    setBusy("paper"); setError(""); setMessage(""); setSuccessHref("");
     try {
-      const response = await fetch("/api/cloud/bets/audited", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bets: [{ id: `${detail.eventId}-${selected.selection}`, eventId: detail.eventId, match: detail.match, homeTeam: detail.homeTeam, awayTeam: detail.awayTeam, selection: selected.selection, odds: selected.odds, stake: paperStake, edge: selected.edge, ev: selected.ev, confidence: selected.confidence, league: detail.league, sport: detail.sportKey, bookmaker: selected.bookmaker, decision: selected.decision, qualityGrade: selected.qualityGrade, qualityScore: selected.trustScore, modelProbability: selected.consensusProbability, impliedProbability: selected.marketProbability, source: "scorecaster-web-event-detail-v1" }] }) });
+      const response = await fetch("/api/cloud/bets/audited", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ bets: [{ id: `${detail.eventId}-${selected.selection}`, eventId: detail.eventId, match: detail.match, homeTeam: detail.homeTeam, awayTeam: detail.awayTeam, selection: selected.selection, odds: selected.odds, stake: paperStake, edge: selected.edge, ev: selected.ev, confidence: selected.confidence, league: detail.league, sport: detail.sportKey, bookmaker: selected.bookmaker, decision: selected.decision, qualityGrade: selected.qualityGrade, qualityScore: selected.trustScore, modelProbability: null, impliedProbability: selected.consensusProbability ?? selected.marketProbability, source: "scorecaster-web-event-detail-v1" }] }) });
       const data = await response.json();
-      if (!response.ok) throw new Error(data?.error || "Paper save failed");
+      if (!response.ok || data?.ok === false) throw new Error(data?.error || data?.auditFailures?.[0]?.error || "Paper decision audit failed");
       setMessage(tr({ fi: `Tallennettu paperiseurantaan: ${selected.selection} · ${money(paperStake)}. Oikeaa vetoa ei asetettu.`, en: `Saved to paper tracking: ${selected.selection} · ${money(paperStake)}. No real bet was placed.`, es: `Guardado en seguimiento simulado: ${selected.selection} · ${money(paperStake)}. No se realizó ninguna apuesta real.` }));
+      setSuccessHref("/tracking");
     } catch (actionError) { setError(actionError instanceof Error ? actionError.message : "Paper save failed"); } finally { setBusy(""); }
   }
 
@@ -96,7 +99,7 @@ export default function EventDetailClient({ eventId, sport, initialSelection }) 
       <PageHero tone={decision === "SKIP" ? "purple" : decision === "PLAY" ? "emerald" : "sky"} eyebrow={`Event Detail V3 · ${detail.league || "Sport"}`} title={detail.match} description={tr({ fi: "Palvelin varmisti ottelun uudelleen nykyisestä live-analyysistä. Päätös, hinta ja turvarajat näkyvät ensin; syvä auditointi avautuu tarvittaessa.", en: "The server re-verified the event from current live analysis. Decision, price and safety gates come first; deep audit opens when needed.", es: "El servidor volvió a verificar el evento desde el análisis actual. La decisión, la cuota y los límites aparecen primero; la auditoría se abre cuando hace falta." })} actions={<><button type="button" onClick={() => void load()} className="sc-button-secondary">{tr({ fi: "Päivitä tiedot", en: "Refresh data", es: "Actualizar datos" })}</button><Link href="/events" className="sc-button-ghost">{tr({ fi: "Kaikki ottelut", en: "All events", es: "Todos los eventos" })}</Link></>} aside={<div><MatchIdentity homeTeam={detail.homeTeam} awayTeam={detail.awayTeam} meta={`${kickoff} · ${detail.fixtureSource || "verified"}`} /><div className="mt-5 flex items-center justify-between gap-3"><div><div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-faint)]">{selected?.selection || "–"}</div><div className="mt-1 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)]">{decimal(selected?.odds)}</div></div><DecisionBadge decision={decision} /></div></div>} />
       <TrustBar items={[{ label: tr({ fi: "Ottelu", en: "Fixture", es: "Evento" }), value: detail.fixtureVerifiedByProvider === false ? "unverified" : "verified", tone: detail.fixtureVerifiedByProvider === false ? "warning" : "good" }, { label: tr({ fi: "Lähde", en: "Source", es: "Fuente" }), value: detail.fixtureSource || "live analysis", tone: "info" }, { label: tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" }), value: intelligenceState === "missing" ? "unavailable" : intelligence.readiness?.level || "market-only", tone: intelligence.readiness?.level === "verified" ? "good" : "warning" }, { label: tr({ fi: "Toimintatila", en: "Action mode", es: "Modo" }), value: tr({ fi: "vain seuranta ja paperi", en: "watchlist and paper only", es: "solo seguimiento y simulación" }), tone: "warning" }]} />
       {error && <div className="rounded-[1.2rem] border border-rose-400/25 bg-rose-400/10 p-4 text-rose-200">{error} {/sign|auth|session/i.test(error) && <Link href="/login" className="ml-2 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link>}</div>}
-      {message && <div className="rounded-[1.2rem] border border-emerald-400/25 bg-emerald-400/10 p-4 text-emerald-200">{message}</div>}
+      {message && <div className="rounded-[1.2rem] border border-emerald-400/25 bg-emerald-400/10 p-4 text-emerald-200">{message}{successHref ? <Link href={successHref} className="ml-2 font-black underline">{successHref === "/tracking" ? tr({ fi: "Avaa omat vedot", en: "Open my picks", es: "Abrir mis pronósticos" }) : tr({ fi: "Avaa seurantalista", en: "Open watchlist", es: "Abrir seguimiento" })}</Link> : null}</div>}
 
       <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="space-y-6">

@@ -35,7 +35,7 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 23);
+  assert.equal(manifest.supabaseMigrations.length, 28);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -53,20 +53,25 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_agent_decision_signing_vault.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
-  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_settlement_monitor.sql");
-  assert.equal(manifest.supabaseMigrations.at(-5), "supabase/scorecaster_autonomous_agent.sql");
-  assert.equal(manifest.supabaseMigrations.at(-4), "supabase/scorecaster_autonomous_agent_v2.sql");
-  assert.equal(manifest.supabaseMigrations.at(-3), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
-  assert.equal(manifest.supabaseMigrations.at(-2), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
-  assert.equal(manifest.supabaseMigrations.at(-1), "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.equal(manifest.supabaseMigrations.at(-8), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-7), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
+  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.deepEqual(manifest.supabaseMigrations.slice(-5), [
+    "supabase/scorecaster_shadow_candidate_observations_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
+    "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
+    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql"
+  ]);
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /manifest\.productionPatches/);
-  assert.match(runner, /migrations\.length === 23/);
+  assert.match(runner, /migrations\.length === 28/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
   assert.match(runner, /verify-sports-analytics-schema\.sql/);
   assert.match(runner, /verify-autonomous-v13-hard-caps\.sql/);
+  assert.match(runner, /verify-shadow-candidate-schema\.sql/);
   assert.match(runner, /sportsAnalyticsVerified/);
   assert.match(runner, /verify-market-microstructure-v2\.sql/);
   assert.match(runner, /verify-calibration-lab-v1\.sql/);
@@ -100,6 +105,7 @@ test("schema verifiers check RLS, Collector, Sports Analytics, V13 hard caps, Sh
   assert.match(sql, /shadow_learning_samples/);
   assert.match(sql, /shadow_learning_state/);
   assert.match(sql, /shadow_learning_cycles/);
+  assert.match(await source("scripts/verify-shadow-candidate-schema.sql"), /shadow_candidate_settlement_runs_v1/);
   assert.match(sql, /claim_watchlist_monitor_users/);
   assert.match(sql, /claim_paper_settlement_monitor_users/);
   assert.match(sql, /claim_autonomous_agent_users/);
@@ -162,6 +168,7 @@ test("protected worker probes are bounded and activation reports exclude credent
     "/api/internal/settlement-monitor",
     "/api/internal/autonomous-agent",
     "/api/internal/shadow-learning",
+    "/api/internal/shadow-candidate-settlement",
     "/api/internal/notification-delivery",
     "/api/internal/decision-diagnostics",
     "/api/internal/unified-data",
@@ -169,11 +176,12 @@ test("protected worker probes are bounded and activation reports exclude credent
   ]) assert.match(runner, new RegExp(route.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(collectorRunner, /\/api\/internal\/collector/);
   assert.match(collectorRunner, /\/api\/collector\/health/);
-  assert.match(runner, /AbortSignal\.timeout\(60_000\)/);
+  assert.match(runner, /130_000 : 60_000/);
   assert.match(collectorRunner, /AbortSignal\.timeout\(90_000\)/);
   assert.match(runner, /autonomousV13HardCapsVerified/);
   assert.match(runner, /sportsAnalyticsVerified/);
   assert.match(runner, /shadowLearningVerified/);
+  assert.match(runner, /shadowCandidateSettlementVerified/);
   assert.match(runner, /unexpectedly contains the database connection string/);
   assert.match(runner, /unexpectedly contains the worker secret/);
   assert.doesNotMatch(runner, /console\.log\([^\n]*(databaseUrl|cronSecret)/);

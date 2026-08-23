@@ -30,7 +30,7 @@ function allAppliedStatus() {
 test("canonical registry reports passed only after explicit production evidence is recorded", () => {
   const result = buildMigrationReleaseStatus({ manifest, statusDocument: canonicalStatus });
 
-  assert.equal(canonicalMigrationCount, 23);
+  assert.equal(canonicalMigrationCount, 28);
   assert.equal(result.configuredMigrationCount, canonicalMigrationCount);
   assert.equal(result.recordedMigrationCount, canonicalMigrationCount);
   assert.equal(result.verifiedAppliedCount, canonicalMigrationCount);

@@ -192,7 +192,9 @@ test("Daily Flow V3 connects events, verified watchlist and alert inbox with sha
   assert.match(events, /DecisionBadge/);
   assert.match(events, /verified live events|verified events only/);
   assert.match(events, /MarketPickExplanation/);
-  assert.match(events, /addTrackedBet/);
+  assert.match(events, /server-verified watchlist and paper-save flow/);
+  assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
+  assert.doesNotMatch(events, /addTrackedBet/);
   assert.match(watchlist, /Watchlist Monitor V1/);
   assert.match(watchlist, /\/api\/cloud\/watchlist-monitor/);
   assert.match(watchlist, /Muokkaa hälytysrajoja/);

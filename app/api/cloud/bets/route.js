@@ -34,10 +34,14 @@ function safeRawPick(bet) {
       min: 0,
       max: 1
     }),
-    impliedProbability: boundedNumber(bet?.impliedProbability ?? bet?.implied_probability, {
-      min: 0,
-      max: 1
-    }),
+    impliedProbability: boundedNumber(
+      bet?.impliedProbability ?? bet?.implied_probability ?? bet?.marketProbability ?? bet?.market_probability,
+      {
+        min: 0,
+        max: 1
+      }
+    ),
+    modelMode: cleanText(bet?.modelMode ?? bet?.model_mode, 120),
     decision: cleanText(bet?.decision, 20),
     qualityGrade: cleanText(bet?.qualityGrade, 8),
     qualityScore: boundedNumber(bet?.qualityScore, { min: 0, max: 100 })

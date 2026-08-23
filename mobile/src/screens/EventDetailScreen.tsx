@@ -200,8 +200,8 @@ export default function EventDetailScreen({ pick, onBack }: Props) {
         decision: selected.decision,
         qualityGrade: selected.qualityGrade,
         qualityScore: selected.trustScore,
-        modelProbability: selected.consensusProbability,
-        impliedProbability: selected.marketProbability,
+        modelProbability: null,
+        impliedProbability: selected.consensusProbability ?? selected.marketProbability,
         source: "scorecaster-mobile-event-detail-v1"
       }] } });
       Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: `${selected.selection} · ${money(paperStake)}. Oikeaa vetoa ei asetettu.`, en: `${selected.selection} · ${money(paperStake)}. No real bet was placed.`, es: `${selected.selection} · ${money(paperStake)}. No se realizó ninguna apuesta real.` }));

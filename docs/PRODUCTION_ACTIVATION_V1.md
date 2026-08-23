@@ -77,6 +77,7 @@ The verifier checks:
 - authenticated users can request their own Autonomous Agent run
 - authenticated users cannot directly delete the Autonomous Agent settings row
 - database paper-risk and Autonomous Agent scheduling triggers exist
+- Shadow Candidate settlement tables, columns and triggers exist with service-role-only helper ACLs
 
 ## Action 2: migrate
 
@@ -87,7 +88,7 @@ Run with:
 - action: `migrate`
 - confirmation: `APPLY SCORECASTER PRODUCTION MIGRATIONS`
 
-The current rollout contains 12 idempotent migrations from the base schema through Autonomous Paper Agent V1. The JSON evidence report includes only file paths and SHA-256 digests, never the database connection string.
+The current rollout contains 28 idempotent migrations from the base schema through Shadow Candidate function-ACL hardening. The JSON evidence report includes only file paths and SHA-256 digests, never the database connection string.
 
 If a migration fails, the job stops immediately. Correct the reviewed SQL or production prerequisite and run the same action again; the migrations are designed to be safely repeatable.
 
@@ -107,6 +108,7 @@ The probe checks:
 - Watchlist Monitor
 - Settlement Monitor
 - Autonomous Paper Agent
+- Shadow Candidate Settlement
 - Notification Delivery
 
 A disabled or incompletely configured worker returns a non-success response and fails the probe. No recurring worker variable is enabled automatically.

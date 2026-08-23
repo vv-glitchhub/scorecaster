@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "environment": "production",
-  "updatedAt": "2026-08-19T03:37:04Z",
-  "updatedBy": "ChatGPT production migration and catalog verification via Supabase connector",
-  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The canonical dependency order keeps Autonomous V13 hard caps immediately after V2, then applies Autonomous Risk Profile V1, with Shadow Learning final. The risk-profile migration was historically applied later in production on 2026-08-19 and that actual registry timestamp is preserved in its evidence.",
+  "updatedAt": "2026-08-22T13:33:41Z",
+  "updatedBy": "Codex production migration registry and catalog verification via Supabase connector",
+  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The canonical dependency order keeps Autonomous V13 hard caps immediately after V2, then applies Autonomous Risk Profile V1 and Shadow Learning before the five Shadow Candidate migrations. Registry timestamps are preserved. The final forward-only ACL migration closes direct anon and authenticated execution of all shadow-candidate helper functions.",
   "migrations": [
     {
       "path": "supabase/scorecaster_schema.sql",
@@ -188,6 +188,46 @@
       "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
       "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-shadow-learning-v1",
       "notes": "3 Shadow Learning tables, 5 indexes, 6 functions, 3 triggers, FORCE RLS, policies, service worker boundary and safety constraint verified."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_observations_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-21T04:20:46Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#observations-v1",
+      "notes": "Registry version 20260821042046. Audit columns, settlement run table, indexes, constraints, defaults trigger and wake trigger verified without reading application rows."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-21T04:21:37Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#settlement-batch-v1",
+      "notes": "Registry version 20260821042137. Bounded service-role settlement RPC verified present."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-21T04:25:10Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#trigger-safety-v1",
+      "notes": "Registry version 20260821042510. INSERT-safe wake trigger function and trigger verified present."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-21T04:34:02Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#settlement-batch-fix",
+      "notes": "Registry version 20260821043402. Corrected output-safe settlement RPC verified present and restricted to service_role."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-22T13:33:41Z",
+      "verifiedBy": "Codex production migration and ACL verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#function-acl-v1",
+      "notes": "Registry version 20260822133341. All three helper functions now deny EXECUTE to anon and authenticated while retaining service_role execution. No application rows were changed."
     }
   ]
 }
