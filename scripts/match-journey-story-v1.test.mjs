@@ -96,3 +96,18 @@ test("Match Story is embedded in local paper tracking without a provider request
   assert.match(eventPage, /Match Journey V1/);
   assert.match(eventPage, /Open Match Journey/);
 });
+
+test("the selected market survives Event Detail, Match Journey and Match Story navigation", async () => {
+  const [eventPage, journeyPage, journeyClient, story] = await Promise.all([
+    read("app/event/[eventId]/page.jsx"),
+    read("app/match-intelligence/page.jsx"),
+    read("app/match-intelligence/MatchIntelligenceClient.jsx"),
+    read("app/tracking/MatchStoryCard.jsx")
+  ]);
+
+  assert.match(eventPage, /selection=\$\{encodeURIComponent\(selection\)\}/);
+  assert.match(journeyPage, /selection=\$\{encodeURIComponent\(selection\)\}/);
+  assert.match(journeyPage, /selection=\{selection\}/);
+  assert.match(journeyClient, /query\.set\("selection", selection\)/);
+  assert.match(story, /encodeURIComponent\(bet\.selection\)/);
+});

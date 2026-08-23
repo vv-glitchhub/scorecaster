@@ -94,7 +94,7 @@ function ModelRoom({ models, tr }) {
   );
 }
 
-export default function MatchIntelligenceClient({ eventId, sport }) {
+export default function MatchIntelligenceClient({ eventId, sport, selection = "" }) {
   const { tr, locale } = useLanguage();
   const { proMode, toggleProMode } = useProfessionalPreferences();
   const [state, setState] = useState({ loading: true, error: "", detail: null });
@@ -104,6 +104,7 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
     async function load() {
       try {
         const query = new URLSearchParams({ eventId, sport });
+        if (selection) query.set("selection", selection);
         const response = await fetch(`/api/event-detail?${query}`, { cache: "no-store" });
         const payload = await response.json();
         if (!response.ok) throw new Error(payload?.error || "Analysis unavailable");
@@ -114,7 +115,7 @@ export default function MatchIntelligenceClient({ eventId, sport }) {
     }
     void load();
     return () => { cancelled = true; };
-  }, [eventId, sport]);
+  }, [eventId, selection, sport]);
 
   if (state.loading) return <section className="sc-surface overflow-hidden rounded-[1.65rem] p-6" data-match-journey-loading="true"><div className="mx-auto grid max-w-2xl place-items-center py-8 text-center"><div className="grid h-16 w-16 rotate-45 place-items-center rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] shadow-[var(--sc-brand-shadow)]"><div className="h-5 w-5 rounded-md bg-[var(--sc-brand)]" /></div><div className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Match Journey V1</div><h1 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Kartoitetaan varmennettua evidenssiä…", en: "Mapping verified evidence…", es: "Mapeando evidencia verificada…" })}</h1><div className="mt-6 grid w-full grid-cols-4 gap-2 text-[10px] font-black uppercase tracking-[0.08em] text-[var(--sc-muted)]"><span>{tr({ fi: "Tilanne", en: "Context", es: "Contexto" })}</span><span>{tr({ fi: "Evidenssi", en: "Evidence", es: "Evidencia" })}</span><span>{tr({ fi: "Päätös", en: "Decision", es: "Decisión" })}</span><span>Story</span></div><div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-[var(--sc-border)]"><div className="h-full w-3/4 rounded-full bg-[var(--sc-brand)] motion-safe:animate-pulse" /></div></div></section>;
   if (!state.detail) return <section className="sc-surface rounded-[1.65rem] p-6"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Match Journey ei ole saatavilla", en: "Match Journey unavailable", es: "Match Journey no disponible" })}</div><div className="mt-2 text-sm text-[var(--sc-muted)]">{state.error}</div><Link href="/events" className="sc-button-secondary mt-4 inline-flex">{tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}</Link></section>;

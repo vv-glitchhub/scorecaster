@@ -86,7 +86,7 @@ export default function MatchStoryCard({ bet, tr, locale }) {
   const story = buildMatchStoryV1(bet);
   const money = (value) => value === null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(value);
   const journeyHref = bet?.eventId && bet?.sportKey
-    ? `/match-intelligence?eventId=${encodeURIComponent(bet.eventId)}&sport=${encodeURIComponent(bet.sportKey)}`
+    ? `/match-intelligence?eventId=${encodeURIComponent(bet.eventId)}&sport=${encodeURIComponent(bet.sportKey)}${bet?.selection ? `&selection=${encodeURIComponent(bet.selection)}` : ""}`
     : "";
 
   return (

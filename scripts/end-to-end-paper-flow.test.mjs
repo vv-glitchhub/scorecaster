@@ -72,6 +72,8 @@ test("audited and legacy paper saves never relabel market consensus as an indepe
   assert.match(detail, /setSuccessHref\("\/tracking"\)/);
   assert.match(mobileDetail, /modelProbability: null/);
   assert.match(mobilePicks, /modelProbability: null/);
+  assert.match(mobilePicks, /\/api\/cloud\/bets\/audited/);
+  assert.match(mobilePicks, /scorecaster-mobile-picks-v4/);
   assert.match(betting, /modelProbability: null,[\s\S]*marketProbability: selection\.consensusProbability \?\? selection\.marketProbability/);
   assert.match(universe, /modelProbability: null,[\s\S]*marketProbability: selection\.consensusProbability \?\? selection\.marketProbability/);
   assert.match(agent, /modelProbability: pick\.independentModelProbability \?\? null/);

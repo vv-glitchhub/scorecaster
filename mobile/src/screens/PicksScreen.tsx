@@ -5,24 +5,37 @@ import { apiRequest } from "../lib/api";
 import type { Bankroll, Pick } from "../types";
 import { ActionButton, Card, Field, percent, styles } from "../ui";
 
-const FILTERS = [
-  { key: "all", sports: null },
-  { key: "nhl", sports: "icehockey_nhl" },
-  { key: "nba", sports: "basketball_nba" },
-  { key: "epl", sports: "soccer_epl" },
-  { key: "laliga", sports: "soccer_spain_la_liga" },
-  { key: "liiga", sports: "icehockey_finland_liiga" },
-  { key: "shl", sports: "icehockey_sweden_hockey_league" }
-] as const;
+const LEAGUE_TITLES: Record<string, string> = {
+  icehockey_nhl: "NHL",
+  icehockey_finland_liiga: "Liiga",
+  icehockey_sweden_hockey_league: "SHL",
+  basketball_nba: "NBA",
+  basketball_wnba: "WNBA",
+  baseball_mlb: "MLB",
+  soccer_epl: "Premier League",
+  soccer_spain_la_liga: "La Liga",
+  soccer_usa_mls: "MLS",
+  soccer_finland_veikkausliiga: "Veikkausliiga",
+  soccer_sweden_allsvenskan: "Allsvenskan",
+  soccer_norway_eliteserien: "Eliteserien"
+};
+const CORE_SEASON_LEAGUES = ["icehockey_nhl", "icehockey_finland_liiga", "icehockey_sweden_hockey_league", "basketball_nba", "soccer_epl", "soccer_spain_la_liga"];
+const SUMMER_LEAGUES = ["baseball_mlb", "basketball_wnba", "soccer_usa_mls", "soccer_finland_veikkausliiga", "soccer_sweden_allsvenskan", "soccer_norway_eliteserien"];
 
-type Filter = (typeof FILTERS)[number];
-type DecisionFilter = "all" | "PLAY" | "CAUTION";
+type Filter = { key: string; sports: string | null };
+type DecisionFilter = "all" | "PLAY" | "CAUTION" | "SKIP";
 type SortMode = "rank" | "edge" | "confidence" | "time";
 type Props = { onOpenEvent?: (pick: Pick) => void };
+const ALL_FILTER: Filter = { key: "all", sports: null };
 
 function pickKey(pick: Pick, index: number) { return String(pick.id || pick.eventId || pick.gameId || `${pick.match || "pick"}-${pick.selection || pick.label || index}`); }
 function eventId(pick: Pick) { return String(pick.gameId || pick.eventId || pick.id || ""); }
 function watchKey(pick: Pick) { return `${eventId(pick)}::${String(pick.selection || pick.label || "").toLowerCase()}`; }
+function seasonFilters(leagues?: string[]) {
+  const month = new Date().getUTCMonth();
+  const keys = leagues?.length ? leagues : month >= 4 && month <= 7 ? SUMMER_LEAGUES : CORE_SEASON_LEAGUES;
+  return [ALL_FILTER, ...keys.map((sports) => ({ key: sports, sports }))];
+}
 function parsePaperStake(value: string) { const number = Number(value.replace(",", ".")); return Number.isFinite(number) ? number : null; }
 function clamp(value: number, min: number, max: number) { return Math.max(min, Math.min(max, value)); }
 function initials(name?: string) {
@@ -58,7 +71,9 @@ function TinyMetric({ label, value, accent = false }: { label: string; value: st
 
 export default function PicksScreen({ onOpenEvent }: Props) {
   const { tr, locale } = useLanguage();
-  const [filter, setFilter] = useState<Filter>(FILTERS[0]);
+  const [filters, setFilters] = useState<Filter[]>(() => seasonFilters());
+  const [filter, setFilter] = useState<Filter>(ALL_FILTER);
+  const [search, setSearch] = useState("");
   const [decisionFilter, setDecisionFilter] = useState<DecisionFilter>("all");
   const [sortMode, setSortMode] = useState<SortMode>("rank");
   const [picks, setPicks] = useState<Pick[]>([]);
@@ -72,7 +87,7 @@ export default function PicksScreen({ onOpenEvent }: Props) {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [watchingId, setWatchingId] = useState<string | null>(null);
   const money = (value: unknown) => new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(Number(value || 0));
-  const filterLabel = (item: Filter) => item.key === "all" ? tr({ fi: "Kaikki", en: "All", es: "Todos" }) : item.key === "laliga" ? "La Liga" : item.key.toUpperCase();
+  const filterLabel = (item: Filter) => item.key === "all" ? tr({ fi: "Kauden sarjat", en: "Season leagues", es: "Ligas actuales" }) : LEAGUE_TITLES[item.key] || item.key;
   const formatKickoff = (value?: string) => {
     if (!value) return tr({ fi: "Alkamisaika ei tiedossa", en: "Kickoff unknown", es: "Hora de inicio desconocida" });
     const date = new Date(value);
@@ -88,21 +103,30 @@ export default function PicksScreen({ onOpenEvent }: Props) {
 
   const maximumStake = useMemo(() => bankroll ? Number(Math.max(0, bankroll.bankroll * bankroll.max_stake_percent / 100).toFixed(2)) : 10, [bankroll]);
   const visiblePicks = useMemo(() => {
-    const filtered = picks.filter((pick) => decisionFilter === "all" || (pick.productDecision || pick.decision || "CAUTION") === decisionFilter);
+    const normalizedSearch = search.trim().toLocaleLowerCase();
+    const filtered = picks.filter((pick) => {
+      if (decisionFilter !== "all" && (pick.productDecision || pick.decision || "CAUTION") !== decisionFilter) return false;
+      if (!normalizedSearch) return true;
+      return [pick.match, pick.homeTeam, pick.awayTeam, pick.selection, pick.label, pick.league, pick.leagueTitle]
+        .filter(Boolean)
+        .join(" ")
+        .toLocaleLowerCase()
+        .includes(normalizedSearch);
+    });
     return filtered.slice().sort((a, b) => {
       if (sortMode === "edge") return Number(b.edge || 0) - Number(a.edge || 0);
       if (sortMode === "confidence") return Number(b.confidence || 0) - Number(a.confidence || 0);
       if (sortMode === "time") return (a.commenceTime ? Date.parse(a.commenceTime) : Number.MAX_SAFE_INTEGER) - (b.commenceTime ? Date.parse(b.commenceTime) : Number.MAX_SAFE_INTEGER);
       return rankValue(b) - rankValue(a);
     });
-  }, [decisionFilter, picks, sortMode]);
+  }, [decisionFilter, picks, search, sortMode]);
 
   async function load(selected = filter) {
     setLoading(true);
     try {
       const query = selected.sports ? `?sports=${encodeURIComponent(selected.sports)}` : "";
       const [pickResponse, bankrollResponse] = await Promise.all([
-        apiRequest<{ data?: Pick[]; featured?: Pick[]; generatedAt?: string }>(`/api/top-picks${query}`, { authenticated: false, timeoutMs: 30000 }),
+        apiRequest<{ data?: Pick[]; featured?: Pick[]; generatedAt?: string; leagues?: string[] }>(`/api/top-picks${query}`, { authenticated: false, timeoutMs: 30000 }),
         apiRequest<{ data: Bankroll }>("/api/cloud/bankroll")
       ]);
       const nextPicks = (pickResponse.data || []).slice(0, 20);
@@ -112,6 +136,7 @@ export default function PicksScreen({ onOpenEvent }: Props) {
       setFeaturedKeys(nextFeatured);
       setBankroll(bankrollResponse.data);
       setGeneratedAt(pickResponse.generatedAt || new Date().toISOString());
+      if (!selected.sports && pickResponse.leagues?.length) setFilters(seasonFilters(pickResponse.leagues));
       setStakes((current) => {
         const next = { ...current };
         nextPicks.forEach((pick, index) => { const id = pickKey(pick, index); if (next[id] === undefined) next[id] = initialStake(pick, nextMaximum).toFixed(2); });
@@ -163,7 +188,7 @@ export default function PicksScreen({ onOpenEvent }: Props) {
     if (stake === null || stake <= 0 || stake > maximum + 0.001) { Alert.alert(tr({ fi: "Tarkista paperipanos", en: "Check the paper stake", es: "Revisa el importe simulado" }), tr({ fi: `Anna panos väliltä 0,01–${money(maximum)}.`, en: `Enter a stake between 0.01 and ${money(maximum)}.`, es: `Introduce un importe entre 0,01 y ${money(maximum)}.` })); return; }
     setSavingId(id);
     try {
-      await apiRequest("/api/cloud/bets", { method: "POST", body: { bets: [{ id, eventId: pick.gameId || pick.eventId, match, homeTeam: pick.homeTeam, awayTeam: pick.awayTeam, selection, odds, stake, edge: pick.edge, ev: pick.ev, confidence: pick.confidence, league: pick.league || pick.leagueTitle, sport: pick.sportKey, bookmaker: pick.bookmaker, decision: pick.productDecision || pick.decision, qualityGrade: pick.qualityGrade, qualityScore: pick.trustScore, modelProbability: null, impliedProbability: pick.consensusProbability ?? pick.marketProbability, source: "scorecaster-mobile-consensus" }] } });
+      await apiRequest("/api/cloud/bets/audited", { method: "POST", body: { bets: [{ id, eventId: pick.gameId || pick.eventId, match, homeTeam: pick.homeTeam, awayTeam: pick.awayTeam, selection, odds, stake, edge: pick.edge, ev: pick.ev, confidence: pick.confidence, league: pick.league || pick.leagueTitle, sport: pick.sportKey, bookmaker: pick.bookmaker, decision: pick.productDecision || pick.decision, qualityGrade: pick.qualityGrade, qualityScore: pick.trustScore, modelProbability: null, impliedProbability: pick.consensusProbability ?? pick.marketProbability, source: "scorecaster-mobile-picks-v4" }] } });
       Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: `${selection} · ${money(stake)}. Oikeaa vetoa ei asetettu.`, en: `${selection} · ${money(stake)}. No real bet was placed.`, es: `${selection} · ${money(stake)}. No se realizó ninguna apuesta real.` }));
       setExpandedId(null);
     } catch (error) {
@@ -171,25 +196,26 @@ export default function PicksScreen({ onOpenEvent }: Props) {
     } finally { setSavingId(null); }
   }
 
-  const decisionItems: { key: DecisionFilter; label: string }[] = [{ key: "all", label: tr({ fi: "Kaikki päätökset", en: "All decisions", es: "Todas las decisiones" }) }, { key: "PLAY", label: "PLAY" }, { key: "CAUTION", label: "CAUTION" }];
+  const decisionItems: { key: DecisionFilter; label: string }[] = [{ key: "all", label: tr({ fi: "Kaikki päätökset", en: "All decisions", es: "Todas las decisiones" }) }, { key: "PLAY", label: "PLAY" }, { key: "CAUTION", label: "CAUTION" }, { key: "SKIP", label: "SKIP" }];
   const sortItems: { key: SortMode; label: string }[] = [{ key: "rank", label: tr({ fi: "Paras ensin", en: "Best first", es: "Mejores primero" }) }, { key: "edge", label: "Edge" }, { key: "confidence", label: tr({ fi: "Luottamus", en: "Confidence", es: "Confianza" }) }, { key: "time", label: tr({ fi: "Alkamisaika", en: "Kickoff", es: "Inicio" }) }];
 
   return (
     <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <View style={styles.mobileHero}>
-        <Text style={styles.kicker}>PICKS V3 · DECISION FIRST</Text>
-        <Text style={styles.title}>{tr({ fi: "Lähiajan kohteet", en: "Near-term picks", es: "Pronósticos próximos" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päätös, hinta ja tärkeimmät mittarit näkyvät ensin. Paperitoiminnot avautuvat vasta tarvittaessa.", en: "Decision, price and the key metrics come first. Paper actions open only when needed.", es: "La decisión, la cuota y las métricas principales aparecen primero. Las acciones simuladas se abren cuando hacen falta." })}</Text>
+        <Text style={styles.kicker}>GAME CENTER V1 · PICKS V4</Text>
+        <Text style={styles.title}>{tr({ fi: "Lähiajan varmennetut pelit", en: "Verified near-term games", es: "Partidos próximos verificados" })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Kauden sarjat vaihtuvat automaattisesti. Hae joukkuetta, rajaa päätös ja avaa kaikki tiedot; jokainen paperitallennus varmennetaan vielä palvelimella.", en: "Season leagues update automatically. Search a team, filter the decision and open full detail; every paper save is re-verified by the server.", es: "Las ligas cambian automáticamente. Busca un equipo y abre el detalle; cada guardado se verifica de nuevo en el servidor." })}</Text>
         <ActionButton label={tr({ fi: "Päivitä kohteet", en: "Refresh picks", es: "Actualizar pronósticos" })} onPress={() => load()} tone="secondary" compact disabled={loading} />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{FILTERS.map((item) => { const active = item.key === filter.key; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setFilter(item)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{filterLabel(item)}</Text></Pressable>; })}</ScrollView>
+      <Card><Field label={tr({ fi: "Hae peliä, joukkuetta tai valintaa", en: "Search game, team or selection", es: "Buscar partido, equipo o selección" })} value={search} onChangeText={setSearch} placeholder={tr({ fi: "esim. Ilves tai Aces", en: "e.g. Ilves or Aces", es: "p. ej. Ilves o Aces" })} autoCapitalize="words" /><Text style={styles.muted}>{visiblePicks.length}/{picks.length} {tr({ fi: "kohdetta näkyvissä", en: "picks visible", es: "pronósticos visibles" })}</Text></Card>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{filters.map((item) => { const active = item.key === filter.key; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setFilter(item)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{filterLabel(item)}</Text></Pressable>; })}</ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{decisionItems.map((item) => { const active = item.key === decisionFilter; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setDecisionFilter(item.key)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text></Pressable>; })}</ScrollView>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterRow}>{sortItems.map((item) => { const active = item.key === sortMode; return <Pressable accessibilityRole="button" accessibilityState={{ selected: active }} key={item.key} onPress={() => setSortMode(item.key)} style={[styles.filterChip, active && styles.filterChipActive]}><Text style={[styles.filterText, active && styles.filterTextActive]}>{item.label}</Text></Pressable>; })}</ScrollView>
 
       <Card><Text style={styles.cardTitle}>{tr({ fi: "Omat paperirajat", en: "Your paper limits", es: "Tus límites simulados" })}</Text><Text style={styles.value}>{tr({ fi: "Enimmäispanos", en: "Maximum stake", es: "Importe máximo" })} {money(maximumStake)}</Text><Text style={styles.muted}>{tr({ fi: "Minimiedge", en: "Minimum edge", es: "Ventaja mínima" })} {percent(bankroll?.min_edge ?? 0.025)} · confidence {percent(bankroll?.min_confidence ?? 0.58)}</Text><Text style={styles.muted}>{visiblePicks.length}/{picks.length} {tr({ fi: "kohdetta", en: "picks", es: "pronósticos" })}{generatedAt ? ` · ${new Date(generatedAt).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}` : ""}</Text></Card>
       {loading && <ActivityIndicator color="#bef264" size="large" />}
-      {!loading && visiblePicks.length === 0 && <Card><Text style={styles.cardTitle}>{tr({ fi: "Ei sopivia kohteita", en: "No matching picks", es: "No hay pronósticos" })}</Text><Text style={styles.muted}>{tr({ fi: "Tällä suodattimella ei löytynyt riittävän laadukasta aineistoa.", en: "No sufficiently high-quality data matched this filter.", es: "No se encontraron datos de calidad suficiente con este filtro." })}</Text></Card>}
+      {!loading && visiblePicks.length === 0 && <Card><Text style={styles.cardTitle}>{tr({ fi: "Ei sopivia kohteita", en: "No matching picks", es: "No hay pronósticos" })}</Text><Text style={styles.muted}>{tr({ fi: "Poista haku tai vaihda sarjaa ja päätösrajausta. Tyhjää näkymää ei täytetä esimerkkidatalla.", en: "Clear the search or change the league and decision filter. Empty views are never filled with example data.", es: "Limpia la búsqueda o cambia la liga y la decisión. La vista no se rellena con datos de ejemplo." })}</Text></Card>}
 
       {visiblePicks.map((pick, index) => {
         const id = pickKey(pick, index);

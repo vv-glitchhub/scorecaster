@@ -78,6 +78,8 @@ test("event detail contains only the requested verified event and keeps shadow o
   assert.equal(detail.formRestShadow.probabilityAppliedToProduction, false);
   assert.equal(detail.formRestShadow.usedForDecision, false);
   assert.equal(detail.sportsIntelligence.probabilityAdjusted, false);
+  assert.equal(detail.selections[0].dataGate.bookmakerCount, null);
+  assert.equal(detail.selections[0].dataAgeHours, null);
 });
 
 test("event detail rejects missing or unknown event IDs", () => {
@@ -111,10 +113,13 @@ test("public Event Detail API validates query and resolves only through Top Pick
 test("web Event Detail uses verified actions without bookmaker redirects", async () => {
   const client = await readFile(new URL("../app/event/[eventId]/EventDetailClient.jsx", import.meta.url), "utf8");
   const directory = await readFile(new URL("../app/events/EventsClient.jsx", import.meta.url), "utf8");
+  const gate = await readFile(new URL("../app/event/[eventId]/DecisionGateChecklist.jsx", import.meta.url), "utf8");
   assert.match(client, /\/api\/event-detail/);
   assert.match(client, /\/api\/cloud\/watchlist/);
   assert.match(client, /\/api\/cloud\/bets\/audited/);
   assert.match(client, /scorecaster-web-event-detail-v1/);
+  assert.match(client, /DecisionGateChecklist/);
+  assert.match(gate, /data-decision-gate-checklist/);
   assert.match(client, /No deposit, payment, bookmaker link or real-money bet/);
   assert.doesNotMatch(client, /window\.location.*book/i);
   assert.match(directory, /\/event\//);
@@ -132,6 +137,8 @@ test("native app opens Event Detail as a transient screen and returns to Picks",
   assert.match(picks, /onOpenEvent\?\.\(pick\)/);
   assert.match(detail, /\/api\/event-detail/);
   assert.match(detail, /scorecaster-mobile-event-detail-v1/);
+  assert.match(detail, /\/api\/cloud\/bets\/audited/);
+  assert.match(detail, /PÄÄTÖSPORTIT/);
   assert.match(detail, /\/api\/cloud\/watchlist/);
   assert.match(detail, /No payment, bookmaker link or real-money bet/);
 });

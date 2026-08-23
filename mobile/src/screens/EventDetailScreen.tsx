@@ -20,6 +20,9 @@ type DetailSelection = {
   decision: "PLAY" | "CAUTION" | "SKIP";
   decisionReason?: string;
   qualityGrade?: string | null;
+  bookmakerCount?: number | null;
+  freshness?: string;
+  dataGate?: { bookmakerCount?: number | null; confidence?: number | null; stale?: boolean | null; playable?: boolean | null; watchable?: boolean | null };
   priceGuard?: { minimumPlayOdds?: number | null; buffer?: number | null };
 };
 
@@ -32,6 +35,7 @@ type EventDetail = {
   awayTeam?: string;
   commenceTime?: string | null;
   fixtureSource?: string;
+  fixtureVerifiedByProvider?: boolean;
   selectedSelection?: string;
   selections: DetailSelection[];
   sportsIntelligence?: {
@@ -133,6 +137,7 @@ export default function EventDetailScreen({ pick, onBack }: Props) {
 
   const selected = useMemo(() => detail?.selections.find((item) => item.selection === selectedName) || detail?.selections[0] || null, [detail, selectedName]);
   const maximumStake = bankroll ? bankroll.bankroll * bankroll.max_stake_percent / 100 : 0;
+  const selectedSourceCount = selected?.dataGate?.bookmakerCount ?? selected?.bookmakerCount ?? null;
 
   async function chooseSelection(name: string) {
     setSelectedName(name);
@@ -182,7 +187,7 @@ export default function EventDetailScreen({ pick, onBack }: Props) {
     }
     setBusy("paper");
     try {
-      await apiRequest("/api/cloud/bets", { method: "POST", body: { bets: [{
+      await apiRequest("/api/cloud/bets/audited", { method: "POST", body: { bets: [{
         id: `${detail.eventId}-${selected.selection}`,
         eventId: detail.eventId,
         match: detail.match,
@@ -246,6 +251,14 @@ export default function EventDetailScreen({ pick, onBack }: Props) {
           <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}><TinyMetric label={tr({ fi: "Reilu", en: "Fair", es: "Justa" })} value={optional(selected.fairOdds)} /><TinyMetric label="PLAY" value={optional(selected.priceGuard?.minimumPlayOdds)} accent /><TinyMetric label={tr({ fi: "Puskuri", en: "Buffer", es: "Margen" })} value={optional(selected.priceGuard?.buffer)} /></View>
           <Text style={styles.muted}>{tr({ fi: "Konsensus", en: "Consensus", es: "Consenso" })} {percent(selected.consensusProbability)} · edge {percent(selected.edge)} · EV {percent(selected.ev)} · confidence {percent(selected.confidence)}</Text>
           <View style={{ borderWidth: 1, borderColor: "#273241", backgroundColor: "#151c28", borderRadius: 15, padding: 13 }}><Text style={styles.kicker}>{tr({ fi: "MIKSI TÄMÄ PÄÄTÖS?", en: "WHY THIS DECISION?", es: "¿POR QUÉ ESTA DECISIÓN?" })}</Text><Text style={styles.muted}>{selected.decisionReason || tr({ fi: "Päätös perustuu markkinakonsensukseen ja turvaportteihin.", en: "The decision is based on market consensus and safety gates.", es: "La decisión se basa en consenso y filtros de seguridad." })}</Text></View>
+          <View style={{ borderWidth: 1, borderColor: "#273241", backgroundColor: "#151c28", borderRadius: 15, padding: 13, gap: 7 }}>
+            <Text style={styles.kicker}>{tr({ fi: "PÄÄTÖSPORTIT · PALVELIMEN TILA", en: "DECISION GATES · SERVER STATE", es: "FILTROS · ESTADO DEL SERVIDOR" })}</Text>
+            <Text style={styles.muted}>{detail.fixtureVerifiedByProvider ? "✓" : "!"} {tr({ fi: "Ottelu varmennettu", en: "Fixture verified", es: "Evento verificado" })}</Text>
+            <Text style={styles.muted}>{selectedSourceCount ?? "–"} {tr({ fi: "hintalähdettä", en: "price sources", es: "fuentes de precio" })} · {selected.freshness || "unknown"}</Text>
+            <Text style={styles.muted}>{tr({ fi: "Markkinadatan luottamus", en: "Market-data confidence", es: "Confianza de mercado" })} {percent(selected.dataGate?.confidence ?? selected.confidence)}</Text>
+            <Text style={styles.muted}>{tr({ fi: "Nykykerroin / PLAY-raja", en: "Current odds / PLAY floor", es: "Cuota actual / límite PLAY" })} {optional(selected.odds)} / {optional(selected.priceGuard?.minimumPlayOdds)}</Text>
+            <Text style={styles.muted}>{tr({ fi: "Lista selittää julkaistua päätöstä eikä laske uutta päätöstä puhelimessa.", en: "This explains the published decision and never calculates a new decision on-device.", es: "Explica la decisión publicada y no calcula otra en el dispositivo." })}</Text>
+          </View>
         </Card>}
 
         <Card>

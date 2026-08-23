@@ -16,7 +16,8 @@ export default async function EventDetailPage({ params, searchParams }) {
   const resolvedSearch = await searchParams;
   const eventId = decodeURIComponent(String(resolvedParams?.eventId || ""));
   const sport = String(resolvedSearch?.sport || "");
-  const gamePlanHref = `/match-intelligence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}`;
+  const selection = String(resolvedSearch?.selection || "");
+  const gamePlanHref = `/match-intelligence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}${selection ? `&selection=${encodeURIComponent(selection)}` : ""}`;
 
   return (
     <div className="space-y-10">
@@ -32,7 +33,7 @@ export default async function EventDetailPage({ params, searchParams }) {
       <EventDetailClient
         eventId={eventId}
         sport={sport}
-        initialSelection={String(resolvedSearch?.selection || "")}
+        initialSelection={selection}
       />
       <EventVerifiedLiveMonitorPanel eventId={eventId} />
       <ProfessionalExplanationCard eventId={eventId} />

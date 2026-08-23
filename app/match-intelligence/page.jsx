@@ -11,6 +11,7 @@ export default async function MatchIntelligencePage({ searchParams }) {
   const resolved = await searchParams;
   const eventId = String(resolved?.eventId || "").trim();
   const sport = String(resolved?.sport || "").trim();
+  const selection = String(resolved?.selection || "").trim();
 
   if (!eventId || !sport) {
     return (
@@ -27,14 +28,14 @@ export default async function MatchIntelligencePage({ searchParams }) {
     <div className="space-y-4">
       <div className="flex justify-end">
         <Link
-          href={`/decision-evidence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}`}
+          href={`/decision-evidence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}${selection ? `&selection=${encodeURIComponent(selection)}` : ""}`}
           className="sc-button-secondary inline-flex"
           data-decision-evidence-link="true"
         >
           Decision Evidence
         </Link>
       </div>
-      <MatchIntelligenceClient eventId={eventId} sport={sport} />
+      <MatchIntelligenceClient eventId={eventId} sport={sport} selection={selection} />
       <VerifiedMarketJourneyClient eventId={eventId} sport={sport} />
     </div>
   );
