@@ -15,6 +15,7 @@ export const maxDuration = 120;
 
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const MAX_CANDIDATES = 1000;
+const SETTLEMENT_RPC_BATCH_SIZE = 100;
 const RETRY_AFTER_HOURS = 2;
 const response = (body, status = 200) => Response.json(body, { status, headers: HEADERS });
 
@@ -324,8 +325,11 @@ export async function GET(request) {
     }
 
     if (updates.length) {
-      const { error } = await admin.rpc("apply_shadow_candidate_settlements_v1", { p_rows: updates });
-      if (error) throw error;
+      for (let index = 0; index < updates.length; index += SETTLEMENT_RPC_BATCH_SIZE) {
+        const batch = updates.slice(index, index + SETTLEMENT_RPC_BATCH_SIZE);
+        const { error } = await admin.rpc("apply_shadow_candidate_settlements_v1", { p_rows: batch });
+        if (error) throw error;
+      }
     }
 
     for (const [key, group] of resultGroups) {
@@ -355,6 +359,7 @@ export async function GET(request) {
       pending,
       excluded,
       closingAttached,
+      settlementBatchSize: SETTLEMENT_RPC_BATCH_SIZE,
       providerWarnings,
       resultSource: "thesportsdb-verified-team-match",
       closingSource: "market-provider-snapshots-v2-final-prestart-consensus",

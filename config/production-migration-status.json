@@ -228,6 +228,14 @@
       "verifiedBy": "Codex production migration and ACL verification via Supabase connector",
       "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#function-acl-v1",
       "notes": "Registry version 20260822133341. All three helper functions now deny EXECUTE to anon and authenticated while retaining service_role execution. No application rows were changed."
+    },
+    {
+      "path": "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql",
+      "status": "applied",
+      "verifiedAt": "2026-08-23T17:24:59Z",
+      "verifiedBy": "Codex production index and query-plan verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_PERFORMANCE_EVIDENCE_2026_08_23.md",
+      "notes": "Partial index is valid and ready. EXPLAIN uses idx_autonomous_audit_open_settlement_candidates_v2 for the exact bounded candidate query."
     }
   ]
 }

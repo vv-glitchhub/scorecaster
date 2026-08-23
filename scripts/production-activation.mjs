@@ -138,7 +138,7 @@ async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
   const productionPatches = Array.isArray(manifest.productionPatches) ? manifest.productionPatches : [];
-  assert(migrations.length === 28, "Release manifest does not contain the complete canonical rollout");
+  assert(migrations.length === 29, "Release manifest does not contain the complete canonical rollout");
   assert(
     JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
     "Release manifest does not contain the reviewed production patches"

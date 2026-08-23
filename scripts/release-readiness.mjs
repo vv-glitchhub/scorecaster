@@ -118,6 +118,7 @@ const shadowCandidateBatchIndex = migrations.indexOf("supabase/scorecaster_shado
 const shadowCandidateTriggerSafetyIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql");
 const shadowCandidateBatchFixIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql");
 const shadowCandidateAclIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_function_acl_v1.sql");
+const shadowCandidatePerformanceIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql");
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
 check(unifiedDataIndex === aiIntelligenceIndex + 1, "Unified Data must run immediately after AI Intelligence");
@@ -133,7 +134,8 @@ check(shadowCandidateBatchIndex === shadowCandidateObservationsIndex + 1, "Shado
 check(shadowCandidateTriggerSafetyIndex === shadowCandidateBatchIndex + 1, "Shadow Candidate trigger safety must run after the initial batch RPC");
 check(shadowCandidateBatchFixIndex === shadowCandidateTriggerSafetyIndex + 1, "Shadow Candidate batch fix must run after trigger safety");
 check(shadowCandidateAclIndex === shadowCandidateBatchFixIndex + 1, "Shadow Candidate ACL hardening must run after all helper definitions");
-check(shadowCandidateAclIndex === migrations.length - 1, "Shadow Candidate ACL hardening must be the final listed migration");
+check(shadowCandidatePerformanceIndex === shadowCandidateAclIndex + 1, "Shadow Candidate performance index must run after ACL hardening");
+check(shadowCandidatePerformanceIndex === migrations.length - 1, "Shadow Candidate performance index must be the final listed migration");
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);

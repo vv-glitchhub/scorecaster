@@ -15,7 +15,7 @@ The canonical ordered rollout now contains 28 migrations. The inventory includes
 - `supabase/scorecaster_community_feed_v1.sql`
 - `supabase/scorecaster_ai_intelligence_v1.sql`
 
-Both are included in the reviewed order. The V13 database hard caps remain immediately after Autonomous Agent V2. `supabase/scorecaster_autonomous_agent_risk_profile_v1.sql` follows the hard-cap migration because it extends the V2 settings and audit tables without weakening the hard-cap trigger. Shadow Learning follows it. The four Shadow Candidate schema/repair migrations then run in their production registry order, and `supabase/scorecaster_shadow_candidate_function_acl_v1.sql` remains final so later helper definitions cannot reopen direct client execution.
+Both are included in the reviewed order. The V13 database hard caps remain immediately after Autonomous Agent V2. `supabase/scorecaster_autonomous_agent_risk_profile_v1.sql` follows the hard-cap migration because it extends the V2 settings and audit tables without weakening the hard-cap trigger. Shadow Learning follows it. The Shadow Candidate schema/repair migrations then run in their production registry order. ACL hardening remains after every helper definition, and the final performance-only migration adds a partial candidate index without redefining functions or reopening client execution.
 
 ## Files
 

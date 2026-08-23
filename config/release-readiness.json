@@ -243,7 +243,8 @@
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
     "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
-    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql"
+    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
   ],
   "productionPatches": [
     "scripts/apply-market-microstructure-v2.sql",

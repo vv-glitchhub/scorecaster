@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 import {
   buildShadowLearningCycle,
   normalizeShadowLearningSamples
@@ -95,4 +96,18 @@ test("a review-ready challenger remains shadow-only and requires human approval"
   assert.equal(report.safety.originalProbabilityImmutable, true);
   assert.equal(report.safety.contextCanUpgradeToPlay, false);
   assert.equal(report.safety.automaticRealMoneyExecution, false);
+});
+
+test("settlement worker batches RPC writes and the candidate lookup has a partial index", async () => {
+  const [route, migration] = await Promise.all([
+    readFile(new URL("../app/api/internal/shadow-candidate-settlement/route.js", import.meta.url), "utf8"),
+    readFile(new URL("../supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql", import.meta.url), "utf8")
+  ]);
+  assert.match(route, /const SETTLEMENT_RPC_BATCH_SIZE = 100/);
+  assert.match(route, /index \+= SETTLEMENT_RPC_BATCH_SIZE/);
+  assert.match(route, /updates\.slice\(index, index \+ SETTLEMENT_RPC_BATCH_SIZE\)/);
+  assert.match(migration, /idx_autonomous_audit_open_settlement_candidates_v2/);
+  assert.match(migration, /where settlement_status = 'open'/);
+  assert.match(migration, /event_id is not null/);
+  assert.match(migration, /model_probability is not null/);
 });

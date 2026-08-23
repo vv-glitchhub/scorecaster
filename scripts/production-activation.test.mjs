@@ -35,7 +35,7 @@ test("activation runner requires exact confirmations and supports only bounded a
 test("migration rollout follows the reviewed manifest and uses fail-fast transactions", async () => {
   const runner = await source("scripts/production-activation.mjs");
   const manifest = await json("config/release-readiness.json");
-  assert.equal(manifest.supabaseMigrations.length, 28);
+  assert.equal(manifest.supabaseMigrations.length, 29);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -53,19 +53,20 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_autonomous_agent_risk_profile_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_agent_decision_signing_vault.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql"));
   assert.ok(manifest.supabaseMigrations.indexOf("supabase/scorecaster_collector_v1.sql") < manifest.supabaseMigrations.indexOf("supabase/scorecaster_unified_data.sql"));
-  assert.equal(manifest.supabaseMigrations.at(-8), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
-  assert.equal(manifest.supabaseMigrations.at(-7), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
-  assert.equal(manifest.supabaseMigrations.at(-6), "supabase/scorecaster_shadow_learning_v1.sql");
-  assert.deepEqual(manifest.supabaseMigrations.slice(-5), [
+  assert.equal(manifest.supabaseMigrations.at(-9), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.equal(manifest.supabaseMigrations.at(-8), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
+  assert.equal(manifest.supabaseMigrations.at(-7), "supabase/scorecaster_shadow_learning_v1.sql");
+  assert.deepEqual(manifest.supabaseMigrations.slice(-6), [
     "supabase/scorecaster_shadow_candidate_observations_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
     "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
-    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql"
+    "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
+    "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
   ]);
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /manifest\.productionPatches/);
-  assert.match(runner, /migrations\.length === 28/);
+  assert.match(runner, /migrations\.length === 29/);
   assert.match(runner, /--set=ON_ERROR_STOP=1/);
   assert.match(runner, /--single-transaction/);
   assert.match(runner, /verify-production-schema\.sql/);
