@@ -65,6 +65,7 @@ test("data-readiness API and UI expose aggregate state without secrets or real-m
   assert.match(route, /personalDataReturned: false/);
   assert.match(route, /secretsReturned: false/);
   assert.match(route, /paperOnly: true/);
+  assert.match(route, /"Cache-Control": "no-store, max-age=0"/);
   assert.match(client, /synthetic|Puuttuva data|Missing data/i);
   assert.match(client, /Automatic promotion remains disabled/);
   assert.match(liveProvider, /LIVE_MONITOR_LIVE_DATA_ALLOWED/);

@@ -7,7 +7,7 @@ import { buildDataReadiness } from "../../../lib/data-readiness-v1.mjs";
 export const dynamic = "force-dynamic";
 
 const HEADERS = {
-  "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 
@@ -36,7 +36,7 @@ export async function GET() {
         shadowLearning: {}
       }),
       paperOnly: true
-    }, { status: 503, headers: { ...HEADERS, "Cache-Control": "no-store" } });
+    }, { status: 503, headers: HEADERS });
   }
 
   const since = new Date(Date.now() - 24 * 3600000).toISOString();
