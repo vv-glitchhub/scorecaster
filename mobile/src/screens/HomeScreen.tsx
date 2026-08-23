@@ -71,7 +71,7 @@ export default function HomeScreen() {
         apiRequest<{ status?: string; mode?: string }>("/api/health", { authenticated: false }),
         apiRequest<{ data: Bankroll }>("/api/cloud/bankroll"),
         apiRequest<{ data: PaperBet[] }>("/api/cloud/bets"),
-        apiRequest<{ featured?: Pick[]; data?: Pick[]; featuredWindowHours?: number }>("/api/top-picks", { authenticated: false, timeoutMs: 30000 })
+        apiRequest<{ featured?: Pick[]; data?: Pick[]; featuredWindowHours?: number }>("/api/top-picks?view=summary", { authenticated: false, timeoutMs: 30000 })
       ]);
 
       setStatus(healthResult.status === "fulfilled" ? `${healthResult.value.status || "unknown"} · ${healthResult.value.mode || "unknown"}` : tr({ fi: "Palvelun tilaa ei voitu tarkistaa", en: "Service status could not be checked", es: "No se pudo comprobar el estado del servicio" }));

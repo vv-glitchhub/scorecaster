@@ -43,7 +43,7 @@ export default function WatchlistCandidates() {
     setMessage("");
     try {
       const [picksResponse, watchResponse] = await Promise.all([
-        fetch("/api/top-picks", { cache: "no-store" }),
+        fetch("/api/top-picks?view=summary", { cache: "no-store" }),
         fetch("/api/cloud/watchlist", { cache: "no-store" })
       ]);
       const picksPayload = await picksResponse.json();

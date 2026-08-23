@@ -33,7 +33,7 @@ test("home is a decision center with concise actions and trust context", async (
   const home = await read("app/DashboardClient.jsx");
   const productUi = await read("app/components/ProductUI.jsx");
 
-  assert.match(home, /fetch\("\/api\/top-picks"/);
+  assert.match(home, /fetch\("\/api\/top-picks\?view=summary"/);
   assert.match(home, /PageHero/);
   assert.match(home, /TrustBar/);
   assert.match(home, /DecisionBadge/);

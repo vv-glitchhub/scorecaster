@@ -84,7 +84,7 @@ export default function AgentClient() {
     try {
       const trackedBets = getTrackedBets();
       const learningData = calculateAgentPerformance(trackedBets);
-      const response = await fetch("/api/top-picks", { cache: "no-store" });
+      const response = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) {
         throw new Error(data?.error || tr({

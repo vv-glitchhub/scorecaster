@@ -86,7 +86,7 @@ test("radar route is discoverable, local-only and cannot override model decision
 
   assert.match(page, /MarketChangesClient/);
   assert.match(shell, /href: "\/changes"/);
-  assert.match(client, /fetch\("\/api\/top-picks"/);
+  assert.match(client, /fetch\("\/api\/top-picks\?view=summary"/);
   assert.match(client, /compareMarketSnapshots/);
   assert.match(client, /vain paperiseuranta|paper only/);
   assert.match(client, /ei muuta todennäköisyyttä|cannot alter probability/);

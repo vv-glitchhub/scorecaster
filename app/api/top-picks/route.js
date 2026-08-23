@@ -35,6 +35,89 @@ const CACHE_HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 
+function compactSportsIntelligence(report = {}) {
+  return {
+    sourceCount: Number(report.sourceCount || 0),
+    readiness: {
+      level: report.readiness?.level || "market-only",
+      missing: Array.isArray(report.readiness?.missing) ? report.readiness.missing.slice(0, 8) : [],
+      allowsIndependentPlayEvidence: report.readiness?.allowsIndependentPlayEvidence === true
+    },
+    conflicts: Array.isArray(report.conflicts) ? report.conflicts.slice(0, 8) : [],
+    injuries: Array.isArray(report.injuries) ? report.injuries.slice(0, 12) : [],
+    lineups: Array.isArray(report.lineups) ? report.lineups.slice(0, 6) : [],
+    news: Array.isArray(report.news) ? report.news.slice(0, 8) : []
+  };
+}
+
+function publicPickSummary(pick = {}) {
+  return {
+    id: pick.id,
+    eventId: pick.eventId || pick.gameId || pick.id,
+    gameId: pick.gameId || pick.eventId || pick.id,
+    match: pick.match,
+    homeTeam: pick.homeTeam,
+    awayTeam: pick.awayTeam,
+    selection: pick.selection,
+    label: pick.label,
+    sportKey: pick.sportKey,
+    sportTitle: pick.sportTitle,
+    league: pick.league,
+    leagueTitle: pick.leagueTitle,
+    commenceTime: pick.commenceTime,
+    marketKey: pick.marketKey,
+    point: pick.point ?? null,
+    odds: pick.odds,
+    bookmaker: pick.bookmaker,
+    bookmakerKey: pick.bookmakerKey,
+    bookmakerCount: pick.bookmakerCount,
+    averageOdds: pick.averageOdds,
+    fairOdds: pick.fairOdds,
+    consensusProbability: pick.consensusProbability,
+    marketProbability: pick.marketProbability,
+    modelProbability: pick.modelProbability,
+    independentModelProbability: pick.independentModelProbability ?? null,
+    probabilityDispersion: pick.probabilityDispersion,
+    confidence: pick.confidence,
+    sourceTrust: pick.sourceTrust,
+    trustScore: pick.trustScore,
+    qualityScore: pick.qualityScore,
+    qualityGrade: pick.qualityGrade,
+    edge: pick.edge,
+    ev: pick.ev,
+    kelly: pick.kelly,
+    adjustedKelly: pick.adjustedKelly,
+    suggestedStake: pick.suggestedStake,
+    decision: pick.decision,
+    productDecision: pick.productDecision,
+    marketDecisionBeforeSafetyGate: pick.marketDecisionBeforeSafetyGate,
+    decisionReason: pick.decisionReason,
+    decisionReasons: Array.isArray(pick.decisionReasons) ? pick.decisionReasons.slice(0, 8) : [],
+    skipReason: pick.skipReason,
+    evidenceGateReason: pick.evidenceGateReason,
+    freshnessLabel: pick.freshnessLabel,
+    dataAgeHours: pick.dataAgeHours,
+    lastUpdate: pick.lastUpdate,
+    dataQuality: pick.dataQuality ? {
+      freshness: pick.dataQuality.freshness,
+      ageHours: pick.dataQuality.ageHours,
+      bookmakerCount: pick.dataQuality.bookmakerCount,
+      probabilityDispersion: pick.dataQuality.probabilityDispersion
+    } : null,
+    dataGate: pick.dataGate,
+    intelligenceReadiness: pick.intelligenceReadiness,
+    intelligenceRelativeImpact: pick.intelligenceRelativeImpact,
+    sportsIntelligence: compactSportsIntelligence(pick.sportsIntelligence),
+    polymarketSignal: pick.polymarketSignal,
+    fixtureSource: pick.fixtureSource,
+    fixtureVerifiedByProvider: pick.fixtureVerifiedByProvider === true,
+    paperOnly: true,
+    modelMode: pick.modelMode,
+    edgeType: pick.edgeType,
+    probabilityAdjustedByIntelligence: false
+  };
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
@@ -312,10 +395,18 @@ async function loadLeague(origin, league, now) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const unknownKeys = [...url.searchParams.keys()].filter((key) => key !== "sports");
+  const unknownKeys = [...url.searchParams.keys()].filter((key) => !["sports", "view"].includes(key));
   if (unknownKeys.length) {
     return Response.json(
       { ok: false, error: "Unsupported query parameter", data: [] },
+      { status: 400, headers: CACHE_HEADERS }
+    );
+  }
+
+  const view = url.searchParams.get("view") || "full";
+  if (!new Set(["full", "summary"]).has(view)) {
+    return Response.json(
+      { ok: false, error: "Unsupported view", data: [] },
       { status: 400, headers: CACHE_HEADERS }
     );
   }
@@ -333,7 +424,7 @@ export async function GET(request) {
     const canonicalSports = leagues.join(",");
     if (url.searchParams.get("sports") !== canonicalSports) {
       const canonical = new URL(request.url);
-      canonical.search = new URLSearchParams({ sports: canonicalSports }).toString();
+      canonical.search = new URLSearchParams({ sports: canonicalSports, ...(view === "summary" ? { view } : {}) }).toString();
       return Response.redirect(canonical, 307);
     }
   }
@@ -353,6 +444,8 @@ export async function GET(request) {
   const featured = filterUpcomingPicks(sorted, FEATURED_WINDOW_HOURS, now)
     .filter((pick) => pick.productDecision !== "SKIP")
     .slice(0, 3);
+  const responseData = view === "summary" ? sorted.map(publicPickSummary) : sorted;
+  const responseFeatured = view === "summary" ? featured.map(publicPickSummary) : featured;
 
   const providerGames = leagueResults.reduce((sum, result) => sum + result.providerGames, 0);
   const acceptedGames = leagueResults.reduce((sum, result) => sum + result.acceptedGames, 0);
@@ -381,6 +474,7 @@ export async function GET(request) {
       analysisWindowHours: ANALYSIS_WINDOW_HOURS,
       featuredWindowHours: FEATURED_WINDOW_HOURS,
       maxIntelligenceEnrichments: MAX_INTELLIGENCE_ENRICHMENTS,
+      view,
       leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
       defaultLeagueSeason: seasonForDate(now),
       providerGames,
@@ -391,8 +485,8 @@ export async function GET(request) {
       disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Independent intelligence can downgrade a pick but never changes the market probability or upgrades a pick to PLAY.",
       leagues,
       count: sorted.length,
-      featured,
-      data: sorted
+      featured: responseFeatured,
+      data: responseData
     },
     { headers: CACHE_HEADERS }
   );

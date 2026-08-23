@@ -16,6 +16,18 @@ test("home page uses the simplified Today experience", async () => {
   assert.match(today, /paper-only/);
 });
 
+test("Top Picks list consumers request the compact public view", async () => {
+  const consumers = await Promise.all([
+    file("app/DashboardClient.jsx"),
+    file("app/events/EventsClient.jsx"),
+    file("app/agent/AgentClient.jsx"),
+    file("app/intelligence/page.jsx"),
+    file("mobile/src/screens/HomeScreen.tsx"),
+    file("mobile/src/screens/PicksScreen.tsx")
+  ]);
+  for (const consumer of consumers) assert.match(consumer, /view=summary/);
+});
+
 test("unified API is publishable-only and bounded", async () => {
   const route = await file("app/api/scorecaster-app/route.js");
   assert.match(route, /\.eq\("publishable", true\)/);

@@ -37,7 +37,7 @@ export default function ProfessionalSurfaceRail({ surface = "today", compact = f
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/top-picks", { cache: "no-store" });
+      const response = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Current verified selections are unavailable");
       const rows = Array.isArray(payload?.data) ? payload.data : [];

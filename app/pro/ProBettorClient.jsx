@@ -62,7 +62,7 @@ export default function ProBettorClient() {
         maxLeagueExposurePercent: Number(settings.agentMaxLeagueExposurePercent || 2),
         riskProfile: String(settings.agentRiskProfile || "balanced")
       });
-      const response = await fetch("/api/top-picks", { cache: "no-store" });
+      const response = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Professional source data could not be loaded");
       setRawPicks(Array.isArray(payload?.data) ? payload.data : []);

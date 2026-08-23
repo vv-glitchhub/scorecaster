@@ -49,7 +49,7 @@ export default function DashboardClient() {
   useEffect(() => {
     async function load() {
       try {
-        const response = await fetch("/api/top-picks", { cache: "no-store" });
+        const response = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
         const data = await response.json();
         if (!response.ok) throw new Error(data?.error || "Top Picks unavailable");
         setTopPicks(Array.isArray(data.featured) ? data.featured : []);

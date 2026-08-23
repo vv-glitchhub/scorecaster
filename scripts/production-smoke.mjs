@@ -36,7 +36,7 @@ function secretFree(value) {
 
 async function request(route, options = {}) {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12_000);
+  const timeout = setTimeout(() => controller.abort(), options.timeoutMs || 12_000);
   const startedAt = Date.now();
   try {
     const response = await fetch(`${baseUrl}${route}`, {
@@ -95,6 +95,30 @@ try {
   });
 } catch (error) {
   record("api:health", false, { error: error instanceof Error ? error.message : "Health request failed" });
+}
+
+try {
+  const { response, body, durationMs } = await request("/api/top-picks?view=summary", { timeoutMs: 30_000 });
+  let payload = null;
+  try { payload = JSON.parse(body); } catch { payload = null; }
+  const sample = payload?.featured?.[0] || payload?.data?.[0] || null;
+  const oversizedAuditKeys = [
+    "featureEngineV1",
+    "unifiedSportsData",
+    "intelligenceFusionV2",
+    "modelFactoryV1"
+  ];
+  const compact = !sample || oversizedAuditKeys.every((key) => !(key in sample));
+  const byteLength = Buffer.byteLength(body, "utf8");
+  record("api:top-picks-summary", response.status === 200 && payload?.view === "summary" && compact && byteLength <= 150_000 && secretFree(body), {
+    status: response.status,
+    durationMs,
+    byteLength,
+    pickCount: Array.isArray(payload?.data) ? payload.data.length : null,
+    compact
+  });
+} catch (error) {
+  record("api:top-picks-summary", false, { error: error instanceof Error ? error.message : "Top Picks summary request failed" });
 }
 
 for (const endpoint of manifest.protectedApis) {

@@ -161,7 +161,7 @@ export default function DiagnosticsClient() {
     setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/top-picks", { cache: "no-store" });
+      const response = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
       const data = await response.json();
       if (!response.ok || data?.ok === false) throw new Error(data?.error || data?.reason || "Diagnostics unavailable");
       setPayload(data);

@@ -37,7 +37,7 @@ test("Daily Brief separates PLAY WATCH and SKIP without overriding probabilities
 test("Daily Brief keeps user preferences and snapshots local and fetches governed Top Picks", async () => {
   const client = await read("app/brief/DailyBriefClient.jsx");
 
-  assert.match(client, /fetch\("\/api\/top-picks"/);
+  assert.match(client, /fetch\("\/api\/top-picks\?view=summary"/);
   assert.match(client, /scorecaster_daily_brief_focus/);
   assert.match(client, /scorecaster_daily_brief_snapshot/);
   assert.match(client, /navigator\.clipboard\.writeText/);

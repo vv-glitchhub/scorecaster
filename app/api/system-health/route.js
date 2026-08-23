@@ -1,6 +1,6 @@
 const ROUTES_TO_CHECK = [
   "/api/sports",
-  "/api/top-picks",
+  "/api/top-picks?view=summary",
   "/api/portfolio",
   "/api/daily-picks",
   "/api/live-betting",

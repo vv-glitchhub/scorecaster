@@ -124,7 +124,9 @@ export default function PicksScreen({ onOpenEvent }: Props) {
   async function load(selected = filter) {
     setLoading(true);
     try {
-      const query = selected.sports ? `?sports=${encodeURIComponent(selected.sports)}` : "";
+      const query = selected.sports
+        ? `?sports=${encodeURIComponent(selected.sports)}&view=summary`
+        : "?view=summary";
       const [pickResponse, bankrollResponse] = await Promise.all([
         apiRequest<{ data?: Pick[]; featured?: Pick[]; generatedAt?: string; leagues?: string[] }>(`/api/top-picks${query}`, { authenticated: false, timeoutMs: 30000 }),
         apiRequest<{ data: Bankroll }>("/api/cloud/bankroll")

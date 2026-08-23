@@ -18,7 +18,7 @@ export default function BankrollPage() {
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch("/api/top-picks", { cache: "no-store" });
+        const res = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
         const data = await res.json();
 
         setPlan(

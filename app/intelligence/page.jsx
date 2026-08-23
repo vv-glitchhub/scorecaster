@@ -51,7 +51,7 @@ export default function IntelligencePage() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch("/api/top-picks", { cache: "no-store" });
+      const res = await fetch("/api/top-picks?view=summary", { cache: "no-store" });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Top Picks could not be loaded");
       setPicks(Array.isArray(data.data) ? data.data : []);

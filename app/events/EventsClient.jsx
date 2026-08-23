@@ -91,7 +91,9 @@ export default function EventsClient() {
     setLoading(true);
     setError("");
     try {
-      const queryString = selectedLeague ? `?sports=${encodeURIComponent(selectedLeague)}` : "";
+      const queryString = selectedLeague
+        ? `?sports=${encodeURIComponent(selectedLeague)}&view=summary`
+        : "?view=summary";
       const response = await fetch(`/api/top-picks${queryString}`, { cache: "no-store" });
       const data = await response.json();
       if (!response.ok) throw new Error(data?.error || "Events unavailable");

@@ -285,6 +285,11 @@ test("Top Picks calculates market value before intelligence downgrade rules", as
   assert.match(route, /evaluateIndependentIntelligenceSafetyV1/);
   assert.match(route, /allowsIndependentPlayEvidence !== true/);
   assert.match(route, /PLAY requires verified independent evidence/);
+  assert.match(route, /function publicPickSummary/);
+  assert.match(route, /function compactSportsIntelligence/);
+  assert.match(route, /view === "summary" \? sorted\.map\(publicPickSummary\) : sorted/);
+  assert.match(route, /view === "summary" \? featured\.map\(publicPickSummary\) : featured/);
+  assert.doesNotMatch(route.slice(route.indexOf("function publicPickSummary"), route.indexOf("function clamp")), /featureEngineV1|unifiedSportsData|intelligenceFusionV2|modelFactoryV1/);
   assert.doesNotMatch(route, /readiness\?\.level !== "verified"/);
   assert.match(route, /probabilityAdjustedByIntelligence:\s*false/);
 });
