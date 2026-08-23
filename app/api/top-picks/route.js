@@ -107,6 +107,10 @@ function gateFailureReasons(gate, edge, ev) {
 function preserveSafetyGate(marketDecision, pick) {
   if (marketDecision !== "BET") return marketDecision;
 
+  if (pick.sportsIntelligence?.readiness?.allowsIndependentPlayEvidence !== true) {
+    return "WATCH";
+  }
+
   const intelligenceSafety = evaluateIndependentIntelligenceSafetyV1({
     report: pick.sportsIntelligence,
     relativeImpact: pick.intelligenceRelativeImpact
@@ -116,11 +120,14 @@ function preserveSafetyGate(marketDecision, pick) {
   return "BET";
 }
 
-function decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev }) {
+function decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev, independentPlayReady }) {
   if (decision === "PASS") {
     return `SKIP: ${gateFailures.join(" ") || "The selection does not pass the minimum market-data gate."}`;
   }
   if (marketDecision === "BET" && decision === "WATCH") {
+    if (!independentPlayReady) {
+      return "CAUTION: the market price gates passed, but PLAY requires verified independent evidence.";
+    }
     return "CAUTION: the market threshold passed, but verified negative intelligence or an unresolved evidence conflict blocked PLAY.";
   }
   if (decision === "WAIT") {
@@ -144,6 +151,7 @@ function applyQualityFallback(pick) {
   const ev = Number(pick.ev || 0);
   const gate = dataGate(pick);
   const gateFailures = gateFailureReasons(gate, edge, ev);
+  const independentPlayReady = pick.sportsIntelligence?.readiness?.allowsIndependentPlayEvidence === true;
   let marketDecision;
 
   if (!gate.watchable || edge < 0.005 || ev <= 0) {
@@ -158,7 +166,7 @@ function applyQualityFallback(pick) {
 
   const decision = preserveSafetyGate(marketDecision, pick);
   const readiness = pick.sportsIntelligence?.readiness?.level || "market-only";
-  const decisionReason = decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev });
+  const decisionReason = decisionExplanation({ decision, marketDecision, gateFailures, gate, edge, ev, independentPlayReady });
   const qualityNotes = [
     decisionReason,
     ...(pick.qualityNotes || quality.qualityNotes || []),

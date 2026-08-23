@@ -106,6 +106,44 @@ function forwardedRequest(request, bets) {
   });
 }
 
+function serverVerifiedBet(item, current) {
+  const pick = item.pick || {};
+  const requested = item.bet || {};
+  const marketProbability = finiteProbability(
+    pick.marketConsensusProbability ??
+    pick.consensusProbability ??
+    pick.marketProbability ??
+    pick.impliedProbability ??
+    pick.modelProbability
+  );
+
+  return {
+    id: item.clientRef,
+    eventId: eventId(pick),
+    match: cleanText(pick.match || [pick.homeTeam, pick.awayTeam].filter(Boolean).join(" vs "), 240),
+    homeTeam: cleanText(pick.homeTeam, 160),
+    awayTeam: cleanText(pick.awayTeam, 160),
+    selection: selection(pick),
+    odds: Number(pick.odds),
+    stake: requested.stake,
+    edge: Number.isFinite(Number(pick.edge)) ? Number(pick.edge) : null,
+    ev: Number.isFinite(Number(pick.ev)) ? Number(pick.ev) : null,
+    confidence: Number.isFinite(Number(pick.confidence)) ? Number(pick.confidence) : null,
+    league: cleanText(pick.leagueTitle || pick.league, 120),
+    sport: cleanText(pick.sportKey || pick.sport || pick.league, 120),
+    bookmaker: cleanText(pick.bookmaker, 120),
+    decision: cleanText(pick.productDecision || pick.decision, 30).toUpperCase(),
+    qualityGrade: cleanText(pick.qualityGrade, 8),
+    qualityScore: Number.isFinite(Number(pick.trustScore ?? pick.qualityScore))
+      ? Number(pick.trustScore ?? pick.qualityScore)
+      : null,
+    modelProbability: independentModelProbability(pick, current),
+    impliedProbability: marketProbability,
+    modelMode: cleanText(pick.modelMode || current.modelMode, 120),
+    source: "scorecaster-server-verified-v2"
+  };
+}
+
 function decisionEvidence(item, current) {
   const pick = item.pick || {};
   const modelMode = cleanText(pick.modelMode || current.modelMode, 120) || null;
@@ -189,7 +227,20 @@ export async function POST(request) {
     );
   }
 
-  const baseResponse = await savePaperBets(forwardedRequest(request, verified.map((item) => item.bet)));
+  const blocked = verified.find((item) => {
+    const decision = cleanText(item.pick?.productDecision || item.pick?.decision, 30).toUpperCase();
+    return decision === "SKIP" || decision === "PASS";
+  });
+  if (blocked) {
+    return jsonResponse(
+      { ok: false, error: "A current SKIP selection cannot be saved to paper tracking" },
+      409,
+      requestId
+    );
+  }
+
+  const canonicalBets = verified.map((item) => serverVerifiedBet(item, current));
+  const baseResponse = await savePaperBets(forwardedRequest(request, canonicalBets));
   const basePayload = await baseResponse.json();
   if (!baseResponse.ok) {
     return jsonResponse(basePayload, baseResponse.status, requestId);

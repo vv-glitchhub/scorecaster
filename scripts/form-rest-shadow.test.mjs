@@ -200,6 +200,10 @@ test("audited save route verifies current server analysis before attaching snaps
   assert.ok(updateIndex > saveIndex);
   assert.match(route, /mutationOriginAllowed\(request\)/);
   assert.match(route, /bucket:\s*"cloud_bets_audited_create"/);
+  assert.match(route, /function serverVerifiedBet/);
+  assert.match(route, /const canonicalBets = verified\.map/);
+  assert.match(route, /source: "scorecaster-server-verified-v2"/);
+  assert.doesNotMatch(route, /verified\.map\(\(item\) => item\.bet\)/);
   assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
   assert.doesNotMatch(route, /bet\.featureSnapshot/);
 });

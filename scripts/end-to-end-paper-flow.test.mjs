@@ -66,14 +66,18 @@ test("audited and legacy paper saves never relabel market consensus as an indepe
 
   assert.match(route, /function independentModelProbability/);
   assert.match(route, /marketOnly \? null/);
+  assert.match(route, /function serverVerifiedBet/);
+  assert.match(route, /A current SKIP selection cannot be saved/);
+  assert.match(route, /scorecaster-server-verified-v2/);
   assert.ok(route.indexOf("pick.consensusProbability") < route.indexOf("pick.marketProbability", route.indexOf("entryMarketProbability")));
-  assert.match(detail, /modelProbability: null/);
+  assert.match(detail, /eventId: detail\.eventId, selection: selected\.selection, sport: detail\.sportKey, stake: paperStake/);
+  assert.doesNotMatch(detail, /body: JSON\.stringify\([^\n]*modelProbability/);
   assert.match(detail, /data\?\.ok === false/);
   assert.match(detail, /setSuccessHref\("\/tracking"\)/);
-  assert.match(mobileDetail, /modelProbability: null/);
-  assert.match(mobilePicks, /modelProbability: null/);
+  assert.doesNotMatch(mobileDetail, /modelProbability: null/);
+  assert.doesNotMatch(mobilePicks, /modelProbability: null/);
   assert.match(mobilePicks, /\/api\/cloud\/bets\/audited/);
-  assert.match(mobilePicks, /scorecaster-mobile-picks-v4/);
+  assert.match(mobilePicks, /eventId: pick\.gameId \|\| pick\.eventId, selection, sport: pick\.sportKey, stake/);
   assert.match(betting, /modelProbability: null,[\s\S]*marketProbability: selection\.consensusProbability \?\? selection\.marketProbability/);
   assert.match(universe, /modelProbability: null,[\s\S]*marketProbability: selection\.consensusProbability \?\? selection\.marketProbability/);
   assert.match(agent, /modelProbability: pick\.independentModelProbability \?\? null/);

@@ -126,7 +126,7 @@ export async function GET(request) {
   if (!admin) return json({ ok: false, error: "Production database is not configured" }, 503);
 
   const url = new URL(request.url);
-  const allowed = new Set(["hours", "sport", "limit", "eventId"]);
+  const allowed = new Set(["hours", "sport", "limit", "eventId", "view"]);
   if ([...url.searchParams.keys()].some((key) => !allowed.has(key))) {
     return json({ ok: false, error: "Unsupported query parameter" }, 400);
   }
@@ -135,6 +135,10 @@ export async function GET(request) {
   const limit = clampInt(url.searchParams.get("limit"), 10000, 100, 10000);
   const sport = cleanSport(url.searchParams.get("sport"));
   const selectedEventId = cleanEventId(url.searchParams.get("eventId"));
+  const view = cleanText(url.searchParams.get("view"), 20).toLowerCase() || "full";
+  if (!new Set(["full", "summary"]).has(view)) {
+    return json({ ok: false, error: "Unsupported view" }, 400);
+  }
   const since = new Date(Date.now() - hours * 3600000).toISOString();
 
   try {
@@ -194,6 +198,28 @@ export async function GET(request) {
     const visibleObservations = buildVisibleObservations(events, { now: Date.now(), limit: 12 });
     const visibleControlCenter = withVisibleDailyTop3(strictControlCenter, visibleObservations);
     const controlCenter = enrichDailyCards(visibleControlCenter, events);
+    if (view === "summary") {
+      const topEventIds = new Set(controlCenter.dailyTop3.map((pick) => pick.eventId));
+      const summaryEvents = events
+        .filter((event) => topEventIds.has(event.eventId))
+        .map(({ records: eventRecords, ...event }) => ({
+          ...event,
+          recordCount: eventRecords.length,
+          explanationAvailable: true,
+          transparencyUrl: `/api/transparency?eventId=${encodeURIComponent(event.eventId)}`
+        }));
+      return json({
+        ok: true,
+        generatedAt: new Date().toISOString(),
+        filters: { hours, sport: sport || null, limit, view },
+        collectorHealth,
+        controlCenter,
+        strictDailyTop3Count: strictControlCenter.dailyTop3?.length || 0,
+        fallbackActive: Boolean(controlCenter.fallbackActive),
+        events: summaryEvents,
+        paperOnly: true
+      });
+    }
     const intelligenceV4 = buildIntelligenceV4(events, { iterations: 10000, bankroll: 1000 });
     const selected = events.find((event) => event.eventId === selectedEventId) || events[0] || null;
     const intelligenceV3 = selected

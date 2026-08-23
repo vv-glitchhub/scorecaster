@@ -10,6 +10,7 @@ test("home page uses the simplified Today experience", async () => {
   const today = await file("app/components/TodayPageClient.jsx");
   assert.match(page, /TodayPageClient/);
   assert.match(today, /\/api\/scorecaster-app/);
+  assert.match(today, /view=summary/);
   assert.match(today, /Päivän pitkäveto/);
   assert.match(today, /AI Feed/);
   assert.match(today, /paper-only/);
@@ -22,6 +23,8 @@ test("unified API is publishable-only and bounded", async () => {
   assert.match(route, /buildProductionControlCenter/);
   assert.match(route, /buildIntelligenceBundle/);
   assert.match(route, /buildIntelligenceV4/);
+  assert.match(route, /view === "summary"/);
+  assert.match(route, /const summaryEvents/);
 });
 
 test("ready app still exposes all core production views", async () => {

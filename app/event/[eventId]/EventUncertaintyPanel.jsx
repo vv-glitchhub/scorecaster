@@ -41,7 +41,7 @@ export default function EventUncertaintyPanel({ row }) {
         <div className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] px-4 py-3 text-right">
           <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">Evidence risk</div>
           <div className="mt-1 text-3xl font-black text-[var(--sc-text)]">{uncertainty?.uncertaintyIndex ?? "—"}/100</div>
-          <div className="mt-1 text-xs font-black uppercase text-[var(--sc-muted)]">{label(uncertainty?.band)} · {label(uncertainty?.researchDecision)}</div>
+          <div className="mt-1 text-xs font-black uppercase text-[var(--sc-muted)]">{label(uncertainty?.band)} · {uncertainty?.blocked ? tr({ fi: "tutkimus ei valmis", en: "research not ready", es: "investigación no lista" }) : tr({ fi: "tarkistettava", en: "review", es: "revisar" })}</div>
         </div>
       </div>
 

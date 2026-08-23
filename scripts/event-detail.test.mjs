@@ -117,7 +117,8 @@ test("web Event Detail uses verified actions without bookmaker redirects", async
   assert.match(client, /\/api\/event-detail/);
   assert.match(client, /\/api\/cloud\/watchlist/);
   assert.match(client, /\/api\/cloud\/bets\/audited/);
-  assert.match(client, /scorecaster-web-event-detail-v1/);
+  assert.match(client, /eventId: detail\.eventId, selection: selected\.selection, sport: detail\.sportKey, stake: paperStake/);
+  assert.doesNotMatch(client, /body: JSON\.stringify\([^\n]*edge: selected\.edge/);
   assert.match(client, /DecisionGateChecklist/);
   assert.match(gate, /data-decision-gate-checklist/);
   assert.match(client, /No deposit, payment, bookmaker link or real-money bet/);
@@ -136,7 +137,8 @@ test("native app opens Event Detail as a transient screen and returns to Picks",
   assert.match(picks, /Avaa kaikki tiedot/);
   assert.match(picks, /onOpenEvent\?\.\(pick\)/);
   assert.match(detail, /\/api\/event-detail/);
-  assert.match(detail, /scorecaster-mobile-event-detail-v1/);
+  assert.match(detail, /eventId: detail\.eventId/);
+  assert.match(detail, /sport: detail\.sportKey/);
   assert.match(detail, /\/api\/cloud\/bets\/audited/);
   assert.match(detail, /PÄÄTÖSPORTIT/);
   assert.match(detail, /\/api\/cloud\/watchlist/);

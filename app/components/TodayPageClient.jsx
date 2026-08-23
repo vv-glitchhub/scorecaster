@@ -34,7 +34,7 @@ export default function TodayPageClient() {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/scorecaster-app?hours=2160&limit=10000", { cache: "no-store" });
+      const response = await fetch("/api/scorecaster-app?hours=2160&limit=1000&view=summary", { cache: "no-store" });
       const payload = await response.json();
       if (!response.ok) throw new Error(payload.error || "Data unavailable");
       setData(payload);

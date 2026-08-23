@@ -190,24 +190,9 @@ export default function EventDetailScreen({ pick, onBack }: Props) {
       await apiRequest("/api/cloud/bets/audited", { method: "POST", body: { bets: [{
         id: `${detail.eventId}-${selected.selection}`,
         eventId: detail.eventId,
-        match: detail.match,
-        homeTeam: detail.homeTeam,
-        awayTeam: detail.awayTeam,
         selection: selected.selection,
-        odds: selected.odds,
-        stake: paperStake,
-        edge: selected.edge,
-        ev: selected.ev,
-        confidence: selected.confidence,
-        league: detail.league,
         sport: detail.sportKey,
-        bookmaker: selected.bookmaker,
-        decision: selected.decision,
-        qualityGrade: selected.qualityGrade,
-        qualityScore: selected.trustScore,
-        modelProbability: null,
-        impliedProbability: selected.consensusProbability ?? selected.marketProbability,
-        source: "scorecaster-mobile-event-detail-v1"
+        stake: paperStake,
       }] } });
       Alert.alert(tr({ fi: "Tallennettu paperiseurantaan", en: "Saved to paper tracking", es: "Guardado en seguimiento simulado" }), tr({ fi: `${selected.selection} · ${money(paperStake)}. Oikeaa vetoa ei asetettu.`, en: `${selected.selection} · ${money(paperStake)}. No real bet was placed.`, es: `${selected.selection} · ${money(paperStake)}. No se realizó ninguna apuesta real.` }));
       setShowPaper(false);

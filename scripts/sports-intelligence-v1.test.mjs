@@ -283,6 +283,8 @@ test("Top Picks calculates market value before intelligence downgrade rules", as
   assert.match(route, /MAX_INTELLIGENCE_ENRICHMENTS\s*=\s*12/);
   assert.ok(marketIndex >= 0 && safetyIndex > marketIndex);
   assert.match(route, /evaluateIndependentIntelligenceSafetyV1/);
+  assert.match(route, /allowsIndependentPlayEvidence !== true/);
+  assert.match(route, /PLAY requires verified independent evidence/);
   assert.doesNotMatch(route, /readiness\?\.level !== "verified"/);
   assert.match(route, /probabilityAdjustedByIntelligence:\s*false/);
 });
@@ -336,4 +338,3 @@ test("PLAY safety downgrades only verified negative evidence or unresolved confl
   assert.equal(conflict.downgrade, true);
   assert.equal(conflict.criticalConflict, true);
 });
-
