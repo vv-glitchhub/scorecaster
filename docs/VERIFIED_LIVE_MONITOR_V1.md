@@ -1,5 +1,7 @@
 # Scorecaster Verified Live Monitor V1
 
+> Data Readiness V1 adds explicit written-rights, live-display, retention, authentication and contract-reference gates. See `docs/DATA_READINESS_V1.md`.
+
 Verified Live Monitor is an informational, paper-only event integrity layer. It tracks timestamped live score, clock, period, provider freshness, provider conflicts, visible correction events, market availability and licensed sport-specific metrics.
 
 It does not place bets, connect to bookmaker accounts, suggest a stake, instruct a live entry or change any pre-match probability, feature, decision or audit.

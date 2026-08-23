@@ -184,12 +184,19 @@ test("rights-gated provider normalization rejects unknown events and accepts lic
     COLLECTOR_JSON_COMMERCIAL_ALLOWED: "true",
     COLLECTOR_JSON_LICENSE: "verified-commercial-contract",
     LIVE_MONITOR_SOURCE_ID: "licensed_live",
-    LIVE_MONITOR_ENABLED: "true"
+    LIVE_MONITOR_ENABLED: "true",
+    LIVE_MONITOR_AUTH_MODE: "ip_allowlist",
+    LIVE_MONITOR_LIVE_DATA_ALLOWED: "true",
+    LIVE_MONITOR_DISPLAY_ALLOWED: "true",
+    LIVE_MONITOR_CONTRACT_REFERENCE: "contract-on-file",
+    LIVE_MONITOR_RETENTION_DAYS: "30"
   };
   const events = [{ eventId, sport: "soccer_epl", league: "Premier League", homeTeam: "Home", awayTeam: "Away", commenceTime: at(3600) }];
   const configuration = liveMonitorProviderConfiguration(env);
   assert.equal(configuration.enabled, true);
   assert.equal(configuration.productionAllowed, true);
+  assert.equal(configuration.contractReady, true);
+  assert.deepEqual(configuration.failedGates, []);
   assert.equal(configuration.baseUrl, "configured");
   assert.equal(configuration.rawPayloadStored, false);
 
@@ -228,6 +235,26 @@ test("rights-gated provider normalization rejects unknown events and accepts lic
   assert.equal(normalized.accepted.length, 1);
   assert.equal(normalized.rejected.length, 1);
   assert.ok(normalized.rejected[0].errors.includes("unknown-event"));
+});
+
+test("live provider remains fail-closed when explicit live display rights are missing", () => {
+  const configuration = liveMonitorProviderConfiguration({
+    NODE_ENV: "production",
+    COLLECTOR_JSON_API_URL: "https://licensed.example/live",
+    COLLECTOR_JSON_SOURCE_ID: "licensed_live",
+    COLLECTOR_JSON_ENABLED: "true",
+    COLLECTOR_JSON_ACCESS_MODE: "production",
+    COLLECTOR_JSON_COMMERCIAL_ALLOWED: "true",
+    LIVE_MONITOR_SOURCE_ID: "licensed_live",
+    LIVE_MONITOR_ENABLED: "true",
+    LIVE_MONITOR_AUTH_MODE: "ip_allowlist",
+    LIVE_MONITOR_CONTRACT_REFERENCE: "contract-on-file",
+    LIVE_MONITOR_RETENTION_DAYS: "30"
+  });
+  assert.equal(configuration.contractReady, false);
+  assert.equal(configuration.productionAllowed, false);
+  assert.ok(configuration.failedGates.includes("liveDataAllowed"));
+  assert.ok(configuration.failedGates.includes("displayAllowed"));
 });
 
 test("storage patch enforces service-only evidence and own-user alerts", async () => {

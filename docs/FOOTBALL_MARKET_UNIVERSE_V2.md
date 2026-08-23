@@ -1,5 +1,7 @@
 # Scorecaster Football Market Universe V2
 
+> Data Readiness V1 assigns every provider gap to a prioritized procurement bundle and written-rights checklist. See `docs/DATA_READINESS_V1.md`.
+
 Football Market Universe V2 turns the operator's bookmaker UI reference into an explicit Scorecaster product taxonomy while preserving provider-rights and mathematical safety boundaries.
 
 ## Product goal
