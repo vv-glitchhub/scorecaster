@@ -34,6 +34,7 @@ test("PLAY recommendation exposes positive reasons without changing the producti
   assert.ok(result.reasons.some((item) => item.code === "positive-edge"));
   assert.ok(result.reasons.some((item) => item.code === "positive-ev"));
   assert.ok(result.reasons.some((item) => item.code === "verified-evidence"));
+  assert.equal(result.nextGate.code, "maintain-play-gates");
 });
 
 test("ranking never upgrades CAUTION to PLAY", () => {
@@ -63,6 +64,7 @@ test("unverified evidence is surfaced as a warning", () => {
   }));
   assert.ok(result.warnings.some((item) => item.code === "evidence-not-verified"));
   assert.equal(result.decision, "CAUTION");
+  assert.equal(result.nextGate.code, "verified-evidence");
 });
 
 test("stale and thin market data are visible in warnings", () => {
@@ -79,4 +81,20 @@ test("stale and thin market data are visible in warnings", () => {
   assert.equal(codes.has("thin-market"), true);
   assert.equal(codes.has("low-confidence"), true);
   assert.equal(result.decision, "SKIP");
+  assert.equal(result.nextGate.code, "fresh-data");
+});
+
+test("recommendation exposes the 3% EV price threshold without overriding evidence gates", () => {
+  const result = buildRecommendation(pick({
+    productDecision: "CAUTION",
+    fairOdds: 2,
+    odds: 2.08,
+    edge: 0.025,
+    ev: 0.04,
+    sportsIntelligence: { readiness: { level: "market-only" }, conflicts: [] }
+  }));
+  assert.equal(result.minimumEvOdds, 2.06);
+  assert.equal(result.evPriceGateOpen, true);
+  assert.equal(result.decision, "CAUTION");
+  assert.equal(result.nextGate.code, "verified-evidence");
 });
