@@ -13,13 +13,6 @@ function parseLimit(searchParams) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const unknownKeys = [...url.searchParams.keys()].filter((key) => !key.startsWith("_") && !["sports", "limit"].includes(key));
-  if (unknownKeys.length) {
-    return Response.json(
-      { ok: false, error: "Unsupported query parameter" },
-      { status: 400, headers: CACHE_HEADERS }
-    );
-  }
 
   const limit = parseLimit(url.searchParams);
   if (!limit) {
