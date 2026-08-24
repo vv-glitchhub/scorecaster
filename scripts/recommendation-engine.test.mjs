@@ -8,6 +8,8 @@ function pick(overrides = {}) {
     eventId: "game-1",
     match: "Home – Away",
     selection: "Home",
+    sportKey: "soccer_epl",
+    sportTitle: "Football",
     odds: 2.15,
     fairOdds: 2.02,
     edge: 0.03,
@@ -30,6 +32,8 @@ test("PLAY recommendation exposes positive reasons without changing the producti
   assert.equal(result.decision, "PLAY");
   assert.equal(result.paperOnly, true);
   assert.equal(result.realMoneyActionAvailable, false);
+  assert.equal(result.sportKey, "soccer_epl");
+  assert.equal(result.sportTitle, "Football");
   assert.ok(result.score >= 70);
   assert.ok(result.reasons.some((item) => item.code === "positive-edge"));
   assert.ok(result.reasons.some((item) => item.code === "positive-ev"));
