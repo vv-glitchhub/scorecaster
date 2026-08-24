@@ -9,9 +9,9 @@ test("global header mounts the alert bell next to shared controls", async () => 
   assert.ok(shell.indexOf("<HeaderAlertBell />") < shell.indexOf("<ThemeToggle"));
 });
 
-test("alert bell reads only the lightweight unread inbox and polls conservatively", async () => {
+test("alert bell reads only the lightweight inbox and polls conservatively", async () => {
   const bell = await readFile(new URL("../app/components/HeaderAlertBell.jsx", import.meta.url), "utf8");
-  assert.match(bell, /\/api\/cloud\/alerts\?status=unread&limit=5/);
+  assert.match(bell, /\/api\/cloud\/alerts\?status=all&limit=5/);
   assert.match(bell, /const REFRESH_MS = 120_000/);
   assert.match(bell, /document\.visibilityState === "visible"/);
   assert.match(bell, /visibilitychange/);
@@ -26,9 +26,11 @@ test("signed-out alert bell degrades to login without surfacing a header error",
   assert.match(bell, /Header alerts are non-blocking/);
 });
 
-test("alert bell exposes unread count, highest-priority preview and server-only navigation", async () => {
+test("alert bell exposes unread count and prefers active high-priority preview", async () => {
   const bell = await readFile(new URL("../app/components/HeaderAlertBell.jsx", import.meta.url), "utf8");
   assert.match(bell, /summary\.unread/);
+  assert.match(bell, /summary\.active/);
+  assert.match(bell, /activeDiff/);
   assert.match(bell, /severityRank/);
   assert.match(bell, /topAlert/);
   assert.match(bell, /href="\/alerts"/);
