@@ -11,7 +11,7 @@ on:
       - "app/calibration-center/**"
       - "app/champion-challenger/**"
       - "app/league-readiness/**"
-      - "app/event/[eventId]/page.jsx"
+      - "app/event/**/page.jsx"
       - "scripts/decision-review-surfaces-v1.test.mjs"
       - ".github/workflows/decision-review-surfaces-v1.yml"
   pull_request:
@@ -24,7 +24,7 @@ on:
       - "app/calibration-center/**"
       - "app/champion-challenger/**"
       - "app/league-readiness/**"
-      - "app/event/[eventId]/page.jsx"
+      - "app/event/**/page.jsx"
       - "scripts/decision-review-surfaces-v1.test.mjs"
       - ".github/workflows/decision-review-surfaces-v1.yml"
 
