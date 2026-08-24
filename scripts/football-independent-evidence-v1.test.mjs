@@ -121,9 +121,9 @@ test("stale, unentitled or market-derived predictive data cannot verify", () => 
   assert.equal(unentitled.families.predictive.qualified, false);
 
   const market = buildFootballIndependentEvidenceV1(pick(), { sportsReport: report(), soccerModel: soccerModel({ provenance: { providers: ["the-odds-api"], observedAtMax: "2026-08-23T10:00:00Z" } }), advancedStatus: status(), formRest: form(), providerConfiguration: provider({ source: "the-odds-api" }), now: NOW });
-  assert.equal(market.families.predictive.noMarketInputs, true);
-  assert.equal(market.families.predictive.sourceMatchesConfiguredEntitlement, true);
-  assert.equal(market.families.predictive.qualified, true, "qualification relies on model audit; blocked market sources must be rejected before the model by the shadow loader");
+  assert.equal(market.families.predictive.marketSourceDetected, true);
+  assert.equal(market.families.predictive.qualified, false);
+  assert.equal(market.readiness.allowsIndependentPlayEvidence, false);
 });
 
 test("strong xG disagreement is a critical conflict and cannot open PLAY", () => {
