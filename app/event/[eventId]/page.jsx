@@ -5,10 +5,11 @@ import EventDataAuditClient from "./EventDataAuditClient";
 import EventDetailClient from "./EventDetailClient";
 import EventMarketMicrostructurePanel from "./EventMarketMicrostructurePanel";
 import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
+import FootballIndependentEvidencePanel from "./FootballIndependentEvidencePanel";
 
 export const metadata = {
   title: "Event Detail",
-  description: "Verified market, Match Journey and Story, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
+  description: "Verified market, Match Journey and Story, independent football evidence, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
 };
 
 export default async function EventDetailPage({ params, searchParams }) {
@@ -47,6 +48,7 @@ export default async function EventDetailPage({ params, searchParams }) {
       </section>
 
       <EventDetailClient eventId={eventId} sport={sport} initialSelection={selection} />
+      <FootballIndependentEvidencePanel eventId={eventId} sport={sport} selection={selection} />
       <EventVerifiedLiveMonitorPanel eventId={eventId} />
       <ProfessionalExplanationCard eventId={eventId} />
       <EventMarketMicrostructurePanel eventId={eventId} />
