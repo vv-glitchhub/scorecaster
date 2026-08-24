@@ -3,6 +3,7 @@ import { Pressable, ScrollView, Text, View } from "react-native";
 import { useLanguage } from "../i18n";
 import type { Tab } from "../types";
 import { ActionButton, Card, styles } from "../ui";
+import AutoWatchScreen from "./AutoWatchScreen";
 import AutonomousAgentScreen from "./AutonomousAgentScreen";
 import DataLayerScreen from "./DataLayerScreen";
 import DiagnosticsScreen from "./DiagnosticsScreen";
@@ -18,14 +19,15 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
   const [dataLayerOpen, setDataLayerOpen] = useState(false);
   const [missionControlOpen, setMissionControlOpen] = useState(false);
   const [autonomousOpen, setAutonomousOpen] = useState(false);
+  const [autoWatchOpen, setAutoWatchOpen] = useState(false);
 
-  if (diagnosticsOpen || dataLayerOpen || missionControlOpen || autonomousOpen) {
+  if (diagnosticsOpen || dataLayerOpen || missionControlOpen || autonomousOpen || autoWatchOpen) {
     return (
       <View style={{ flex: 1 }}>
         <View style={{ paddingHorizontal: 18, paddingTop: 12 }}>
-          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setMissionControlOpen(false); setAutonomousOpen(false); }} tone="secondary" compact />
+          <ActionButton label={`← ${tr({ fi: "Takaisin Lisää-keskukseen", en: "Back to More", es: "Volver a Más" })}`} onPress={() => { setDiagnosticsOpen(false); setDataLayerOpen(false); setMissionControlOpen(false); setAutonomousOpen(false); setAutoWatchOpen(false); }} tone="secondary" compact />
         </View>
-        {diagnosticsOpen ? <DiagnosticsScreen /> : dataLayerOpen ? <DataLayerScreen /> : autonomousOpen ? <AutonomousAgentScreen /> : <MissionControlScreen />}
+        {diagnosticsOpen ? <DiagnosticsScreen /> : dataLayerOpen ? <DataLayerScreen /> : autonomousOpen ? <AutonomousAgentScreen /> : autoWatchOpen ? <AutoWatchScreen /> : <MissionControlScreen />}
       </View>
     );
   }
@@ -64,8 +66,17 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
       <View style={styles.mobileHero}>
         <Text style={styles.kicker}>SCORECASTER MOBILE</Text>
         <Text style={styles.title}>{tr({ fi: "Lisää työkalut ilman ahdasta alapalkkia", en: "More tools without a crowded tab bar", es: "Más herramientas sin una barra saturada" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Mission Control, V13-autonomia, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily actions stay in the tab bar. Mission Control, V13 autonomy, tracking, analytics, diagnostics, the data layer and profile live here.", es: "Las acciones diarias quedan en la barra. Mission Control, autonomía V13, seguimiento, analítica, diagnóstico y perfil están aquí." })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Päivittäiset päätoiminnot pysyvät alapalkissa. Recommendation Auto-Watch, Mission Control, V13-autonomia, seuranta, analytiikka, diagnostiikka, datakerros ja profiili löytyvät tästä keskuksesta.", en: "Daily actions stay in the tab bar. Recommendation Auto-Watch, Mission Control, V13 autonomy, tracking, analytics, diagnostics, the data layer and profile live here.", es: "Las acciones diarias quedan en la barra. Recommendation Auto-Watch, Mission Control, autonomía V13, seguimiento, analítica, diagnóstico y perfil están aquí." })}</Text>
       </View>
+
+      <Pressable accessibilityLabel={tr({ fi: "Avaa Recommendation Auto-Watch", en: "Open Recommendation Auto-Watch", es: "Abrir Recommendation Auto-Watch" })} accessibilityRole="button" onPress={() => setAutoWatchOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
+        <Card>
+          <View style={styles.rowBetween}><Text style={styles.kicker}>RECOMMENDATION OPERATIONS</Text><View style={styles.badge}><Text style={styles.badgeText}>V1</Text></View></View>
+          <Text style={styles.cardTitle}>{tr({ fi: "Auto-Watch Top 1–3", en: "Auto-Watch Top 1–3", es: "Auto-Watch Top 1–3" })}</Text>
+          <Text style={styles.muted}>{tr({ fi: "Näe Recommendation Top 3, seuraava päätösportti ja evidenssin readiness sekä valvo kärkiehdokkaita automaattisesti nykyisen Alert Inboxin kautta.", en: "See the Recommendation Top 3, next decision gate and evidence readiness, and monitor leading candidates automatically through the existing Alert Inbox.", es: "Consulta el Top 3, el siguiente filtro y la evidencia, y supervisa candidatos automáticamente mediante Alert Inbox." })}</Text>
+          <Text style={styles.openLabel}>{tr({ fi: "Avaa Auto-Watch", en: "Open Auto-Watch", es: "Abrir Auto-Watch" })} →</Text>
+        </Card>
+      </Pressable>
 
       <Pressable accessibilityLabel={tr({ fi: "Avaa autonominen Mission Control", en: "Open Autonomous Mission Control", es: "Abrir Mission Control autónomo" })} accessibilityRole="button" onPress={() => setMissionControlOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
