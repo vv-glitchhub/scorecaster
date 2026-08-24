@@ -40,7 +40,7 @@
     "test:agent-signing-key-handoff": "node --test scripts/agent-signing-key-readiness.test.mjs",
     "test:agent-v11": "node --test scripts/agent-v11-self-learning.test.mjs",
     "test:watchlist": "node --test scripts/watchlist-alerts.test.mjs",
-    "test:watchlist-monitor": "node --test scripts/watchlist-monitor.test.mjs",
+    "test:watchlist-monitor": "node --test scripts/watchlist-monitor.test.mjs scripts/auto-watch-recommendations.test.mjs",
     "test:alert-inbox": "node --test scripts/alert-inbox.test.mjs",
     "test:notification-registry": "node --test scripts/notification-registry.test.mjs",
     "test:notification-delivery": "node --test scripts/notification-delivery.test.mjs",
