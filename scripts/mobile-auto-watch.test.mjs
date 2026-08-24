@@ -32,3 +32,15 @@ test("native Auto-Watch keeps decision and evidence gates visible", async () => 
   assert.match(screen, /SKIP/);
   assert.match(screen, /paper/i);
 });
+
+test("native header surfaces unread server alerts and opens the existing watchlist", async () => {
+  const app = await readFile(new URL("../mobile/src/App.tsx", import.meta.url), "utf8");
+  const bell = await readFile(new URL("../mobile/src/components/HeaderAlertButton.tsx", import.meta.url), "utf8");
+  assert.match(app, /import HeaderAlertButton from "\.\/components\/HeaderAlertButton"/);
+  assert.match(app, /<HeaderAlertButton onPress=\{\(\) => chooseTab\("watchlist"\)\}/);
+  assert.match(bell, /\/api\/cloud\/alerts\?limit=1/);
+  assert.match(bell, /summary\?\.unread/);
+  assert.match(bell, /const REFRESH_MS = 120_000/);
+  assert.match(bell, /AppState\.currentState === "active"/);
+  assert.doesNotMatch(bell, /\/api\/recommendations|\/api\/top-picks|\/api\/cloud\/bets/);
+});
