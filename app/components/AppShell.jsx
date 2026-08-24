@@ -36,6 +36,8 @@ export default function AppShell({ children }) {
 
   const secondaryItems = useMemo(() => [
     { href: "/brief", label: tr({ fi: "Päivän briefi", en: "Daily Brief", es: "Informe diario" }) },
+    { href: "/recommendations", label: tr({ fi: "Suosituskeskus", en: "Recommendation Center", es: "Centro de recomendaciones" }) },
+    { href: "/auto-watch", label: tr({ fi: "Auto-Watch Top 1–3", en: "Auto-Watch Top 1–3", es: "Auto-Watch Top 1–3" }) },
     { href: "/changes", label: tr({ fi: "Markkinamuutokset", en: "Market changes", es: "Cambios de mercado" }) },
     { href: "/pro", label: tr({ fi: "Pro Bettor Desk", en: "Pro Bettor Desk", es: "Pro Bettor Desk" }) },
     ...groups,
