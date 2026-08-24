@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ActivityIndicator, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { useLanguage } from "../i18n";
 import { apiRequest } from "../lib/api";
 import { ActionButton, Card, percent, styles } from "../ui";
@@ -33,11 +33,18 @@ type Recommendation = {
   nextGate?: NextGate;
 };
 
+type SelectionMode = "play-only" | "play-and-caution";
+
 type Preferences = {
   enabled?: boolean;
   top_n?: number;
   alert_move_percent?: number;
   alert_before_minutes?: number;
+  selection_mode?: SelectionMode;
+  min_score?: number;
+  min_edge?: number;
+  min_ev?: number;
+  sport_keys?: string[];
   last_completed_at?: string | null;
   last_status?: string | null;
   last_error?: string | null;
@@ -46,6 +53,7 @@ type Preferences = {
 type AutoWatchPayload = {
   ok: boolean;
   available?: boolean;
+  version?: number;
   autoManagedCount?: number | null;
   preferences?: Preferences;
   warning?: string | null;
@@ -65,6 +73,18 @@ type RecommendationPayload = {
   generatedAt?: string;
 };
 
+const DEFAULTS: Preferences = {
+  enabled: false,
+  top_n: 3,
+  alert_move_percent: 0.03,
+  alert_before_minutes: 120,
+  selection_mode: "play-and-caution",
+  min_score: 0,
+  min_edge: 0,
+  min_ev: 0,
+  sport_keys: []
+};
+
 function gateLabel(gate: NextGate | undefined, tr: ReturnType<typeof useLanguage>["tr"]) {
   const code = gate?.code || "safety-recheck";
   if (code === "maintain-play-gates") return tr({ fi: "Kaikki PLAY-portit auki", en: "All PLAY gates open", es: "Todos los filtros PLAY abiertos" });
@@ -75,6 +95,11 @@ function gateLabel(gate: NextGate | undefined, tr: ReturnType<typeof useLanguage
   if (code === "bookmaker-coverage") return tr({ fi: "Markkinapeitto liian ohut", en: "Market coverage too thin", es: "Cobertura de mercado insuficiente" });
   if (code === "fresh-data") return tr({ fi: "Tarvitaan tuoreempi data", en: "Fresher data required", es: "Se necesitan datos más recientes" });
   return tr({ fi: "Safety-uudelleentarkistus", en: "Safety re-check", es: "Nueva comprobación de seguridad" });
+}
+
+function numeric(value: string, fallback = 0) {
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : fallback;
 }
 
 function RecommendationCard({ item }: { item: Recommendation }) {
@@ -101,7 +126,8 @@ function RecommendationCard({ item }: { item: Recommendation }) {
 
 export default function AutoWatchScreen() {
   const { tr, locale } = useLanguage();
-  const [preferences, setPreferences] = useState<Preferences>({ enabled: false, top_n: 3, alert_move_percent: 0.03, alert_before_minutes: 120 });
+  const [preferences, setPreferences] = useState<Preferences>(DEFAULTS);
+  const [sportFilterText, setSportFilterText] = useState("");
   const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
   const [managedCount, setManagedCount] = useState(0);
   const [available, setAvailable] = useState(true);
@@ -115,10 +141,12 @@ export default function AutoWatchScreen() {
     try {
       const [autoWatch, feed] = await Promise.all([
         apiRequest<AutoWatchPayload>("/api/cloud/auto-watch-recommendations"),
-        apiRequest<RecommendationPayload>("/api/recommendations?limit=3", { authenticated: false, timeoutMs: 30000 })
+        apiRequest<RecommendationPayload>("/api/recommendations?limit=10", { authenticated: false, timeoutMs: 30000 })
       ]);
+      const next = { ...DEFAULTS, ...(autoWatch.preferences || {}) };
       setAvailable(autoWatch.available !== false);
-      setPreferences({ enabled: false, top_n: 3, alert_move_percent: 0.03, alert_before_minutes: 120, ...(autoWatch.preferences || {}) });
+      setPreferences(next);
+      setSportFilterText((next.sport_keys || []).join(", "));
       setManagedCount(Number(autoWatch.autoManagedCount || 0));
       setRecommendations(feed.recommendations || []);
     } catch (error) {
@@ -130,10 +158,12 @@ export default function AutoWatchScreen() {
 
   useEffect(() => { void load(); }, [tr]);
 
-  async function save(nextEnabled = preferences.enabled === true, nextTopN = Number(preferences.top_n || 3)) {
+  async function save(nextEnabled = preferences.enabled === true) {
     if (saving || !available) return;
     setSaving(true);
     setMessage("");
+    const sportKeys = [...new Set(sportFilterText.split(",").map((value) => value.trim().toLowerCase()).filter(Boolean))].slice(0, 20);
+    const nextTopN = Number(preferences.top_n || 3);
     try {
       const payload = await apiRequest<AutoWatchPayload>("/api/cloud/auto-watch-recommendations", {
         method: "PATCH",
@@ -141,14 +171,21 @@ export default function AutoWatchScreen() {
           enabled: nextEnabled,
           topN: nextTopN,
           alertMovePercent: Number(preferences.alert_move_percent || 0.03),
-          alertBeforeMinutes: Number(preferences.alert_before_minutes || 120)
+          alertBeforeMinutes: Number(preferences.alert_before_minutes || 120),
+          selectionMode: preferences.selection_mode || "play-and-caution",
+          minScore: Number(preferences.min_score || 0),
+          minEdge: Number(preferences.min_edge || 0),
+          minEv: Number(preferences.min_ev || 0),
+          sportKeys
         }
       });
       const sync = payload.sync || {};
-      setPreferences({ ...preferences, ...(payload.preferences || {}), enabled: nextEnabled, top_n: nextTopN });
+      const next = { ...preferences, ...(payload.preferences || {}), enabled: nextEnabled, top_n: nextTopN };
+      setPreferences(next);
+      setSportFilterText((next.sport_keys || sportKeys).join(", "));
       setManagedCount(nextEnabled ? Number(sync.retainedAuto || 0) + Number(sync.inserted || 0) : 0);
       setMessage(payload.warning || (nextEnabled
-        ? tr({ fi: `Top ${nextTopN} Auto-Watch synkattu.`, en: `Top ${nextTopN} Auto-Watch synchronized.`, es: `Auto-Watch Top ${nextTopN} sincronizado.` })
+        ? tr({ fi: `Top ${nextTopN} Auto-Watch V2 synkattu valituilla suodattimilla.`, en: `Top ${nextTopN} Auto-Watch V2 synchronized with your filters.`, es: `Auto-Watch V2 Top ${nextTopN} sincronizado con tus filtros.` })
         : tr({ fi: "Auto-Watch poistettu käytöstä.", en: "Auto-Watch disabled.", es: "Auto-Watch desactivado." })));
     } catch (error) {
       setMessage(error instanceof Error ? error.message : tr({ fi: "Tallennus epäonnistui", en: "Save failed", es: "No se pudo guardar" }));
@@ -162,11 +199,11 @@ export default function AutoWatchScreen() {
     : "–";
 
   return (
-    <ScrollView contentContainerStyle={styles.screen}>
+    <ScrollView contentContainerStyle={styles.screen} keyboardShouldPersistTaps="handled">
       <View style={styles.mobileHero}>
-        <Text style={styles.kicker}>AUTO-WATCH RECOMMENDATIONS V1</Text>
-        <Text style={styles.title}>{tr({ fi: "Scorecaster valvoo Top 3:a puolestasi", en: "Scorecaster monitors the Top 3 for you", es: "Scorecaster supervisa el Top 3 por ti" })}</Text>
-        <Text style={styles.subtitle}>{tr({ fi: "Automaattinen seuranta vaihtaa vain omia auto-managed-rivejään. Käsin lisättyihin seurantoihin ei kosketa, eikä mitään oikean rahan vetoa aseteta.", en: "Automatic monitoring rotates only its own auto-managed rows. Manual watch items are untouched and no real-money bet is ever placed.", es: "La supervisión automática solo rota sus propias filas. No toca seguimientos manuales ni realiza apuestas con dinero real." })}</Text>
+        <Text style={styles.kicker}>AUTO-WATCH RECOMMENDATIONS V2</Text>
+        <Text style={styles.title}>{tr({ fi: `Scorecaster valvoo valitsemaasi Top ${preferences.top_n || 3}:a`, en: `Scorecaster monitors your selected Top ${preferences.top_n || 3}`, es: `Scorecaster supervisa tu Top ${preferences.top_n || 3}` })}</Text>
+        <Text style={styles.subtitle}>{tr({ fi: "Rajaa automaattiseuranta päätöksellä, pisteillä, edgellä, EV:llä ja lajeilla. Vain auto-managed-rivejä kierrätetään; käsin lisättyihin seurantoihin ei kosketa eikä oikean rahan vetoja suoriteta.", en: "Filter automatic monitoring by decision, score, edge, EV and sports. Only auto-managed rows rotate; manual watches stay untouched and no real-money bet is executed.", es: "Filtra la supervisión por decisión, puntuación, edge, EV y deportes. Solo rotan las filas automáticas y nunca se ejecutan apuestas reales." })}</Text>
       </View>
 
       {loading ? <ActivityIndicator color="#34d399" size="large" /> : (
@@ -179,12 +216,49 @@ export default function AutoWatchScreen() {
               </View>
               <View style={[styles.badge, preferences.enabled && local.activeBadge]}><Text style={styles.badgeText}>{preferences.enabled ? "ON" : "OFF"}</Text></View>
             </View>
+
             <Text style={local.sectionLabel}>{tr({ fi: "Valvottavien määrä", en: "Number monitored", es: "Cantidad supervisada" })}</Text>
             <View style={local.actions}>
-              {[1, 2, 3].map((value) => <ActionButton key={value} label={`Top ${value}`} onPress={() => void save(preferences.enabled === true, value)} tone={Number(preferences.top_n || 3) === value ? "primary" : "secondary"} compact disabled={saving} />)}
+              {[1, 3, 5, 10].map((value) => <ActionButton key={value} label={`Top ${value}`} onPress={() => setPreferences((current) => ({ ...current, top_n: value }))} tone={Number(preferences.top_n || 3) === value ? "primary" : "secondary"} compact disabled={saving} />)}
             </View>
+
+            <Text style={local.sectionLabel}>{tr({ fi: "Päätössuodatin", en: "Decision filter", es: "Filtro de decisión" })}</Text>
             <View style={local.actions}>
-              <ActionButton label={saving ? tr({ fi: "Synkataan…", en: "Syncing…", es: "Sincronizando…" }) : preferences.enabled ? tr({ fi: "Poista Auto-Watch", en: "Disable Auto-Watch", es: "Desactivar Auto-Watch" }) : tr({ fi: "Ota Auto-Watch käyttöön", en: "Enable Auto-Watch", es: "Activar Auto-Watch" })} onPress={() => void save(!preferences.enabled, Number(preferences.top_n || 3))} tone={preferences.enabled ? "secondary" : "primary"} disabled={saving || !available} />
+              <ActionButton label="PLAY only" onPress={() => setPreferences((current) => ({ ...current, selection_mode: "play-only" }))} tone={preferences.selection_mode === "play-only" ? "primary" : "secondary"} compact disabled={saving} />
+              <ActionButton label="PLAY + CAUTION" onPress={() => setPreferences((current) => ({ ...current, selection_mode: "play-and-caution" }))} tone={preferences.selection_mode !== "play-only" ? "primary" : "secondary"} compact disabled={saving} />
+            </View>
+
+            <View style={local.inputGrid}>
+              <View style={local.inputGroup}>
+                <Text style={local.inputLabel}>Min score</Text>
+                <TextInput style={local.input} keyboardType="decimal-pad" value={String(preferences.min_score ?? 0)} onChangeText={(value) => setPreferences((current) => ({ ...current, min_score: numeric(value) }))} editable={!saving} />
+              </View>
+              <View style={local.inputGroup}>
+                <Text style={local.inputLabel}>Min edge %</Text>
+                <TextInput style={local.input} keyboardType="decimal-pad" value={String(Number(preferences.min_edge || 0) * 100)} onChangeText={(value) => setPreferences((current) => ({ ...current, min_edge: numeric(value) / 100 }))} editable={!saving} />
+              </View>
+              <View style={local.inputGroup}>
+                <Text style={local.inputLabel}>Min EV %</Text>
+                <TextInput style={local.input} keyboardType="decimal-pad" value={String(Number(preferences.min_ev || 0) * 100)} onChangeText={(value) => setPreferences((current) => ({ ...current, min_ev: numeric(value) / 100 }))} editable={!saving} />
+              </View>
+            </View>
+
+            <Text style={local.sectionLabel}>{tr({ fi: "Lajit / liigat (sport key, pilkulla)", en: "Sports / leagues (sport key, comma-separated)", es: "Deportes / ligas (sport key, separados por coma)" })}</Text>
+            <TextInput
+              style={local.input}
+              value={sportFilterText}
+              onChangeText={setSportFilterText}
+              autoCapitalize="none"
+              autoCorrect={false}
+              placeholder="soccer_norway_eliteserien, basketball_wnba"
+              placeholderTextColor="#64748b"
+              editable={!saving}
+            />
+            <Text style={styles.muted}>{tr({ fi: "Tyhjä = kaikki Recommendation Feedin lajit. Enintään 20 suodatinta.", en: "Empty = all sports in the Recommendation Feed. Maximum 20 filters.", es: "Vacío = todos los deportes del feed. Máximo 20 filtros." })}</Text>
+
+            <View style={local.actions}>
+              <ActionButton label={saving ? tr({ fi: "Synkataan…", en: "Syncing…", es: "Sincronizando…" }) : preferences.enabled ? tr({ fi: "Poista Auto-Watch", en: "Disable Auto-Watch", es: "Desactivar Auto-Watch" }) : tr({ fi: "Ota Auto-Watch käyttöön", en: "Enable Auto-Watch", es: "Activar Auto-Watch" })} onPress={() => void save(!preferences.enabled)} tone={preferences.enabled ? "secondary" : "primary"} disabled={saving || !available} />
+              <ActionButton label={tr({ fi: "Tallenna ja synkkaa", en: "Save & sync", es: "Guardar y sincronizar" })} onPress={() => void save(preferences.enabled === true)} tone="primary" disabled={saving || !available} />
               <ActionButton label={tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })} onPress={load} tone="secondary" disabled={saving} />
             </View>
             {message ? <Text style={local.message}>{message}</Text> : null}
@@ -192,7 +266,7 @@ export default function AutoWatchScreen() {
           </Card>
 
           <Card>
-            <Text style={styles.cardTitle}>{tr({ fi: "Nykyinen Recommendation Top 3", en: "Current Recommendation Top 3", es: "Top 3 actual de recomendaciones" })}</Text>
+            <Text style={styles.cardTitle}>{tr({ fi: "Nykyinen Recommendation Top 10", en: "Current Recommendation Top 10", es: "Top 10 actual de recomendaciones" })}</Text>
             <Text style={styles.muted}>{tr({ fi: "SKIP-kohteita ei lisätä Auto-Watchiin. CAUTION ei muutu PLAYksi ilman oikean palvelinpäätöksen ja evidenssiporttien täyttymistä.", en: "SKIP items are not added to Auto-Watch. CAUTION never becomes PLAY without the real server decision and evidence gates passing.", es: "Los elementos SKIP no se añaden. CAUTION nunca se convierte en PLAY sin superar la decisión y los filtros del servidor." })}</Text>
             {recommendations.length ? recommendations.map((item, index) => <RecommendationCard key={`${item.eventId || index}-${item.selection || index}`} item={{ ...item, rank: item.rank || index + 1 }} />) : <Text style={styles.muted}>{tr({ fi: "Suosituksia ei juuri nyt ole saatavilla.", en: "Recommendations are not available right now.", es: "No hay recomendaciones disponibles ahora." })}</Text>}
           </Card>
@@ -212,6 +286,10 @@ const local = StyleSheet.create({
   gate: { color: "#fbbf24", fontSize: 12, fontWeight: "800" },
   sectionLabel: { color: "#94a3b8", fontSize: 11, fontWeight: "800", marginTop: 14, textTransform: "uppercase" },
   actions: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
+  inputGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 12 },
+  inputGroup: { minWidth: 96, flexGrow: 1 },
+  inputLabel: { color: "#94a3b8", fontSize: 11, fontWeight: "800", marginBottom: 6 },
+  input: { minHeight: 44, borderWidth: StyleSheet.hairlineWidth, borderColor: "#475569", borderRadius: 12, backgroundColor: "#0f172a", color: "#f8fafc", paddingHorizontal: 12, paddingVertical: 10, fontWeight: "700" },
   activeBadge: { borderColor: "#34d399" },
   message: { color: "#6ee7b7", fontWeight: "700", marginTop: 10 },
   warning: { color: "#fbbf24", fontWeight: "700", marginTop: 8 }
