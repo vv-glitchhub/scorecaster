@@ -1,0 +1,68 @@
+name: Recommendation Intelligence V2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/recommendation-engine.mjs"
+      - "lib/recommendation-intelligence-v2.mjs"
+      - "lib/recommendation-journey-v1.mjs"
+      - "app/api/recommendations/**"
+      - "app/components/RecommendationIntelligenceCenter.jsx"
+      - "app/recommendations/**"
+      - "app/near-play/**"
+      - "app/opportunities/**"
+      - "app/journey/**"
+      - "app/brief/**"
+      - "scripts/recommendation-intelligence-v2.test.mjs"
+      - "scripts/recommendation-journey-v1.test.mjs"
+      - ".github/workflows/recommendation-intelligence-v2.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/recommendation-engine.mjs"
+      - "lib/recommendation-intelligence-v2.mjs"
+      - "lib/recommendation-journey-v1.mjs"
+      - "app/api/recommendations/**"
+      - "app/components/RecommendationIntelligenceCenter.jsx"
+      - "app/recommendations/**"
+      - "app/near-play/**"
+      - "app/opportunities/**"
+      - "app/journey/**"
+      - "app/brief/**"
+      - "scripts/recommendation-intelligence-v2.test.mjs"
+      - "scripts/recommendation-journey-v1.test.mjs"
+      - ".github/workflows/recommendation-intelligence-v2.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  recommendation-intelligence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Recommendation Intelligence V2 tests
+        run: node --test scripts/recommendation-engine.test.mjs scripts/recommendation-change-radar.test.mjs scripts/recommendation-intelligence-v2.test.mjs scripts/recommendation-journey-v1.test.mjs
+
+      - name: Paper-only security audit
+        run: npm run security:check
+
+      - name: Next production build
+        run: npm run build
