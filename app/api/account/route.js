@@ -20,6 +20,7 @@ const USER_TABLES = [
   "ai_coach_preferences_v1",
   "notification_deliveries",
   "market_timeline_snapshots",
+  "auto_watch_recommendation_preferences",
   "watchlist_monitor_state",
   "paper_settlement_monitor_state",
   "shadow_learning_cycles",
@@ -60,7 +61,7 @@ export async function GET(request) {
     deletionAvailable: Boolean(getSupabaseAdminClient()),
     confirmationPhrase: CONFIRMATION,
     requiresEmailConfirmation: true,
-    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "Verified Live Monitor preferences and personal alert evidence", "AI Coach preferences and generated evidence reports", "Autonomous Scorecaster V13 settings, health state, decision audit, daily briefs and run history", "Shadow Learning observations, state and evaluation cycles", "automatic settlement monitor state", "verified watchlist", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
+    deletes: ["account", "profile", "paper bets", "paper bankroll settings", "Verified Live Monitor preferences and personal alert evidence", "AI Coach preferences and generated evidence reports", "Autonomous Scorecaster V13 settings, health state, decision audit, daily briefs and run history", "Shadow Learning observations, state and evaluation cycles", "automatic settlement monitor state", "verified watchlist", "Auto-Watch recommendation preferences", "watchlist monitor state", "market timeline", "alert inbox", "notification delivery history", "notification preferences", "notification device registrations", "tracking history"],
     neverStored: ["payment card data", "bank credentials", "real-money balance"]
   }, 200, requestId);
 }
