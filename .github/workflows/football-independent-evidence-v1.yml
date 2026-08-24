@@ -1,0 +1,59 @@
+name: Football Independent Evidence V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/football-independent-evidence-v1.mjs"
+      - "lib/sportmonks-football-evidence-provider.js"
+      - "lib/sports-analytics-provider.js"
+      - "lib/sports-analytics-shadow-input-loader.js"
+      - "lib/agent-intelligence-loader.js"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/football-evidence/**"
+      - "app/event/**"
+      - "scripts/football-independent-evidence-v1.test.mjs"
+      - "docs/FOOTBALL_INDEPENDENT_EVIDENCE_V1.md"
+      - ".github/workflows/football-independent-evidence-v1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/football-independent-evidence-v1.mjs"
+      - "lib/sportmonks-football-evidence-provider.js"
+      - "lib/sports-analytics-provider.js"
+      - "lib/sports-analytics-shadow-input-loader.js"
+      - "lib/agent-intelligence-loader.js"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/football-evidence/**"
+      - "app/event/**"
+      - "scripts/football-independent-evidence-v1.test.mjs"
+      - "docs/FOOTBALL_INDEPENDENT_EVIDENCE_V1.md"
+      - ".github/workflows/football-independent-evidence-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  football-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: public-test-placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+      - name: Football evidence tests
+        run: node --test scripts/football-independent-evidence-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/sports-analytics-ingestion.test.mjs
+      - name: Paper-only security audit
+        run: npm run security:check
+      - name: Next production build
+        run: npm run build
