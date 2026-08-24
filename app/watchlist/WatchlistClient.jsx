@@ -13,6 +13,8 @@ import {
   TrustBar
 } from "../components/ProductUI";
 
+const AUTO_WATCH_SOURCE = "scorecaster-auto-watch-recommendations-v1";
+
 function percent(value) {
   if (value === null || value === undefined || !Number.isFinite(Number(value))) return "–";
   return `${(Number(value) * 100).toFixed(1)} %`;
@@ -27,6 +29,10 @@ function severityClass(severity) {
   if (severity === "high") return "border-rose-400/30 bg-rose-400/10 text-rose-200";
   if (severity === "medium") return "border-amber-400/30 bg-amber-400/10 text-amber-200";
   return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+}
+
+function isAutoManaged(item) {
+  return item?.raw_pick?.source === AUTO_WATCH_SOURCE;
 }
 
 const EMPTY_STATE = {
@@ -103,7 +109,15 @@ export default function WatchlistClient() {
   }
 
   async function removeItem(item) {
-    if (!window.confirm(tr({ fi: "Poistetaanko kohde seurannasta?", en: "Remove this item from the watchlist?", es: "¿Eliminar este elemento de la lista?" }))) return;
+    const autoManaged = isAutoManaged(item);
+    const confirmation = autoManaged
+      ? tr({
+          fi: "Poistetaanko Auto-Watch-rivi? Jos kohde pysyy Top-listalla, automaattinen synkka voi lisätä sen myöhemmin uudelleen. Poista Auto-Watch käytöstä asetuksista, jos haluat lopettaa automaattisen seurannan kokonaan.",
+          en: "Remove this Auto-Watch row? If the selection remains in the Top list, automatic sync may add it again later. Disable Auto-Watch in settings to stop automatic monitoring completely.",
+          es: "¿Eliminar esta fila Auto-Watch? Si la selección sigue en el Top, la sincronización puede añadirla de nuevo. Desactiva Auto-Watch para detener el seguimiento automático."
+        })
+      : tr({ fi: "Poistetaanko kohde seurannasta?", en: "Remove this item from the watchlist?", es: "¿Eliminar este elemento de la lista?" });
+    if (!window.confirm(confirmation)) return;
     setBusyId(item.id);
     try {
       const response = await fetch("/api/cloud/watchlist", {
@@ -152,6 +166,7 @@ export default function WatchlistClient() {
   const summary = state.summary || {};
   const inboxSummary = state.inbox?.summary || {};
   const inboxItems = state.inbox?.available ? state.inbox.items || [] : state.alerts || [];
+  const autoManagedCount = (state.items || []).filter(isAutoManaged).length;
   const monitorState = monitor.state || {};
   const date = (value) => {
     const parsed = new Date(value || "");
@@ -177,10 +192,11 @@ export default function WatchlistClient() {
           <>
             <button type="button" onClick={() => void load()} disabled={loading} className="sc-button-primary disabled:opacity-50">{loading ? tr({ fi: "Päivitetään…", en: "Refreshing…", es: "Actualizando…" }) : tr({ fi: "Päivitä seuranta", en: "Refresh watchlist", es: "Actualizar lista" })}</button>
             <Link href="/events" className="sc-button-secondary">{tr({ fi: "Etsi ottelu", en: "Find an event", es: "Buscar evento" })}</Link>
+            <Link href="/auto-watch" className="sc-button-secondary">Auto-Watch</Link>
             <Link href="/alerts" className="sc-button-ghost">{tr({ fi: "Avaa kaikki hälytykset", en: "Open all alerts", es: "Abrir todas las alertas" })}</Link>
           </>
         }
-        aside={<div className="grid grid-cols-2 gap-2"><MetricTile compact label={tr({ fi: "Seurattuja", en: "Watched", es: "Seguidos" })} value={loading ? "…" : summary.watched || 0} tone="green" /><MetricTile compact label={tr({ fi: "Aktiivisia", en: "Active", es: "Activos" })} value={loading ? "…" : summary.active || 0} tone="blue" /><MetricTile compact label={tr({ fi: "Lukemattomia", en: "Unread", es: "No leídas" })} value={loading ? "…" : inboxSummary.unread ?? summary.alerts ?? 0} tone="purple" /><MetricTile compact label={tr({ fi: "Korkea", en: "High", es: "Alta" })} value={loading ? "…" : inboxSummary.high ?? summary.high ?? 0} tone="red" /></div>}
+        aside={<div className="grid grid-cols-2 gap-2"><MetricTile compact label={tr({ fi: "Seurattuja", en: "Watched", es: "Seguidos" })} value={loading ? "…" : summary.watched || 0} tone="green" /><MetricTile compact label="Auto-Watch" value={loading ? "…" : autoManagedCount} tone="blue" /><MetricTile compact label={tr({ fi: "Lukemattomia", en: "Unread", es: "No leídas" })} value={loading ? "…" : inboxSummary.unread ?? summary.alerts ?? 0} tone="purple" /><MetricTile compact label={tr({ fi: "Korkea", en: "High", es: "Alta" })} value={loading ? "…" : inboxSummary.high ?? summary.high ?? 0} tone="red" /></div>}
       />
 
       <TrustBar items={[
@@ -198,20 +214,25 @@ export default function WatchlistClient() {
         <SectionHeader
           eyebrow={tr({ fi: "Nykytila", en: "Current state", es: "Estado actual" })}
           title={tr({ fi: "Seurattavat kohteet", en: "Watched selections", es: "Selecciones seguidas" })}
-          description={tr({ fi: "Näe lisäys- ja nykykerroin, päätöksen muutos sekä PLAY-raja yhdellä silmäyksellä.", en: "See added and current odds, decision change and PLAY floor at a glance.", es: "Consulta cuota inicial y actual, cambio de decisión y límite PLAY de un vistazo." })}
+          description={tr({ fi: "Näe lisäys- ja nykykerroin, päätöksen muutos sekä PLAY-raja yhdellä silmäyksellä. AUTO-WATCH-merkityt rivit ovat automaation hallitsemia; muut ovat käsin lisättyjä.", en: "See added and current odds, decision change and PLAY floor at a glance. AUTO-WATCH rows are automation-managed; other rows are manual.", es: "Consulta cuota inicial y actual, cambio de decisión y límite PLAY. Las filas AUTO-WATCH son automáticas; las demás son manuales." })}
         />
 
         {!loading && state.items?.length === 0 ? (
-          <EmptyState title={tr({ fi: "Seurantalista on tyhjä", en: "Watchlist is empty", es: "La lista está vacía" })} description={tr({ fi: "Lisää oikea live-API-kohde alla olevasta ehdokaslistasta tai Ottelut-sivulta.", en: "Add a verified live-API selection from the candidates below or the Events page.", es: "Añade una selección verificada desde los candidatos o la página Eventos." })} actionHref="/events" actionLabel={tr({ fi: "Avaa ottelut", en: "Open events", es: "Abrir eventos" })} />
+          <EmptyState title={tr({ fi: "Seurantalista on tyhjä", en: "Watchlist is empty", es: "La lista está vacía" })} description={tr({ fi: "Lisää oikea live-API-kohde Ottelut-sivulta tai ota Top 1–3 Auto-Watch käyttöön.", en: "Add a verified live-API selection from Events or enable Top 1–3 Auto-Watch.", es: "Añade una selección verificada desde Eventos o activa Auto-Watch Top 1–3." })} actionHref="/auto-watch" actionLabel={tr({ fi: "Avaa Auto-Watch", en: "Open Auto-Watch", es: "Abrir Auto-Watch" })} />
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {(state.items || []).map((item) => {
               const teams = teamsFromMatch(item.match);
+              const autoManaged = isAutoManaged(item);
+              const autoRank = Number(item.raw_pick?.autoWatchRank || 0);
               return (
                 <article key={item.id} className="sc-surface rounded-[1.55rem] p-5 sm:p-6">
                   <div className="flex items-start justify-between gap-4">
                     <MatchIdentity homeTeam={teams.homeTeam} awayTeam={teams.awayTeam} meta={`${date(item.commence_time)} · ${item.sport || item.league || "Watchlist"}`} />
-                    <span className={`rounded-full border px-3 py-1.5 text-[10px] font-black tracking-[0.14em] ${item.active ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[var(--sc-muted)]"}`}>{item.active ? tr({ fi: "AKTIIVINEN", en: "ACTIVE", es: "ACTIVO" }) : tr({ fi: "TAUKO", en: "PAUSED", es: "PAUSADO" })}</span>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`rounded-full border px-3 py-1.5 text-[10px] font-black tracking-[0.14em] ${item.active ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-300" : "border-[var(--sc-border)] bg-[var(--sc-surface-soft)] text-[var(--sc-muted)]"}`}>{item.active ? tr({ fi: "AKTIIVINEN", en: "ACTIVE", es: "ACTIVO" }) : tr({ fi: "TAUKO", en: "PAUSED", es: "PAUSADO" })}</span>
+                      {autoManaged && <span className="rounded-full border border-cyan-400/30 bg-cyan-400/10 px-3 py-1.5 text-[10px] font-black tracking-[0.14em] text-cyan-200">AUTO-WATCH{autoRank ? ` #${autoRank}` : ""}</span>}
+                    </div>
                   </div>
 
                   <div className="mt-5 flex flex-col gap-3 rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 sm:flex-row sm:items-center sm:justify-between">
@@ -221,6 +242,8 @@ export default function WatchlistClient() {
                     </div>
                     <div className="text-left sm:text-right"><div className="text-xs text-[var(--sc-muted)]">{tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })}</div><div className="mt-1 text-xl font-black text-[var(--sc-brand)]">{Number(item.added_odds || 0).toFixed(2)} → {item.current?.odds ? Number(item.current.odds).toFixed(2) : "–"}</div></div>
                   </div>
+
+                  {autoManaged && <div className="mt-3 rounded-[1rem] border border-cyan-400/20 bg-cyan-400/5 p-3 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Tämän rivin lisäsi Recommendation Auto-Watch. Keskeytys jää voimaan tälle riville. Jos poistat rivin mutta kohde pysyy Top-listalla, seuraava synkka voi lisätä sen takaisin.", en: "This row was added by Recommendation Auto-Watch. Pausing persists for this row. If you remove it while the selection remains in the Top list, a later sync may add it again.", es: "Esta fila fue añadida por Recommendation Auto-Watch. La pausa permanece. Si la eliminas y sigue en el Top, una sincronización posterior puede añadirla de nuevo." })} <Link href="/auto-watch" className="font-black text-cyan-300 hover:underline">{tr({ fi: "Asetukset", en: "Settings", es: "Ajustes" })}</Link></div>}
 
                   <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
                     <MetricTile compact label={tr({ fi: "Hintamuutos", en: "Price move", es: "Cambio" })} value={percent(item.oddsMove)} tone={Number(item.oddsMove || 0) < 0 ? "red" : "blue"} />
