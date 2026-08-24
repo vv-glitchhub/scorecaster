@@ -1,0 +1,76 @@
+name: Smart Recommendation Alerts V3
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/watchlist-alert-engine.mjs"
+      - "lib/watchlist-monitor.js"
+      - "lib/auto-watch-recommendations.mjs"
+      - "lib/auto-watch-recommendation-service.js"
+      - "app/api/cloud/auto-watch-recommendations/**"
+      - "app/api/internal/watchlist-monitor/**"
+      - "app/components/AutoWatchRecommendationsPanel.jsx"
+      - "mobile/src/screens/AutoWatchScreen.tsx"
+      - "scripts/watchlist-alerts.test.mjs"
+      - "scripts/watchlist-monitor.test.mjs"
+      - "scripts/auto-watch-recommendations.test.mjs"
+      - "scripts/mobile-auto-watch.test.mjs"
+      - "scripts/smart-recommendation-alerts-v3.test.mjs"
+      - ".github/workflows/smart-recommendation-alerts-v3.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/watchlist-alert-engine.mjs"
+      - "lib/watchlist-monitor.js"
+      - "lib/auto-watch-recommendations.mjs"
+      - "lib/auto-watch-recommendation-service.js"
+      - "app/api/cloud/auto-watch-recommendations/**"
+      - "app/api/internal/watchlist-monitor/**"
+      - "app/components/AutoWatchRecommendationsPanel.jsx"
+      - "mobile/src/screens/AutoWatchScreen.tsx"
+      - "scripts/watchlist-alerts.test.mjs"
+      - "scripts/watchlist-monitor.test.mjs"
+      - "scripts/auto-watch-recommendations.test.mjs"
+      - "scripts/mobile-auto-watch.test.mjs"
+      - "scripts/smart-recommendation-alerts-v3.test.mjs"
+      - ".github/workflows/smart-recommendation-alerts-v3.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  smart-alerts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install web dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Install mobile dependencies
+        run: npm --prefix mobile install --no-audit --no-fund --silent
+
+      - name: Smart Alerts and Auto-Watch regression tests
+        run: node --test scripts/watchlist-alerts.test.mjs scripts/watchlist-monitor.test.mjs scripts/auto-watch-recommendations.test.mjs scripts/mobile-auto-watch.test.mjs scripts/smart-recommendation-alerts-v3.test.mjs
+
+      - name: Mobile TypeScript
+        run: npm --prefix mobile run typecheck
+
+      - name: Paper-only security audit
+        run: npm run security:check
+
+      - name: Next production build
+        run: npm run build
