@@ -1,3 +1,4 @@
+import AutoWatchRecommendationsPanel from "./components/AutoWatchRecommendationsPanel";
 import ProfessionalSurfaceRail from "./components/ProfessionalSurfaceRail";
 import RecommendationAlertCTA from "./components/RecommendationAlertCTA";
 import RecommendationSpotlight from "./components/RecommendationSpotlight";
@@ -12,6 +13,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <ProfessionalSurfaceRail surface="today" />
       <RecommendationSpotlight />
+      <AutoWatchRecommendationsPanel compact />
       <RecommendationAlertCTA />
       <TodayPageClient />
     </div>
