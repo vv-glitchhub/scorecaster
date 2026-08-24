@@ -75,7 +75,8 @@ export default function AutoWatchRecommendationsPanel({ compact = false }) {
       if (!response.ok) throw new Error(payload?.error || "Auto-Watch update failed");
       setPreferences({ ...DEFAULTS, ...(payload.preferences || next) });
       const sync = payload.sync || {};
-      setAutoManagedCount(next.enabled ? Number(sync.requested ?? sync.inserted ?? autoManagedCount) : 0);
+      const managedAfterSync = Number(sync.retainedAuto || 0) + Number(sync.inserted || 0);
+      setAutoManagedCount(next.enabled ? managedAfterSync : 0);
       setMessage(payload.warning || (next.enabled
         ? tr({
             fi: `Auto-Watch on käytössä. Nykyinen Top ${next.top_n} synkattiin ja palvelin jatkaa valvontaa 15 minuutin syklillä.`,
@@ -97,6 +98,7 @@ export default function AutoWatchRecommendationsPanel({ compact = false }) {
   const lastRun = preferences.last_completed_at
     ? new Date(preferences.last_completed_at).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : "–";
+  const workerStatus = String(preferences.last_status || "idle").toUpperCase();
 
   if (loading) {
     return <section className={`${compact ? "h-32" : "h-64"} animate-pulse rounded-[1.6rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)]`} />;
@@ -108,7 +110,10 @@ export default function AutoWatchRecommendationsPanel({ compact = false }) {
         <div className="text-[10px] font-black uppercase tracking-[0.18em] text-cyan-300">Auto-Watch Recommendations V1</div>
         <h2 className="mt-2 text-xl font-black text-[var(--sc-text)]">{tr({ fi: "Valvo Scorecasterin Top 3:a automaattisesti", en: "Automatically monitor Scorecaster's Top 3", es: "Supervisa automáticamente el Top 3 de Scorecaster" })}</h2>
         <p className="mt-2 text-sm text-[var(--sc-muted)]">{tr({ fi: "Kirjautuminen tarvitaan, koska seuranta ja hälytykset ovat käyttäjäkohtaisia.", en: "Sign-in is required because watchlists and alerts are user-specific.", es: "Debes iniciar sesión porque el seguimiento y las alertas son personales." })}</p>
-        <Link href="/login" className="sc-button-primary mt-4 inline-flex">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link>
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Link href="/login" className="sc-button-primary">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link>
+          {compact && <Link href="/auto-watch" className="sc-button-secondary">{tr({ fi: "Miten Auto-Watch toimii", en: "How Auto-Watch works", es: "Cómo funciona Auto-Watch" })}</Link>}
+        </div>
       </section>
     );
   }
@@ -138,11 +143,14 @@ export default function AutoWatchRecommendationsPanel({ compact = false }) {
             <span>·</span>
             <span>{tr({ fi: "Viimeisin ajo", en: "Last run", es: "Última ejecución" })}: {lastRun}</span>
             <span>·</span>
+            <span>{tr({ fi: "Worker", en: "Worker", es: "Worker" })}: {workerStatus}</span>
+            <span>·</span>
             <span>{tr({ fi: "Taustasykli", en: "Background cycle", es: "Ciclo" })}: 15 min</span>
             <span>·</span>
             <span>paper-only</span>
           </div>
           {message && <div className="mt-3 text-sm font-bold text-emerald-300">{message}</div>}
+          {preferences.last_error && !message && <div className="mt-3 text-xs font-bold text-amber-200">{preferences.last_error}</div>}
           {error && <div className="mt-3 text-sm font-bold text-rose-300">{error}</div>}
           {!available && <div className="mt-3 text-sm font-bold text-amber-200">{tr({ fi: "Auto-Watch-tietokantarekisteri ei ole vielä käytettävissä.", en: "The Auto-Watch database registry is not available yet.", es: "El registro de Auto-Watch aún no está disponible." })}</div>}
         </div>
@@ -209,11 +217,13 @@ export default function AutoWatchRecommendationsPanel({ compact = false }) {
                 {tr({ fi: "Tallenna ja synkkaa nyt", en: "Save & sync now", es: "Guardar y sincronizar" })}
               </button>
             )}
+            {compact && <Link href="/auto-watch" className="sc-button-secondary">{tr({ fi: "Asetukset", en: "Settings", es: "Ajustes" })}</Link>}
           </div>
           {!compact && (
-            <div className="mt-3 flex gap-3 text-xs font-black">
+            <div className="mt-3 flex flex-wrap gap-3 text-xs font-black">
               <Link href="/watchlist" className="text-[var(--sc-brand)] hover:underline">{tr({ fi: "Seurantalista", en: "Watchlist", es: "Seguimiento" })}</Link>
               <Link href="/alerts" className="text-[var(--sc-brand)] hover:underline">Alert Inbox</Link>
+              <Link href="/recommendations" className="text-[var(--sc-brand)] hover:underline">{tr({ fi: "Suositukset", en: "Recommendations", es: "Recomendaciones" })}</Link>
             </div>
           )}
         </div>
