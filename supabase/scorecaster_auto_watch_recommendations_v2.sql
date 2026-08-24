@@ -165,10 +165,11 @@ returns table(
 language plpgsql
 security definer
 set search_path = public, pg_temp
-as $$;
+as $$
+declare
+  v_claim_user_id uuid;
 begin
-  return query
-  with claimed as (
+  for v_claim_user_id in
     select prefs.user_id
     from public.auto_watch_recommendation_preferences prefs
     where prefs.enabled = true
@@ -177,17 +178,21 @@ begin
     order by prefs.next_sync_at asc, prefs.updated_at asc
     for update skip locked
     limit greatest(1, least(coalesce(p_limit, 20), 20))
-  )
-  update public.auto_watch_recommendation_preferences prefs
-  set lease_expires_at = now() + interval '10 minutes',
-      last_started_at = now(),
-      last_status = 'running',
-      last_error = null,
-      next_sync_at = now() + interval '15 minutes'
-  from claimed
-  where prefs.user_id = claimed.user_id
-  returning prefs.user_id, prefs.top_n, prefs.alert_move_percent, prefs.alert_before_minutes,
-            prefs.selection_mode, prefs.min_score, prefs.min_edge, prefs.min_ev, prefs.sport_keys;
+  loop
+    update public.auto_watch_recommendation_preferences prefs
+    set lease_expires_at = now() + interval '10 minutes',
+        last_started_at = now(),
+        last_status = 'running',
+        last_error = null,
+        next_sync_at = now() + interval '15 minutes'
+    where prefs.user_id = v_claim_user_id;
+
+    return query
+    select prefs.user_id, prefs.top_n, prefs.alert_move_percent, prefs.alert_before_minutes,
+           prefs.selection_mode, prefs.min_score, prefs.min_edge, prefs.min_ev, prefs.sport_keys
+    from public.auto_watch_recommendation_preferences prefs
+    where prefs.user_id = v_claim_user_id;
+  end loop;
 end;
 $$;
 
