@@ -54,6 +54,40 @@ function uniqueEvents(picks = []) {
   return [...rows.values()].slice(0, 20);
 }
 
+function compactEvidenceReadiness(pick = {}) {
+  const readiness = pick.intelligenceReadiness || pick.sportsIntelligence?.readiness || null;
+  if (!readiness || typeof readiness !== "object") return null;
+  return {
+    level: clean(readiness.level, 40) || "market-only",
+    score: finite(readiness.score),
+    verifiedCount: finite(readiness.verifiedCount),
+    totalChecks: finite(readiness.totalChecks),
+    allowsIndependentPlayEvidence: readiness.allowsIndependentPlayEvidence === true,
+    fullyVerified: readiness.fullyVerified === true,
+    missing: Array.isArray(readiness.missing) ? readiness.missing.map((item) => clean(item, 180)).filter(Boolean).slice(0, 12) : [],
+    capturedFromCurrentDecisionPipeline: true,
+    historicalReconstructionAllowed: false
+  };
+}
+
+function compactExternalAudit(external = {}) {
+  const entitlement = external.entitlement && typeof external.entitlement === "object" ? external.entitlement : null;
+  return {
+    source: clean(external.source, 100) || null,
+    mode: clean(external.mode, 60) || null,
+    ok: external.ok === true,
+    observationCount: Array.isArray(external.observations) ? external.observations.length : 0,
+    lineageHash: clean(external.lineageHash, 128) || null,
+    entitlement: entitlement ? {
+      commercialUseAllowed: entitlement.commercialUseAllowed === true,
+      modelUseAllowed: entitlement.modelUseAllowed === true,
+      rawRedistributionAllowed: entitlement.rawRedistributionAllowed === true,
+      derivedAnalysisOnly: entitlement.derivedAnalysisOnly !== false
+    } : null,
+    rawProviderPayloadStoredInAuditSummary: false
+  };
+}
+
 function eventLevelAdvancedModels(pick = {}, observations = [], capturedAt = new Date().toISOString()) {
   const now = Date.parse(capturedAt);
   const eventPick = { ...pick, selection: pick.homeTeam, label: pick.homeTeam };
@@ -178,6 +212,7 @@ async function storeEvent(admin, pick, capturedAt) {
     }
   });
   const marketBenchmark = buildNoVigEventMarketBenchmarkV1(pick, { capturedAt });
+  const footballEvidenceReadiness = snapshot.canonical_sport === "soccer" ? compactEvidenceReadiness(pick) : null;
   snapshot.raw_summary = {
     ...(snapshot.raw_summary || {}),
     shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
@@ -190,7 +225,13 @@ async function storeEvent(admin, pick, capturedAt) {
     marketBenchmarkCapturedBeforeStart: Boolean(marketBenchmark),
     shadowPredictionsCapturedBeforeStart: true,
     shadowPredictionsImmutableByCaptureBucket: true,
-    selectionIndependentEventDistributionCaptured: true
+    selectionIndependentEventDistributionCaptured: true,
+    footballEvidenceAuditVersion: footballEvidenceReadiness ? "football-independent-evidence-v1" : null,
+    footballEvidenceReadiness,
+    externalEvidenceAudit: compactExternalAudit(external),
+    evidenceAuditCapturedBeforeStart: true,
+    evidenceAuditImmutableByCaptureBucket: true,
+    evidenceAuditHistoricalReconstructionAllowed: false
   };
 
   const { data: storedSnapshot, error: snapshotError } = await admin
@@ -215,7 +256,8 @@ async function storeEvent(admin, pick, capturedAt) {
     shadowModelsCaptured: shadowModels.length,
     advancedModelReady: advancedModelReadiness.holdoutCaptureReady === true,
     advancedModelBlocked: advancedModelReadiness.status === "blocked",
-    marketBenchmarkCaptured: Boolean(marketBenchmark)
+    marketBenchmarkCaptured: Boolean(marketBenchmark),
+    footballEvidenceReadinessCaptured: Boolean(footballEvidenceReadiness)
   };
 }
 
@@ -239,8 +281,9 @@ export async function GET(request) {
 
     return response({
       ok: failures.length === 0,
-      version: "sports-analytics-worker-v6",
+      version: "sports-analytics-worker-v7",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
+      footballEvidenceAuditVersion: "football-independent-evidence-v1",
       advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,
       marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
       capturedAt,
@@ -253,6 +296,7 @@ export async function GET(request) {
       advancedModelsReady: stored.filter((item) => item.advancedModelReady).length,
       advancedModelsBlocked: stored.filter((item) => item.advancedModelBlocked).length,
       marketBenchmarksCaptured: stored.filter((item) => item.marketBenchmarkCaptured).length,
+      footballEvidenceReadinessCaptured: stored.filter((item) => item.footballEvidenceReadinessCaptured).length,
       golfShots: stored.reduce((sum, item) => sum + item.golfShots, 0),
       externalProvider: sportsAnalyticsProviderConfiguration(),
       failures: failures.length,
