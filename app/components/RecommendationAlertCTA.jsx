@@ -4,14 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "./LanguageProvider";
 
-function selectionKey(item = {}) {
-  return `${String(item.eventId || item.gameId || item.id || "")}::${String(item.selection || item.label || "").toLowerCase()}`;
-}
-
 export default function RecommendationAlertCTA() {
   const { tr } = useLanguage();
   const [top, setTop] = useState(null);
-  const [sportKey, setSportKey] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [state, setState] = useState("idle");
@@ -21,26 +16,10 @@ export default function RecommendationAlertCTA() {
     let cancelled = false;
     async function load() {
       try {
-        const [recommendationResponse, topPicksResponse] = await Promise.all([
-          fetch("/api/recommendations?limit=1", { cache: "no-store" }),
-          fetch("/api/top-picks?view=summary", { cache: "no-store" })
-        ]);
-        const recommendationPayload = await recommendationResponse.json();
-        const topPicksPayload = await topPicksResponse.json();
-        if (!recommendationResponse.ok || recommendationPayload?.ok !== true) throw new Error("Recommendation unavailable");
-        const recommendation = recommendationPayload.topRecommendation || null;
-        if (!recommendation) return;
-
-        const candidates = [
-          ...(Array.isArray(topPicksPayload?.data) ? topPicksPayload.data : []),
-          ...(Array.isArray(topPicksPayload?.featured) ? topPicksPayload.featured : [])
-        ];
-        const key = selectionKey(recommendation);
-        const matched = candidates.find((item) => selectionKey(item) === key) || null;
-        if (!cancelled) {
-          setTop(recommendation);
-          setSportKey(String(matched?.sportKey || matched?.sport || ""));
-        }
+        const response = await fetch("/api/recommendations?limit=1", { cache: "no-store" });
+        const payload = await response.json();
+        if (!response.ok || payload?.ok !== true) throw new Error("Recommendation unavailable");
+        if (!cancelled) setTop(payload.topRecommendation || null);
       } catch {
         if (!cancelled) setMessage(tr({ fi: "Suosituksen palvelinvalvontaa ei voitu alustaa juuri nyt.", en: "Recommendation monitoring could not be initialized right now.", es: "No se pudo iniciar la supervisión de recomendaciones." }));
       } finally {
@@ -51,7 +30,7 @@ export default function RecommendationAlertCTA() {
     return () => { cancelled = true; };
   }, [tr]);
 
-  const canWatch = useMemo(() => Boolean(top?.eventId && top?.selection && sportKey), [top, sportKey]);
+  const canWatch = useMemo(() => Boolean(top?.eventId && top?.selection && top?.sportKey), [top]);
 
   async function enableAlerts() {
     if (!canWatch || saving) return;
@@ -64,7 +43,7 @@ export default function RecommendationAlertCTA() {
         body: JSON.stringify({
           eventId: top.eventId,
           selection: top.selection,
-          sport: sportKey,
+          sport: top.sportKey,
           alertMovePercent: 0.03,
           alertBeforeMinutes: 120
         })
