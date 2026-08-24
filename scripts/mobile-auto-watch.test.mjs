@@ -12,14 +12,30 @@ test("native More hub exposes Auto-Watch without crowding the primary tab bar", 
   assert.doesNotMatch(tabBlock, /auto-watch|autoWatch/i);
 });
 
-test("native Auto-Watch uses recommendation and private preference APIs only", async () => {
+test("native Auto-Watch V2 uses recommendation and private preference APIs only", async () => {
   const screen = await readFile(new URL("../mobile/src/screens/AutoWatchScreen.tsx", import.meta.url), "utf8");
+  assert.match(screen, /AUTO-WATCH RECOMMENDATIONS V2/);
   assert.match(screen, /\/api\/cloud\/auto-watch-recommendations/);
-  assert.match(screen, /\/api\/recommendations\?limit=3/);
+  assert.match(screen, /\/api\/recommendations\?limit=10/);
   assert.match(screen, /authenticated:\s*false/);
   assert.match(screen, /method:\s*"PATCH"/);
   assert.doesNotMatch(screen, /\/api\/cloud\/bets/);
   assert.doesNotMatch(screen, /placeBet|suggestedStake|realMoneyActionAvailable\s*:\s*true/i);
+});
+
+test("native Auto-Watch V2 exposes bounded decision, score, edge, EV and sport filters", async () => {
+  const screen = await readFile(new URL("../mobile/src/screens/AutoWatchScreen.tsx", import.meta.url), "utf8");
+  assert.match(screen, /SelectionMode/);
+  assert.match(screen, /selectionMode:/);
+  assert.match(screen, /minScore:/);
+  assert.match(screen, /minEdge:/);
+  assert.match(screen, /minEv:/);
+  assert.match(screen, /sportKeys/);
+  assert.match(screen, /\[1, 3, 5, 10\]/);
+  assert.match(screen, /PLAY only/);
+  assert.match(screen, /PLAY \+ CAUTION/);
+  assert.match(screen, /slice\(0, 20\)/);
+  assert.match(screen, /TextInput/);
 });
 
 test("native Auto-Watch keeps decision and evidence gates visible", async () => {
