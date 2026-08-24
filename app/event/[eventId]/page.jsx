@@ -8,7 +8,7 @@ import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
 
 export const metadata = {
   title: "Event Detail",
-  description: "Verified market, live state integrity, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
+  description: "Verified market, Match Journey and Story, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
 };
 
 export default async function EventDetailPage({ params, searchParams }) {
@@ -17,24 +17,36 @@ export default async function EventDetailPage({ params, searchParams }) {
   const eventId = decodeURIComponent(String(resolvedParams?.eventId || ""));
   const sport = String(resolvedSearch?.sport || "");
   const selection = String(resolvedSearch?.selection || "");
-  const gamePlanHref = `/match-intelligence?eventId=${encodeURIComponent(eventId)}&sport=${encodeURIComponent(sport)}${selection ? `&selection=${encodeURIComponent(selection)}` : ""}`;
+  const encodedEvent = encodeURIComponent(eventId);
+  const encodedSport = encodeURIComponent(sport);
+  const encodedSelection = encodeURIComponent(selection);
+  const gamePlanHref = `/match-intelligence?eventId=${encodedEvent}&sport=${encodedSport}${selection ? `&selection=${encodedSelection}` : ""}`;
+  const recommendationJourneyHref = `/journey?eventId=${encodedEvent}${selection ? `&selection=${encodedSelection}` : ""}`;
 
   return (
     <div className="space-y-10">
-      <section className="rounded-[1.4rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-4 sm:flex sm:items-center sm:justify-between sm:gap-4" data-match-intelligence-entry="true">
-        <div>
-          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">Match Journey V1</div>
-          <div className="mt-1 font-black text-[var(--sc-text)]">Context, evidence, decision and paper-only review in one path</div>
-          <p className="mt-1 text-sm text-[var(--sc-muted)]">A mobile-first journey over the same verified event analysis. No probability or decision is changed.</p>
+      <section className="rounded-[1.55rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5" data-match-journey-story-v2="true">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div className="max-w-3xl">
+            <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">Match Journey + Story V2</div>
+            <div className="mt-1 text-xl font-black text-[var(--sc-text)]">One verified event, three chronological views</div>
+            <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">Match Journey explains the current context and evidence. Recommendation Journey shows only stored server-side price/decision history for a watched selection. Match Story remains the post-settlement paper review. None of these views can change probability or upgrade a decision.</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Link href={gamePlanHref} className="sc-button-primary">Open Match Journey</Link>
+            <Link href={recommendationJourneyHref} className="sc-button-secondary">Recommendation Journey</Link>
+            <Link href="/tracking" className="sc-button-secondary">Match Story / paper history</Link>
+          </div>
         </div>
-        <Link href={gamePlanHref} className="sc-button-primary mt-4 inline-flex shrink-0 sm:mt-0">Open Match Journey</Link>
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-black uppercase text-[var(--sc-faint)]">Before / now</div><div className="mt-1 text-sm font-black text-[var(--sc-text)]">Context + evidence + market journey</div></div>
+          <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-black uppercase text-[var(--sc-faint)]">While watched</div><div className="mt-1 text-sm font-black text-[var(--sc-text)]">Stored Recommendation Journey snapshots</div></div>
+          <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-black uppercase text-[var(--sc-faint)]">After settlement</div><div className="mt-1 text-sm font-black text-[var(--sc-text)]">Paper Match Story + Outcome Review</div></div>
+        </div>
+        <div className="mt-3 text-xs font-bold text-[var(--sc-muted)]">paper-only · historical evidence is never reconstructed · decisionUpgradeAllowed=false</div>
       </section>
 
-      <EventDetailClient
-        eventId={eventId}
-        sport={sport}
-        initialSelection={selection}
-      />
+      <EventDetailClient eventId={eventId} sport={sport} initialSelection={selection} />
       <EventVerifiedLiveMonitorPanel eventId={eventId} />
       <ProfessionalExplanationCard eventId={eventId} />
       <EventMarketMicrostructurePanel eventId={eventId} />
