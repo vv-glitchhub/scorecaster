@@ -17,7 +17,7 @@ import { GET as getTopPicks } from "../../top-picks/route.js";
 export const dynamic = "force-dynamic";
 
 const SUPPORTED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
-const SELECT = "id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,created_at,updated_at";
+const SELECT = "id,event_id,sport,league,market,selection,home_team,away_team,match,commence_time,added_odds,added_decision,alert_move_percent,alert_before_minutes,active,raw_pick,created_at,updated_at";
 const MAX_ITEMS = 50;
 const DEFAULT_NOTIFICATION_PREFERENCES = {
   in_app_enabled: true,
