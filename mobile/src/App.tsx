@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, SafeAreaView, Text, View } from "react-native";
 import { StatusBar } from "expo-status-bar";
 import type { Session } from "@supabase/supabase-js";
+import HeaderAlertButton from "./components/HeaderAlertButton";
 import AgentScreen from "./screens/AgentScreen";
 import AnalyticsScreen from "./screens/AnalyticsScreen";
 import AuthScreen from "./screens/AuthScreen";
@@ -57,6 +58,7 @@ function MainApp({ session }: { session: Session }) {
             <Text numberOfLines={1} style={styles.headerSubline}>{subline}</Text>
           </View>
         </View>
+        <HeaderAlertButton onPress={() => chooseTab("watchlist")} />
         <Text style={styles.headerMode}>{tr({ fi: "PAPERITILA", en: "PAPER MODE", es: "MODO SIMULADO" })}</Text>
       </View>
 
