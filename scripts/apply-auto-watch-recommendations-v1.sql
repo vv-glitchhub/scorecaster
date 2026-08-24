@@ -180,10 +180,12 @@ revoke all on public.auto_watch_recommendation_preferences from anon;
 revoke insert, update, delete on public.auto_watch_recommendation_preferences from authenticated;
 grant select on public.auto_watch_recommendation_preferences to authenticated;
 
-revoke all on function public.set_auto_watch_recommendation_preferences(boolean, integer, numeric, integer) from public;
+-- PostgreSQL functions receive PUBLIC EXECUTE by default. Revoke both PUBLIC and
+-- concrete API roles explicitly before granting the narrow intended callers.
+revoke execute on function public.set_auto_watch_recommendation_preferences(boolean, integer, numeric, integer) from public, anon, service_role;
 grant execute on function public.set_auto_watch_recommendation_preferences(boolean, integer, numeric, integer) to authenticated;
 
-revoke all on function public.claim_auto_watch_recommendation_users(integer) from public;
-revoke all on function public.complete_auto_watch_recommendation_user(uuid, text, integer, integer, text) from public;
+revoke execute on function public.claim_auto_watch_recommendation_users(integer) from public, anon, authenticated;
+revoke execute on function public.complete_auto_watch_recommendation_user(uuid, text, integer, integer, text) from public, anon, authenticated;
 grant execute on function public.claim_auto_watch_recommendation_users(integer) to service_role;
-grant execute on function public.complete_auto_watch_recommendation_user(uuid, text, integer, integer, text) to service_role;
+grant execute on function public.complete_auto_watch_recommendation_user(uuid, text, integer, integer, integer, text) to service_role;
