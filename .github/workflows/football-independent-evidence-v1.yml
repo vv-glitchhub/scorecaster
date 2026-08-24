@@ -11,8 +11,10 @@ on:
       - "lib/agent-intelligence-loader.js"
       - "lib/collector-source-registry.mjs"
       - "app/api/football-evidence/**"
+      - "app/api/internal/sports-analytics/route.js"
       - "app/event/**"
       - "scripts/football-independent-evidence-v1.test.mjs"
+      - "scripts/football-evidence-worker-audit.test.mjs"
       - "docs/FOOTBALL_INDEPENDENT_EVIDENCE_V1.md"
       - ".github/workflows/football-independent-evidence-v1.yml"
   pull_request:
@@ -25,8 +27,10 @@ on:
       - "lib/agent-intelligence-loader.js"
       - "lib/collector-source-registry.mjs"
       - "app/api/football-evidence/**"
+      - "app/api/internal/sports-analytics/route.js"
       - "app/event/**"
       - "scripts/football-independent-evidence-v1.test.mjs"
+      - "scripts/football-evidence-worker-audit.test.mjs"
       - "docs/FOOTBALL_INDEPENDENT_EVIDENCE_V1.md"
       - ".github/workflows/football-independent-evidence-v1.yml"
 
@@ -52,7 +56,7 @@ jobs:
       - name: Install dependencies
         run: npm install --no-audit --no-fund --silent
       - name: Football evidence tests
-        run: node --test scripts/football-independent-evidence-v1.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/sports-analytics-ingestion.test.mjs
+        run: node --test scripts/football-independent-evidence-v1.test.mjs scripts/football-evidence-worker-audit.test.mjs scripts/soccer-xg-poisson-shadow-v1.test.mjs scripts/sports-analytics-ingestion.test.mjs
       - name: Paper-only security audit
         run: npm run security:check
       - name: Next production build
