@@ -5,11 +5,13 @@ on:
     branches: [main]
     paths:
       - "mobile/**"
+      - "scripts/mobile-auto-watch.test.mjs"
       - ".github/workflows/mobile-ci.yml"
   pull_request:
     branches: [main]
     paths:
       - "mobile/**"
+      - "scripts/mobile-auto-watch.test.mjs"
       - ".github/workflows/mobile-ci.yml"
 
 permissions:
@@ -34,6 +36,10 @@ jobs:
 
       - name: Install mobile dependencies
         run: npm install --no-audit --no-fund --silent
+
+      - name: Native Auto-Watch regression tests
+        working-directory: .
+        run: node --test scripts/mobile-auto-watch.test.mjs
 
       - name: Audit store and release configuration
         run: |
