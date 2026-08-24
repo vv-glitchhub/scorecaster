@@ -19,7 +19,7 @@ function pickId(pick = {}) {
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const allowed = new Set(["eventId", "sport", "selection"]);
+  const allowed = new Set(["eventId", "sport", "selection", "_vercel_share"]);
   if ([...url.searchParams.keys()].some((key) => !allowed.has(key))) return Response.json({ ok: false, error: "Unsupported query parameter" }, { status: 400, headers: HEADERS });
   const eventId = clean(url.searchParams.get("eventId"), 180);
   const sport = clean(url.searchParams.get("sport"), 120);
