@@ -34,3 +34,14 @@ test("Recommendation Center and Today both expose Auto-Watch without removing ma
   assert.match(recommendations, /<AutoWatchRecommendationsPanel compact/);
   assert.match(recommendations, /<RecommendationsClient/);
 });
+
+test("watchlist API exposes provenance and the UI labels Auto-Watch-owned rows", async () => {
+  const route = await readFile(new URL("../app/api/cloud/watchlist/route.js", import.meta.url), "utf8");
+  const client = await readFile(new URL("../app/watchlist/WatchlistClient.jsx", import.meta.url), "utf8");
+  assert.match(route, /const SELECT = "[^"]*raw_pick/);
+  assert.match(client, /scorecaster-auto-watch-recommendations-v1/);
+  assert.match(client, /AUTO-WATCH/);
+  assert.match(client, /autoWatchRank/);
+  assert.match(client, /href="\/auto-watch"/);
+  assert.match(client, /next sync may add it again|seuraava synkka voi lisätä sen takaisin/i);
+});
