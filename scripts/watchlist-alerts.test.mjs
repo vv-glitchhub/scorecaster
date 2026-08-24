@@ -39,6 +39,12 @@ function current(overrides = {}) {
     ev: 0.014,
     confidence: 0.7,
     trustScore: 72,
+    bookmakerCount: 8,
+    freshnessLabel: "fresh",
+    sportsIntelligence: {
+      readiness: { level: "market-only", allowsIndependentPlayEvidence: false },
+      conflicts: []
+    },
     ...overrides
   };
 }
@@ -55,6 +61,84 @@ test("verified watchlist detects kickoff, decision and price changes", () => {
   assert.ok(types.has("below_play_price"));
   assert.equal(result.items[0].current.decision, "CAUTION");
   assert.equal(result.items[0].oddsMove < 0, true);
+});
+
+test("CAUTION becomes a high-severity PLAY-ready alert only after the server decision upgrades", () => {
+  const result = buildWatchlistState({
+    items: [watched({ added_decision: "CAUTION", added_odds: 2.05 })],
+    currentPicks: [current({
+      productDecision: "PLAY",
+      odds: 2.18,
+      edge: 0.028,
+      ev: 0.061,
+      confidence: 0.82,
+      bookmakerCount: 10,
+      sportsIntelligence: {
+        readiness: { level: "verified", allowsIndependentPlayEvidence: true },
+        conflicts: []
+      }
+    })],
+    now: NOW
+  });
+
+  const alert = result.alerts.find((item) => item.type === "decision_changed" && /all Scorecaster gates passed/i.test(item.title));
+  assert.ok(alert);
+  assert.equal(alert.severity, "high");
+  assert.equal(alert.addedDecision, "CAUTION");
+  assert.equal(alert.currentDecision, "PLAY");
+  assert.match(alert.message, /paper-only/i);
+});
+
+test("strong market value stays CAUTION and emits an evidence blocker when independent evidence is not verified", () => {
+  const result = buildWatchlistState({
+    items: [watched({ added_decision: "CAUTION", added_odds: 5.7 })],
+    currentPicks: [current({
+      odds: 5.85,
+      productDecision: "CAUTION",
+      consensusProbability: 0.1928,
+      edge: 0.0219,
+      ev: 0.1279,
+      confidence: 0.95,
+      bookmakerCount: 16,
+      freshnessLabel: "fresh",
+      sportsIntelligence: {
+        readiness: { level: "market-only", allowsIndependentPlayEvidence: false },
+        conflicts: []
+      }
+    })],
+    now: NOW
+  });
+
+  const blocker = result.alerts.find((item) => /independent evidence is not verified/i.test(item.title));
+  assert.ok(blocker);
+  assert.equal(blocker.severity, "medium");
+  assert.match(blocker.message, /kept the selection at CAUTION/i);
+  assert.equal(result.items[0].current.marketGateReady, true);
+  assert.equal(result.items[0].current.evidenceVerified, false);
+});
+
+test("verified evidence cannot override a final safety block", () => {
+  const result = buildWatchlistState({
+    items: [watched({ added_decision: "CAUTION" })],
+    currentPicks: [current({
+      productDecision: "CAUTION",
+      marketDecisionBeforeSafetyGate: "BET",
+      edge: 0.035,
+      ev: 0.07,
+      confidence: 0.9,
+      bookmakerCount: 12,
+      sportsIntelligence: {
+        readiness: { level: "verified", allowsIndependentPlayEvidence: true },
+        conflicts: [{ code: "lineup-conflict" }]
+      }
+    })],
+    now: NOW
+  });
+
+  const blocker = result.alerts.find((item) => /final safety check/i.test(item.title));
+  assert.ok(blocker);
+  assert.equal(blocker.severity, "high");
+  assert.equal(result.items[0].current.decision, "CAUTION");
 });
 
 test("missing current market stays unavailable instead of inventing replacement data", () => {
