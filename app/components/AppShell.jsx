@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import ContextHelp from "./ContextHelp";
+import HeaderAlertBell from "./HeaderAlertBell";
 import { LanguageSwitcher, useLanguage } from "./LanguageProvider";
 import { AppIcon, BrandMark, ThemeToggle } from "./BrandUI";
 import ProfessionalPreferenceControls from "./ProfessionalPreferenceControls";
@@ -106,6 +107,7 @@ export default function AppShell({ children }) {
             <div className="relative flex items-center gap-2">
               <span className="sr-only">{t("mode.paper")}</span>
               <div className="hidden max-w-[250px] items-center gap-2 rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.11em] text-[var(--sc-text-secondary)] xl:flex" title={`${bookmakerLabel} · ${proMode ? `Pro Bettor ${proProfile}` : "Simple mode"}`}><AppIcon name="shield" size={14} /><span className="truncate">{bookmakerLabel}</span><span aria-hidden="true">·</span><span>{proMode ? `PRO:${String(proProfile || "standard").toUpperCase()}` : "SIMPLE"}</span></div>
+              <HeaderAlertBell />
               <ThemeToggle labelDark={tr({ fi: "Tumma tila", en: "Dark mode", es: "Modo oscuro" })} labelLight={tr({ fi: "Vaalea tila", en: "Light mode", es: "Modo claro" })} />
               <LanguageSwitcher compact />
               <button type="button" onClick={() => setMenuOpen((value) => !value)} className="sc-icon-button" aria-expanded={menuOpen} aria-controls="scorecaster-more-menu" aria-label={tr({ fi: "Avaa lisävalikko", en: "Open more menu", es: "Abrir menú" })}><NavIcon name="more" /></button>
