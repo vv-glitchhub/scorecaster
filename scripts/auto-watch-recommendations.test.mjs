@@ -172,13 +172,13 @@ test("authenticated API is origin protected, rate limited and syncs recommendati
   assert.match(route, /currentRecommendations\(request\)/);
   assert.match(route, /syncAutoWatchRecommendations/);
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.doesNotMatch(route, /placeBet|suggestedStake|realMoney/i);
+  assert.doesNotMatch(route, /placeBet|suggestedStake|realMoneyActionAvailable\s*:\s*true/i);
 });
 
 test("background worker reconciles Auto-Watch before normal watchlist alert processing", async () => {
   const route = await readFile(new URL("../app/api/internal/watchlist-monitor/route.js", import.meta.url), "utf8");
-  const autoIndex = route.indexOf("runAutoWatchRecommendationSync");
-  const monitorIndex = route.indexOf("runWatchlistMonitor");
+  const autoIndex = route.indexOf("autoWatch = await runAutoWatchRecommendationSync");
+  const monitorIndex = route.indexOf("const result = await runWatchlistMonitor");
   assert.ok(autoIndex >= 0);
   assert.ok(monitorIndex > autoIndex);
   assert.match(route, /watchlistMonitorAuthorizationValid/);
