@@ -41,8 +41,13 @@ export default function AppShell({ children }) {
     { href: "/opportunities", label: "Opportunity Radar" },
     { href: "/recommendations/compare", label: tr({ fi: "Vertaa suosituksia", en: "Compare recommendations", es: "Comparar recomendaciones" }) },
     { href: "/journey", label: "Recommendation Journey" },
-    { href: "/auto-watch", label: tr({ fi: "Auto-Watch Top 1–3", en: "Auto-Watch Top 1–3", es: "Auto-Watch Top 1–3" }) },
+    { href: "/league-readiness", label: tr({ fi: "Liigojen valmius", en: "League Readiness", es: "Preparación de ligas" }) },
+    { href: "/auto-watch", label: "Auto-Watch Top 1–10" },
     { href: "/changes", label: tr({ fi: "Markkinamuutokset", en: "Market changes", es: "Cambios de mercado" }) },
+    { href: "/outcome-review", label: tr({ fi: "Outcome Review", en: "Outcome Review", es: "Outcome Review" }) },
+    { href: "/bookmakers", label: "Bookmaker Intelligence" },
+    { href: "/calibration-center", label: "Calibration Center V2" },
+    { href: "/champion-challenger", label: "Champion / Challenger" },
     { href: "/pro", label: tr({ fi: "Pro Bettor Desk", en: "Pro Bettor Desk", es: "Pro Bettor Desk" }) },
     ...groups,
     { href: "/autonomous-agent", label: "Autonomous Agent" },
@@ -66,6 +71,7 @@ export default function AppShell({ children }) {
     { href: "/market-microstructure", label: tr({ fi: "Markkinan mikrorakenne", en: "Market Microstructure", es: "Microestructura de mercado" }) },
     { href: "/transparency", label: tr({ fi: "Avoin AI: kaavat ja lähteet", en: "Open AI: formulas and sources", es: "IA abierta: fórmulas y fuentes" }) },
     { href: "/sources", label: tr({ fi: "Lähderekisteri ja lisenssit", en: "Source registry and licences", es: "Registro de fuentes y licencias" }) },
+    { href: "/enterprise-api", label: "Enterprise API V1" },
     { href: "/help", label: tr({ fi: "Ohje", en: "Help", es: "Ayuda" }) },
     { href: "/responsible-use", label: tr({ fi: "Vastuullinen käyttö", en: "Responsible use", es: "Uso responsable" }) }
   ], [groups, tr]);
