@@ -1,0 +1,62 @@
+name: Decision Review Surfaces V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/outcome-review-v1.mjs"
+      - "lib/champion-challenger-v1.mjs"
+      - "app/outcome-review/**"
+      - "app/bookmakers/**"
+      - "app/calibration-center/**"
+      - "app/champion-challenger/**"
+      - "app/league-readiness/**"
+      - "app/event/[eventId]/page.jsx"
+      - "scripts/decision-review-surfaces-v1.test.mjs"
+      - ".github/workflows/decision-review-surfaces-v1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/outcome-review-v1.mjs"
+      - "lib/champion-challenger-v1.mjs"
+      - "app/outcome-review/**"
+      - "app/bookmakers/**"
+      - "app/calibration-center/**"
+      - "app/champion-challenger/**"
+      - "app/league-readiness/**"
+      - "app/event/[eventId]/page.jsx"
+      - "scripts/decision-review-surfaces-v1.test.mjs"
+      - ".github/workflows/decision-review-surfaces-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  decision-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Decision review surface tests
+        run: node --test scripts/decision-review-surfaces-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs scripts/match-journey-story-v1.test.mjs
+
+      - name: Paper-only security audit
+        run: npm run security:check
+
+      - name: Next production build
+        run: npm run build
