@@ -1,3 +1,4 @@
+import AutoWatchRecommendationsPanel from "../components/AutoWatchRecommendationsPanel";
 import RecommendationsClient from "./RecommendationsClient";
 
 export const metadata = {
@@ -6,5 +7,10 @@ export const metadata = {
 };
 
 export default function RecommendationsPage() {
-  return <RecommendationsClient />;
+  return (
+    <div className="space-y-6">
+      <AutoWatchRecommendationsPanel compact />
+      <RecommendationsClient />
+    </div>
+  );
 }
