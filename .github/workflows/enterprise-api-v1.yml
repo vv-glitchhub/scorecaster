@@ -1,0 +1,61 @@
+name: Enterprise API V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/enterprise-api-auth.js"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/v1/**"
+      - "app/enterprise-api/**"
+      - "scripts/apply-enterprise-api-v1.sql"
+      - "scripts/provision-enterprise-api-key.mjs"
+      - "scripts/enterprise-api-v1.test.mjs"
+      - ".github/workflows/enterprise-api-v1.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "lib/enterprise-api-auth.js"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/v1/**"
+      - "app/enterprise-api/**"
+      - "scripts/apply-enterprise-api-v1.sql"
+      - "scripts/provision-enterprise-api-key.mjs"
+      - "scripts/enterprise-api-v1.test.mjs"
+      - ".github/workflows/enterprise-api-v1.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  enterprise-api:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: https://scorecaster-ci.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_scorecaster_ci_placeholder
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund --silent
+
+      - name: Enterprise API rights and security tests
+        run: node --test scripts/enterprise-api-v1.test.mjs
+
+      - name: API security regression tests
+        run: npm run test:security
+
+      - name: Paper-only security audit
+        run: npm run security:check
+
+      - name: Next production build
+        run: npm run build
