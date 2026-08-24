@@ -38,7 +38,7 @@ export default function HeaderAlertBell() {
 
   async function load() {
     try {
-      const response = await fetch("/api/cloud/alerts?status=unread&limit=5", { cache: "no-store" });
+      const response = await fetch("/api/cloud/alerts?status=all&limit=5", { cache: "no-store" });
       if (response.status === 401 || response.status === 403) {
         setSignedOut(true);
         setSummary({ unread: 0, active: 0 });
