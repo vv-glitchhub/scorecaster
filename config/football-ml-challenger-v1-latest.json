@@ -1,0 +1,56 @@
+{
+  "version": "scorecaster-football-ml-challenger-latest-v1",
+  "status": "collecting",
+  "updatedAt": null,
+  "dataset": {
+    "competition": "Premier League",
+    "season": "2015/2016",
+    "pairedRows": null,
+    "immutableInputHash": null,
+    "researchOnly": true,
+    "productionUseAllowed": false
+  },
+  "split": null,
+  "metrics": null,
+  "comparisons": null,
+  "ensembleWeights": null,
+  "champion": {
+    "benchmark": "no-vig-historical-market",
+    "observedBestOnHoldout": null,
+    "automaticPromotionAllowed": false,
+    "humanReviewCandidate": null
+  },
+  "paidLiveDataDecision": {
+    "status": "inconclusive",
+    "paidLiveDataTrialJustified": false,
+    "reason": "first-football-ml-historical-experiment-pending"
+  },
+  "model": {
+    "version": "scorecaster-football-ml-challenger-v1",
+    "family": "multiclass-gradient-boosted-regression-trees",
+    "featureNames": [],
+    "rounds": null,
+    "learningRate": null,
+    "temperature": null,
+    "params": null,
+    "training": null,
+    "featureImportance": [],
+    "safety": {
+      "researchOnly": true,
+      "productionProbabilityChanged": false,
+      "productionPlayUpgradeAllowed": false,
+      "marketFeaturesUsedByIndependentMl": false
+    }
+  },
+  "safety": {
+    "researchOnly": true,
+    "immutableHoldout": true,
+    "marketFeatureUsedByIndependentMl": false,
+    "ensembleUsesMarketBenchmark": true,
+    "productionModelPromotionAllowed": false,
+    "productionProbabilityChanged": false,
+    "productionPlayUpgradeAllowed": false,
+    "realMoneyActionAvailable": false,
+    "paperOnly": true
+  }
+}
