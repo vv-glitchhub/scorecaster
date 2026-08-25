@@ -1,0 +1,75 @@
+name: Football ML Challenger V1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "lib/football-ml-challenger-v1.mjs"
+      - "lib/zero-cost-football-open-data-loader-v2.mjs"
+      - "scripts/run-football-ml-challenger-v1.mjs"
+      - "scripts/football-ml-challenger-v1.test.mjs"
+      - "app/football-ml-lab/**"
+      - ".github/workflows/football-ml-challenger-v1.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: football-ml-challenger-v1-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regression tests
+        run: node --test scripts/football-ml-challenger-v1.test.mjs
+
+      - name: Train and evaluate immutable historical challenger
+        run: node scripts/run-football-ml-challenger-v1.mjs
+
+      - name: Security boundary
+        run: npm run security:check
+
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: public-test-value
+        run: npm run build
+
+      - name: Upload complete model and report
+        uses: actions/upload-artifact@v4
+        with:
+          name: football-ml-challenger-v1-${{ github.sha }}
+          path: |
+            artifacts/football-ml-challenger-v1-report.json
+            artifacts/football-ml-challenger-v1-model.json
+            config/football-ml-challenger-v1-latest.json
+          retention-days: 30
+
+      - name: Publish compact latest scorecard
+        if: github.ref == 'refs/heads/main'
+        run: |
+          git config user.name "scorecaster-model-lab"
+          git config user.email "scorecaster-model-lab@users.noreply.github.com"
+          git add config/football-ml-challenger-v1-latest.json
+          if git diff --cached --quiet; then
+            echo "No scorecard change"
+          else
+            git commit -m "chore: publish football ML challenger scorecard [skip ci]"
+            git push
+          fi
