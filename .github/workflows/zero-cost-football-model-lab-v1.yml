@@ -1,0 +1,41 @@
+name: Zero-Cost Football Model Lab V1
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/run-zero-cost-football-model-lab-v1.mjs"
+
+permissions:
+  contents: read
+
+env:
+  CI: true
+
+jobs:
+  model-lab:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Unit regression gate
+        run: node --test scripts/zero-cost-football-model-lab-v1.test.mjs
+
+      - name: Run free historical EPL experiment
+        run: node scripts/run-zero-cost-football-model-lab-v1.mjs --output=artifacts/zero-cost-football-model-lab-v1-report.json
+
+      - name: Upload immutable experiment report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zero-cost-football-model-lab-v1-report
+          path: artifacts/zero-cost-football-model-lab-v1-report.json
+          if-no-files-found: error
+          retention-days: 30
