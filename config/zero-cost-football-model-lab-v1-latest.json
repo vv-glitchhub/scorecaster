@@ -1,0 +1,24 @@
+{
+  "version": "scorecaster-zero-cost-football-model-lab-report-registry-v1",
+  "status": "collecting",
+  "updatedAt": null,
+  "dataset": {
+    "competition": "Premier League",
+    "season": "2015/2016",
+    "statsBombCompetitionId": 2,
+    "statsBombSeasonId": 27,
+    "xgSource": "StatsBomb Open Data",
+    "marketSource": "Football-Data.co.uk",
+    "researchOnly": true,
+    "productionUseAllowed": false
+  },
+  "evaluation": null,
+  "conclusion": {
+    "paidLiveDataStatus": "inconclusive",
+    "paidLiveDataTrialJustified": false,
+    "reason": "first-historical-experiment-running",
+    "productionModelPromotionAllowed": false,
+    "productionPlayUpgradeAllowed": false,
+    "paperOnly": true
+  }
+}
