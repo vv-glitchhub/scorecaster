@@ -1,149 +1,90 @@
 import { normalizeFootballPlayersFromFeed } from "../../../../lib/data-normalizers/football";
 import { updateFootballRatingsFromStructuredPlayers } from "../../../../lib/rating-update-engine";
-import { GET as runCollectorRoute } from "../../internal/collector/route";
+import { GET as runSelfDataEngineRoute } from "../../internal/self-data-engine/route";
 
 async function fetchStructuredStatsFeed() {
   const url = process.env.STATS_FEED_URL;
   const token = process.env.STATS_FEED_TOKEN;
-
-  if (!url) {
-    throw new Error("Missing STATS_FEED_URL");
-  }
+  if (!url) return null;
 
   const res = await fetch(url, {
-    headers: token
-      ? {
-          Authorization: `Bearer ${token}`,
-        }
-      : {},
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
     cache: "no-store",
+    signal: AbortSignal.timeout(30_000),
   });
-
-  if (!res.ok) {
-    throw new Error(`Stats feed failed with HTTP ${res.status}`);
-  }
+  if (!res.ok) throw new Error(`Stats feed failed with HTTP ${res.status}`);
 
   const data = await res.json();
-
-  if (!Array.isArray(data.players)) {
-    throw new Error("Stats feed must return { players: [...] }");
-  }
-
+  if (!Array.isArray(data.players)) throw new Error("Stats feed must return { players: [...] }");
   return data.players;
 }
 
 async function runRatingsUpdate() {
   const rawPlayers = await fetchStructuredStatsFeed();
+  if (!rawPlayers) {
+    return {
+      ok: true,
+      skipped: true,
+      reason: "optional-stats-feed-not-configured",
+      productionDecisionBlocked: false,
+    };
+  }
   const players = normalizeFootballPlayersFromFeed(rawPlayers);
-  return updateFootballRatingsFromStructuredPlayers(players, "vercel_cron");
+  const result = await updateFootballRatingsFromStructuredPlayers(players, "vercel_cron");
+  return { ok: true, skipped: false, result };
 }
 
-async function runCollector(req) {
-  console.log("[daily-maintenance] Running collector directly");
-
-  const response = await runCollectorRoute(req);
-  const responseText = await response.text();
+async function runSelfDataEngine(req) {
+  const routeResponse = await runSelfDataEngineRoute(req);
+  const responseText = await routeResponse.text();
   let payload = null;
-
   if (responseText) {
-    try {
-      payload = JSON.parse(responseText);
-    } catch {
-      payload = { rawResponse: responseText.slice(0, 1000) };
-    }
+    try { payload = JSON.parse(responseText); }
+    catch { payload = { rawResponse: responseText.slice(0, 1000) }; }
   }
 
-  console.log("[daily-maintenance] Direct collector response", {
-    status: response.status,
-    payload,
-  });
-
-  if (!response.ok) {
-    const detail = payload?.error || payload?.message || `HTTP ${response.status}`;
-    throw new Error(`Collector failed: ${detail}`);
+  if (!routeResponse.ok || payload?.ok === false) {
+    const detail = payload?.error || payload?.status || `HTTP ${routeResponse.status}`;
+    throw new Error(`Self Data Engine failed: ${detail}`);
   }
-
-  if (!payload || payload.ok !== true) {
-    const detail = payload?.error || payload?.status || payload?.rawResponse || "invalid collector response";
-    throw new Error(`Collector returned an unsuccessful response: ${detail}`);
-  }
-
-  if (!payload.runId) {
-    throw new Error("Collector returned HTTP 200 without a runId");
-  }
-
-  if (!["success", "partial"].includes(payload.status)) {
-    throw new Error(`Collector returned invalid status: ${payload.status || "missing"}`);
-  }
-
+  if (!payload?.runId) throw new Error("Self Data Engine returned without a runId");
   return payload;
 }
 
 function settledResult(result) {
   return result.status === "fulfilled"
     ? { ok: true, data: result.value }
-    : {
-        ok: false,
-        error:
-          result.reason instanceof Error
-            ? result.reason.message
-            : String(result.reason),
-      };
+    : { ok: false, error: result.reason instanceof Error ? result.reason.message : String(result.reason) };
 }
 
 export async function GET(req) {
-  const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-
-  if (!cronSecret) {
-    console.error("[daily-maintenance] CRON_SECRET is not configured");
-    return Response.json(
-      { ok: false, error: "CRON_SECRET is not configured" },
-      { status: 503 }
-    );
-  }
-
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    console.error("[daily-maintenance] Unauthorized cron request");
+  if (!cronSecret) return Response.json({ ok: false, error: "CRON_SECRET is not configured" }, { status: 503 });
+  if (req.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return Response.json({ ok: false, error: "Unauthorized" }, { status: 401 });
   }
 
-  console.log("[daily-maintenance] Starting ratings update and direct collector");
-
-  const [ratingsResult, collectorResult] = await Promise.allSettled([
+  // The self-data engine is the primary maintenance path. Optional licensed
+  // player feeds enrich ratings when configured, but their absence must never
+  // stop Scorecaster from collecting its own point-in-time dataset.
+  const [selfDataResult, ratingsResult] = await Promise.allSettled([
+    runSelfDataEngine(req),
     runRatingsUpdate(),
-    runCollector(req),
   ]);
 
+  const selfDataEngine = settledResult(selfDataResult);
   const ratings = settledResult(ratingsResult);
-  const collector = settledResult(collectorResult);
+  const ok = selfDataEngine.ok && ratings.ok;
 
-  if (!ratings.ok) {
-    console.error("[daily-maintenance] Ratings update failed:", ratings.error);
-  } else {
-    console.log("[daily-maintenance] Ratings update completed");
-  }
-
-  if (!collector.ok) {
-    console.error("[daily-maintenance] Collector failed:", collector.error);
-  } else {
-    console.log("[daily-maintenance] Collector completed", {
-      runId: collector.data.runId,
-      status: collector.data.status,
-      recordsStored: collector.data.recordsStored,
-      publishable: collector.data.publishable,
-    });
-  }
-
-  const ok = ratings.ok && collector.ok;
-
-  return Response.json(
-    {
-      ok,
-      version: "scorecaster-daily-maintenance-v5",
-      ratings,
-      collector,
-    },
-    { status: ok ? 200 : 500 }
-  );
+  return Response.json({
+    ok,
+    version: "scorecaster-daily-maintenance-v6",
+    primaryPipeline: "self-data-engine-v1",
+    selfDataEngine,
+    ratings,
+    autonomousCollection: true,
+    pointInTimeFeatures: true,
+    realMoneyActionAvailable: false,
+    paperOnly: true,
+  }, { status: ok ? 200 : 500 });
 }
