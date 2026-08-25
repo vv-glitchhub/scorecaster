@@ -1,0 +1,40 @@
+name: Self Data Engine V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/self-data-engine-v1.mjs"
+      - "app/api/internal/self-data-engine/**"
+      - "app/api/self-data-engine/**"
+      - "app/api/cron/update-ratings/**"
+      - "scripts/self-data-engine-v1.test.mjs"
+      - "supabase/scorecaster_self_data_engine_v1.sql"
+      - ".github/workflows/self-data-engine-v1.yml"
+  pull_request:
+    paths:
+      - "lib/self-data-engine-v1.mjs"
+      - "app/api/internal/self-data-engine/**"
+      - "app/api/self-data-engine/**"
+      - "app/api/cron/update-ratings/**"
+      - "scripts/self-data-engine-v1.test.mjs"
+      - "supabase/scorecaster_self_data_engine_v1.sql"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Point-in-time and safety regressions
+        run: node scripts/self-data-engine-v1.test.mjs
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: local-ci-placeholder
+        run: npm run build
