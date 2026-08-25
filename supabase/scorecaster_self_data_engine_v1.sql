@@ -73,10 +73,16 @@ create index if not exists scorecaster_pit_feature_snapshots_v1_event_idx
   on public.scorecaster_pit_feature_snapshots_v1 (event_id, as_of desc);
 create index if not exists scorecaster_pit_feature_snapshots_v1_eligible_idx
   on public.scorecaster_pit_feature_snapshots_v1 (eligible_for_model, as_of desc);
+create index if not exists scorecaster_pit_feature_snapshots_v1_run_idx
+  on public.scorecaster_pit_feature_snapshots_v1 (run_id);
 create index if not exists scorecaster_autonomous_decisions_v1_event_idx
   on public.scorecaster_autonomous_decisions_v1 (event_id, as_of desc);
 create index if not exists scorecaster_autonomous_decisions_v1_decision_idx
   on public.scorecaster_autonomous_decisions_v1 (decision, as_of desc);
+create index if not exists scorecaster_autonomous_decisions_v1_run_idx
+  on public.scorecaster_autonomous_decisions_v1 (run_id);
+create index if not exists scorecaster_autonomous_decisions_v1_feature_idx
+  on public.scorecaster_autonomous_decisions_v1 (feature_snapshot_id);
 
 alter table public.scorecaster_data_engine_runs_v1 enable row level security;
 alter table public.scorecaster_data_engine_runs_v1 force row level security;
