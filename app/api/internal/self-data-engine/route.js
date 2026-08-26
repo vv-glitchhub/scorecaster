@@ -1,6 +1,7 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { GET as runCollectorRoute } from "../collector/route";
 import { GET as runSportsAnalyticsRoute } from "../sports-analytics/route";
+import { GET as runIntelligenceCoreRoute } from "../intelligence-core/route";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
 import {
   SELF_DATA_ENGINE_VERSION,
@@ -141,8 +142,8 @@ export async function GET(request) {
     const origin = new URL(request.url).origin;
     const errors = [];
 
-    // Collection precedes feature materialization. Each downstream layer still
-    // applies its own chronology gate and can fail independently.
+    // Collection precedes feature materialization. Each downstream layer applies
+    // its own chronology/provenance gate and can fail independently.
     const collector = await runInternal(runCollectorRoute, request);
     if (!collector.ok) errors.push({ stage: "collector", error: collector.payload?.error || `HTTP ${collector.status}` });
 
@@ -173,12 +174,30 @@ export async function GET(request) {
       if (item.status === "rejected") errors.push({ stage: "feature-decision", error: item.reason instanceof Error ? item.reason.message : String(item.reason) });
     }
 
+    // Intelligence Core runs after immutable point-in-time snapshots exist. It
+    // canonicalizes facts, updates own team states, writes shadow predictions,
+    // and pairs settled outcomes into training examples. Its failure can only
+    // make this run partial; it never upgrades a production decision.
+    const intelligence = await runInternal(runIntelligenceCoreRoute, request);
+    if (!intelligence.ok) errors.push({ stage: "intelligence-core", error: intelligence.payload?.error || `HTTP ${intelligence.status}` });
+
     const status = stored.length === 0 ? "failed" : errors.length ? "partial" : "success";
     const completedAt = new Date().toISOString();
     const sourceStatus = {
       collector: { ok: collector.ok, status: collector.status, runId: collector.payload?.runId || null, recordsStored: collector.payload?.recordsStored || 0 },
       sportsAnalytics: { ok: analytics.ok, status: analytics.status, eventsStored: analytics.payload?.eventsStored || 0, observationsStored: analytics.payload?.observationsStored || 0 },
       recommendationFeed: { ok: true, version: topPicksPayload?.version || null, events: eventPicks.length },
+      intelligenceCore: {
+        ok: intelligence.ok,
+        status: intelligence.status,
+        version: intelligence.payload?.version || null,
+        canonicalFactsPrepared: intelligence.payload?.canonicalFactsPrepared || 0,
+        finalOutcomesAvailable: intelligence.payload?.finalOutcomesAvailable || 0,
+        teamStatesMaterialized: intelligence.payload?.teamStatesMaterialized || 0,
+        predictionsPrepared: intelligence.payload?.predictionsPrepared || 0,
+        learningExamplesPrepared: intelligence.payload?.learningExamplesPrepared || 0,
+        trainingEligiblePrepared: intelligence.payload?.trainingEligiblePrepared || 0,
+      },
     };
 
     await finishRun(admin, runId, {
@@ -210,11 +229,13 @@ export async function GET(request) {
         CAUTION: stored.filter((item) => item.decision === "CAUTION").length,
         SKIP: stored.filter((item) => item.decision === "SKIP").length,
       },
+      intelligence: intelligence.payload || null,
       sources: sourceStatus,
       errors,
       sample: stored.slice(0, 5),
       autonomousCollection: true,
       pointInTimeFeatures: true,
+      ownIntelligenceCore: true,
       automaticUpgradeBySelfDataLayer: false,
       productionProbabilityChanged: false,
       realMoneyActionAvailable: false,
