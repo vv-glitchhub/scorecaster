@@ -13,6 +13,7 @@ const HEADERS = {
   "X-Robots-Tag": "noindex, nofollow",
   "X-Content-Type-Options": "nosniff",
 };
+const OWN_ML_MODEL_ID = "scorecaster-own-football-ml";
 
 async function exactCount(query) {
   const { count, error } = await query;
@@ -27,8 +28,9 @@ export async function GET() {
   try {
     const [
       factsTotal, facts24h, openFootballFacts, outcomesTotal, finalOutcomes,
-      teamStates, predictions, learningTotal, learningEligible, identities,
-      registryResult, healthResult,
+      teamStates, predictions, baselinePredictions, mlPredictions,
+      learningTotal, learningEligible, identities,
+      registryResult, mlArtifactResult, mlTrainingResult, healthResult,
     ] = await Promise.all([
       exactCount(admin.from("scorecaster_canonical_facts_v1").select("id", { count: "exact", head: true })),
       exactCount(admin.from("scorecaster_canonical_facts_v1").select("id", { count: "exact", head: true }).gte("captured_at", dayAgo)),
@@ -37,11 +39,15 @@ export async function GET() {
       exactCount(admin.from("scorecaster_event_outcomes_v1").select("id", { count: "exact", head: true }).eq("status", "final").eq("finality_verified", true)),
       exactCount(admin.from("scorecaster_team_state_snapshots_v1").select("id", { count: "exact", head: true })),
       exactCount(admin.from("scorecaster_model_predictions_v1").select("id", { count: "exact", head: true })),
+      exactCount(admin.from("scorecaster_model_predictions_v1").select("id", { count: "exact", head: true }).eq("model_id", OWN_FOOTBALL_MODEL_ID)),
+      exactCount(admin.from("scorecaster_model_predictions_v1").select("id", { count: "exact", head: true }).eq("model_id", OWN_ML_MODEL_ID)),
       exactCount(admin.from("scorecaster_learning_examples_v1").select("id", { count: "exact", head: true })),
       exactCount(admin.from("scorecaster_learning_examples_v1").select("id", { count: "exact", head: true }).eq("eligible_for_training", true)),
       exactCount(admin.from("scorecaster_event_identity_map_v1").select("id", { count: "exact", head: true })),
       admin.from("scorecaster_model_registry_v1").select("model_id,model_version,model_family,status,feature_schema_version,training_data_hash,code_commit_sha,training_config,validation_metrics,holdout_metrics,promotion_gate,independent_from_market,automatic_promotion_allowed,approved_at,updated_at").eq("model_id", OWN_FOOTBALL_MODEL_ID).eq("model_version", OWN_FOOTBALL_MODEL_VERSION).maybeSingle(),
-      admin.from("scorecaster_source_health_snapshots_v1").select("source_id,status,last_observed_at,age_minutes,records_24h,rights_ok,training_rights_ok,dependency_class,diagnostics,captured_at").order("captured_at", { ascending: false }).limit(100),
+      admin.from("scorecaster_model_artifacts_v1").select("artifact_hash,model_id,model_version,model_family,feature_schema_version,trained_at,training_cutoff,training_data_hash,train_metrics,validation_metrics,holdout_metrics,bootstrap,promotion_gate,independent_from_market,shadow_only,automatic_promotion_allowed,production_probability_changed").eq("model_id", OWN_ML_MODEL_ID).order("trained_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("scorecaster_ml_training_runs_v1").select("id,status,model_id,model_version,training_rows,validation_rows,holdout_rows,training_data_hash,metrics,errors,started_at,completed_at").eq("model_id", OWN_ML_MODEL_ID).order("started_at", { ascending: false }).limit(1).maybeSingle(),
+      admin.from("scorecaster_source_health_snapshots_v1").select("source_id,status,last_observed_at,age_minutes,records_24h,rights_ok,training_rights_ok,dependency_class,diagnostics,captured_at").order("captured_at", { ascending: false }).limit(120),
     ]);
 
     const latestBySource = new Map();
@@ -63,10 +69,9 @@ export async function GET() {
       updateCadence: source.updateCadence,
     }));
 
-    const errors = [factsTotal, facts24h, openFootballFacts, outcomesTotal, finalOutcomes, teamStates, predictions, learningTotal, learningEligible, identities]
-      .map((item) => item.error).filter(Boolean);
-    if (registryResult.error) errors.push(registryResult.error.message);
-    if (healthResult.error) errors.push(healthResult.error.message);
+    const countRows = [factsTotal, facts24h, openFootballFacts, outcomesTotal, finalOutcomes, teamStates, predictions, baselinePredictions, mlPredictions, learningTotal, learningEligible, identities];
+    const errors = countRows.map((item) => item.error).filter(Boolean);
+    for (const result of [registryResult, mlArtifactResult, mlTrainingResult, healthResult]) if (result.error) errors.push(result.error.message);
 
     const model = registryResult.data || {
       model_id: OWN_FOOTBALL_MODEL_ID,
@@ -75,6 +80,30 @@ export async function GET() {
       independent_from_market: true,
       automatic_promotion_allowed: false,
     };
+    const mlArtifact = mlArtifactResult.data || null;
+    const mlTraining = mlTrainingResult.data || null;
+    const mlGate = mlArtifact?.promotion_gate || mlTraining?.metrics?.promotionGate || null;
+    const champion = {
+      modelId: OWN_FOOTBALL_MODEL_ID,
+      modelVersion: OWN_FOOTBALL_MODEL_VERSION,
+      family: "elo-goal-strength-poisson-ensemble",
+      role: "owned-data-baseline-champion",
+      independentFromMarket: true,
+    };
+    const challenger = mlArtifact ? {
+      modelId: mlArtifact.model_id,
+      modelVersion: mlArtifact.model_version,
+      family: mlArtifact.model_family,
+      role: "self-trained-ml-challenger",
+      status: mlGate?.status || "shadow",
+      trainedAt: mlArtifact.trained_at,
+      trainingCutoff: mlArtifact.training_cutoff,
+      holdout: mlArtifact.holdout_metrics,
+      bootstrap: mlArtifact.bootstrap,
+      promotionGate: mlGate,
+      independentFromMarket: mlArtifact.independent_from_market === true,
+      shadowOnly: mlArtifact.shadow_only === true,
+    } : null;
 
     return Response.json({
       ok: errors.length === 0,
@@ -88,11 +117,20 @@ export async function GET() {
         verifiedFinalOutcomes: finalOutcomes.count,
         teamStateSnapshots: teamStates.count,
         shadowPredictions: predictions.count,
+        ownBaselinePredictions: baselinePredictions.count,
+        selfTrainedMlPredictions: mlPredictions.count,
         learningExamples: learningTotal.count,
         trainingEligibleExamples: learningEligible.count,
         providerEventIdentities: identities.count,
       },
       model,
+      modelGovernance: {
+        champion,
+        challenger,
+        latestTrainingRun: mlTraining,
+        automaticPromotionAllowed: false,
+        marketBenchmarkRequiredBeforeProductionPromotion: true,
+      },
       sourceHealth,
       dependency,
       sourceRegistry: {
@@ -106,6 +144,8 @@ export async function GET() {
         mirroredOpenHistoryOwnedInScorecasterDatabase: true,
         allDerivedFeaturesOwnedByScorecaster: true,
         modelProbabilityFromOwnBaselineUsesMarketInputs: false,
+        selfTrainedMlUsesMarketInputs: false,
+        selfTrainedMlCanOverrideChampionAutomatically: false,
         missingDataBehavior: "fail-closed",
         automaticModelPromotionAllowed: false,
         productionProbabilityChangedByCore: false,
