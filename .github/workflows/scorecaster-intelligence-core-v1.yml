@@ -1,0 +1,50 @@
+name: Scorecaster Intelligence Core V1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/scorecaster-intelligence-core-v1.mjs"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/internal/intelligence-core/**"
+      - "app/api/intelligence-core/**"
+      - "app/api/internal/self-data-engine/**"
+      - "scripts/scorecaster-intelligence-core-v1.test.mjs"
+      - "supabase/scorecaster_intelligence_core_v1.sql"
+      - "supabase/scorecaster_event_identity_map_v1.sql"
+      - "supabase/scorecaster_openfootball_bootstrap_v1.sql"
+      - ".github/workflows/scorecaster-intelligence-core-v1.yml"
+  pull_request:
+    paths:
+      - "lib/scorecaster-intelligence-core-v1.mjs"
+      - "lib/collector-source-registry.mjs"
+      - "app/api/internal/intelligence-core/**"
+      - "app/api/intelligence-core/**"
+      - "app/api/internal/self-data-engine/**"
+      - "scripts/scorecaster-intelligence-core-v1.test.mjs"
+      - "supabase/scorecaster_intelligence_core_v1.sql"
+      - "supabase/scorecaster_event_identity_map_v1.sql"
+      - "supabase/scorecaster_openfootball_bootstrap_v1.sql"
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Intelligence ownership and leakage regressions
+        run: node scripts/scorecaster-intelligence-core-v1.test.mjs
+      - name: Existing Self Data Engine safety regressions
+        run: node scripts/self-data-engine-v1.test.mjs
+      - name: Security audit
+        run: npm run security:check
+      - name: Production build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: local-ci-placeholder
+        run: npm run build
