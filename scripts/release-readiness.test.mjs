@@ -174,6 +174,8 @@ test("release readiness UI is trilingual and separates automated and manual evid
   assert.match(page, /release-readiness\.json/);
   assert.match(client, /fetch\("\/api\/health"/);
   assert.match(client, /fetch\("\/api\/operations"/);
+  assert.match(client, /operationsResponse\.ok \? operations : null/);
+  assert.match(client, /ready === null/);
   assert.match(client, /manualReleaseChecks/);
   assert.match(client, /fi:/);
   assert.match(client, /en:/);

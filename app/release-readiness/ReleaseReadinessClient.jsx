@@ -25,8 +25,8 @@ export default function ReleaseReadinessClient({ profile }) {
         operationsResponse.json()
       ]);
       if (!health?.app) throw new Error("Health response is invalid");
-      if (!operationsResponse.ok) throw new Error(operations?.error || "Operations overview unavailable");
-      setData({ health, operations });
+      setData({ health, operations: operationsResponse.ok ? operations : null });
+      if (!operationsResponse.ok) setError(operations?.error || "Operations overview unavailable");
     } catch (loadError) {
       setData(EMPTY);
       setError(loadError instanceof Error ? loadError.message : tr({
@@ -73,32 +73,32 @@ export default function ReleaseReadinessClient({ profile }) {
       {
         id: "watchlist-migrations",
         label: tr({ fi: "Watchlist- ja hälytysmigraatiot", en: "Watchlist and alert migrations", es: "Migraciones de seguimiento y alertas" }),
-        ready: Boolean(checklist.watchlistMigration && checklist.notificationRegistryMigration && checklist.notificationDeliveryMigration)
+        ready: data.operations ? Boolean(checklist.watchlistMigration && checklist.notificationRegistryMigration && checklist.notificationDeliveryMigration) : null
       },
       {
         id: "settlement-migration",
         label: tr({ fi: "Settlement Monitor -migraatio", en: "Settlement Monitor migration", es: "Migración de Settlement Monitor" }),
-        ready: Boolean(checklist.settlementMigration)
+        ready: data.operations ? Boolean(checklist.settlementMigration) : null
       },
       {
         id: "watchlist-worker",
         label: tr({ fi: "Watchlist Monitor aktiivinen", en: "Watchlist Monitor active", es: "Watchlist Monitor activo" }),
-        ready: Boolean(checklist.watchlistWorkerEnabled)
+        ready: data.operations ? Boolean(checklist.watchlistWorkerEnabled) : null
       },
       {
         id: "settlement-worker",
         label: tr({ fi: "Settlement Monitor aktiivinen", en: "Settlement Monitor active", es: "Settlement Monitor activo" }),
-        ready: Boolean(checklist.settlementWorkerEnabled)
+        ready: data.operations ? Boolean(checklist.settlementWorkerEnabled) : null
       },
       {
         id: "notification-delivery",
         label: tr({ fi: "Push-toimitus aktiivinen", en: "Push delivery active", es: "Entrega push activa" }),
-        ready: Boolean(checklist.notificationDeliveryEnabled)
+        ready: data.operations ? Boolean(checklist.notificationDeliveryEnabled) : null
       },
       {
         id: "physical-device",
         label: tr({ fi: "Fyysinen push-laite rekisteröity", en: "Physical push device registered", es: "Dispositivo push físico registrado" }),
-        ready: Boolean(checklist.physicalPushDeviceRegistered)
+        ready: data.operations ? Boolean(checklist.physicalPushDeviceRegistered) : null
       }
     ];
   }, [data, tr]);
@@ -189,5 +189,6 @@ function Metric({ label, value, tone = "text-white" }) {
 }
 
 function CheckRow({ label, ready, tr }) {
-  return <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"><div className="font-bold text-slate-200">{label}</div><span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : "bg-yellow-400/10 text-yellow-200"}`}>{ready ? tr({ fi: "VALMIS", en: "READY", es: "LISTO" }) : tr({ fi: "KESKEN", en: "PENDING", es: "PENDIENTE" })}</span></div>;
+  const unknown = ready === null;
+  return <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"><div className="font-bold text-slate-200">{label}</div><span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : unknown ? "bg-slate-400/10 text-slate-300" : "bg-yellow-400/10 text-yellow-200"}`}>{ready ? tr({ fi: "VALMIS", en: "READY", es: "LISTO" }) : unknown ? tr({ fi: "KIRJAUDU", en: "SIGN IN", es: "INICIAR SESIÓN" }) : tr({ fi: "KESKEN", en: "PENDING", es: "PENDIENTE" })}</span></div>;
 }
