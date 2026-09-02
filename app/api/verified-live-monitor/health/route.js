@@ -45,7 +45,7 @@ export async function GET() {
       preMatchModelChanged: false,
       realMoneyExecution: false,
       paperOnly: true
-    }, { headers: { "Cache-Control": "public, s-maxage=30, stale-while-revalidate=60", "X-Content-Type-Options": "nosniff" } });
+    }, { headers: { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" } });
   } catch (error) {
     return Response.json({
       ok: false,

@@ -72,6 +72,15 @@ test("repository cache audit proves the reviewed service worker bypass", () => {
   assert.equal(report.evidenceBoundary.secretValuesIncluded, false);
 });
 
+test("live API routes cannot override the global no-store boundary with public CDN caching", async () => {
+  const audit = await readFile(resolve(root, "scripts/live-data-cache-boundary-audit.mjs"), "utf8");
+  const recommendations = await readFile(resolve(root, "app/api/recommendations/route.js"), "utf8");
+  assert.match(audit, /cacheable-api-response-header/);
+  assert.match(recommendations, /"Cache-Control": "no-store, max-age=0"/);
+  assert.match(recommendations, /cache: "no-store"/);
+  assert.doesNotMatch(recommendations, /s-maxage|stale-while-revalidate/);
+});
+
 test("canonical release manifest keeps live cache proof blocking and un-self-certified", async () => {
   const manifest = JSON.parse(await readFile(resolve(root, "config/release-readiness.json"), "utf8"));
   const matches = manifest.manualReleaseChecks.filter((item) => item.id === "live-data-pwa-cache-boundary");

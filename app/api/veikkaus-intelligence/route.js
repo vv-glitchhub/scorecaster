@@ -31,7 +31,7 @@ export function GET() {
       tulosvetoDefaultRoundReturnRate: 0.77,
     },
   }, 200, null, {
-    "Cache-Control": "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400",
+    "Cache-Control": "no-store, max-age=0",
   });
 }
 

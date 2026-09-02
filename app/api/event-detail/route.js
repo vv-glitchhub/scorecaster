@@ -10,7 +10,7 @@ export const dynamic = "force-dynamic";
 const SUPPORTED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const ALLOWED_QUERY_KEYS = new Set(["eventId", "sport", "selection"]);
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 

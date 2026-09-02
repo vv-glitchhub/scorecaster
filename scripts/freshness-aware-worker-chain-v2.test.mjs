@@ -41,7 +41,7 @@ test("public freshness endpoint returns only bounded capture-age metadata", asyn
   assert.match(route, /\.select\("captured_at"\)/);
   assert.match(route, /protectedWorkerRequired/);
   assert.match(route, /paperOnly: true/);
-  assert.match(route, /s-maxage=15/);
+  assert.match(route, /no-store, max-age=0/);
   assert.doesNotMatch(route, /event_id|selection|home_team|away_team|provider_key|raw_pick|user_id/);
   assert.doesNotMatch(route, /CRON_SECRET|SUPABASE_SERVICE_ROLE_KEY|authorization/i);
 });

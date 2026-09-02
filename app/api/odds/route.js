@@ -4,7 +4,7 @@ import { enrichGamesWithVeikkaus } from "../../../lib/veikkaus-odds-provider.mjs
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const ALLOWED_MARKETS = new Set(["h2h", "spreads", "totals"]);
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=120, stale-while-revalidate=300",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 
@@ -92,7 +92,7 @@ export async function GET(request) {
           data: []
         },
         upstreamStatus,
-        { "Cache-Control": "public, s-maxage=15", "X-Content-Type-Options": "nosniff" }
+        { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" }
       );
     }
 
@@ -135,7 +135,7 @@ export async function GET(request) {
         data: []
       },
       503,
-      { "Cache-Control": "public, s-maxage=15", "X-Content-Type-Options": "nosniff" }
+      { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" }
     );
   }
 }

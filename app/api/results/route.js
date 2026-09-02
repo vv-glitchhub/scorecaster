@@ -48,7 +48,7 @@ export async function GET(request) {
     {
       status: provider.ok ? 200 : 502,
       headers: {
-        "Cache-Control": "public, s-maxage=600, stale-while-revalidate=600",
+        "Cache-Control": "no-store, max-age=0",
         "X-Content-Type-Options": "nosniff"
       }
     }

@@ -3,7 +3,7 @@ import { publicSourceRegistrySummary } from "../../../lib/source-governance.mjs"
 export const dynamic = "force-dynamic";
 
 const HEADERS = {
-  "Cache-Control": "public, max-age=60, s-maxage=300, stale-while-revalidate=600",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",

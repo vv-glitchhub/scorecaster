@@ -3,7 +3,7 @@ import { buildVerifiedLiveMonitor } from "../../../lib/verified-live-monitor-v1.
 
 export const dynamic = "force-dynamic";
 
-const HEADERS = { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30", "X-Content-Type-Options": "nosniff" };
+const HEADERS = { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" };
 const clean = (value, maximum = 180) => String(value ?? "").replace(/[\u0000-\u001f\u007f]/g, " ").replace(/\s+/g, " ").trim().slice(0, maximum);
 
 function missingPatch(error) {

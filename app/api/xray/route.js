@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 30;
 
 const HEADERS = {
-  "Cache-Control": "public, max-age=30, s-maxage=120, stale-while-revalidate=300",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff",
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, OPTIONS",

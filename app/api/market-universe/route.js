@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=45, stale-while-revalidate=90",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 const MARKET_TITLES = Object.freeze({
@@ -149,7 +149,7 @@ export async function GET(request) {
         marketCoverage: footballCoverage(sport, group),
         data: null
       }, response.status >= 400 && response.status < 500 ? 502 : 503, {
-        "Cache-Control": "public, s-maxage=15",
+        "Cache-Control": "no-store, max-age=0",
         "X-Content-Type-Options": "nosniff"
       });
     }
@@ -193,6 +193,6 @@ export async function GET(request) {
       supportedGroups,
       marketCoverage: footballCoverage(sport, group),
       data: null
-    }, 503, { "Cache-Control": "public, s-maxage=15", "X-Content-Type-Options": "nosniff" });
+    }, 503, { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" });
   }
 }

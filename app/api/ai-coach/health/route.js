@@ -45,7 +45,7 @@ export async function GET() {
       automaticStakeChanged: false,
       realMoneyExecution: false,
       paperOnly: true
-    }, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120", "X-Content-Type-Options": "nosniff" } });
+    }, { headers: { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" } });
   } catch (error) {
     return Response.json({
       ok: false,

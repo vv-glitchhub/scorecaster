@@ -1,7 +1,7 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
 
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=180, stale-while-revalidate=420",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 
@@ -30,7 +30,7 @@ export async function GET(request) {
 
   try {
     const response = await fetch(topPicksUrl, {
-      next: { revalidate: 120 },
+      cache: "no-store",
       signal: AbortSignal.timeout(30000)
     });
     const payload = await response.json();

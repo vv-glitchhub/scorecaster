@@ -31,7 +31,7 @@ const FEATURED_WINDOW_HOURS = 72;
 const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
 const MAX_INTELLIGENCE_ENRICHMENTS = 12;
 const CACHE_HEADERS = {
-  "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+  "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
 

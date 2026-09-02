@@ -48,6 +48,10 @@ for (const path of scannedFiles) {
   const text = await readFile(join(root, path), "utf8");
   const lower = text.toLowerCase();
 
+  if (path.startsWith("app/api/") && /["']cache-control["']\s*:\s*["'][^"']*\b(?:public|s-maxage|stale-while-revalidate)\b/i.test(text)) {
+    unexpectedCapabilities.push({ path, pattern: "cacheable-api-response-header" });
+  }
+
   for (const pattern of serviceWorkerPolicy.forbiddenGeneralPatterns || []) {
     if (lower.includes(String(pattern).toLowerCase())) unexpectedCapabilities.push({ path, pattern });
   }

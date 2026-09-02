@@ -4,7 +4,7 @@ import { resolveMarketMicrostructureActivation } from "../../../../lib/market-mi
 
 export const dynamic = "force-dynamic";
 
-const HEADERS = { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=180", "X-Content-Type-Options": "nosniff" };
+const HEADERS = { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" };
 const json = (body, status = 200) => Response.json(body, { status, headers: HEADERS });
 
 function missingPatch(error) {
