@@ -29,6 +29,7 @@ Missing or malformed evidence becomes `unverified`; it is never imputed as passe
 - `next.config.js`
 - `app/components/PwaRegister.jsx`
 - `public/sw.js`
+- the deterministic SHA-256 tree of every `app/api/**/route` source
 
 The cache evidence regression recomputes those SHA-256 values from the actual repository sources. A change to the API header rule, PWA registration, service worker, or cache policy makes the retained production proof stale and blocks the test until production is re-probed and the reviewed evidence is deliberately refreshed.
 
@@ -36,7 +37,7 @@ Unrelated application changes do not invalidate the retained proof merely becaus
 
 ## Current retained observation
 
-The retained V1 evidence records two consecutive production `/api/health` observations from deployment `dpl_Dm93CVDbD5576acTtXggJbPHoWPJ`, commit `fdcaf7e2d3de5107273118b58ada8548243e5955`. Both observations were HTTP 200 with `Cache-Control: no-store`, `Age: 0`, and `x-vercel-cache: MISS`.
+The retained V1 evidence records two consecutive production observations for each of `/api/health`, `/api/recommendations?limit=1`, and `/api/top-picks?view=summary` from deployment `dpl_5eYppxkytAGEQojqnpVMmhM7nkQW`, commit `2a11018e150ccbf4e4e488d3f835143b4302dfab`. All six observations were HTTP 200 with `Cache-Control: no-store` (optionally including `max-age=0`), `Age: 0`, and `x-vercel-cache: MISS`.
 
 The response body itself is not retained in the evidence document.
 

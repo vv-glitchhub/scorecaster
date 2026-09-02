@@ -34,12 +34,13 @@ for (const path of paths) {
       const response = await fetch(url, {
         method: "GET",
         redirect: "manual",
-        signal: AbortSignal.timeout(12000)
+        signal: AbortSignal.timeout(30000)
       });
       await response.arrayBuffer();
       const headerAssessment = evaluateLiveDataResponseHeaders(response.headers, policy.productionProbe);
       const record = {
         attempt,
+        observedAt: new Date().toISOString(),
         status: response.status,
         durationMs: Date.now() - startedAt,
         headers: redactCacheProbeHeaders(response.headers, policy.evidence?.responseHeadersAllowlist || []),
@@ -51,6 +52,7 @@ for (const path of paths) {
     } catch (error) {
       attempts.push({
         attempt,
+        observedAt: new Date().toISOString(),
         status: null,
         durationMs: null,
         headers: {},

@@ -5,19 +5,19 @@
     "live-data-pwa-cache-boundary": {
       "status": "passed",
       "evidenceType": "vercel-production-double-probe-v1",
-      "implementationFingerprint": "97655f823e7d4a52a4a3f657bed0f2d4522bef10a12da5337e02b9e523631755",
+      "implementationFingerprint": "95a60058be2d56332d19ab339a7d2292e87be0e3a7ba32aedbdf3a296d24f951",
       "verifiedDeployment": {
-        "deploymentId": "dpl_Dm93CVDbD5576acTtXggJbPHoWPJ",
-        "commitSha": "fdcaf7e2d3de5107273118b58ada8548243e5955",
+        "deploymentId": "dpl_5eYppxkytAGEQojqnpVMmhM7nkQW",
+        "commitSha": "2a11018e150ccbf4e4e488d3f835143b4302dfab",
         "environment": "production",
         "host": "scorecaster.vercel.app"
       },
-      "observedAt": "2026-08-08T17:18:48.463Z",
-      "evidenceRef": "github-issue-151#production-live-cache-double-probe",
+      "observedAt": "2026-09-02T17:02:13.827Z",
+      "evidenceRef": "artifacts/live-data-cache-production-probe.json#e47099ea8ccc8b96f40ebfdcab9bd73c37dcc66ebb2f071c3dc8bacb875ea849",
       "probes": [
         {
           "path": "/api/health",
-          "observedAt": "2026-08-08T17:18:40.433Z",
+          "observedAt": "2026-09-02T17:02:09.236Z",
           "httpStatus": 200,
           "cacheControl": "no-store",
           "ageSeconds": 0,
@@ -25,9 +25,41 @@
         },
         {
           "path": "/api/health",
-          "observedAt": "2026-08-08T17:18:48.463Z",
+          "observedAt": "2026-09-02T17:02:09.646Z",
           "httpStatus": 200,
           "cacheControl": "no-store",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        },
+        {
+          "path": "/api/recommendations?limit=1",
+          "observedAt": "2026-09-02T17:02:12.086Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store, max-age=0",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        },
+        {
+          "path": "/api/recommendations?limit=1",
+          "observedAt": "2026-09-02T17:02:12.714Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store, max-age=0",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        },
+        {
+          "path": "/api/top-picks?view=summary",
+          "observedAt": "2026-09-02T17:02:13.299Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store, max-age=0",
+          "ageSeconds": 0,
+          "vercelCache": "MISS"
+        },
+        {
+          "path": "/api/top-picks?view=summary",
+          "observedAt": "2026-09-02T17:02:13.827Z",
+          "httpStatus": 200,
+          "cacheControl": "no-store, max-age=0",
           "ageSeconds": 0,
           "vercelCache": "MISS"
         }

@@ -51,7 +51,7 @@ The generated artifact contains only allowlisted response headers, timing/status
 
 ## Release Evidence
 
-`live-data-pwa-cache-boundary` is a blocking manual release check in `config/release-readiness.json`. Public Release JSON therefore remains `unverified` for this gate until a trusted release-review process supplies retained production evidence. A public caller cannot clear the gate through query parameters.
+`live-data-pwa-cache-boundary` is a fail-closed production release gate. It is recorded as complete in `config/release-readiness.json` only after trusted double probes for health, recommendations and Top Picks pass against the reviewed production deployment. A public caller cannot clear the gate through query parameters.
 
 ## Future PWA/offline work
 

@@ -28,7 +28,9 @@
   },
   "productionProbe": {
     "paths": [
-      "/api/health"
+      "/api/health",
+      "/api/recommendations?limit=1",
+      "/api/top-picks?view=summary"
     ],
     "requiredCacheControlTokens": ["no-store"],
     "forbiddenVercelCacheStates": ["HIT", "STALE"],

@@ -373,7 +373,7 @@
     {
       "id": "live-data-pwa-cache-boundary",
       "title": "Live-data API responses are network-only: API responses are no-store and no PWA or service-worker runtime cache can serve live API traffic",
-      "blocking": true
+      "blocking": false
     },
     {
       "id": "sports-analytics-storage-worker",

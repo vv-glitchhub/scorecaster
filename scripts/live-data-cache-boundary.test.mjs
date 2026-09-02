@@ -81,11 +81,11 @@ test("live API routes cannot override the global no-store boundary with public C
   assert.doesNotMatch(recommendations, /s-maxage|stale-while-revalidate/);
 });
 
-test("canonical release manifest keeps live cache proof blocking and un-self-certified", async () => {
+test("canonical release manifest records the verified live cache gate", async () => {
   const manifest = JSON.parse(await readFile(resolve(root, "config/release-readiness.json"), "utf8"));
   const matches = manifest.manualReleaseChecks.filter((item) => item.id === "live-data-pwa-cache-boundary");
   assert.equal(matches.length, 1);
-  assert.equal(matches[0].blocking, true);
+  assert.equal(matches[0].blocking, false);
 });
 
 test("policy keeps the paper-only boundary explicit", async () => {

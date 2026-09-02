@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { buildTrustedLiveDataCacheGateEvidence } from "../lib/live-data-cache-production-evidence.mjs";
@@ -22,10 +22,24 @@ async function recomputeImplementation() {
   for (const entry of implementation.files) {
     files.push({ path: entry.path, sha256: sha256(await read(entry.path)) });
   }
+  async function routeFiles(directory = "app/api") {
+    const entries = await readdir(resolve(root, directory), { withFileTypes: true });
+    const nested = [];
+    for (const entry of entries) {
+      const child = `${directory}/${entry.name}`;
+      if (entry.isDirectory()) nested.push(...await routeFiles(child));
+      else if (/\/route\.(?:js|jsx|ts|tsx)$/.test(child)) nested.push(child);
+    }
+    return nested;
+  }
+  const apiRouteFiles = (await routeFiles()).sort();
+  const apiRouteEntries = await Promise.all(apiRouteFiles.map(async (path) => ({ path, sha256: sha256(await read(path)) })));
+  const apiRouteTree = { fileCount: apiRouteEntries.length, sha256: sha256(JSON.stringify(apiRouteEntries)) };
   return {
     policyFingerprint,
     files,
-    implementationFingerprint: sha256(JSON.stringify({ policyFingerprint, files }))
+    apiRouteTree,
+    implementationFingerprint: sha256(JSON.stringify({ policyFingerprint, files, apiRouteTree }))
   };
 }
 
@@ -33,6 +47,7 @@ test("cache implementation manifest is bound to the actual cache-relevant source
   const current = await recomputeImplementation();
   assert.equal(current.policyFingerprint, implementation.policyFingerprint);
   assert.deepEqual(current.files, implementation.files);
+  assert.deepEqual(current.apiRouteTree, implementation.apiRouteTree);
   assert.equal(current.implementationFingerprint, implementation.implementationFingerprint);
 });
 
@@ -40,7 +55,7 @@ test("reviewed double production probe passes only for the current implementatio
   const result = buildTrustedLiveDataCacheGateEvidence({ trustedDocument, implementation, policy });
   assert.equal(result.ok, true);
   assert.equal(result.status, "passed");
-  assert.equal(result.probeCount, 2);
+  assert.equal(result.probeCount, 6);
   assert.equal(result.verifiedDeployment.environment, "production");
   assert.equal(result.verifiedDeployment.host, "scorecaster.vercel.app");
   assert.equal(result.manualGateEvidence["live-data-pwa-cache-boundary"].status, "passed");

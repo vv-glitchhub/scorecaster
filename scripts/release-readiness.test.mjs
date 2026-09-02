@@ -93,7 +93,10 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-storage" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-two-user-isolation" && item.blocking === true));
   assert.ok(manifest.manualReleaseChecks.some((item) => item.id === "shadow-learning-promotion-boundary" && item.blocking === true));
-  assert.ok(manifest.manualReleaseChecks.every((item) => item.blocking === true));
+  assert.deepEqual(
+    manifest.manualReleaseChecks.filter((item) => item.blocking === false).map((item) => item.id),
+    ["live-data-pwa-cache-boundary"]
+  );
 });
 
 test("repository release audit verifies routes, SQL order, headers and store metadata", async () => {

@@ -1,0 +1,153 @@
+{
+  "version": "scorecaster-live-data-cache-boundary-v1",
+  "origin": "https://scorecaster.vercel.app",
+  "pathCount": 3,
+  "observations": [
+    {
+      "path": "/api/health",
+      "attempts": [
+        {
+          "attempt": 1,
+          "observedAt": "2026-09-02T17:02:09.236Z",
+          "status": 200,
+          "durationMs": 11205,
+          "headers": {
+            "cache-control": "no-store",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::gwd5k-1788368528804-896b4ddaa910",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        },
+        {
+          "attempt": 2,
+          "observedAt": "2026-09-02T17:02:09.646Z",
+          "status": 200,
+          "durationMs": 409,
+          "headers": {
+            "cache-control": "no-store",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::gwd5k-1788368529339-570a915804ea",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        }
+      ]
+    },
+    {
+      "path": "/api/recommendations?limit=1",
+      "attempts": [
+        {
+          "attempt": 1,
+          "observedAt": "2026-09-02T17:02:12.086Z",
+          "status": 200,
+          "durationMs": 2440,
+          "headers": {
+            "cache-control": "no-store, max-age=0",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::t5hf7-1788368529742-00050122cf8e",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store, max-age=0",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        },
+        {
+          "attempt": 2,
+          "observedAt": "2026-09-02T17:02:12.714Z",
+          "status": 200,
+          "durationMs": 628,
+          "headers": {
+            "cache-control": "no-store, max-age=0",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::4xdsg-1788368532184-a0dac7f879d4",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store, max-age=0",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        }
+      ]
+    },
+    {
+      "path": "/api/top-picks?view=summary",
+      "attempts": [
+        {
+          "attempt": 1,
+          "observedAt": "2026-09-02T17:02:13.299Z",
+          "status": 200,
+          "durationMs": 585,
+          "headers": {
+            "cache-control": "no-store, max-age=0",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::r8f8z-1788368532810-aef9d9792c6b",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store, max-age=0",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        },
+        {
+          "attempt": 2,
+          "observedAt": "2026-09-02T17:02:13.827Z",
+          "status": 200,
+          "durationMs": 528,
+          "headers": {
+            "cache-control": "no-store, max-age=0",
+            "age": "0",
+            "x-vercel-cache": "MISS",
+            "x-vercel-id": "arn1::iad1::448kw-1788368533395-b82be7e77891",
+            "content-type": "application/json"
+          },
+          "cacheAssessment": {
+            "passed": true,
+            "cacheControl": "no-store, max-age=0",
+            "age": 0,
+            "vercelCache": "MISS",
+            "failures": []
+          }
+        }
+      ]
+    }
+  ],
+  "status": "passed",
+  "repositoryVerified": null,
+  "productionVerified": true,
+  "failures": [],
+  "evidenceBoundary": {
+    "rawResponseBodyIncluded": false,
+    "secretValuesIncluded": false,
+    "personalDataIncluded": false
+  },
+  "paperOnly": true,
+  "evidenceId": "e47099ea8ccc8b96f40ebfdcab9bd73c37dcc66ebb2f071c3dc8bacb875ea849"
+}
