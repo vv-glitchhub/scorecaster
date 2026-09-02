@@ -72,7 +72,7 @@ export default function MoreScreen({ onNavigate }: MoreScreenProps) {
       <Pressable accessibilityLabel={tr({ fi: "Avaa Recommendation Auto-Watch", en: "Open Recommendation Auto-Watch", es: "Abrir Recommendation Auto-Watch" })} accessibilityRole="button" onPress={() => setAutoWatchOpen(true)} style={({ pressed }) => [pressed && styles.cardPressed]}>
         <Card>
           <View style={styles.rowBetween}><Text style={styles.kicker}>RECOMMENDATION OPERATIONS</Text><View style={styles.badge}><Text style={styles.badgeText}>V1</Text></View></View>
-          <Text style={styles.cardTitle}>{tr({ fi: "Auto-Watch Top 1–3", en: "Auto-Watch Top 1–3", es: "Auto-Watch Top 1–3" })}</Text>
+          <Text style={styles.cardTitle}>{tr({ fi: "Auto-Watch Top 1–10", en: "Auto-Watch Top 1–10", es: "Auto-Watch Top 1–10" })}</Text>
           <Text style={styles.muted}>{tr({ fi: "Näe Recommendation Top 3, seuraava päätösportti ja evidenssin readiness sekä valvo kärkiehdokkaita automaattisesti nykyisen Alert Inboxin kautta.", en: "See the Recommendation Top 3, next decision gate and evidence readiness, and monitor leading candidates automatically through the existing Alert Inbox.", es: "Consulta el Top 3, el siguiente filtro y la evidencia, y supervisa candidatos automáticamente mediante Alert Inbox." })}</Text>
           <Text style={styles.openLabel}>{tr({ fi: "Avaa Auto-Watch", en: "Open Auto-Watch", es: "Abrir Auto-Watch" })} →</Text>
         </Card>

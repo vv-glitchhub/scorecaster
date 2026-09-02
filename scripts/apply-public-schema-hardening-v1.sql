@@ -1,4 +1,4 @@
--- Scorecaster public-schema hardening V1.3
+-- Scorecaster public-schema hardening V1.5
 -- Idempotent, data-preserving production patch derived from the live 2026-08-09
 -- Supabase grant/function audit. It does not drop tables, columns, rows or RLS
 -- policies except the obsolete direct-client profile INSERT policy.
@@ -308,9 +308,9 @@ end;
 $$;
 
 -- SECURITY DEFINER functions are privileged server boundaries. Revoke inherited
--- PUBLIC/browser execution from every current function, grant service_role, then
--- restore only the three reviewed authenticated RPCs used by current server/user
--- flows. Trigger functions do not require browser EXECUTE privileges to fire.
+-- PUBLIC/browser execution from every current public function and keep those
+-- public privileged functions service-role-only. User-facing RPCs are separate
+-- SECURITY INVOKER wrappers installed by authenticated RPC boundaries V1.
 do $$
 declare
   target record;
@@ -328,21 +328,30 @@ begin
 end;
 $$;
 
--- Explicit authenticated SECURITY DEFINER allowlist.
+-- Reviewed user-facing RPCs must be non-privileged public wrappers. Their
+-- privileged implementations live in the unexposed scorecaster_private schema.
 do $$
+declare
+  expected_rpc text;
+  rpc regprocedure;
 begin
-  if to_regprocedure('public.consume_api_quota(text,integer,integer)') is not null then
-    revoke all privileges on function public.consume_api_quota(text, integer, integer) from anon;
-    grant execute on function public.consume_api_quota(text, integer, integer) to authenticated, service_role;
-  end if;
-  if to_regprocedure('public.claim_notification_device(text,text,text,text)') is not null then
-    revoke all privileges on function public.claim_notification_device(text, text, text, text) from anon;
-    grant execute on function public.claim_notification_device(text, text, text, text) to authenticated, service_role;
-  end if;
-  if to_regprocedure('public.request_autonomous_agent_run()') is not null then
-    revoke all privileges on function public.request_autonomous_agent_run() from anon;
-    grant execute on function public.request_autonomous_agent_run() to authenticated, service_role;
-  end if;
+  foreach expected_rpc in array array[
+    'public.claim_notification_device(text,text,text,text)',
+    'public.request_autonomous_agent_run()',
+    'public.set_auto_watch_recommendation_preferences(boolean,integer,numeric,integer)',
+    'public.set_auto_watch_recommendation_preferences_v2(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text[])'
+  ]
+  loop
+    rpc := to_regprocedure(expected_rpc);
+    if rpc is null then
+      raise exception 'Public schema hardening refused: required authenticated invoker RPC is missing: %', expected_rpc;
+    end if;
+    if (select p.prosecdef from pg_proc p where p.oid = rpc) then
+      raise exception 'Public schema hardening refused: authenticated RPC remains SECURITY DEFINER: %', expected_rpc;
+    end if;
+    execute format('revoke all privileges on function %s from public, anon, service_role', rpc);
+    execute format('grant execute on function %s to authenticated', rpc);
+  end loop;
 end;
 $$;
 

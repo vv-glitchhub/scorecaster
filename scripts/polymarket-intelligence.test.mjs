@@ -101,8 +101,10 @@ test("current Top Picks intelligence path applies Polymarket after sports eviden
   assert.match(loader, /applySportsIntelligenceGate/);
   assert.match(loader, /applyPolymarketSafety/);
   const sportsCall = loader.indexOf("const withSportsEvidence = applySportsIntelligenceGate");
-  const polymarketCall = loader.indexOf("return applyPolymarketSafety(withSportsEvidence, polymarket)");
+  const polymarketCall = loader.indexOf("const withPolymarket = applyPolymarketSafety(withSportsEvidence, polymarket)");
+  const unifiedCall = loader.indexOf("loadUnifiedSportsData(withPolymarket");
   assert.ok(sportsCall >= 0 && polymarketCall > sportsCall);
+  assert.ok(unifiedCall > polymarketCall);
   assert.match(loader, /Promise\.all/);
 });
 

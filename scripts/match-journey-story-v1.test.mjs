@@ -93,7 +93,8 @@ test("Match Story is embedded in local paper tracking without a provider request
   assert.match(story, /data-match-story-missing/);
   assert.match(story, /One result is an observation, not proof of model skill/);
   assert.doesNotMatch(story, /fetch\(/);
-  assert.match(eventPage, /Match Journey V1/);
+  assert.match(eventPage, /Match Journey \+ Story V2/);
+  assert.match(eventPage, /data-match-journey-story-v2/);
   assert.match(eventPage, /Open Match Journey/);
 });
 
@@ -105,7 +106,8 @@ test("the selected market survives Event Detail, Match Journey and Match Story n
     read("app/tracking/MatchStoryCard.jsx")
   ]);
 
-  assert.match(eventPage, /selection=\$\{encodeURIComponent\(selection\)\}/);
+  assert.match(eventPage, /const encodedSelection = encodeURIComponent\(selection\)/);
+  assert.match(eventPage, /selection=\$\{encodedSelection\}/);
   assert.match(journeyPage, /selection=\$\{encodeURIComponent\(selection\)\}/);
   assert.match(journeyPage, /selection=\{selection\}/);
   assert.match(journeyClient, /query\.set\("selection", selection\)/);

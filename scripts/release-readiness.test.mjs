@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 async function source(path) { return readFile(new URL(path, root), "utf8"); }
@@ -11,7 +11,12 @@ test("release manifest defines the production origin, complete rollout and suppo
   assert.equal(manifest.version, 1);
   assert.equal(manifest.product, "Scorecaster");
   assert.equal(manifest.productionBaseUrl, "https://scorecaster.vercel.app");
-  assert.equal(manifest.supabaseMigrations.length, 29);
+  const discoveredMigrations = (await readdir(new URL("../supabase/", import.meta.url)))
+    .filter((name) => /^scorecaster_[a-z0-9_]+\.sql$/.test(name))
+    .map((name) => "supabase/" + name)
+    .sort();
+  assert.deepEqual([...manifest.supabaseMigrations].sort(), discoveredMigrations);
+  assert.equal(new Set(manifest.supabaseMigrations).size, manifest.supabaseMigrations.length);
   assert.deepEqual(manifest.productionPatches, [
     "scripts/apply-market-microstructure-v2.sql",
     "scripts/apply-calibration-lab-v1.sql",
@@ -19,16 +24,24 @@ test("release manifest defines the production origin, complete rollout and suppo
     "scripts/apply-verified-live-monitor-v1.sql"
   ]);
   assert.equal(manifest.supabaseMigrations[0], "supabase/scorecaster_schema.sql");
-  assert.equal(manifest.supabaseMigrations.at(-9), "supabase/scorecaster_autonomous_v13_hard_caps.sql");
-  assert.equal(manifest.supabaseMigrations.at(-8), "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql");
-  assert.equal(manifest.supabaseMigrations.at(-7), "supabase/scorecaster_shadow_learning_v1.sql");
-  assert.deepEqual(manifest.supabaseMigrations.slice(-6), [
+  const v13Index = manifest.supabaseMigrations.indexOf("supabase/scorecaster_autonomous_v13_hard_caps.sql");
+  assert.deepEqual(manifest.supabaseMigrations.slice(v13Index, v13Index + 3), [
+    "supabase/scorecaster_autonomous_v13_hard_caps.sql",
+    "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
+    "supabase/scorecaster_shadow_learning_v1.sql"
+  ]);
+  const shadowLearningIndex = manifest.supabaseMigrations.indexOf("supabase/scorecaster_shadow_learning_v1.sql");
+  assert.deepEqual(manifest.supabaseMigrations.slice(shadowLearningIndex + 1, shadowLearningIndex + 7), [
     "supabase/scorecaster_shadow_candidate_observations_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
     "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
     "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
+  ]);
+  assert.deepEqual(manifest.supabaseMigrations.slice(-2), [
+    "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
+    "supabase/scorecaster_pg_net_extension_schema_v1.sql"
   ]);
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
@@ -110,6 +123,8 @@ test("repository release audit verifies routes, SQL order, headers and store met
   assert.match(audit, /Autonomous V13 hard caps must run immediately after V2/);
   assert.match(audit, /Autonomous Risk Profile V1 must run immediately after V13 hard caps/);
   assert.match(audit, /Shadow Learning must run immediately after Autonomous Risk Profile V1/);
+  assert.match(audit, /Release manifest must contain every repository Scorecaster migration exactly once/);
+  assert.match(audit, /Owned intelligence and security migrations must follow the reviewed post-Shadow dependency order/);
   assert.match(audit, /API responses must remain no-store/);
   assert.match(audit, /External verification still required/);
   assert.match(audit, /example\\\.com/);

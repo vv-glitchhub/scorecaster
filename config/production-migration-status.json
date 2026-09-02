@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "environment": "production",
-  "updatedAt": "2026-08-22T13:33:41Z",
-  "updatedBy": "Codex production migration registry and catalog verification via Supabase connector",
-  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The canonical dependency order keeps Autonomous V13 hard caps immediately after V2, then applies Autonomous Risk Profile V1 and Shadow Learning before the five Shadow Candidate migrations. Registry timestamps are preserved. The final forward-only ACL migration closes direct anon and authenticated execution of all shadow-candidate helper functions.",
+  "updatedAt": "2026-09-02T11:43:06Z",
+  "updatedBy": "Codex production migration-registry and catalog verification via Supabase connector",
+  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The intelligence and owned-model migrations are reconciled to production migration versions or catalog state; the latest forward-only security migrations replace four public authenticated SECURITY DEFINER RPCs with SECURITY INVOKER wrappers and reinstall pg_net atomically in the extensions schema after a zero-pending-request preflight.",
   "migrations": [
     {
       "path": "supabase/scorecaster_schema.sql",
@@ -236,6 +236,110 @@
       "verifiedBy": "Codex production index and query-plan verification via Supabase connector",
       "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_PERFORMANCE_EVIDENCE_2026_08_23.md",
       "notes": "Partial index is valid and ready. EXPLAIN uses idx_autonomous_audit_open_settlement_candidates_v2 for the exact bounded candidate query."
+    },
+    {
+      "path": "supabase/scorecaster_self_data_engine_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#self-data-engine",
+      "notes": "All three tables, expected valid indexes, FORCE RLS, denied anon/authenticated CRUD and service-role CRUD were verified from production catalog metadata."
+    },
+    {
+      "path": "supabase/scorecaster_intelligence_core_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826030405."
+    },
+    {
+      "path": "supabase/scorecaster_event_identity_map_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826031557."
+    },
+    {
+      "path": "supabase/scorecaster_openfootball_bootstrap_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826031757."
+    },
+    {
+      "path": "supabase/scorecaster_event_identity_refresh_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032056."
+    },
+    {
+      "path": "supabase/scorecaster_outcome_chronology_fix_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032159."
+    },
+    {
+      "path": "supabase/scorecaster_own_model_scheduler_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032407."
+    },
+    {
+      "path": "supabase/scorecaster_own_football_ml_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826040813."
+    },
+    {
+      "path": "supabase/scorecaster_own_decision_engine_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826042251."
+    },
+    {
+      "path": "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826042517."
+    },
+    {
+      "path": "supabase/scorecaster_model_registry_status_v2.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826043042."
+    },
+    {
+      "path": "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:33:48Z",
+      "verifiedBy": "Codex production catalog and rollback-smoke verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SECURITY_HARDENING_EVIDENCE_2026_09_02.md#authenticated-rpc-boundaries",
+      "notes": "Four public RPCs are SECURITY INVOKER, authenticated-only and anon-denied; four scorecaster_private implementations are constrained SECURITY DEFINER functions. All four authenticated call paths passed in a rollback transaction."
+    },
+    {
+      "path": "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T11:33:48Z",
+      "verifiedBy": "Codex production extension, cron and advisor verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SECURITY_HARDENING_EVIDENCE_2026_09_02.md#pg_net-extension-schema",
+      "notes": "pg_net 0.20.0 is installed in extensions; zero requests were pending, four active Scorecaster net cron jobs and five trigger functions remain. Reinstallation cleared 26 ephemeral pg_net response-cache rows and no Scorecaster application rows."
     }
   ]
 }

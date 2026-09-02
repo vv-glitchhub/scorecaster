@@ -23,7 +23,7 @@ test("global More menu exposes Recommendation Center and Auto-Watch", async () =
   assert.match(shell, /href:\s*"\/recommendations"/);
   assert.match(shell, /href:\s*"\/auto-watch"/);
   assert.match(shell, /Suosituskeskus/);
-  assert.match(shell, /Auto-Watch Top 1–3/);
+  assert.match(shell, /Auto-Watch Top 1–10/);
 });
 
 test("Recommendation Center and Today both expose Auto-Watch without removing manual monitoring", async () => {

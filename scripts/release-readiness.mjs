@@ -1,4 +1,4 @@
-import { access, readFile } from "node:fs/promises";
+import { access, readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -91,6 +91,10 @@ for (const endpoint of protectedApis) {
 }
 
 const migrations = manifest.supabaseMigrations || [];
+const discoveredMigrations = (await readdir(path.join(root, "supabase")))
+  .filter((name) => /^scorecaster_[a-z0-9_]+\.sql$/.test(name))
+  .map((name) => "supabase/" + name)
+  .sort();
 const productionPatches = manifest.productionPatches || [];
 const expectedProductionPatches = [
   "scripts/apply-market-microstructure-v2.sql",
@@ -98,8 +102,12 @@ const expectedProductionPatches = [
   "scripts/apply-ai-coach-v1.sql",
   "scripts/apply-verified-live-monitor-v1.sql"
 ];
-check(migrations.length >= 21, "Release manifest must list the complete ordered Supabase rollout");
+check(migrations.length > 0, "Release manifest must list the ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
+check(
+  JSON.stringify([...migrations].sort()) === JSON.stringify(discoveredMigrations),
+  "Release manifest must contain every repository Scorecaster migration exactly once"
+);
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
 const communityFeedIndex = migrations.indexOf("supabase/scorecaster_community_feed_v1.sql");
@@ -119,6 +127,21 @@ const shadowCandidateTriggerSafetyIndex = migrations.indexOf("supabase/scorecast
 const shadowCandidateBatchFixIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql");
 const shadowCandidateAclIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_function_acl_v1.sql");
 const shadowCandidatePerformanceIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql");
+const postShadowMigrations = [
+  "supabase/scorecaster_self_data_engine_v1.sql",
+  "supabase/scorecaster_intelligence_core_v1.sql",
+  "supabase/scorecaster_event_identity_map_v1.sql",
+  "supabase/scorecaster_openfootball_bootstrap_v1.sql",
+  "supabase/scorecaster_event_identity_refresh_v1.sql",
+  "supabase/scorecaster_outcome_chronology_fix_v1.sql",
+  "supabase/scorecaster_own_model_scheduler_v1.sql",
+  "supabase/scorecaster_own_football_ml_v1.sql",
+  "supabase/scorecaster_own_decision_engine_v1.sql",
+  "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
+  "supabase/scorecaster_model_registry_status_v2.sql",
+  "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
+  "supabase/scorecaster_pg_net_extension_schema_v1.sql"
+];
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
 check(unifiedDataIndex === aiIntelligenceIndex + 1, "Unified Data must run immediately after AI Intelligence");
@@ -135,7 +158,10 @@ check(shadowCandidateTriggerSafetyIndex === shadowCandidateBatchIndex + 1, "Shad
 check(shadowCandidateBatchFixIndex === shadowCandidateTriggerSafetyIndex + 1, "Shadow Candidate batch fix must run after trigger safety");
 check(shadowCandidateAclIndex === shadowCandidateBatchFixIndex + 1, "Shadow Candidate ACL hardening must run after all helper definitions");
 check(shadowCandidatePerformanceIndex === shadowCandidateAclIndex + 1, "Shadow Candidate performance index must run after ACL hardening");
-check(shadowCandidatePerformanceIndex === migrations.length - 1, "Shadow Candidate performance index must be the final listed migration");
+check(
+  JSON.stringify(migrations.slice(shadowCandidatePerformanceIndex + 1)) === JSON.stringify(postShadowMigrations),
+  "Owned intelligence and security migrations must follow the reviewed post-Shadow dependency order"
+);
 for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);

@@ -34,7 +34,7 @@ export default async function EventDetailPage({ params, searchParams }) {
             <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">Match Journey explains the current context and evidence. Recommendation Journey shows only stored server-side price/decision history for a watched selection. Match Story remains the post-settlement paper review. None of these views can change probability or upgrade a decision.</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Link href={gamePlanHref} className="sc-button-primary">Open Match Journey</Link>
+            <Link href={gamePlanHref} className="sc-button-primary" data-match-intelligence-entry="true">Open Match Journey</Link>
             <Link href={recommendationJourneyHref} className="sc-button-secondary">Recommendation Journey</Link>
             <Link href="/tracking" className="sc-button-secondary">Match Story / paper history</Link>
           </div>

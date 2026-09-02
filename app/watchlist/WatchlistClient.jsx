@@ -218,7 +218,7 @@ export default function WatchlistClient() {
         />
 
         {!loading && state.items?.length === 0 ? (
-          <EmptyState title={tr({ fi: "Seurantalista on tyhjä", en: "Watchlist is empty", es: "La lista está vacía" })} description={tr({ fi: "Lisää oikea live-API-kohde Ottelut-sivulta tai ota Top 1–3 Auto-Watch käyttöön.", en: "Add a verified live-API selection from Events or enable Top 1–3 Auto-Watch.", es: "Añade una selección verificada desde Eventos o activa Auto-Watch Top 1–3." })} actionHref="/auto-watch" actionLabel={tr({ fi: "Avaa Auto-Watch", en: "Open Auto-Watch", es: "Abrir Auto-Watch" })} />
+          <EmptyState title={tr({ fi: "Seurantalista on tyhjä", en: "Watchlist is empty", es: "La lista está vacía" })} description={tr({ fi: "Lisää oikea live-API-kohde Ottelut-sivulta tai ota Top 1–10 Auto-Watch käyttöön.", en: "Add a verified live-API selection from Events or enable Top 1–10 Auto-Watch.", es: "Añade una selección verificada desde Eventos o activa Auto-Watch Top 1–10." })} actionHref="/auto-watch" actionLabel={tr({ fi: "Avaa Auto-Watch", en: "Open Auto-Watch", es: "Abrir Auto-Watch" })} />
         ) : (
           <div className="grid gap-4 xl:grid-cols-2">
             {(state.items || []).map((item) => {

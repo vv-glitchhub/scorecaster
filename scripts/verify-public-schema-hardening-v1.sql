@@ -1,4 +1,4 @@
--- Read-only verification for Scorecaster public-schema hardening V1.4.
+-- Read-only verification for Scorecaster public-schema hardening V1.5.
 -- This script changes no schema or data. Any failed invariant raises and stops
 -- the production verification run.
 
@@ -273,15 +273,17 @@ begin
 end;
 $$;
 
--- SECURITY DEFINER execution is service_role-only by default. Anonymous execute
--- is forbidden globally. Only the two reviewed user-scoped RPCs remain directly
--- callable by authenticated users. API quota mutation is server/service-role only.
+-- Public SECURITY DEFINER execution is service_role-only. Authenticated users
+-- call four SECURITY INVOKER wrappers whose privileged implementations live in
+-- the unexposed scorecaster_private schema. API quota mutation stays server-only.
 do $$
 declare
   anon_exposure text[];
-  unexpected_authenticated text[];
+  authenticated_exposure text[];
   missing_service text[];
   expected_rpc text;
+  expected_impl text;
+  rpc regprocedure;
   quota_rpc regprocedure;
 begin
   select array_agg(p.oid::regprocedure::text order by p.oid::regprocedure::text)
@@ -295,17 +297,13 @@ begin
   end if;
 
   select array_agg(p.oid::regprocedure::text order by p.oid::regprocedure::text)
-  into unexpected_authenticated
+  into authenticated_exposure
   from pg_proc p
   join pg_namespace n on n.oid = p.pronamespace
   where n.nspname = 'public' and p.prosecdef
-    and has_function_privilege('authenticated', p.oid, 'EXECUTE')
-    and p.oid::regprocedure::text not in (
-      'claim_notification_device(text,text,text,text)',
-      'request_autonomous_agent_run()'
-    );
-  if unexpected_authenticated is not null then
-    raise exception 'Unexpected authenticated SECURITY DEFINER execution remains: %', array_to_string(unexpected_authenticated, ', ');
+    and has_function_privilege('authenticated', p.oid, 'EXECUTE');
+  if authenticated_exposure is not null then
+    raise exception 'Authenticated SECURITY DEFINER execution remains: %', array_to_string(authenticated_exposure, ', ');
   end if;
 
   select array_agg(p.oid::regprocedure::text order by p.oid::regprocedure::text)
@@ -319,15 +317,49 @@ begin
   end if;
 
   foreach expected_rpc in array array[
-    'claim_notification_device(text,text,text,text)',
-    'request_autonomous_agent_run()'
+    'public.claim_notification_device(text,text,text,text)',
+    'public.request_autonomous_agent_run()',
+    'public.set_auto_watch_recommendation_preferences(boolean,integer,numeric,integer)',
+    'public.set_auto_watch_recommendation_preferences_v2(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text[])'
   ]
   loop
-    if to_regprocedure('public.' || expected_rpc) is null then
+    rpc := to_regprocedure(expected_rpc);
+    if rpc is null then
       raise exception 'Required authenticated RPC is missing: %', expected_rpc;
     end if;
-    if not has_function_privilege('authenticated', to_regprocedure('public.' || expected_rpc), 'EXECUTE') then
+    if (select p.prosecdef from pg_proc p where p.oid = rpc) then
+      raise exception 'Authenticated RPC must be SECURITY INVOKER: %', expected_rpc;
+    end if;
+    if not has_function_privilege('authenticated', rpc, 'EXECUTE') then
       raise exception 'Required authenticated RPC EXECUTE is missing: %', expected_rpc;
+    end if;
+    if has_function_privilege('anon', rpc, 'EXECUTE') then
+      raise exception 'Anonymous user can execute authenticated RPC: %', expected_rpc;
+    end if;
+  end loop;
+
+  if not has_schema_privilege('authenticated', 'scorecaster_private', 'USAGE') then
+    raise exception 'Authenticated wrapper execution cannot reach scorecaster_private';
+  end if;
+  foreach expected_impl in array array[
+    'scorecaster_private.claim_notification_device_impl(text,text,text,text)',
+    'scorecaster_private.request_autonomous_agent_run_impl()',
+    'scorecaster_private.set_auto_watch_recommendation_preferences_impl(boolean,integer,numeric,integer)',
+    'scorecaster_private.set_auto_watch_recommendation_preferences_v2_impl(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text[])'
+  ]
+  loop
+    rpc := to_regprocedure(expected_impl);
+    if rpc is null then
+      raise exception 'Required private RPC implementation is missing: %', expected_impl;
+    end if;
+    if not (select p.prosecdef from pg_proc p where p.oid = rpc) then
+      raise exception 'Private RPC implementation must be SECURITY DEFINER: %', expected_impl;
+    end if;
+    if not has_function_privilege('authenticated', rpc, 'EXECUTE') then
+      raise exception 'Authenticated wrapper cannot execute private implementation: %', expected_impl;
+    end if;
+    if has_function_privilege('anon', rpc, 'EXECUTE') then
+      raise exception 'Anonymous user can execute private RPC implementation: %', expected_impl;
     end if;
   end loop;
 
@@ -350,7 +382,7 @@ $$;
 
 select json_build_object(
   'ok', true,
-  'version', 'public-schema-hardening-v1.4',
+  'version', 'public-schema-hardening-v1.5',
   'rlsEnabledForTables', true,
   'viewsProtectedByGrantRevocation', true,
   'forceRlsEnabled', true,
@@ -362,9 +394,12 @@ select json_build_object(
   'legacyUserOwnedClientMatrix', 'authenticated:crud',
   'reviewedClientGrantsPolicyBacked', true,
   'securityDefinerAnonExecute', 0,
-  'securityDefinerAuthenticatedAllowlist', json_build_array(
+  'securityDefinerAuthenticatedExecute', 0,
+  'authenticatedInvokerRpcs', json_build_array(
     'claim_notification_device(text,text,text,text)',
-    'request_autonomous_agent_run()'
+    'request_autonomous_agent_run()',
+    'set_auto_watch_recommendation_preferences(boolean,integer,numeric,integer)',
+    'set_auto_watch_recommendation_preferences_v2(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text[])'
   ),
   'apiQuotaMutation', 'service_role-only',
   'serverAccess', 'service_role',

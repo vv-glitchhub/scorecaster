@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -138,7 +138,16 @@ async function migrate() {
   const manifest = await loadJson("config/release-readiness.json");
   const migrations = Array.isArray(manifest.supabaseMigrations) ? manifest.supabaseMigrations : [];
   const productionPatches = Array.isArray(manifest.productionPatches) ? manifest.productionPatches : [];
-  assert(migrations.length === 29, "Release manifest does not contain the complete canonical rollout");
+  const discoveredMigrations = (await readdir(path.join(root, "supabase")))
+    .filter((name) => /^scorecaster_[a-z0-9_]+\.sql$/.test(name))
+    .map((name) => "supabase/" + name)
+    .sort();
+  assert(migrations.length > 0, "Release manifest does not contain a migration rollout");
+  assert(new Set(migrations).size === migrations.length, "Release manifest contains duplicate migrations");
+  assert(
+    JSON.stringify([...migrations].sort()) === JSON.stringify(discoveredMigrations),
+    "Release manifest does not contain every repository Scorecaster migration"
+  );
   assert(
     JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
     "Release manifest does not contain the reviewed production patches"

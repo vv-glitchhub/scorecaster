@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -11,7 +11,11 @@ import {
 } from "./migration-inventory.mjs";
 
 const repositoryRoot = path.resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const canonicalMigrationCount = 29;
+const releaseManifest = JSON.parse(
+  await readFile(path.join(repositoryRoot, "config/release-readiness.json"), "utf8")
+);
+const canonicalMigrations = releaseManifest.supabaseMigrations;
+const canonicalMigrationCount = canonicalMigrations.length;
 const signingVaultMigration = "supabase/scorecaster_agent_decision_signing_vault.sql";
 const collectorMigration = "supabase/scorecaster_collector_v1.sql";
 const autonomousRiskMigration = "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql";
@@ -39,14 +43,21 @@ test("canonical repository migration inventory is complete and ordered", async (
   assert.deepEqual(inventory.validation.missingFiles, []);
   assert.deepEqual(inventory.validation.untrackedFiles, []);
   assert.deepEqual(inventory.validation.statusFailures, []);
-  assert.equal(inventory.migrations[0].path, "supabase/scorecaster_schema.sql");
+  assert.deepEqual(inventory.migrations.map((migration) => migration.path), canonicalMigrations);
   const signingIndex = inventory.migrations.findIndex((migration) => migration.path === signingVaultMigration);
   const collectorIndex = inventory.migrations.findIndex((migration) => migration.path === collectorMigration);
   assert.equal(signingIndex, collectorIndex - 1);
-  assert.equal(inventory.migrations.at(-9).path, v13HardCapsMigration);
-  assert.equal(inventory.migrations.at(-8).path, autonomousRiskMigration);
-  assert.equal(inventory.migrations.at(-7).path, shadowLearningMigration);
-  assert.deepEqual(inventory.migrations.slice(-6).map((migration) => migration.path), shadowCandidateMigrations);
+  const v13Index = inventory.migrations.findIndex((migration) => migration.path === v13HardCapsMigration);
+  assert.deepEqual(
+    inventory.migrations.slice(v13Index, v13Index + 3).map((migration) => migration.path),
+    [v13HardCapsMigration, autonomousRiskMigration, shadowLearningMigration]
+  );
+  const shadowLearningIndex = inventory.migrations.findIndex((migration) => migration.path === shadowLearningMigration);
+  assert.deepEqual(
+    inventory.migrations.slice(shadowLearningIndex + 1, shadowLearningIndex + 1 + shadowCandidateMigrations.length)
+      .map((migration) => migration.path),
+    shadowCandidateMigrations
+  );
   assert.ok(inventory.migrations.every((migration) => /^[a-f0-9]{64}$/.test(migration.checksumSha256)));
 });
 
@@ -113,8 +124,10 @@ test("markdown explicitly separates repository analysis from production evidence
   assert.ok(status.migrations.every((migration) => typeof migration.verifiedAt === "string" && migration.verifiedAt.length > 0));
   assert.ok(status.migrations.every((migration) => typeof migration.verifiedBy === "string" && migration.verifiedBy.length > 0));
 
-  const legacyEvidence = /^docs\/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10\.md#/;
-  assert.ok(status.migrations.filter((migration) => ![signingVaultMigration, autonomousRiskMigration, ...shadowCandidateMigrations].includes(migration.path)).every((migration) => legacyEvidence.test(migration.evidence || "")));
+  assert.deepEqual(status.migrations.map((migration) => migration.path), canonicalMigrations);
+  await Promise.all(status.migrations.map((migration) =>
+    access(path.join(repositoryRoot, migration.evidence.split("#")[0]))
+  ));
   const signingEvidence = status.migrations.find((migration) => migration.path === signingVaultMigration);
   assert.equal(signingEvidence?.evidence, "docs/PRODUCTION_AGENT_SIGNING_VAULT_EVIDENCE_2026_08_18.md");
   const autonomousRiskEvidence = status.migrations.find((migration) => migration.path === autonomousRiskMigration);
@@ -122,11 +135,8 @@ test("markdown explicitly separates repository analysis from production evidence
   const signingIndex = status.migrations.findIndex((migration) => migration.path === signingVaultMigration);
   const collectorIndex = status.migrations.findIndex((migration) => migration.path === collectorMigration);
   assert.equal(signingIndex, collectorIndex - 1);
-  assert.equal(status.migrations.at(-9).path, v13HardCapsMigration);
-  assert.equal(status.migrations.at(-8).path, autonomousRiskMigration);
-  assert.equal(status.migrations.at(-7).path, shadowLearningMigration);
-  assert.deepEqual(status.migrations.slice(-6).map((migration) => migration.path), shadowCandidateMigrations);
-  assert.ok(status.migrations.slice(-6, -1).every((migration) => /^docs\/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22\.md#/.test(migration.evidence || "")));
-  assert.equal(status.migrations.at(-1).evidence, "docs/PRODUCTION_SHADOW_CANDIDATE_PERFORMANCE_EVIDENCE_2026_08_23.md");
+  const shadowMigrations = status.migrations.filter((migration) => shadowCandidateMigrations.includes(migration.path));
+  assert.ok(shadowMigrations.slice(0, -1).every((migration) => /^docs\/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22\.md#/.test(migration.evidence || "")));
+  assert.equal(shadowMigrations.at(-1).evidence, "docs/PRODUCTION_SHADOW_CANDIDATE_PERFORMANCE_EVIDENCE_2026_08_23.md");
   assert.equal(inventory.summary.productionVerified, true);
 });

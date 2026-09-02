@@ -244,7 +244,20 @@
     "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
     "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
-    "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
+    "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql",
+    "supabase/scorecaster_self_data_engine_v1.sql",
+    "supabase/scorecaster_intelligence_core_v1.sql",
+    "supabase/scorecaster_event_identity_map_v1.sql",
+    "supabase/scorecaster_openfootball_bootstrap_v1.sql",
+    "supabase/scorecaster_event_identity_refresh_v1.sql",
+    "supabase/scorecaster_outcome_chronology_fix_v1.sql",
+    "supabase/scorecaster_own_model_scheduler_v1.sql",
+    "supabase/scorecaster_own_football_ml_v1.sql",
+    "supabase/scorecaster_own_decision_engine_v1.sql",
+    "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
+    "supabase/scorecaster_model_registry_status_v2.sql",
+    "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
+    "supabase/scorecaster_pg_net_extension_schema_v1.sql"
   ],
   "productionPatches": [
     "scripts/apply-market-microstructure-v2.sql",

@@ -1,8 +1,8 @@
-# Scorecaster Public Schema Hardening V1.3
+# Scorecaster Public Schema Hardening V1.5
 
 ## Status
 
-**V1.3 is derived from a live read-only production Supabase audit on 2026-08-09. Repository CI is not production proof: the exact reviewed SQL must still be applied, verified and followed by fresh Supabase security advisors and application smoke checks.**
+**V1.5 is verified against production Supabase on 2026-09-02. Repository CI remains separate from production proof: matching SQL, catalog checks, authenticated rollback-smokes and fresh Security Advisor results are all retained.**
 
 The production audit found that all 80 public tables already had RLS + FORCE RLS, but legacy grants were still broader than the current product contract. In particular:
 
@@ -12,19 +12,21 @@ The production audit found that all 80 public tables already had RLS + FORCE RLS
 - several policyless server-internal RLS tables still retained browser grants;
 - many public `SECURITY DEFINER` functions were executable through inherited PUBLIC/browser privileges even though their intended callers are protected workers or database triggers.
 
-V1.3 narrows those surfaces without deleting tables, columns or rows and without changing Scorecaster's paper-only product boundary.
+V1.5 narrows those surfaces without deleting application tables, columns or rows and without changing Scorecaster's paper-only product boundary.
 
 ## Files
 
-- `scripts/apply-public-schema-hardening-v1.sql` — idempotent V1.3 write patch
-- `scripts/verify-public-schema-hardening-v1.sql` — read-only V1.3 production verification
+- `scripts/apply-public-schema-hardening-v1.sql` — idempotent V1.5 write patch
+- `scripts/verify-public-schema-hardening-v1.sql` — read-only V1.5 production verification
+- `supabase/scorecaster_authenticated_rpc_boundaries_v1.sql` — public invoker/private definer RPC split
+- `supabase/scorecaster_pg_net_extension_schema_v1.sql` — atomic pg_net namespace repair
 - `scripts/public-schema-hardening.test.mjs` — repository regression tests
 - `scripts/public-schema-release-gate.mjs` — canonical release-audit gate
 - `.github/workflows/public-schema-hardening.yml` — dedicated CI
 
 `npm run release:audit` verifies repository consistency only. Production evidence remains a separate gate.
 
-## V1.3 access model
+## V1.5 access model
 
 ### Global browser privilege floor
 
@@ -44,7 +46,7 @@ The existing reviewed internal list remains browser-closed and service-role-owne
 
 ### Profiles
 
-Profile creation is database/server-owned through the `auth.users` trigger. V1.3:
+Profile creation is database/server-owned through the `auth.users` trigger. V1.5:
 
 - drops the obsolete `Users insert own profile` policy;
 - revokes all profile privileges from `PUBLIC`, `anon` and `authenticated`;
@@ -76,14 +78,16 @@ Existing RLS policies remain the row-ownership boundary.
 
 ## SECURITY DEFINER execution lockdown
 
-Every current public `SECURITY DEFINER` function is enumerated during apply. V1.3:
+Every current public `SECURITY DEFINER` function is enumerated during apply. V1.5:
 
 1. revokes inherited/direct EXECUTE from `PUBLIC`, `anon` and `authenticated`;
 2. grants EXECUTE to `service_role`;
-3. restores authenticated EXECUTE only for the three current user-context RPCs:
-   - `consume_api_quota(text,integer,integer)`
+3. permits no authenticated EXECUTE on a public `SECURITY DEFINER` function;
+4. keeps four authenticated public RPCs as `SECURITY INVOKER` wrappers whose constrained privileged implementations live in `scorecaster_private`:
    - `claim_notification_device(text,text,text,text)`
    - `request_autonomous_agent_run()`
+   - `set_auto_watch_recommendation_preferences(boolean,integer,numeric,integer)`
+   - `set_auto_watch_recommendation_preferences_v2(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text[])`
 
 Anon receives no `SECURITY DEFINER` EXECUTE permission.
 
@@ -117,14 +121,15 @@ The migration does **not**:
 - legacy user-owned MVP tables exactly authenticated CRUD and anon-closed;
 - current bets/user-settings/community matrices intact;
 - zero anon SECURITY DEFINER EXECUTE;
-- authenticated SECURITY DEFINER EXECUTE limited to the three reviewed RPCs;
+- zero authenticated EXECUTE on public SECURITY DEFINER functions;
+- all four authenticated public wrappers are SECURITY INVOKER and anon-closed;
 - service-role EXECUTE on every current public SECURITY DEFINER function.
 
-A passing query returns `public-schema-hardening-v1.3`, `reviewedClientGrantsPolicyBacked: true`, `securityDefinerAnonExecute: 0` and `paperOnly: true`.
+A passing query returns `public-schema-hardening-v1.5`, `reviewedClientGrantsPolicyBacked: true`, `securityDefinerAuthenticatedExecute: 0` and `paperOnly: true`.
 
 ## Production Supabase apply sequence
 
-1. Run repository CI/release audit against the exact V1.3 SQL.
+1. Run repository CI/release audit against the exact V1.5 SQL.
 2. Apply the exact current `scripts/apply-public-schema-hardening-v1.sql` through the production Supabase migration path.
 3. Run `scripts/verify-public-schema-hardening-v1.sql` read-only.
 4. Retain the returned JSON as non-secret production evidence.
@@ -147,7 +152,7 @@ The script is idempotent; a second run reapplies the same reviewed authorization
 
 ## Separate Auth warning
 
-Supabase Security Advisor also reports leaked-password protection disabled for Auth. That setting is outside this SQL authorization patch and must remain a separately tracked production configuration item until the available Supabase tooling exposes or the dashboard applies the Auth setting. V1.3 must not claim it is fixed.
+Supabase Security Advisor reports only leaked-password protection disabled for Auth after V1.5. The organization is on the Free plan and Supabase documents that feature as Pro-only, so this SQL patch must not claim it is fixed or purchase a plan without owner approval.
 
 ## Product boundary
 

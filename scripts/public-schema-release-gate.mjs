@@ -25,22 +25,24 @@ function executableSql(sql) {
     .join("\n");
 }
 
-const [apply, verify, regression, docs, workflow, rateLimitSql, apiSecurity] = await Promise.all([
+const [apply, verify, regression, docs, workflow, rateLimitSql, rpcBoundarySql, pgNetSql, apiSecurity] = await Promise.all([
   source("scripts/apply-public-schema-hardening-v1.sql"),
   source("scripts/verify-public-schema-hardening-v1.sql"),
   source("scripts/public-schema-hardening.test.mjs"),
   source("docs/PUBLIC_SCHEMA_HARDENING_V1.md"),
   source(".github/workflows/public-schema-hardening.yml"),
   source("supabase/scorecaster_api_rate_limits.sql"),
+  source("supabase/scorecaster_authenticated_rpc_boundaries_v1.sql"),
+  source("supabase/scorecaster_pg_net_extension_schema_v1.sql"),
   source("lib/api-security.js")
 ]);
 
-requireMatch(apply, /public-schema hardening V1\.3/i, "Public-schema hardening apply patch must identify V1.3");
+requireMatch(apply, /public-schema hardening V1\.5/i, "Public-schema hardening apply patch must identify V1.5");
 requireMatch(apply, /begin;/i, "Public-schema hardening must run in a transaction");
 requireMatch(apply, /commit;/i, "Public-schema hardening must commit explicitly");
 requireMatch(apply, /enable row level security/i, "Public-schema hardening must enable RLS");
 requireMatch(apply, /force row level security/i, "Public-schema hardening must force RLS on reviewed tables");
-requireMatch(apply, /revoke truncate, references, trigger .* from anon, authenticated/i, "V1.3 must globally remove database-owner style browser privileges");
+requireMatch(apply, /revoke truncate, references, trigger .* from anon, authenticated/i, "V1.5 must globally remove database-owner style browser privileges");
 requireMatch(apply, /revoke all privileges .* from public, anon, authenticated/i, "Public-schema hardening must revoke browser grants before restoring reviewed access");
 requireMatch(apply, /grant all privileges .* to service_role/i, "Public-schema hardening must preserve service-role table access");
 requireMatch(apply, /pg_policies/i, "Reviewed client grants must be backed by existing RLS policies");
@@ -52,12 +54,20 @@ requireMatch(apply, /grant select, insert, update, delete on table public\.bets 
 requireMatch(apply, /grant select, insert, update on table public\.user_settings to authenticated/i, "user_settings must keep only the reviewed authenticated read/write matrix");
 requireMatch(apply, /grant select on table public\.community_comments to anon, authenticated/i, "Community Feed must keep the reviewed public-read matrix");
 requireMatch(apply, /grant insert, update, delete on table public\.community_comments to authenticated/i, "Community Feed writes must remain authenticated");
-requireMatch(apply, /where n\.nspname = 'public'\s+and p\.prosecdef/s, "V1.3 must enumerate current public SECURITY DEFINER functions");
+requireMatch(apply, /where n\.nspname = 'public'\s+and p\.prosecdef/s, "V1.5 must enumerate current public SECURITY DEFINER functions");
 requireMatch(apply, /grant execute on function %s to service_role/i, "SECURITY DEFINER functions must default to service_role execution");
 for (const rpc of [
-  /claim_notification_device\(text, text, text, text\).*authenticated/s,
-  /request_autonomous_agent_run\(\).*authenticated/s
-]) requireMatch(apply, rpc, "Reviewed authenticated SECURITY DEFINER RPC allowlist is incomplete");
+  /claim_notification_device\(text,text,text,text\)/,
+  /request_autonomous_agent_run\(\)/,
+  /set_auto_watch_recommendation_preferences\(boolean,integer,numeric,integer\)/,
+  /set_auto_watch_recommendation_preferences_v2\(boolean,integer,numeric,integer,text,numeric,numeric,numeric,text\[\]\)/
+]) requireMatch(apply, rpc, "Reviewed authenticated SECURITY INVOKER RPC list is incomplete");
+requireMatch(apply, /authenticated RPC remains SECURITY DEFINER/i, "Authenticated public RPCs must fail closed if privileged");
+requireMatch(rpcBoundarySql, /set schema scorecaster_private/i, "Privileged authenticated RPC implementations must move to scorecaster_private");
+requireMatch(rpcBoundarySql, /security invoker/i, "Public authenticated RPCs must be SECURITY INVOKER wrappers");
+requireMatch(rpcBoundarySql, /security definer set search_path = pg_catalog/i, "Private privileged RPC implementations must use a constrained search_path");
+requireMatch(pgNetSql, /http_request_queue/i, "pg_net schema migration must refuse pending outbound requests");
+requireMatch(pgNetSql, /create extension pg_net with schema extensions/i, "pg_net must be installed outside the public schema");
 
 requireMatch(rateLimitSql, /drop function if exists public\.consume_api_quota\(text, integer, integer\)/i, "Legacy client-callable quota RPC must be retired");
 requireMatch(rateLimitSql, /create or replace function public\.consume_api_quota_for_user/i, "Server-owned quota RPC must exist");
@@ -85,10 +95,12 @@ for (const token of [
   "service_role access is incomplete",
   "legacy Users insert own profile policy remains",
   "Anonymous SECURITY DEFINER execution remains",
-  "Unexpected authenticated SECURITY DEFINER execution remains",
+  "Authenticated SECURITY DEFINER execution remains",
+  "Authenticated RPC must be SECURITY INVOKER",
+  "Required private RPC implementation is missing",
   "Legacy authenticated quota RPC still exists",
   "Authenticated users can execute server-owned quota RPC",
-  "public-schema-hardening-v1.4",
+  "public-schema-hardening-v1.5",
   "reviewedClientGrantsPolicyBacked",
   "apiQuotaMutation",
   "paperOnly"
@@ -96,7 +108,7 @@ for (const token of [
   if (!verify.includes(token)) failures.push(`Public-schema verification is missing invariant: ${token}`);
 }
 
-if (!regression.includes("public-schema-hardening-v1.4")) failures.push("Public-schema hardening regression suite is not V1.4-aware");
+if (!regression.includes("public-schema-hardening-v1.5")) failures.push("Public-schema hardening regression suite is not V1.5-aware");
 if (!regression.includes("SECURITY DEFINER")) failures.push("Public-schema hardening regression suite must cover SECURITY DEFINER execution");
 if (!docs.includes("production Supabase") || !docs.includes("production evidence")) failures.push("Public-schema hardening documentation must describe production apply/evidence");
 if (!workflow.includes("scripts/public-schema-hardening.test.mjs")) failures.push("Public-schema hardening workflow must run its regression suite");
@@ -106,6 +118,6 @@ if (failures.length) {
   failures.forEach((message) => console.error(`- ${message}`));
   process.exitCode = 1;
 } else {
-  console.log("Scorecaster public-schema V1.4 repository gate passed: policy-backed client grants, global dangerous-grant removal, server-owned quota mutation, SECURITY DEFINER allowlisting, service-role preservation and verification SQL are present.");
+  console.log("Scorecaster public-schema V1.5 repository gate passed: policy-backed client grants, global dangerous-grant removal, server-owned quota mutation, private SECURITY DEFINER implementations, public SECURITY INVOKER wrappers, service-role preservation and verification SQL are present.");
   console.log("External verification still required: deploy the matching server code, apply the exact rate-limit/public-schema SQL in production Supabase, run the read-only verification SQL, rerun Supabase security advisors and retain non-secret production evidence before production activation.");
 }

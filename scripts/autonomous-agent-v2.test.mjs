@@ -238,6 +238,10 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(migration, /status in \('running', 'success', 'error', 'deferred', 'paused'\)/);
   assert.match(migration, /force row level security/);
   assert.match(worker, /runAutonomousPaperAgentV2/);
+  assert.match(worker, /MAX_USERS_PER_RUN = 2/);
+  assert.match(worker, /MAX_SOURCE_GROUPS_PER_RUN = 2/);
+  assert.match(worker, /MAX_INLINE_MARKET_SCAN_EVENTS = 1/);
+  assert.match(worker, /maxEventsPerScan: MAX_INLINE_MARKET_SCAN_EVENTS/);
   assert.match(worker, /buildPerformanceGuard/);
   assert.match(worker, /buildSystemGuard/);
   assert.match(worker, /event_id,provider_key,details/);
@@ -249,10 +253,15 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(dailyWorker, /applyAutonomousSystemCaps/);
   assert.match(riskGovernor, /HARD_MAX_STAKE_PERCENT/);
   assert.match(runner, /runGovernedAutonomousPaperAgentV13/);
+  assert.match(runner, /PREFLIGHT_LIMIT = 4/);
+  assert.match(runner, /RECENT_RUN_ENRICH_LIMIT = 4/);
+  assert.match(runner, /limit\(RECENT_RUN_ENRICH_LIMIT\)/);
   assert.match(runner, /autonomous-scorecaster-v13/);
   assert.match(runner, /persistentUtcDailyPickLimit/);
   assert.match(runner, /v12_preflight/);
   assert.match(internal, /runAutonomousScorecasterV12/);
+  assert.match(internal, /\[autonomous-agent\] cycle completed/);
+  assert.match(internal, /durationMs: Date\.now\(\) - startedAt/);
   assert.match(cloud, /autonomous_agent_decision_audit/);
   assert.match(cloud, /safety_cooldown_active/);
   assert.match(web, /Hätäpysäytys/);
