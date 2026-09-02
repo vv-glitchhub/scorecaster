@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "environment": "production",
-  "updatedAt": "2026-09-02T11:43:06Z",
-  "updatedBy": "Codex production migration-registry and catalog verification via Supabase connector",
-  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The intelligence and owned-model migrations are reconciled to production migration versions or catalog state; the latest forward-only security migrations replace four public authenticated SECURITY DEFINER RPCs with SECURITY INVOKER wrappers and reinstall pg_net atomically in the extensions schema after a zero-pending-request preflight.",
+  "updatedAt": "2026-09-02T16:50:00Z",
+  "updatedBy": "Codex production migration, index and rollback-RLS verification via Supabase connector",
+  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The latest additive migration indexes both remaining Scorecaster foreign keys reported by the production performance advisor. Representative two-user ownership checks passed under the authenticated database role in a rolled-back production transaction; the complete bearer/cookie and physical-device gates remain explicit.",
   "migrations": [
     {
       "path": "supabase/scorecaster_schema.sql",
@@ -340,6 +340,22 @@
       "verifiedBy": "Codex production extension, cron and advisor verification via Supabase connector",
       "evidence": "docs/PRODUCTION_SECURITY_HARDENING_EVIDENCE_2026_09_02.md#pg_net-extension-schema",
       "notes": "pg_net 0.20.0 is installed in extensions; zero requests were pending, four active Scorecaster net cron jobs and five trigger functions remain. Reinstallation cleared 26 ephemeral pg_net response-cache rows and no Scorecaster application rows."
+    },
+    {
+      "path": "supabase/scorecaster_fk_index_hardening_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T16:36:00Z",
+      "verifiedBy": "Codex production catalog and performance-advisor verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md#foreign-key-index-hardening",
+      "notes": "Both additive foreign-key indexes exist in production. A fresh advisor run reports zero unindexed foreign keys owned by Scorecaster; remaining findings belong to the separate Stockcaster surface."
+    },
+    {
+      "path": "supabase/scorecaster_autonomous_audit_performance_v1.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-02T16:50:00Z",
+      "verifiedBy": "Codex production pg_stat_statements and EXPLAIN verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md#autonomous-audit-write-performance",
+      "notes": "Production query statistics isolated the autonomous audit insert hotspot. The fallback commence-time lookup now uses an index-only scan; the measured representative execution was below 4 ms, and the normal worker path supplies commence_time without the lookup."
     }
   ]
 }

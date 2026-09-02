@@ -18,6 +18,17 @@ async function json(relativePath) {
   return JSON.parse(await readFile(path.join(root, relativePath), "utf8"));
 }
 
+async function pngSize(relativePath) {
+  try {
+    const bytes = await readFile(path.join(root, relativePath));
+    const signature = "89504e470d0a1a0a";
+    if (bytes.length < 24 || bytes.subarray(0, 8).toString("hex") !== signature) return null;
+    return { width: bytes.readUInt32BE(16), height: bytes.readUInt32BE(20) };
+  } catch {
+    return null;
+  }
+}
+
 function httpsUrl(value) {
   try {
     return new URL(value).protocol === "https:";
@@ -57,6 +68,11 @@ const [appConfig, eas, packageJson, appleStore, googleStore, releaseBlockers, ph
 ]);
 
 const expo = appConfig.expo || {};
+const [iconSize, adaptiveIconSize, splashSize] = await Promise.all([
+  pngSize(expo.icon),
+  pngSize(expo.android?.adaptiveIcon?.foregroundImage),
+  pngSize(expo.splash?.image)
+]);
 check(expo.name === "Scorecaster", "Expo display name must remain Scorecaster");
 check(expo.slug === "scorecaster", "Expo slug must remain scorecaster");
 check(semver(expo.version), "Expo user-facing version must be semantic x.y.z");
@@ -71,6 +87,9 @@ check(expo.ios?.privacyManifests?.NSPrivacyTracking === false, "iOS privacy mani
 check(Array.isArray(expo.ios?.privacyManifests?.NSPrivacyTrackingDomains) && expo.ios.privacyManifests.NSPrivacyTrackingDomains.length === 0, "iOS tracking-domain list must be empty");
 check(expo.extra?.realMoneyBetting === false, "Mobile product boundary must keep real-money betting disabled");
 check(expo.extra?.authRedirectUrl === "scorecaster://auth/confirm", "App config auth redirect does not match the native handler");
+check(iconSize?.width === 1024 && iconSize?.height === 1024, "Store icon must be a committed 1024x1024 PNG");
+check(adaptiveIconSize?.width === 1024 && adaptiveIconSize?.height === 1024, "Android adaptive foreground must be a committed 1024x1024 PNG");
+check(splashSize?.width === 2048 && splashSize?.height === 2048, "Native splash must be a committed 2048x2048 PNG");
 
 const plugins = Array.isArray(expo.plugins) ? expo.plugins : [];
 check(plugins.some((entry) => Array.isArray(entry) && entry[0] === "expo-notifications" && entry[1]?.defaultChannel === "scorecaster-alerts"), "expo-notifications plugin and default Scorecaster channel are required");
@@ -191,8 +210,6 @@ for (const file of scannedFiles) {
 }
 
 warn(Boolean(expo.extra?.eas?.projectId), "EAS project ID is not linked yet; run eas init with the correct Expo account before push registration or store builds");
-warn(Boolean(expo.icon), "Final 1024x1024 store icon has not been committed");
-warn(Boolean(expo.splash), "Final native splash asset has not been committed");
 warn(releaseBlockers.externalBlockers.filter((item) => item.required !== false).every((item) => item.completed === true), "External mobile release blockers remain incomplete; repository readiness is not signed-build or physical-device proof");
 warn((physicalMatrix.matrix || []).every((item) => item.status === "passed"), "Physical-device FI EN ES matrix is not complete yet");
 warn(reviewerInstructions.reviewAccount?.configured === true, "Synthetic store reviewer account is not configured yet; credentials must stay outside GitHub");

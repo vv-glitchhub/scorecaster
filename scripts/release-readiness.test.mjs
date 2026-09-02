@@ -39,9 +39,11 @@ test("release manifest defines the production origin, complete rollout and suppo
     "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
   ]);
-  assert.deepEqual(manifest.supabaseMigrations.slice(-2), [
+  assert.deepEqual(manifest.supabaseMigrations.slice(-4), [
     "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
-    "supabase/scorecaster_pg_net_extension_schema_v1.sql"
+    "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+    "supabase/scorecaster_fk_index_hardening_v1.sql",
+    "supabase/scorecaster_autonomous_audit_performance_v1.sql"
   ]);
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_notification_delivery.sql"));
   assert.ok(manifest.supabaseMigrations.includes("supabase/scorecaster_watchlist_monitor.sql"));
@@ -118,6 +120,13 @@ test("repository release audit verifies routes, SQL order, headers and store met
     "mobile/store.config.json",
     "mobile/store/google-play-listing.json",
     ".github/workflows/production-smoke.yml"
+  ]) assert.match(audit, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  for (const token of [
+    "config/two-user-isolation.json",
+    "scripts/two-user-isolation-contract-audit.mjs",
+    "scripts/two-user-isolation-transactional-probe.sql",
+    "scripts/two-user-isolation-probe.mjs",
+    "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md"
   ]) assert.match(audit, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   assert.match(audit, /Autonomous Agent V2 must run immediately after V1/);
   assert.match(audit, /Autonomous V13 hard caps must run immediately after V2/);

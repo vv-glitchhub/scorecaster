@@ -140,7 +140,9 @@ const postShadowMigrations = [
   "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
   "supabase/scorecaster_model_registry_status_v2.sql",
   "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
-  "supabase/scorecaster_pg_net_extension_schema_v1.sql"
+  "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+  "supabase/scorecaster_fk_index_hardening_v1.sql",
+  "supabase/scorecaster_autonomous_audit_performance_v1.sql"
 ];
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
@@ -224,7 +226,12 @@ for (const requiredFile of [
   "docs/PRODUCTION_ACTIVATION_V1.md",
   "docs/SHADOW_LEARNING_V1.md",
   "docs/SPORTS_ANALYTICS_EXPANSION_V1.md",
-  "docs/SPORTS_ANALYTICS_AUTOMATION_V1.md"
+  "docs/SPORTS_ANALYTICS_AUTOMATION_V1.md",
+  "config/two-user-isolation.json",
+  "scripts/two-user-isolation-contract-audit.mjs",
+  "scripts/two-user-isolation-transactional-probe.sql",
+  "scripts/two-user-isolation-probe.mjs",
+  "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md"
 ]) {
   check(await exists(requiredFile), `${requiredFile} is required for release verification`);
 }

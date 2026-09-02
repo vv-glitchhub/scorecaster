@@ -8,6 +8,7 @@
     "custom email confirmation deep link is implemented",
     "FI EN ES Apple metadata is present",
     "FI EN ES Google Play listing draft is present",
+    "final 1024x1024 store and adaptive icons plus 2048x2048 splash are committed",
     "server-only key names are rejected from the mobile bundle source"
   ],
   "externalBlockers": [
@@ -57,7 +58,7 @@
       "id": "store-assets",
       "required": true,
       "completed": false,
-      "evidence": "Approved icon, splash and FI EN ES screenshots captured from signed builds"
+      "evidence": "Icon and splash are committed; FI EN ES screenshots must still be captured from signed builds"
     },
     {
       "id": "real-device-accessibility",

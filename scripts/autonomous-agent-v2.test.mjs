@@ -215,8 +215,9 @@ test("daily brief explains saved and blocked candidates without claiming live-mo
 });
 
 test("V13 layers V2 governance over V12 Mission Control and ships complete privacy coverage", async () => {
-  const [migration, worker, dailyWorker, riskGovernor, runner, internal, cloud, web, page, mobile, more, accountExport, account, manifest] = await Promise.all([
+  const [migration, performanceMigration, worker, dailyWorker, riskGovernor, runner, internal, cloud, web, page, mobile, more, accountExport, account, manifest] = await Promise.all([
     source("supabase/scorecaster_autonomous_agent_v2.sql"),
+    source("supabase/scorecaster_autonomous_audit_performance_v1.sql"),
     source("lib/autonomous-paper-agent-governed-v13.js"),
     source("lib/autonomous-paper-agent-v2.js"),
     source("lib/autonomous-risk-governor.mjs"),
@@ -246,6 +247,7 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(worker, /buildSystemGuard/);
   assert.match(worker, /event_id,provider_key,details/);
   assert.match(worker, /evaluateAutonomousCandidate/);
+  assert.match(worker, /commence_time: pickCommenceTime\(decision\)/);
   assert.match(worker, /scorecaster-autonomous-v2/);
   assert.match(worker, /productionProbabilityChangedByLearning: false/);
   assert.match(worker, /realMoneyBetting: false/);
@@ -280,6 +282,7 @@ test("V13 layers V2 governance over V12 Mission Control and ships complete priva
   assert.match(manifest, /scorecaster_autonomous_agent_v2\.sql/);
   assert.match(manifest, /autonomous-agent-v13-governance/);
   assert.match(manifest, /autonomous-v12-circuit-breakers/);
+  assert.match(performanceMigration, /market_provider_snapshots_v2 \(event_id, commence_time\)/);
 });
 
 test("V13 source contains no bookmaker credentials, payments or real-money execution path", async () => {

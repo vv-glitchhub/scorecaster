@@ -1,0 +1,2009 @@
+{
+  "schemaVersion": 1,
+  "product": "Scorecaster",
+  "environment": "production",
+  "productBoundary": "sports analysis, risk control and virtual paper tracking only",
+  "generatedAt": "2026-09-02T16:46:49.767Z",
+  "source": {
+    "releaseManifest": "config/release-readiness.json",
+    "productionStatus": "config/production-migration-status.json"
+  },
+  "summary": {
+    "configuredMigrationCount": 44,
+    "discoveredMigrationCount": 44,
+    "presentConfiguredCount": 44,
+    "appliedCount": 44,
+    "unverifiedCount": 0,
+    "manualReviewCount": 21,
+    "allApplied": true,
+    "repositoryComplete": true,
+    "productionVerified": true
+  },
+  "validation": {
+    "statusFailures": [],
+    "missingFiles": [],
+    "untrackedFiles": []
+  },
+  "migrations": [
+    {
+      "order": 1,
+      "path": "supabase/scorecaster_schema.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-schema",
+      "notes": "8 base tables and 4 named indexes verified in production.",
+      "lineCount": 195,
+      "byteCount": 7265,
+      "checksumSha256": "149416fdddedd673abb670dba291df4a8791b7ba23b0655bb1ff5d2cb730bdee",
+      "objects": {
+        "tables": [
+          "bankroll_settings",
+          "bet_slips",
+          "bet_slip_items",
+          "tracked_bets",
+          "odds_snapshots",
+          "pick_explanations",
+          "agent_feedback",
+          "risk_events"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "idx_tracked_bets_user_status",
+          "idx_tracked_bets_league",
+          "idx_odds_snapshots_tracked_bet",
+          "idx_risk_events_user_created"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 2,
+      "path": "supabase/scorecaster_auth_cloud.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-auth-cloud",
+      "notes": "Account tables, indexes, functions, triggers, FORCE RLS and reviewed ownership policies verified; later hardening narrows client grants.",
+      "lineCount": 290,
+      "byteCount": 10499,
+      "checksumSha256": "de627d0f8044c1d0f68308023f93073a42582c0c7401956fbfb62c88cf08820b",
+      "objects": {
+        "tables": [
+          "profiles",
+          "bets"
+        ],
+        "functions": [
+          "set_updated_at",
+          "enforce_paper_stake_limit",
+          "handle_new_user"
+        ],
+        "triggers": [
+          "bets_set_updated_at",
+          "profiles_set_updated_at",
+          "bankroll_settings_set_updated_at",
+          "bets_enforce_paper_stake_limit",
+          "on_auth_user_created"
+        ],
+        "policies": [
+          "Users read own profile",
+          "Users update own profile",
+          "Users manage own bets",
+          "Users manage own bankroll settings",
+          "Users manage own rows"
+        ],
+        "indexes": [
+          "idx_bets_user_client_ref",
+          "idx_bets_user_created",
+          "idx_bets_user_status",
+          "idx_bankroll_settings_user_unique"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 3,
+      "path": "supabase/scorecaster_community_feed_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-community-feed-v1",
+      "notes": "Community table, 2 indexes, RLS and all 4 comment policies verified.",
+      "lineCount": 56,
+      "byteCount": 2242,
+      "checksumSha256": "59214b8c84ef9cbdb17ffd3790fff362144755dbc6bb2a13c4981c69e6b72ad5",
+      "objects": {
+        "tables": [
+          "community_comments"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [
+          "Community comments are publicly readable",
+          "Authenticated users can create comments",
+          "Users can update their own comments",
+          "Users can delete their own comments"
+        ],
+        "indexes": [
+          "community_comments_event_created_idx",
+          "community_comments_user_created_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 4,
+      "path": "supabase/scorecaster_paper_risk_limits.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-paper-risk-limits",
+      "notes": "SECURITY DEFINER paper-risk function and full bets trigger column set verified.",
+      "lineCount": 116,
+      "byteCount": 4378,
+      "checksumSha256": "8dd2070216e446eeffbccc56f0676356e5fcfb33c9911c8f044d6dbed956ec84",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "enforce_paper_stake_limit"
+        ],
+        "triggers": [
+          "bets_enforce_paper_stake_limit"
+        ],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 5,
+      "path": "supabase/scorecaster_api_rate_limits.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-api-rate-limits",
+      "notes": "Rate-limit table/index, FORCE RLS, consume/cleanup RPCs and reviewed execution boundary verified.",
+      "lineCount": 132,
+      "byteCount": 4642,
+      "checksumSha256": "66bd58e75fba65461097db29f85a295a9d137fc1daf9a9ce817a606134342de0",
+      "objects": {
+        "tables": [
+          "api_rate_limits"
+        ],
+        "functions": [
+          "consume_api_quota_for_user",
+          "delete_stale_api_rate_limits"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "idx_api_rate_limits_updated"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": true,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 6,
+      "path": "supabase/scorecaster_watchlist_alerts.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-alerts",
+      "notes": "Watchlist table/indexes, update function/trigger, FORCE RLS and ownership policy verified.",
+      "lineCount": 80,
+      "byteCount": 3415,
+      "checksumSha256": "aee5e2979a6e94641f144c767fffde8e95d2ffb5aaeb8a4cc6425214fa371c97",
+      "objects": {
+        "tables": [
+          "watchlist_items"
+        ],
+        "functions": [
+          "set_watchlist_updated_at"
+        ],
+        "triggers": [
+          "watchlist_set_updated_at"
+        ],
+        "policies": [
+          "Users manage own watchlist"
+        ],
+        "indexes": [
+          "idx_watchlist_user_event_selection",
+          "idx_watchlist_user_active"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 7,
+      "path": "supabase/scorecaster_market_timeline.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-market-timeline",
+      "notes": "Market timeline table/indexes, FORCE RLS and ownership policy verified.",
+      "lineCount": 61,
+      "byteCount": 2875,
+      "checksumSha256": "7b9cc57338250553dd97f630b257775a19a7540adf3d4acd71bb81f3ddf74ac9",
+      "objects": {
+        "tables": [
+          "market_timeline_snapshots"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [
+          "Users manage own market timeline"
+        ],
+        "indexes": [
+          "idx_market_timeline_user_event_selection",
+          "idx_market_timeline_watchlist_time"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 8,
+      "path": "supabase/scorecaster_alert_inbox.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-alert-inbox",
+      "notes": "Alert inbox table, 5 indexes, function/trigger, FORCE RLS and ownership policy verified.",
+      "lineCount": 93,
+      "byteCount": 3986,
+      "checksumSha256": "f0af1640ba93da3cb92905e373c2ca563b8b3a6a81bb9256917932648aaafc49",
+      "objects": {
+        "tables": [
+          "alert_inbox"
+        ],
+        "functions": [
+          "set_alert_inbox_updated_at"
+        ],
+        "triggers": [
+          "alert_inbox_set_updated_at"
+        ],
+        "policies": [
+          "Users manage own alert inbox"
+        ],
+        "indexes": [
+          "idx_alert_inbox_user_fingerprint",
+          "idx_alert_inbox_user_unread",
+          "idx_alert_inbox_user_active",
+          "idx_alert_inbox_user_visible",
+          "idx_alert_inbox_watchlist"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 9,
+      "path": "supabase/scorecaster_notification_registry.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-registry",
+      "notes": "Notification tables/indexes/functions/triggers, FORCE RLS, policies and authenticated device-claim RPC verified.",
+      "lineCount": 144,
+      "byteCount": 9780,
+      "checksumSha256": "7e7f28c89635a14225f54284cbbec6e06e9629968baf40c9c5d9ec7ecf8e1b5a",
+      "objects": {
+        "tables": [
+          "notification_preferences",
+          "notification_devices"
+        ],
+        "functions": [
+          "set_notification_updated_at",
+          "enforce_notification_push_state",
+          "sync_notification_push_state_after_device_change",
+          "claim_notification_device"
+        ],
+        "triggers": [
+          "notification_preferences_set_updated_at",
+          "notification_preferences_enforce_push_state",
+          "notification_devices_set_updated_at",
+          "notification_devices_sync_push_after_delete",
+          "notification_devices_sync_push_after_enabled_update"
+        ],
+        "policies": [
+          "Users manage own notification preferences",
+          "Users manage own notification devices"
+        ],
+        "indexes": [
+          "idx_notification_devices_token_hash",
+          "idx_notification_devices_user_enabled"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": true,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 10,
+      "path": "supabase/scorecaster_notification_delivery.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-notification-delivery",
+      "notes": "Delivery table/indexes/functions/trigger, FORCE RLS, read policy and service-role-only claim boundary verified.",
+      "lineCount": 142,
+      "byteCount": 6737,
+      "checksumSha256": "20b4e1d47e8fc3ea59bf59e58b59341dca93bbc56746d33c52cfafb693cfaa14",
+      "objects": {
+        "tables": [
+          "notification_deliveries"
+        ],
+        "functions": [
+          "set_notification_delivery_updated_at",
+          "claim_notification_deliveries"
+        ],
+        "triggers": [
+          "notification_deliveries_set_updated_at"
+        ],
+        "policies": [
+          "Users read own notification delivery metadata"
+        ],
+        "indexes": [
+          "idx_notification_deliveries_alert_device",
+          "idx_notification_deliveries_due",
+          "idx_notification_deliveries_receipts",
+          "idx_notification_deliveries_user"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 11,
+      "path": "supabase/scorecaster_watchlist_monitor.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-watchlist-monitor",
+      "notes": "Monitor state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified.",
+      "lineCount": 173,
+      "byteCount": 7618,
+      "checksumSha256": "29825cef1e4475eac5221b6c37be5f59567921ceabb18055ac4d9982cb267b64",
+      "objects": {
+        "tables": [
+          "watchlist_monitor_state"
+        ],
+        "functions": [
+          "set_watchlist_monitor_updated_at",
+          "schedule_watchlist_monitor_for_user",
+          "claim_watchlist_monitor_users",
+          "complete_watchlist_monitor_user"
+        ],
+        "triggers": [
+          "watchlist_monitor_set_updated_at",
+          "watchlist_items_schedule_monitor"
+        ],
+        "policies": [
+          "Users read own watchlist monitor state"
+        ],
+        "indexes": [
+          "idx_watchlist_monitor_due"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 12,
+      "path": "supabase/scorecaster_decision_diagnostics.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-decision-diagnostics",
+      "notes": "Diagnostics tables, 5 indexes, alert function/trigger, FORCE RLS and read-only policies verified.",
+      "lineCount": 122,
+      "byteCount": 6020,
+      "checksumSha256": "4f27316c16515251fb15a4b924d96654411443808d69c656f4481a90ae93e853",
+      "objects": {
+        "tables": [
+          "decision_diagnostic_snapshots",
+          "decision_diagnostic_alerts"
+        ],
+        "functions": [
+          "set_decision_diagnostic_alert_updated_at"
+        ],
+        "triggers": [
+          "decision_diagnostic_alert_set_updated_at"
+        ],
+        "policies": [
+          "Authenticated users read diagnostic snapshots",
+          "Authenticated users read diagnostic alerts"
+        ],
+        "indexes": [
+          "idx_decision_diagnostic_snapshots_bucket",
+          "idx_decision_diagnostic_snapshots_captured",
+          "idx_decision_diagnostic_snapshots_status",
+          "idx_decision_diagnostic_alerts_fingerprint",
+          "idx_decision_diagnostic_alerts_active"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 13,
+      "path": "supabase/scorecaster_agent_decision_signing_vault.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-18T02:56:26Z",
+      "verifiedBy": "ChatGPT production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_AGENT_SIGNING_VAULT_EVIDENCE_2026_08_18.md",
+      "notes": "Supabase migration registry version 20260818025626. Dedicated Vault secret exists with 96-character decrypted length; service-role-only SECURITY DEFINER RPC verified with constrained search_path and no PUBLIC/anon/authenticated EXECUTE.",
+      "lineCount": 50,
+      "byteCount": 1609,
+      "checksumSha256": "459738f7eb7c44a818ef7725a857eac9b199a842734ff71841f09491b0794cdc",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_agent_decision_signing_key"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 14,
+      "path": "supabase/scorecaster_collector_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-collector-v1",
+      "notes": "Collector tables, 6 indexes, FORCE RLS, browser closure and service-role CRUD verified.",
+      "lineCount": 72,
+      "byteCount": 3893,
+      "checksumSha256": "a004bd8b8a777f6c6c23a76b8291182978691f7030dc80293000491b16e926c7",
+      "objects": {
+        "tables": [
+          "collector_runs",
+          "collector_records"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "collector_runs_started_idx",
+          "collector_records_collected_idx",
+          "collector_records_event_idx",
+          "collector_records_sport_metric_idx",
+          "collector_records_source_idx",
+          "collector_records_publishable_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 15,
+      "path": "supabase/scorecaster_ai_intelligence_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-ai-intelligence-v1",
+      "notes": "Intelligence tables, 3 indexes and RLS verified; V1.3 hardening closes direct browser grants.",
+      "lineCount": 47,
+      "byteCount": 2145,
+      "checksumSha256": "ab555fc7070f1b5314c65f1b1640a53c9e2db1e1da6cc8c410339338e3738589",
+      "objects": {
+        "tables": [
+          "intelligence_items",
+          "intelligence_reports"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "intelligence_items_event_idx",
+          "intelligence_items_category_idx",
+          "intelligence_reports_event_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 16,
+      "path": "supabase/scorecaster_unified_data.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-unified-data",
+      "notes": "4 Unified Data tables, 12 indexes, function/triggers, FORCE RLS and 4 read-only policies verified.",
+      "lineCount": 204,
+      "byteCount": 10422,
+      "checksumSha256": "6bb650102c9067cb74dfe272dfd60e0fb2c173b8b85e6e6b70945ffe136986b6",
+      "objects": {
+        "tables": [
+          "unified_data_snapshots",
+          "unified_data_provider_observations",
+          "unified_data_closing_records",
+          "unified_data_incidents"
+        ],
+        "functions": [
+          "set_unified_data_updated_at"
+        ],
+        "triggers": [
+          "unified_data_closing_set_updated_at",
+          "unified_data_incident_set_updated_at"
+        ],
+        "policies": [
+          "Authenticated users read unified snapshots",
+          "Authenticated users read unified provider observations",
+          "Authenticated users read unified closing records",
+          "Authenticated users read unified incidents"
+        ],
+        "indexes": [
+          "idx_unified_data_snapshot_event_selection_bucket",
+          "idx_unified_data_snapshot_event_time",
+          "idx_unified_data_snapshot_commence",
+          "idx_unified_data_snapshot_quality",
+          "idx_unified_data_provider_observation_unique",
+          "idx_unified_data_provider_observation_health",
+          "idx_unified_data_provider_observation_event",
+          "idx_unified_data_closing_event_selection",
+          "idx_unified_data_closing_commence",
+          "idx_unified_data_incident_fingerprint",
+          "idx_unified_data_incident_active",
+          "idx_unified_data_incident_event"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": true,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 17,
+      "path": "supabase/scorecaster_sports_analytics.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-sports-analytics",
+      "notes": "Analytics tables, 7 indexes, FORCE RLS, browser closure and service-role CRUD verified.",
+      "lineCount": 81,
+      "byteCount": 4242,
+      "checksumSha256": "99288d4f01a6f86daa835a191e16198c50d15f4081ea0297fa381518d31da516",
+      "objects": {
+        "tables": [
+          "sports_analytics_snapshots",
+          "sports_analytics_observations"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "sports_analytics_snapshots_captured_idx",
+          "sports_analytics_snapshots_sport_idx",
+          "sports_analytics_snapshots_event_idx",
+          "sports_analytics_observations_event_idx",
+          "sports_analytics_observations_sport_family_idx",
+          "sports_analytics_observations_metric_idx",
+          "sports_analytics_observations_provider_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 18,
+      "path": "supabase/scorecaster_settlement_monitor.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-settlement-monitor",
+      "notes": "Settlement state/index/functions/triggers, FORCE RLS, read policy and service-role worker RPCs verified.",
+      "lineCount": 189,
+      "byteCount": 8516,
+      "checksumSha256": "aafac6e9db33dec900255188ba777f2db122195f47422348123613319b4ce4b4",
+      "objects": {
+        "tables": [
+          "paper_settlement_monitor_state"
+        ],
+        "functions": [
+          "set_paper_settlement_monitor_updated_at",
+          "schedule_paper_settlement_monitor_for_user",
+          "claim_paper_settlement_monitor_users",
+          "complete_paper_settlement_monitor_user"
+        ],
+        "triggers": [
+          "paper_settlement_monitor_set_updated_at",
+          "bets_schedule_paper_settlement_monitor"
+        ],
+        "policies": [
+          "Users read own paper settlement monitor state"
+        ],
+        "indexes": [
+          "idx_paper_settlement_monitor_due"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 19,
+      "path": "supabase/scorecaster_autonomous_agent.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent",
+      "notes": "V1 settings/state/runs, indexes, functions, triggers, FORCE RLS, policies and worker/manual-run boundaries verified.",
+      "lineCount": 332,
+      "byteCount": 16669,
+      "checksumSha256": "0467473ba79d9441b9033984c8220dd99ccfa92ce960ca8f3968622dc12780fe",
+      "objects": {
+        "tables": [
+          "autonomous_agent_settings",
+          "autonomous_agent_state",
+          "autonomous_agent_runs"
+        ],
+        "functions": [
+          "set_autonomous_agent_updated_at",
+          "schedule_autonomous_agent_for_user",
+          "claim_autonomous_agent_users",
+          "complete_autonomous_agent_user",
+          "request_autonomous_agent_run"
+        ],
+        "triggers": [
+          "autonomous_agent_settings_set_updated_at",
+          "autonomous_agent_state_set_updated_at",
+          "autonomous_agent_settings_schedule"
+        ],
+        "policies": [
+          "Users read own autonomous agent settings",
+          "Users insert own autonomous agent settings",
+          "Users update own autonomous agent settings",
+          "Users read own autonomous agent state",
+          "Users read own autonomous agent runs"
+        ],
+        "indexes": [
+          "idx_autonomous_agent_due",
+          "idx_autonomous_agent_runs_user_created"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 20,
+      "path": "supabase/scorecaster_autonomous_agent_v2.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-14T10:01:02.463185Z",
+      "verifiedBy": "Codex production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-agent-v2",
+      "notes": "V2 audit/brief tables, indexes, extension columns, functions/trigger, FORCE RLS, policies and service-role completion verified. Follow-up verification confirms the enabled-agent trigger atomically creates a conservative 1,000-unit paper bankroll only when one is missing.",
+      "lineCount": 376,
+      "byteCount": 18393,
+      "checksumSha256": "1c8f0256e30861b94b438ec38b0472004766d990368124797ad2ce5663385dcb",
+      "objects": {
+        "tables": [
+          "autonomous_agent_decision_audit",
+          "autonomous_agent_daily_briefs"
+        ],
+        "functions": [
+          "set_autonomous_agent_brief_updated_at",
+          "schedule_autonomous_agent_for_user",
+          "claim_autonomous_agent_users",
+          "complete_autonomous_agent_user_v2",
+          "request_autonomous_agent_run"
+        ],
+        "triggers": [
+          "autonomous_agent_brief_set_updated_at",
+          "autonomous_agent_settings_schedule"
+        ],
+        "policies": [
+          "Users read own autonomous agent decision audit",
+          "Users read own autonomous agent daily briefs"
+        ],
+        "indexes": [
+          "idx_autonomous_agent_audit_user_created",
+          "idx_autonomous_agent_audit_run",
+          "idx_autonomous_agent_audit_blocked",
+          "idx_autonomous_agent_briefs_user_date"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 21,
+      "path": "supabase/scorecaster_autonomous_v13_hard_caps.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-autonomous-v13-hard-caps",
+      "notes": "V13 hard-cap SECURITY DEFINER function and bets trigger verified; direct browser EXECUTE closed.",
+      "lineCount": 114,
+      "byteCount": 4089,
+      "checksumSha256": "bf201fb48a55ddafb40f145a2bcff4796f2247ddca015b0cc67feff92400682f",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "enforce_autonomous_v13_hard_caps"
+        ],
+        "triggers": [
+          "bets_enforce_autonomous_v13_hard_caps"
+        ],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 22,
+      "path": "supabase/scorecaster_autonomous_agent_risk_profile_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-19T03:37:04Z",
+      "verifiedBy": "ChatGPT production migration and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_AUTONOMOUS_RISK_PROFILE_EVIDENCE_2026_08_19.md",
+      "notes": "Production migration registry version 20260819033704. Risk profile and policy columns, balanced backfill, constraints, scheduling trigger, RLS and FORCE RLS verified with aggregate-only evidence.",
+      "lineCount": 69,
+      "byteCount": 3590,
+      "checksumSha256": "5c6b2698ff29e1268d73b5cfde1c5a7ac1de8d868ca6090467d5c367a481cf5e",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [
+          "autonomous_agent_settings_schedule"
+        ],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 23,
+      "path": "supabase/scorecaster_shadow_learning_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-10T18:08:10.087375Z",
+      "verifiedBy": "ChatGPT production catalog audit via Supabase connector",
+      "evidence": "docs/PRODUCTION_MIGRATION_EVIDENCE_2026_08_10.md#scorecaster-shadow-learning-v1",
+      "notes": "3 Shadow Learning tables, 5 indexes, 6 functions, 3 triggers, FORCE RLS, policies, service worker boundary and safety constraint verified.",
+      "lineCount": 433,
+      "byteCount": 17884,
+      "checksumSha256": "86d62a9d6b9bdb234da2d6242b51c389db34ec8c09920fe247a755584260b16c",
+      "objects": {
+        "tables": [
+          "shadow_learning_samples",
+          "shadow_learning_state",
+          "shadow_learning_cycles"
+        ],
+        "functions": [
+          "shadow_json_numeric",
+          "set_shadow_learning_updated_at",
+          "sync_shadow_learning_sample",
+          "capture_shadow_learning_from_bet",
+          "claim_shadow_learning_users",
+          "complete_shadow_learning_user"
+        ],
+        "triggers": [
+          "shadow_learning_samples_set_updated_at",
+          "shadow_learning_state_set_updated_at",
+          "bets_capture_shadow_learning"
+        ],
+        "policies": [
+          "Users read own Shadow Learning samples",
+          "Users read own Shadow Learning state",
+          "Users read own Shadow Learning cycles"
+        ],
+        "indexes": [
+          "idx_shadow_learning_samples_user_settled",
+          "idx_shadow_learning_samples_user_created",
+          "idx_shadow_learning_samples_event",
+          "idx_shadow_learning_state_due",
+          "idx_shadow_learning_cycles_user_created"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": true,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": true
+    },
+    {
+      "order": 24,
+      "path": "supabase/scorecaster_shadow_candidate_observations_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-21T04:20:46Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#observations-v1",
+      "notes": "Registry version 20260821042046. Audit columns, settlement run table, indexes, constraints, defaults trigger and wake trigger verified without reading application rows.",
+      "lineCount": 234,
+      "byteCount": 10842,
+      "checksumSha256": "f5d1a708978eefa32860ee5167d1685c4a8b7102e879f198766b5770696d42ac",
+      "objects": {
+        "tables": [
+          "shadow_candidate_settlement_runs_v1"
+        ],
+        "functions": [
+          "set_shadow_candidate_observation_defaults",
+          "wake_shadow_learning_from_candidate"
+        ],
+        "triggers": [
+          "autonomous_audit_shadow_defaults",
+          "autonomous_audit_wake_shadow_learning"
+        ],
+        "policies": [],
+        "indexes": [
+          "idx_autonomous_audit_shadow_user_status",
+          "idx_autonomous_audit_shadow_event_status",
+          "idx_autonomous_audit_shadow_commence",
+          "idx_shadow_candidate_settlement_runs_created"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 25,
+      "path": "supabase/scorecaster_shadow_candidate_settlement_batch_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-21T04:21:37Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#settlement-batch-v1",
+      "notes": "Registry version 20260821042137. Bounded service-role settlement RPC verified present.",
+      "lineCount": 82,
+      "byteCount": 3269,
+      "checksumSha256": "2d625a0f0d9ca580209d0adbd64ebe98e138b084cf26f8981986e2e8b7fb8e6f",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "apply_shadow_candidate_settlements_v1"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 26,
+      "path": "supabase/scorecaster_shadow_candidate_trigger_safety_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-21T04:25:10Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#trigger-safety-v1",
+      "notes": "Registry version 20260821042510. INSERT-safe wake trigger function and trigger verified present.",
+      "lineCount": 40,
+      "byteCount": 1362,
+      "checksumSha256": "91bc84c97fa49453523c4de7aec2000b0a14005a5863ad1381a00cca32a0368b",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "wake_shadow_learning_from_candidate"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 27,
+      "path": "supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-21T04:34:02Z",
+      "verifiedBy": "Codex production migration registry and catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#settlement-batch-fix",
+      "notes": "Registry version 20260821043402. Corrected output-safe settlement RPC verified present and restricted to service_role.",
+      "lineCount": 87,
+      "byteCount": 3469,
+      "checksumSha256": "e767345a772673f00f9f94789d59605b7c387b9006e0fa44e8a7f2bcf2ada1ab",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "apply_shadow_candidate_settlements_v1"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 28,
+      "path": "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-22T13:33:41Z",
+      "verifiedBy": "Codex production migration and ACL verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_MIGRATION_EVIDENCE_2026_08_22.md#function-acl-v1",
+      "notes": "Registry version 20260822133341. All three helper functions now deny EXECUTE to anon and authenticated while retaining service_role execution. No application rows were changed.",
+      "lineCount": 12,
+      "byteCount": 796,
+      "checksumSha256": "be5b8daeb8c9d1c226dd1dd2805ce5b6ffe8e27374ec3e15c750cd2faffd994c",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 29,
+      "path": "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-08-23T17:24:59Z",
+      "verifiedBy": "Codex production index and query-plan verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SHADOW_CANDIDATE_PERFORMANCE_EVIDENCE_2026_08_23.md",
+      "notes": "Partial index is valid and ready. EXPLAIN uses idx_autonomous_audit_open_settlement_candidates_v2 for the exact bounded candidate query.",
+      "lineCount": 9,
+      "byteCount": 382,
+      "checksumSha256": "59029f841350571af0b90eadac175af7566e0e8f77a771822b0ffc9208997bef",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "idx_autonomous_audit_open_settlement_candidates_v2"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 30,
+      "path": "supabase/scorecaster_self_data_engine_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production catalog verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#self-data-engine",
+      "notes": "All three tables, expected valid indexes, FORCE RLS, denied anon/authenticated CRUD and service-role CRUD were verified from production catalog metadata.",
+      "lineCount": 101,
+      "byteCount": 5522,
+      "checksumSha256": "1c89f18e1441b25e120eb0e6e1e40df0f3894ab679e520c208374a94cd399171",
+      "objects": {
+        "tables": [
+          "scorecaster_data_engine_runs_v1",
+          "scorecaster_pit_feature_snapshots_v1",
+          "scorecaster_autonomous_decisions_v1"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_data_engine_runs_v1_started_idx",
+          "scorecaster_pit_feature_snapshots_v1_event_idx",
+          "scorecaster_pit_feature_snapshots_v1_eligible_idx",
+          "scorecaster_pit_feature_snapshots_v1_run_idx",
+          "scorecaster_autonomous_decisions_v1_event_idx",
+          "scorecaster_autonomous_decisions_v1_decision_idx",
+          "scorecaster_autonomous_decisions_v1_run_idx",
+          "scorecaster_autonomous_decisions_v1_feature_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 31,
+      "path": "supabase/scorecaster_intelligence_core_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826030405.",
+      "lineCount": 218,
+      "byteCount": 10872,
+      "checksumSha256": "fef34a12fd1bf7a79c568f4c654997a4888eac24f98c078547d1c2d19898db7b",
+      "objects": {
+        "tables": [
+          "scorecaster_canonical_facts_v1",
+          "scorecaster_event_outcomes_v1",
+          "scorecaster_team_state_snapshots_v1",
+          "scorecaster_learning_examples_v1",
+          "scorecaster_model_predictions_v1",
+          "scorecaster_model_registry_v1",
+          "scorecaster_source_health_snapshots_v1"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_canonical_facts_event_time_idx",
+          "scorecaster_canonical_facts_entity_time_idx",
+          "scorecaster_canonical_facts_family_time_idx",
+          "scorecaster_canonical_facts_source_time_idx",
+          "scorecaster_event_outcomes_event_time_idx",
+          "scorecaster_event_outcomes_final_idx",
+          "scorecaster_team_state_team_time_idx",
+          "scorecaster_learning_examples_event_idx",
+          "scorecaster_learning_examples_eligible_idx",
+          "scorecaster_model_predictions_event_time_idx",
+          "scorecaster_model_predictions_model_time_idx",
+          "scorecaster_source_health_source_time_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 32,
+      "path": "supabase/scorecaster_event_identity_map_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826031557.",
+      "lineCount": 27,
+      "byteCount": 1380,
+      "checksumSha256": "f7a214fb32cc19655d1620782e837ca7313d24969c0ec54d3fb313e1ab7c1f31",
+      "objects": {
+        "tables": [
+          "scorecaster_event_identity_map_v1"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_event_identity_canonical_idx",
+          "scorecaster_event_identity_match_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 33,
+      "path": "supabase/scorecaster_openfootball_bootstrap_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826031757.",
+      "lineCount": 42,
+      "byteCount": 1426,
+      "checksumSha256": "ebff9742dd5d8ed8db25c671a372a6c242685ec41ce9f4792394bffd37f814e7",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_private"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 34,
+      "path": "supabase/scorecaster_event_identity_refresh_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032056.",
+      "lineCount": 162,
+      "byteCount": 5960,
+      "checksumSha256": "3b59dc7074efba883a7cda09216ee843deab7da0ad54a49ac1c3c72ee5702c66",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_private"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 35,
+      "path": "supabase/scorecaster_outcome_chronology_fix_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032159.",
+      "lineCount": 31,
+      "byteCount": 1137,
+      "checksumSha256": "f3d888c5a23ddc18973a5f2ac7fb65d7ffe35a33514d84b67ba844fb45de0e4c",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_private"
+        ],
+        "triggers": [
+          "scorecaster_openfootball_outcome_chronology_v1"
+        ],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": true
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": true,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": true,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 36,
+      "path": "supabase/scorecaster_own_model_scheduler_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826032407.",
+      "lineCount": 37,
+      "byteCount": 1379,
+      "checksumSha256": "7494e69dd08152fdff96cc761670ce1427e835436fc98e8c078f3f7a914a3d33",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_private"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 37,
+      "path": "supabase/scorecaster_own_football_ml_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826040813.",
+      "lineCount": 63,
+      "byteCount": 2743,
+      "checksumSha256": "cd2465db8bb0d15e2e65ad9e0069b7fea0ecd872a2c6f592f617b43db55a7c1e",
+      "objects": {
+        "tables": [
+          "scorecaster_model_artifacts_v1",
+          "scorecaster_ml_training_runs_v1"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_model_artifacts_v1_model_idx",
+          "scorecaster_model_artifacts_v1_cutoff_idx",
+          "scorecaster_ml_training_runs_v1_started_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 38,
+      "path": "supabase/scorecaster_own_decision_engine_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826042251.",
+      "lineCount": 54,
+      "byteCount": 2492,
+      "checksumSha256": "63fe6c866acffe1d6431c920877165ee279956533e36eaa87bb0bc962989601a",
+      "objects": {
+        "tables": [
+          "scorecaster_own_decisions_v1"
+        ],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_own_decisions_event_idx",
+          "scorecaster_own_decisions_decision_idx",
+          "scorecaster_own_decisions_commence_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 39,
+      "path": "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826042517.",
+      "lineCount": 60,
+      "byteCount": 2412,
+      "checksumSha256": "72c737e0dc56b762840f6d3b4f954e0a72cf39dfd0cf7cddb47ed4466f8d6c4d",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "scorecaster_private"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 40,
+      "path": "supabase/scorecaster_model_registry_status_v2.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:43:06Z",
+      "verifiedBy": "Codex production migration-registry verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
+      "notes": "Production migration registry version 20260826043042.",
+      "lineCount": 7,
+      "byteCount": 355,
+      "checksumSha256": "52994af86fa3e97490d2b46329414eae011a551dee1d0814169fd4a7566052ca",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 41,
+      "path": "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:33:48Z",
+      "verifiedBy": "Codex production catalog and rollback-smoke verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SECURITY_HARDENING_EVIDENCE_2026_09_02.md#authenticated-rpc-boundaries",
+      "notes": "Four public RPCs are SECURITY INVOKER, authenticated-only and anon-denied; four scorecaster_private implementations are constrained SECURITY DEFINER functions. All four authenticated call paths passed in a rollback transaction.",
+      "lineCount": 139,
+      "byteCount": 7806,
+      "checksumSha256": "e3111c0050d8bfa6130981f0c634de4cee875ae148811a4d8b64bf3ace00d3d4",
+      "objects": {
+        "tables": [],
+        "functions": [
+          "claim_notification_device",
+          "request_autonomous_agent_run",
+          "set_auto_watch_recommendation_preferences",
+          "set_auto_watch_recommendation_preferences_v2"
+        ],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": true
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 42,
+      "path": "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T11:33:48Z",
+      "verifiedBy": "Codex production extension, cron and advisor verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_SECURITY_HARDENING_EVIDENCE_2026_09_02.md#pg_net-extension-schema",
+      "notes": "pg_net 0.20.0 is installed in extensions; zero requests were pending, four active Scorecaster net cron jobs and five trigger functions remain. Reinstallation cleared 26 ephemeral pg_net response-cache rows and no Scorecaster application rows.",
+      "lineCount": 44,
+      "byteCount": 1305,
+      "checksumSha256": "aad4fa37a885a4bd14c6b07e2b3aadd6f821c36498e61b2cdbb2eb0296948975",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": []
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 43,
+      "path": "supabase/scorecaster_fk_index_hardening_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T16:36:00Z",
+      "verifiedBy": "Codex production catalog and performance-advisor verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md#foreign-key-index-hardening",
+      "notes": "Both additive foreign-key indexes exist in production. A fresh advisor run reports zero unindexed foreign keys owned by Scorecaster; remaining findings belong to the separate Stockcaster surface.",
+      "lineCount": 9,
+      "byteCount": 406,
+      "checksumSha256": "49569c5057512fc4c6a0f08a7b434fd8c521314f3370d7a14a7c2d04abb8ea58",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "scorecaster_learning_examples_v1_outcome_id_idx",
+          "scorecaster_model_predictions_v1_feature_snapshot_id_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    },
+    {
+      "order": 44,
+      "path": "supabase/scorecaster_autonomous_audit_performance_v1.sql",
+      "repositoryState": "present",
+      "productionStatus": "applied",
+      "verifiedAt": "2026-09-02T16:50:00Z",
+      "verifiedBy": "Codex production pg_stat_statements and EXPLAIN verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_RLS_AND_INDEX_EVIDENCE_2026_09_02.md#autonomous-audit-write-performance",
+      "notes": "Production query statistics isolated the autonomous audit insert hotspot. The fallback commence-time lookup now uses an index-only scan; the measured representative execution was below 4 ms, and the normal worker path supplies commence_time without the lookup.",
+      "lineCount": 7,
+      "byteCount": 330,
+      "checksumSha256": "ae83a6873f3d03330b90c220d8e8bc18629be0ba8118204175554be25b7557c4",
+      "objects": {
+        "tables": [],
+        "functions": [],
+        "triggers": [],
+        "policies": [],
+        "indexes": [
+          "market_provider_snapshots_v2_event_commence_idx"
+        ]
+      },
+      "destructiveFlags": {
+        "dropTable": false,
+        "dropSchema": false,
+        "truncate": false,
+        "alterDropColumn": false,
+        "deleteWithoutWhere": false,
+        "updateWithoutWhere": false
+      },
+      "operationalFlags": {
+        "dropFunction": false,
+        "dropTrigger": false,
+        "dropPolicy": false,
+        "revoke": false
+      },
+      "requiresManualReview": false,
+      "containsPolicyReplacement": false
+    }
+  ]
+}

@@ -257,7 +257,9 @@
     "supabase/scorecaster_owned_intelligence_triggers_v1.sql",
     "supabase/scorecaster_model_registry_status_v2.sql",
     "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
-    "supabase/scorecaster_pg_net_extension_schema_v1.sql"
+    "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+    "supabase/scorecaster_fk_index_hardening_v1.sql",
+    "supabase/scorecaster_autonomous_audit_performance_v1.sql"
   ],
   "productionPatches": [
     "scripts/apply-market-microstructure-v2.sql",
@@ -415,7 +417,7 @@
     },
     {
       "id": "eas-project-and-assets",
-      "title": "EAS project linkage, final icon, splash and signed builds",
+      "title": "EAS project linkage, signed builds and FI EN ES store screenshots (final icon and splash are committed)",
       "blocking": true
     },
     {

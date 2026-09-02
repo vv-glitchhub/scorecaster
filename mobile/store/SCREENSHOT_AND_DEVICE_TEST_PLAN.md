@@ -92,4 +92,4 @@ Reset or delete the synthetic account after the final capture set.
 
 ## Store asset blockers
 
-The final icon, splash asset and screenshots are intentionally not generated from placeholder data. They must be created from the approved visual identity and captured from signed builds after production cloud isolation passes.
+The final icon, adaptive icon and splash asset are committed from the existing Scorecaster visual identity. FI, EN and ES screenshots must still be captured from signed iOS and Android builds after production cloud isolation passes; screenshot completion must not be inferred from repository assets.

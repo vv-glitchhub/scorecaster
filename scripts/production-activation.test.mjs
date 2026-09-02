@@ -67,9 +67,11 @@ test("migration rollout follows the reviewed manifest and uses fail-fast transac
     "supabase/scorecaster_shadow_candidate_function_acl_v1.sql",
     "supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql"
   ]);
-  assert.deepEqual(manifest.supabaseMigrations.slice(-2), [
+  assert.deepEqual(manifest.supabaseMigrations.slice(-4), [
     "supabase/scorecaster_authenticated_rpc_boundaries_v1.sql",
-    "supabase/scorecaster_pg_net_extension_schema_v1.sql"
+    "supabase/scorecaster_pg_net_extension_schema_v1.sql",
+    "supabase/scorecaster_fk_index_hardening_v1.sql",
+    "supabase/scorecaster_autonomous_audit_performance_v1.sql"
   ]);
   assert.match(runner, /manifest\.supabaseMigrations/);
   assert.match(runner, /manifest\.productionPatches/);
