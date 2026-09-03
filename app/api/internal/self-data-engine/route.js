@@ -181,7 +181,17 @@ export async function GET(request) {
     const intelligence = await runInternal(runIntelligenceCoreRoute, request);
     if (!intelligence.ok) errors.push({ stage: "intelligence-core", error: intelligence.payload?.error || `HTTP ${intelligence.status}` });
 
-    const status = stored.length === 0 ? "failed" : errors.length ? "partial" : "success";
+    // An empty recommendation window is a valid idle cycle, not a failed data
+    // engine run. Preserve genuine upstream failures as partial so they remain
+    // visible without falsely classifying "nothing to process" as an outage.
+    const idle = eventPicks.length === 0;
+    const status = idle
+      ? (errors.length ? "partial" : "success")
+      : stored.length === 0
+        ? "failed"
+        : errors.length
+          ? "partial"
+          : "success";
     const completedAt = new Date().toISOString();
     const sourceStatus = {
       collector: { ok: collector.ok, status: collector.status, runId: collector.payload?.runId || null, recordsStored: collector.payload?.recordsStored || 0 },
@@ -219,6 +229,7 @@ export async function GET(request) {
       startedAt,
       completedAt,
       status,
+      idle,
       eventsSeen: eventPicks.length,
       featureSnapshots: stored.length,
       decisionsWritten: stored.length,
