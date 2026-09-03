@@ -6,6 +6,7 @@ import { buildBasketballEfficiencyShadowV1 } from "../../../../lib/basketball-ef
 import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-offense-shadow-v1.mjs";
 import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";
 import { ADVANCED_MODEL_READINESS_VERSION, buildAdvancedModelReadinessV1 } from "../../../../lib/advanced-model-readiness-v1.mjs";
+import { GET as getTopPicksRoute } from "../../top-picks/route";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -270,18 +271,25 @@ export async function GET(request) {
   try {
     const capturedAt = new Date().toISOString();
     const origin = new URL(request.url).origin;
-    const topPicksResponse = await fetch(`${origin}/api/top-picks`, { cache: "no-store", signal: AbortSignal.timeout(75_000) });
-    const topPicks = await topPicksResponse.json();
+    // Call the already-loaded route handler in-process instead of making a
+    // nested same-origin HTTP request. This removes one timeout/network layer
+    // from the scheduled worker without bypassing Top Picks validation.
+    const topPicksRequest = new Request(`${origin}/api/top-picks`, { method: "GET", headers: { Accept: "application/json" } });
+    const topPicksResponse = await getTopPicksRoute(topPicksRequest);
+    const topPicks = await topPicksResponse.json().catch(() => null);
     if (!topPicksResponse.ok || topPicks?.ok === false) return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
 
     const picks = uniqueEvents(Array.isArray(topPicks.data) ? topPicks.data : []);
     const settled = await Promise.allSettled(picks.map((pick) => storeEvent(admin, pick, capturedAt)));
     const stored = settled.filter((item) => item.status === "fulfilled" && item.value).map((item) => item.value);
     const failures = settled.filter((item) => item.status === "rejected");
+    const allRequestedEventsFailed = picks.length > 0 && stored.length === 0 && failures.length > 0;
 
     return response({
-      ok: failures.length === 0,
-      version: "sports-analytics-worker-v7",
+      ok: !allRequestedEventsFailed,
+      partial: failures.length > 0 && !allRequestedEventsFailed,
+      version: "sports-analytics-worker-v8",
+      orchestration: "in-process-top-picks",
       shadowLedgerVersion: "advanced-shadow-prediction-ledger-v2",
       footballEvidenceAuditVersion: "football-independent-evidence-v1",
       advancedModelReadinessVersion: ADVANCED_MODEL_READINESS_VERSION,
@@ -303,7 +311,7 @@ export async function GET(request) {
       failureReasons: process.env.NODE_ENV === "production" ? [] : failures.slice(0, 5).map((item) => String(item.reason)),
       probabilityChanged: false,
       paperOnly: true
-    }, failures.length && stored.length === 0 ? 500 : 200);
+    }, allRequestedEventsFailed ? 500 : 200);
   } catch (error) {
     return response({
       ok: false,
