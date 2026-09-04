@@ -100,3 +100,64 @@ test("ready app keeps real-money execution disabled", async () => {
   assert.match(client, /ei aseta vetoja eikä siirrä rahaa/);
   assert.doesNotMatch(route, /placeBet|executeBet|payment|withdraw/i);
 });
+
+test("My Picks includes isolated Veikkaus-style external slip tracking", async () => {
+  const [layout, tracker, schema, authCloud] = await Promise.all([
+    file("app/tracking/layout.jsx"),
+    file("app/tracking/ExternalSlipTracker.jsx"),
+    file("supabase/scorecaster_schema.sql"),
+    file("supabase/scorecaster_auth_cloud.sql")
+  ]);
+
+  assert.match(layout, /ExternalSlipTrackerConnected/);
+  assert.match(tracker, /data-external-slip-tracker="v1"/);
+  assert.match(tracker, /Kokonaiskerroin/);
+  assert.match(tracker, /Mahdollinen palautus/);
+  assert.match(tracker, /Oikein/);
+  assert.match(tracker, /Avoin/);
+  assert.match(tracker, /Ei osunut/);
+  assert.match(tracker, /from\("bet_slips"\)/);
+  assert.match(tracker, /from\("bet_slip_items"\)/);
+  assert.match(tracker, /\.eq\("user_id", user\.id\)/);
+  assert.doesNotMatch(tracker, /\/api\/cloud\/external-slips/);
+  assert.doesNotMatch(tracker, /from\("bets"\)/);
+  assert.match(schema, /create table if not exists public\.bet_slips/);
+  assert.match(schema, /create table if not exists public\.bet_slip_items/);
+  assert.match(authCloud, /'bet_slips'/);
+  assert.match(authCloud, /'bet_slip_items'/);
+});
+
+test("external slip domain preserves receipt progress without touching paper metrics", async () => {
+  const domain = await import(new URL("../lib/external-slip-v1.mjs", import.meta.url));
+  const legs = [
+    ["Roma v Fiorentina", "Roma", 1.64, "won"],
+    ["Fulham v Chelsea", "Chelsea", 1.85, "won"],
+    ["Real Madrid v Real Sociedad", "Real Madrid", 1.30, "won"],
+    ["FC Barcelona v Athletic Bilbao", "FC Barcelona", 1.31, "won"],
+    ["Bayern München v VfB Stuttgart", "Bayern München", 1.28, "won"],
+    ["Borussia Dortmund v Hamburger SV", "Borussia Dortmund", 1.35, "won"],
+    ["Edmonton Oilers - Vancouver Canucks", "Edmonton Oilers", 1.60, "open"],
+    ["Vegas Golden Knights - Chicago Blackhawks", "Vegas Golden Knights", 1.68, "open"],
+    ["Olympique Lyonnais v Fenerbahce", "Olympique Lyonnais", 1.94, "lost"],
+    ["AEK Athens v Levski Sofia", "AEK Athens", 1.55, "won"]
+  ].map(([match, selection, odds, status], index) => ({ id: `leg-${index + 1}`, match, selection, odds, status, market: "Voittaja (1X2)" }));
+
+  const draft = { provider: "Veikkaus", externalReference: "receipt-example", title: "Kuponki", stake: 43.2, combinedOdds: 72.17, potentialReturn: 3117.60, purchasedAt: "2026-08-24", resolvesAt: "2026-09-30", legs, source: "external-slip-reference-v1" };
+  const progress = domain.externalSlipProgress(legs);
+  assert.deepEqual(progress, { total: 10, open: 2, won: 7, lost: 1, void: 0, push: 0 });
+  assert.equal(domain.deriveExternalSlipStatus(legs), "lost");
+
+  const parent = domain.externalSlipParentRow(draft, "00000000-0000-4000-8000-000000000001");
+  assert.equal(parent.decision, domain.EXTERNAL_SLIP_DECISION);
+  assert.equal(parent.status, "external_lost");
+  assert.equal(parent.total_stake, 43.2);
+  assert.equal(parent.potential_return, 3117.6);
+  assert.equal(parent.warnings.combinedOdds, 72.17);
+  assert.equal(parent.warnings.excludedFromPaperPerformance, true);
+  assert.equal(parent.warnings.excludedFromAutonomousAgent, true);
+
+  const items = domain.externalSlipItemRows(draft, "00000000-0000-4000-8000-000000000002", "00000000-0000-4000-8000-000000000001");
+  assert.equal(items.length, 10);
+  assert.ok(items.every((item) => item.stake === 0 && item.edge === null && item.ev === null && item.model_probability === null));
+  assert.equal(items[8].decision, "EXTERNAL_LOST");
+});
