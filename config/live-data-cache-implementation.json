@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "policyFingerprint": "dd27267cf9cfaeb0d9e5956a781a18f9e1ba766d88b20e8b9db20d99db932708",
+  "policyFingerprint": "b8b3e49604e37aa7a7d0444dad24023dd5e97e045dd28b1d136641fbcc786a06",
   "files": [
     {
       "path": "next.config.js",
@@ -17,7 +17,7 @@
   ],
   "apiRouteTree": {
     "fileCount": 138,
-    "sha256": "3b6f1020240d40954cdf9aed8595e051634fd0808a889b9690a0b878411651d2"
+    "sha256": "32f3337f64465b0f251ce5c98d831da9669ec43348fdc47eec75abe819e7994d"
   },
-  "implementationFingerprint": "95a60058be2d56332d19ab339a7d2292e87be0e3a7ba32aedbdf3a296d24f951"
+  "implementationFingerprint": "d2117db236f726e3235241bc9aaa05f389c4b023f94966ef826a3600bd8e65b1"
 }

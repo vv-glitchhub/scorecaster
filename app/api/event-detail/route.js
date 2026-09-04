@@ -3,6 +3,7 @@ import { buildEventDetail } from "../../../lib/event-detail.mjs";
 import { buildDecisionEvidenceContractV1, DECISION_EVIDENCE_CONTRACT_VERSION } from "../../../lib/decision-evidence-contract-v1.mjs";
 import { loadVerifiedMarketHistory } from "../../../lib/unified-capture-market-history-v1.mjs";
 import { buildVerifiedMarketJourneyV1, VERIFIED_MARKET_JOURNEY_VERSION } from "../../../lib/verified-market-journey-v1.mjs";
+import { loadVerifiedEventHistoryV1, VERIFIED_EVENT_HISTORY_VERSION } from "../../../lib/verified-event-history-v1.mjs";
 import { GET as getTopPicks } from "../top-picks/route.js";
 
 export const dynamic = "force-dynamic";
@@ -88,8 +89,20 @@ export async function GET(request) {
   }));
   detail.decisionEvidence = selectedEvidence?.contract || null;
   detail.decisionEvidenceVersion = DECISION_EVIDENCE_CONTRACT_VERSION;
-  detail.marketHistory = await verifiedMarketJourney(selectedPick);
+
+  const [marketHistory, eventHistory] = await Promise.all([
+    verifiedMarketJourney(selectedPick),
+    loadVerifiedEventHistoryV1({
+      sportKey: detail.sportKey || sport,
+      homeTeam: detail.homeTeam,
+      awayTeam: detail.awayTeam,
+      commenceTime: detail.commenceTime
+    })
+  ]);
+  detail.marketHistory = marketHistory;
   detail.marketHistoryVersion = VERIFIED_MARKET_JOURNEY_VERSION;
+  detail.verifiedEventHistory = eventHistory;
+  detail.verifiedEventHistoryVersion = VERIFIED_EVENT_HISTORY_VERSION;
 
   return Response.json({
     ok: true,
@@ -97,6 +110,7 @@ export async function GET(request) {
     generatedAt: payload?.generatedAt || detail.generatedAt,
     decisionEvidenceVersion: DECISION_EVIDENCE_CONTRACT_VERSION,
     marketHistoryVersion: VERIFIED_MARKET_JOURNEY_VERSION,
+    verifiedEventHistoryVersion: VERIFIED_EVENT_HISTORY_VERSION,
     detail
   }, { headers: CACHE_HEADERS });
 }

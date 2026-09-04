@@ -8,43 +8,31 @@
       "attempts": [
         {
           "attempt": 1,
-          "observedAt": "2026-09-02T17:02:09.236Z",
+          "observedAt": "2026-09-04T13:45:36.627Z",
           "status": 200,
-          "durationMs": 11205,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::gwd5k-1788368528804-896b4ddaa910",
+            "x-vercel-id": "fra1:iad1::iad1::kkfkt-1788529536627-738683aa0f23",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store", "age": 0, "vercelCache": "MISS", "failures": [] }
         },
         {
           "attempt": 2,
-          "observedAt": "2026-09-02T17:02:09.646Z",
+          "observedAt": "2026-09-04T13:45:46.759Z",
           "status": 200,
-          "durationMs": 409,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::gwd5k-1788368529339-570a915804ea",
+            "x-vercel-id": "fra1:iad1::iad1::klvpp-1788529546759-7fb77295d5c8",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store", "age": 0, "vercelCache": "MISS", "failures": [] }
         }
       ]
     },
@@ -53,88 +41,64 @@
       "attempts": [
         {
           "attempt": 1,
-          "observedAt": "2026-09-02T17:02:12.086Z",
+          "observedAt": "2026-09-04T13:45:57.924Z",
           "status": 200,
-          "durationMs": 2440,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store, max-age=0",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::t5hf7-1788368529742-00050122cf8e",
+            "x-vercel-id": "fra1:iad1::iad1::b825p-1788529557924-861299dce7d6",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store, max-age=0",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store, max-age=0", "age": 0, "vercelCache": "MISS", "failures": [] }
         },
         {
           "attempt": 2,
-          "observedAt": "2026-09-02T17:02:12.714Z",
+          "observedAt": "2026-09-04T13:46:08.200Z",
           "status": 200,
-          "durationMs": 628,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store, max-age=0",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::4xdsg-1788368532184-a0dac7f879d4",
+            "x-vercel-id": "fra1:iad1::iad1::87rc6-1788529568200-828a02a223ef",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store, max-age=0",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store, max-age=0", "age": 0, "vercelCache": "MISS", "failures": [] }
         }
       ]
     },
     {
-      "path": "/api/top-picks?view=summary",
+      "path": "/api/unified-data/freshness",
       "attempts": [
         {
           "attempt": 1,
-          "observedAt": "2026-09-02T17:02:13.299Z",
+          "observedAt": "2026-09-04T13:47:57.575Z",
           "status": 200,
-          "durationMs": 585,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store, max-age=0",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::r8f8z-1788368532810-aef9d9792c6b",
+            "x-vercel-id": "fra1:iad1::iad1::42p2l-1788529677575-96205195eb34",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store, max-age=0",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store, max-age=0", "age": 0, "vercelCache": "MISS", "failures": [] }
         },
         {
           "attempt": 2,
-          "observedAt": "2026-09-02T17:02:13.827Z",
+          "observedAt": "2026-09-04T13:48:08.153Z",
           "status": 200,
-          "durationMs": 528,
+          "durationMs": null,
           "headers": {
             "cache-control": "no-store, max-age=0",
             "age": "0",
             "x-vercel-cache": "MISS",
-            "x-vercel-id": "arn1::iad1::448kw-1788368533395-b82be7e77891",
+            "x-vercel-id": "fra1:iad1::iad1::9wp5x-1788529688153-ac044478a658",
             "content-type": "application/json"
           },
-          "cacheAssessment": {
-            "passed": true,
-            "cacheControl": "no-store, max-age=0",
-            "age": 0,
-            "vercelCache": "MISS",
-            "failures": []
-          }
+          "cacheAssessment": { "passed": true, "cacheControl": "no-store, max-age=0", "age": 0, "vercelCache": "MISS", "failures": [] }
         }
       ]
     }
@@ -149,5 +113,5 @@
     "personalDataIncluded": false
   },
   "paperOnly": true,
-  "evidenceId": "e47099ea8ccc8b96f40ebfdcab9bd73c37dcc66ebb2f071c3dc8bacb875ea849"
+  "evidenceId": "5a9e5c22f0847f916a325bf533a404d04bc3cf221e8d7ea09a08a5a4b5aa5044"
 }
