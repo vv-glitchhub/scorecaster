@@ -21,25 +21,41 @@ A retained `passed` state is accepted only when all required checks pass:
 
 Missing or malformed evidence becomes `unverified`; it is never imputed as passed.
 
-## Stale-evidence protection
+## Cache-relevant implementation boundary
 
-`config/live-data-cache-implementation.json` fingerprints exactly the cache-relevant implementation:
+`config/live-data-cache-implementation.json` fingerprints the sources that define whether live API traffic can be cached:
 
 - `config/live-data-cache-boundary.json` policy
 - `next.config.js`
 - `app/components/PwaRegister.jsx`
 - `public/sw.js`
-- the deterministic SHA-256 tree of every `app/api/**/route` source
+- the deterministic set of `app/api/**/route` paths
 
-The cache evidence regression recomputes those SHA-256 values from the actual repository sources. A change to the API header rule, PWA registration, service worker, or cache policy makes the retained production proof stale and blocks the test until production is re-probed and the reviewed evidence is deliberately refreshed.
+The route tree is intentionally a **route-surface fingerprint**, not a hash of unrelated business logic inside every API handler. This avoids an impossible pre-deployment evidence cycle where any ordinary API implementation change would invalidate production cache proof before that change could be deployed.
 
-Unrelated application changes do not invalidate the retained proof merely because the Git commit changes.
+Content-level cache safety remains strict. `scripts/live-data-cache-boundary-audit.mjs` scans the actual API source on every CI run and blocks any route that introduces public CDN caching such as `public`, `s-maxage`, or `stale-while-revalidate`. It also verifies the global API header rule, service-worker API bypass, offline asset allowlist, reviewed service-worker registration, and paper-only product boundary.
+
+A change to the cache policy, global headers, service-worker behavior, PWA registration, or API route surface still invalidates retained production evidence and requires a deliberate refresh.
 
 ## Current retained observation
 
-The retained V1 evidence records two consecutive production observations for each of `/api/health`, `/api/recommendations?limit=1`, and `/api/top-picks?view=summary` from deployment `dpl_5eYppxkytAGEQojqnpVMmhM7nkQW`, commit `2a11018e150ccbf4e4e488d3f835143b4302dfab`. All six observations were HTTP 200 with `Cache-Control: no-store` (optionally including `max-age=0`), `Age: 0`, and `x-vercel-cache: MISS`.
+The retained evidence is bound to cache implementation fingerprint:
 
-The response body itself is not retained in the evidence document.
+`d2117db236f726e3235241bc9aaa05f389c4b023f94966ef826a3600bd8e65b1`
+
+It records two consecutive production observations for each of:
+
+- `/api/health`
+- `/api/recommendations?limit=1`
+- `/api/unified-data/freshness`
+
+The observations were made against production deployment `dpl_D6eswLJRPba3BqEbgGFzah9WNKNj`, commit `883f730c84ab0f718f8bcf4a2accac6ea291e65b`, on `scorecaster.vercel.app` on 2026-09-04. All six observations were HTTP 200 with `Cache-Control: no-store` (optionally including `max-age=0`), `Age: 0`, and `x-vercel-cache: MISS`.
+
+The redacted evidence artifact is:
+
+`artifacts/live-data-cache-production-probe.json#5a9e5c22f0847f916a325bf533a404d04bc3cf221e8d7ea09a08a5a4b5aa5044`
+
+No response body is retained in the evidence document.
 
 ## Safety boundary
 
