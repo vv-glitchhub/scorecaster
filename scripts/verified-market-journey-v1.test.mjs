@@ -96,7 +96,8 @@ test("event-detail and Match Journey UI wire the safe market history contract", 
 
   assert.match(route, /loadVerifiedMarketHistory/);
   assert.match(route, /buildVerifiedMarketJourneyV1/);
-  assert.match(route, /detail\.marketHistory = await verifiedMarketJourney\(selectedPick\)/);
+  assert.match(route, /verifiedMarketJourney\(selectedPick\)/);
+  assert.match(route, /detail\.marketHistory = marketHistory/);
   assert.match(route, /eventPicks\.find/);
   assert.match(page, /VerifiedMarketJourneyClient/);
   assert.match(loader, /\/api\/event-detail/);
