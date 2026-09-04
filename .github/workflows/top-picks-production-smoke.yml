@@ -1,0 +1,57 @@
+name: Scorecaster Top Picks Production Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: scorecaster-top-picks-production-smoke
+  cancel-in-progress: true
+
+jobs:
+  production-smoke:
+    name: top-picks-production-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Probe Top Picks summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          headers="$(mktemp)"
+          body="$(mktemp)"
+          status="$(curl --silent --show-error --location \
+            --max-time 45 \
+            --dump-header "$headers" \
+            --output "$body" \
+            --write-out '%{http_code}' \
+            'https://scorecaster.vercel.app/api/top-picks?view=summary')"
+
+          echo "Top Picks HTTP status: $status"
+          test "$status" = "200"
+          grep -Eiq '^cache-control:.*no-store' "$headers"
+
+          BODY_PATH="$body" node <<'NODE'
+          const fs = require('fs');
+          const body = JSON.parse(fs.readFileSync(process.env.BODY_PATH, 'utf8'));
+          if (body?.ok !== true) throw new Error('Top Picks response is not ok=true');
+          if (body?.view !== 'summary') throw new Error('Top Picks response is not summary view');
+          if (body?.paperOnly !== true) throw new Error('Top Picks paper-only boundary is missing');
+          if (!Array.isArray(body?.data)) throw new Error('Top Picks data is not an array');
+          if (!Array.isArray(body?.featured)) throw new Error('Top Picks featured is not an array');
+          console.log(JSON.stringify({
+            ok: body.ok,
+            view: body.view,
+            paperOnly: body.paperOnly,
+            count: body.count,
+            featuredCount: body.featured.length
+          }));
+          NODE
