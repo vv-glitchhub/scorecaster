@@ -6,10 +6,11 @@ import EventDetailClient from "./EventDetailClient";
 import EventMarketMicrostructurePanel from "./EventMarketMicrostructurePanel";
 import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
 import FootballIndependentEvidencePanel from "./FootballIndependentEvidencePanel";
+import MatchCenterV4 from "./MatchCenterV4";
 
 export const metadata = {
   title: "Event Detail",
-  description: "Verified market, Match Journey and Story, independent football evidence, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
+  description: "Verified Match Center, market, Match Journey and Story, independent football evidence, professional explanation, Market Microstructure, Context Engine, Unified Sports Data, AI provenance and paper-only event analysis."
 };
 
 export default async function EventDetailPage({ params, searchParams }) {
@@ -26,6 +27,8 @@ export default async function EventDetailPage({ params, searchParams }) {
 
   return (
     <div className="space-y-10">
+      <MatchCenterV4 eventId={eventId} sport={sport} selection={selection} />
+
       <section className="rounded-[1.55rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5" data-match-journey-story-v2="true">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
