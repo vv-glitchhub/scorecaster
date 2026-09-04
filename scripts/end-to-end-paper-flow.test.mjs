@@ -53,6 +53,26 @@ test("My picks is cloud-first with authenticated settlement and a local fallback
   assert.match(cloudRoute, /modelMode: cleanText/);
 });
 
+test("paper coupons group existing paper picks without adding a new server or real-money surface", async () => {
+  const [layout, coupons] = await Promise.all([
+    read("app/tracking/layout.jsx"),
+    read("app/tracking/coupons/page.jsx")
+  ]);
+
+  assert.match(layout, /href: "\/tracking\/coupons"/);
+  assert.match(coupons, /scorecaster_paper_coupons_v1/);
+  assert.match(coupons, /fetch\("\/api\/cloud\/bets", \{ cache: "no-store" \}\)/);
+  assert.match(coupons, /getTrackedBets/);
+  assert.match(coupons, /Oikein/);
+  assert.match(coupons, /Ei osunut/);
+  assert.match(coupons, /PAPER ONLY/);
+  assert.match(coupons, /Yhdelle ottelulle voi olla kupongissa vain yksi valinta/);
+  assert.match(coupons, /localStorage\.setItem\(COUPON_STORAGE_KEY/);
+  assert.match(coupons, /deriveCouponStatus/);
+  assert.match(coupons, /sourceBetId/);
+  assert.doesNotMatch(coupons, /placeBet|deposit|withdraw|bookmakerLogin|\/api\/cloud\/slips/i);
+});
+
 test("audited and legacy paper saves never relabel market consensus as an independent model", async () => {
   const [route, detail, mobileDetail, mobilePicks, betting, universe, agent] = await Promise.all([
     read("app/api/cloud/bets/audited/route.js"),
