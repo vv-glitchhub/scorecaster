@@ -53,6 +53,32 @@ test("My picks is cloud-first with authenticated settlement and a local fallback
   assert.match(cloudRoute, /modelMode: cleanText/);
 });
 
+test("paper coupons group existing paper picks without crossing the real-money boundary", async () => {
+  const [layout, coupons, route, migration] = await Promise.all([
+    read("app/tracking/layout.jsx"),
+    read("app/tracking/coupons/page.jsx"),
+    read("app/api/cloud/slips/route.js"),
+    read("supabase/scorecaster_paper_coupons_v1.sql")
+  ]);
+
+  assert.match(layout, /href: "\/tracking\/coupons"/);
+  assert.match(coupons, /\/api\/cloud\/slips/);
+  assert.match(coupons, /Oikein/);
+  assert.match(coupons, /Ei osunut/);
+  assert.match(coupons, /PAPER ONLY/);
+  assert.match(coupons, /Yhdelle ottelulle voi olla kupongissa vain yksi valinta/);
+  assert.match(route, /getAuthenticatedContext\(request\)/);
+  assert.match(route, /mutationOriginAllowed\(request\)/);
+  assert.match(route, /\.eq\("user_id", auth\.user\.id\)/);
+  assert.match(route, /Only open paper picks can be added to a new coupon/);
+  assert.match(route, /max_stake_percent/);
+  assert.match(route, /source_bet_id/);
+  assert.match(route, /deriveSlipStatus/);
+  assert.doesNotMatch(route, /bookmaker.*(?:login|password|token)|placeBet|deposit|withdraw/i);
+  assert.match(migration, /add column if not exists source_bet_id uuid references public\.bets\(id\) on delete set null/);
+  assert.match(migration, /idx_bet_slip_items_unique_source_per_slip/);
+});
+
 test("audited and legacy paper saves never relabel market consensus as an independent model", async () => {
   const [route, detail, mobileDetail, mobilePicks, betting, universe, agent] = await Promise.all([
     read("app/api/cloud/bets/audited/route.js"),
