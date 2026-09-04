@@ -105,6 +105,8 @@ test("public Event Detail API validates query and resolves only through Top Pick
   assert.ok(detailIndex > topPicksIndex);
   assert.match(route, /ALLOWED_QUERY_KEYS/);
   assert.match(route, /The event is not present in the current verified analysis/);
+  assert.match(route, /loadVerifiedEventHistoryV1/);
+  assert.match(route, /verifiedEventHistoryVersion/);
   assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(route, /ODDS_API_KEY/);
   assert.doesNotMatch(route, /OPENAI_API_KEY/);
@@ -164,10 +166,11 @@ test("Event Detail V3 prioritizes the decision ticket and keeps supporting model
   assert.match(native, /showTimeline/);
 });
 
-test("Match Center V4 consolidates the Flashscore-style research surface without fabricating data", async () => {
-  const [page, center] = await Promise.all([
+test("Match Center V4 consolidates verified research and historical results without fabricating data", async () => {
+  const [page, center, history] = await Promise.all([
     readFile(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/event/[eventId]/MatchCenterV4.jsx", import.meta.url), "utf8")
+    readFile(new URL("../app/event/[eventId]/MatchCenterV4.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../lib/verified-event-history-v1.mjs", import.meta.url), "utf8")
   ]);
 
   assert.match(page, /MatchCenterV4/);
@@ -178,8 +181,10 @@ test("Match Center V4 consolidates the Flashscore-style research surface without
   assert.match(center, /cache: "no-store"/);
   assert.match(center, /verified data required/);
   assert.match(center, /A predicted XI is never invented/);
-  assert.match(center, /H2H awaits verified history data/);
-  assert.match(center, /Standings data bridge is not active yet/);
+  assert.match(center, /Head to head/);
+  assert.match(center, /derived from Scorecaster verified final results/);
+  assert.match(history, /finality_verified/);
+  assert.match(history, /\.lt\("commence_time", cutoffIso\)/);
   assert.match(center, /paper only/);
   assert.doesNotMatch(center, /window\.location|bookmaker.*(?:login|password)|placeBet|deposit|withdraw/i);
 });
