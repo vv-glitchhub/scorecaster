@@ -91,7 +91,6 @@ jobs:
           echo "Unified Data captured fresh post-collector evidence."
 
       - name: Capture normalized multi-sport analytics
-        if: steps.freshness.outputs.required == 'true'
         run: |
           status=$(curl --silent --show-error \
             --retry 2 \
