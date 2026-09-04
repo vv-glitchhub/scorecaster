@@ -27,6 +27,14 @@
       "category": "paper-bets"
     },
     {
+      "table": "external_slips",
+      "ownerColumn": "user_id",
+      "migration": "supabase/scorecaster_external_slip_tracking_v1.sql",
+      "clientAccess": ["select", "insert", "update", "delete"],
+      "crossUserSafeNoopUpdate": true,
+      "category": "external-slip-reference"
+    },
+    {
       "table": "watchlist_items",
       "ownerColumn": "user_id",
       "migration": "supabase/scorecaster_watchlist_alerts.sql",
