@@ -6,7 +6,7 @@ const routeUrl = new URL("../app/api/internal/sports-analytics/route.js", import
 
 test("sports analytics worker stores immutable football evidence readiness with the shadow ledger", async () => {
   const source = await readFile(routeUrl, "utf8");
-  assert.match(source, /version:\s*"sports-analytics-worker-v7"/);
+  assert.match(source, /version:\s*"sports-analytics-worker-v8"/);
   assert.match(source, /footballEvidenceAuditVersion:\s*"football-independent-evidence-v1"/);
   assert.match(source, /footballEvidenceReadiness/);
   assert.match(source, /evidenceAuditCapturedBeforeStart:\s*true/);
