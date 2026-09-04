@@ -5,19 +5,19 @@
     "live-data-pwa-cache-boundary": {
       "status": "passed",
       "evidenceType": "vercel-production-double-probe-v1",
-      "implementationFingerprint": "95a60058be2d56332d19ab339a7d2292e87be0e3a7ba32aedbdf3a296d24f951",
+      "implementationFingerprint": "d2117db236f726e3235241bc9aaa05f389c4b023f94966ef826a3600bd8e65b1",
       "verifiedDeployment": {
-        "deploymentId": "dpl_5eYppxkytAGEQojqnpVMmhM7nkQW",
-        "commitSha": "2a11018e150ccbf4e4e488d3f835143b4302dfab",
+        "deploymentId": "dpl_D6eswLJRPba3BqEbgGFzah9WNKNj",
+        "commitSha": "883f730c84ab0f718f8bcf4a2accac6ea291e65b",
         "environment": "production",
         "host": "scorecaster.vercel.app"
       },
-      "observedAt": "2026-09-02T17:02:13.827Z",
-      "evidenceRef": "artifacts/live-data-cache-production-probe.json#e47099ea8ccc8b96f40ebfdcab9bd73c37dcc66ebb2f071c3dc8bacb875ea849",
+      "observedAt": "2026-09-04T13:48:08.153Z",
+      "evidenceRef": "artifacts/live-data-cache-production-probe.json#5a9e5c22f0847f916a325bf533a404d04bc3cf221e8d7ea09a08a5a4b5aa5044",
       "probes": [
         {
           "path": "/api/health",
-          "observedAt": "2026-09-02T17:02:09.236Z",
+          "observedAt": "2026-09-04T13:45:36.627Z",
           "httpStatus": 200,
           "cacheControl": "no-store",
           "ageSeconds": 0,
@@ -25,7 +25,7 @@
         },
         {
           "path": "/api/health",
-          "observedAt": "2026-09-02T17:02:09.646Z",
+          "observedAt": "2026-09-04T13:45:46.759Z",
           "httpStatus": 200,
           "cacheControl": "no-store",
           "ageSeconds": 0,
@@ -33,7 +33,7 @@
         },
         {
           "path": "/api/recommendations?limit=1",
-          "observedAt": "2026-09-02T17:02:12.086Z",
+          "observedAt": "2026-09-04T13:45:57.924Z",
           "httpStatus": 200,
           "cacheControl": "no-store, max-age=0",
           "ageSeconds": 0,
@@ -41,23 +41,23 @@
         },
         {
           "path": "/api/recommendations?limit=1",
-          "observedAt": "2026-09-02T17:02:12.714Z",
+          "observedAt": "2026-09-04T13:46:08.200Z",
           "httpStatus": 200,
           "cacheControl": "no-store, max-age=0",
           "ageSeconds": 0,
           "vercelCache": "MISS"
         },
         {
-          "path": "/api/top-picks?view=summary",
-          "observedAt": "2026-09-02T17:02:13.299Z",
+          "path": "/api/unified-data/freshness",
+          "observedAt": "2026-09-04T13:47:57.575Z",
           "httpStatus": 200,
           "cacheControl": "no-store, max-age=0",
           "ageSeconds": 0,
           "vercelCache": "MISS"
         },
         {
-          "path": "/api/top-picks?view=summary",
-          "observedAt": "2026-09-02T17:02:13.827Z",
+          "path": "/api/unified-data/freshness",
+          "observedAt": "2026-09-04T13:48:08.153Z",
           "httpStatus": 200,
           "cacheControl": "no-store, max-age=0",
           "ageSeconds": 0,
