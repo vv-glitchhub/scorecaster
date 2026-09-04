@@ -30,7 +30,7 @@
     "paths": [
       "/api/health",
       "/api/recommendations?limit=1",
-      "/api/top-picks?view=summary"
+      "/api/unified-data/freshness"
     ],
     "requiredCacheControlTokens": ["no-store"],
     "forbiddenVercelCacheStates": ["HIT", "STALE"],
