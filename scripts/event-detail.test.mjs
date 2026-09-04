@@ -163,3 +163,23 @@ test("Event Detail V3 prioritizes the decision ticket and keeps supporting model
   assert.match(native, /showFormRest/);
   assert.match(native, /showTimeline/);
 });
+
+test("Match Center V4 consolidates the Flashscore-style research surface without fabricating data", async () => {
+  const [page, center] = await Promise.all([
+    readFile(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/event/[eventId]/MatchCenterV4.jsx", import.meta.url), "utf8")
+  ]);
+
+  assert.match(page, /MatchCenterV4/);
+  assert.match(page, /<MatchCenterV4 eventId=\{eventId\} sport=\{sport\} selection=\{selection\}/);
+  assert.match(center, /data-match-center-v4/);
+  for (const token of ["summary", "form", "lineups", "h2h", "standings", "players", "markets"]) assert.match(center, new RegExp(`\\"${token}\\"`));
+  assert.match(center, /\/api\/event-detail/);
+  assert.match(center, /cache: "no-store"/);
+  assert.match(center, /verified data required/);
+  assert.match(center, /A predicted XI is never invented/);
+  assert.match(center, /H2H awaits verified history data/);
+  assert.match(center, /Standings data bridge is not active yet/);
+  assert.match(center, /paper only/);
+  assert.doesNotMatch(center, /window\.location|bookmaker.*(?:login|password)|placeBet|deposit|withdraw/i);
+});
