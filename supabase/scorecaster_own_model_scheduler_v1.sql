@@ -66,7 +66,7 @@ begin
     raise exception 'production data pipeline scheduler token unavailable';
   end if;
 
-  target_url := 'https://scorecaster.vercel.app/api/internal/supabase-scheduler?task=' || p_task;
+  target_url := 'https://scorecaster.vercel.app/api/internal/collector/maintenance?task=' || p_task;
 
   select net.http_post(
     url := target_url,
