@@ -78,6 +78,8 @@ create index if not exists idx_unified_data_provider_observation_health
   on public.unified_data_provider_observations(provider_key, ok, captured_at desc);
 create index if not exists idx_unified_data_provider_observation_event
   on public.unified_data_provider_observations(event_id, captured_at desc);
+create index if not exists idx_unified_data_provider_observation_captured_at
+  on public.unified_data_provider_observations(captured_at desc);
 
 create table if not exists public.unified_data_closing_records (
   id uuid primary key default gen_random_uuid(),
