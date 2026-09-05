@@ -166,23 +166,28 @@ test("Event Detail V3 prioritizes the decision ticket and keeps supporting model
   assert.match(native, /showTimeline/);
 });
 
-test("Match Center V4 consolidates verified research and historical results without fabricating data", async () => {
+test("Match Center V5 raises the event research surface without fabricating lineups or probabilities", async () => {
   const [page, center, history] = await Promise.all([
     readFile(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8"),
-    readFile(new URL("../app/event/[eventId]/MatchCenterV4.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/event/[eventId]/MatchCenterV5.jsx", import.meta.url), "utf8"),
     readFile(new URL("../lib/verified-event-history-v1.mjs", import.meta.url), "utf8")
   ]);
 
-  assert.match(page, /MatchCenterV4/);
-  assert.match(page, /<MatchCenterV4 eventId=\{eventId\} sport=\{sport\} selection=\{selection\}/);
-  assert.match(center, /data-match-center-v4/);
-  for (const token of ["summary", "form", "lineups", "h2h", "standings", "players", "markets"]) assert.match(center, new RegExp(`\\"${token}\\"`));
+  assert.match(page, /MatchCenterV5/);
+  assert.match(page, /<MatchCenterV5 eventId=\{eventId\} sport=\{sport\} selection=\{selection\}/);
+  assert.match(center, /data-match-center-v5/);
+  assert.match(center, /data-probability-center-v5/);
+  for (const token of ["summary", "form", "lineups", "h2h", "standings", "players", "markets", "media"]) assert.match(center, new RegExp(`\\"${token}\\"`));
   assert.match(center, /\/api\/event-detail/);
+  assert.match(center, /\/api\/top-picks\?sports=/);
   assert.match(center, /cache: "no-store"/);
-  assert.match(center, /verified data required/);
-  assert.match(center, /A predicted XI is never invented/);
+  assert.match(center, /startingPlayers/);
+  assert.match(center, /positionGroup/);
+  assert.match(center, /Players are never placed on the pitch by guesswork/);
+  assert.match(center, /probability source: market/);
+  assert.match(center, /derived only from final results verified before kickoff/);
   assert.match(center, /Head to head/);
-  assert.match(center, /derived from Scorecaster verified final results/);
+  assert.match(center, /licensed player provider required/);
   assert.match(history, /finality_verified/);
   assert.match(history, /\.lt\("commence_time", cutoffIso\)/);
   assert.match(center, /paper only/);
