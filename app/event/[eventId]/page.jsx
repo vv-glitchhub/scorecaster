@@ -6,7 +6,7 @@ import EventDetailClient from "./EventDetailClient";
 import EventMarketMicrostructurePanel from "./EventMarketMicrostructurePanel";
 import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
 import FootballIndependentEvidencePanel from "./FootballIndependentEvidencePanel";
-import MatchCenterV4 from "./MatchCenterV4";
+import MatchCenterV5 from "./MatchCenterV5";
 
 export const metadata = {
   title: "Event Detail",
@@ -27,7 +27,7 @@ export default async function EventDetailPage({ params, searchParams }) {
 
   return (
     <div className="space-y-10">
-      <MatchCenterV4 eventId={eventId} sport={sport} selection={selection} />
+      <MatchCenterV5 eventId={eventId} sport={sport} selection={selection} />
 
       <section className="rounded-[1.55rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5" data-match-journey-story-v2="true">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
