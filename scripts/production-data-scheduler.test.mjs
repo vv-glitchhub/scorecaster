@@ -6,18 +6,19 @@ const root = new URL("../", import.meta.url);
 const source = (path) => readFile(new URL(path, root), "utf8");
 
 test("Supabase scheduler bridge is fail-closed and reuses protected workers", async () => {
-  const route = await source("app/api/internal/supabase-scheduler/route.js");
+  const route = await source("app/api/internal/collector/maintenance/route.js");
   assert.match(route, /timingSafeEqual/);
   assert.match(route, /scorecaster_internal_secrets_v1/);
   assert.match(route, /production_data_pipeline_scheduler/);
   assert.match(route, /x-scorecaster-scheduler-token/);
-  assert.match(route, /new Map\(\[/);
+  assert.match(route, /SCHEDULER_TASKS = new Map\(\[/);
   assert.match(route, /"collector"/);
   assert.match(route, /"unified-data"/);
   assert.match(route, /"sports-analytics"/);
   assert.match(route, /Authorization: `Bearer \$\{cronSecret\}`/);
   assert.match(route, /protectedWorkerRequired !== false/);
   assert.match(route, /status: "skipped-fresh"/);
+  assert.match(route, /export async function POST/);
   assert.match(route, /paperOnly: true/);
   assert.doesNotMatch(route, /real[-_ ]?money/i);
 });
@@ -35,7 +36,7 @@ test("production data scheduler has independent staggered pg_cron jobs", async (
   assert.match(sql, /'7,22,37,52 \* \* \* \*'/);
   assert.match(sql, /scorecaster-production-sports-analytics-primary-v1/);
   assert.match(sql, /'12,42 \* \* \* \*'/);
-  assert.match(sql, /https:\/\/scorecaster\.vercel\.app\/api\/internal\/supabase-scheduler\?task=/);
+  assert.match(sql, /https:\/\/scorecaster\.vercel\.app\/api\/internal\/collector\/maintenance\?task=/);
   assert.match(sql, /timeout_milliseconds := 120000/);
 });
 
