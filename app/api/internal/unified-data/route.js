@@ -16,6 +16,14 @@ const HEADERS = {
   "Cache-Control": "no-store",
   "X-Content-Type-Options": "nosniff"
 };
+const NON_OPERATIONAL_MODES = new Set([
+  "not_configured",
+  "not_verified",
+  "unavailable",
+  "unsupported_league",
+  "missing_coordinates",
+  "insufficient_history"
+]);
 
 function response(payload, status = 200) {
   return Response.json(payload, { status, headers: HEADERS });
@@ -76,7 +84,6 @@ async function finalizeClosingRecords(admin, now) {
     .order("captured_at", { ascending: true })
     .limit(5000);
   if (error) throw error;
-
   const records = groupSnapshots(rows || [])
     .map((group) => buildClosingRecord(group, { now }))
     .filter(Boolean);
@@ -99,7 +106,12 @@ async function recentProviderQuality(admin, now) {
     .order("captured_at", { ascending: false })
     .limit(2000);
   if (error) throw error;
-  return summarizeProviderQuality(data || []);
+
+  // Configuration gaps and inapplicable data are not outages. They stay visible
+  // in the raw audit observations, but only operational attempts are allowed to
+  // affect provider-health availability and incident severity.
+  const operational = (data || []).filter((row) => !NON_OPERATIONAL_MODES.has(String(row.mode || "").toLowerCase()));
+  return summarizeProviderQuality(operational);
 }
 
 async function syncIncidents(admin, incidents, nowIso) {
@@ -167,7 +179,7 @@ export async function GET(request) {
 
     return response({
       ok: true,
-      version: "unified-sports-data-worker-v3",
+      version: "unified-sports-data-worker-v3.1",
       capturedAt,
       selections: capture.stored.length,
       providerObservations: capture.observationCount,
