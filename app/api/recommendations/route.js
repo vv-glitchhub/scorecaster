@@ -1,15 +1,28 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
+import { SPORTS } from "../../../lib/sports.js";
 
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
 };
-
-const EXTRA_DEFAULT_SPORTS = [
+const SUPPORTED_KEYS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
+const FALLBACK_ACTIVE_SPORTS = [
   "americanfootball_nfl",
-  "soccer_italy_serie_a",
+  "baseball_mlb",
+  "basketball_nba",
+  "basketball_wnba",
+  "icehockey_finland_liiga",
+  "icehockey_nhl",
+  "icehockey_sweden_hockey_league",
+  "soccer_epl",
+  "soccer_finland_veikkausliiga",
+  "soccer_france_ligue_one",
   "soccer_germany_bundesliga",
-  "soccer_france_ligue_one"
+  "soccer_italy_serie_a",
+  "soccer_norway_eliteserien",
+  "soccer_spain_la_liga",
+  "soccer_sweden_allsvenskan",
+  "soccer_usa_mls"
 ];
 
 function parseLimit(searchParams) {
@@ -37,6 +50,33 @@ async function loadTopPicks(target) {
   return { ok: true, status: response.status, payload, data: Array.isArray(payload.data) ? payload.data : [] };
 }
 
+function recommendationCapable(key) {
+  return SUPPORTED_KEYS.has(key) && !String(key).endsWith("_winner");
+}
+
+async function loadActiveSportKeys(origin) {
+  try {
+    const response = await fetch(new URL("/api/sports", origin), {
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000)
+    });
+    const payload = await response.json().catch(() => null);
+    const active = (Array.isArray(payload?.data) ? payload.data : [])
+      .filter((sport) => sport?.active !== false && recommendationCapable(sport?.key))
+      .map((sport) => sport.key);
+    if (response.ok && active.length) return [...new Set(active)].sort();
+  } catch {
+    // Fall through to the bounded fallback universe below.
+  }
+  return FALLBACK_ACTIVE_SPORTS.filter(recommendationCapable).sort();
+}
+
+function chunks(values, size = 12) {
+  const output = [];
+  for (let index = 0; index < values.length; index += size) output.push(values.slice(index, index + size));
+  return output;
+}
+
 function uniquePicks(groups = []) {
   const picks = new Map();
   for (const group of groups) {
@@ -52,6 +92,11 @@ function uniquePicks(groups = []) {
 
 export async function GET(request) {
   const url = new URL(request.url);
+  const unknown = [...url.searchParams.keys()].filter((key) => !["limit", "sports"].includes(key));
+  if (unknown.length) {
+    return Response.json({ ok: false, error: "Unsupported query parameter" }, { status: 400, headers: CACHE_HEADERS });
+  }
+
   const limit = parseLimit(url.searchParams);
   if (!limit) {
     return Response.json(
@@ -61,12 +106,14 @@ export async function GET(request) {
   }
 
   const requestedSports = url.searchParams.get("sports");
-  const targets = requestedSports
-    ? [topPicksUrl(url.origin, requestedSports)]
-    : [
-        topPicksUrl(url.origin),
-        topPicksUrl(url.origin, EXTRA_DEFAULT_SPORTS.slice().sort().join(","))
-      ];
+  const activeSports = requestedSports
+    ? [...new Set(requestedSports.split(",").map((item) => item.trim()).filter(recommendationCapable))].sort()
+    : await loadActiveSportKeys(url.origin);
+  if (!activeSports.length) {
+    return Response.json({ ok: false, error: "No active supported sports are available" }, { status: 503, headers: CACHE_HEADERS });
+  }
+
+  const targets = chunks(activeSports, 12).map((group) => topPicksUrl(url.origin, group.join(",")));
 
   try {
     const results = await Promise.all(targets.map(loadTopPicks));
@@ -98,7 +145,9 @@ export async function GET(request) {
         leagues,
         markets,
         sportFamilies,
-        crossSportCoverage: requestedSports ? "requested" : "season-default-plus-active-extras",
+        requestedSportCount: activeSports.length,
+        upstreamBatchCount: targets.length,
+        crossSportCoverage: requestedSports ? "requested" : "all-active-supported",
         partialUpstream: successful.length !== results.length,
         disclaimer: "Paper-only decision support. PLAY means the current data passed Scorecaster's evidence and market gates; it is not a guarantee and no real-money bet is placed."
       },
