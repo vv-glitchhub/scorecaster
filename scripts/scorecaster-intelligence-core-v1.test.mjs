@@ -111,7 +111,7 @@ test("own football baseline is market-independent and returns normalized probabi
   assert.equal(prediction.status, "ready");
   assert.equal(prediction.modelId, OWN_FOOTBALL_MODEL_ID);
   assert.equal(prediction.independentFromMarket, true);
-  assert.equal(prediction.shadowOnly, true);
+  assert.equal(prediction.productionPlayUpgradeAllowed, false);
   assert.equal(prediction.calibration.productionEligible, false);
   const total = prediction.probabilities.home + prediction.probabilities.draw + prediction.probabilities.away;
   assert.ok(Math.abs(total - 1) < 1e-10);
