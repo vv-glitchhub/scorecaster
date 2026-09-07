@@ -20,8 +20,28 @@ jobs:
   production-smoke:
     name: top-picks-production-smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 3
+    timeout-minutes: 12
     steps:
+      - name: Wait for exact production commit
+        if: github.event_name == 'push'
+        env:
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            observed="$(curl --silent --show-error --max-time 15 'https://scorecaster.vercel.app/api/health' \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit", ""))' 2>/dev/null || true)"
+            if [[ "$observed" == "$TARGET_SHA" ]]; then
+              echo "Exact production commit is live: ${TARGET_SHA:0:8}"
+              exit 0
+            fi
+            echo "Waiting for production target=${TARGET_SHA:0:8} observed=${observed:0:8}"
+            sleep 15
+          done
+          echo "Production did not reach the exact target commit in time" >&2
+          exit 1
+
       - name: Probe Top Picks summary
         shell: bash
         run: |
@@ -29,7 +49,7 @@ jobs:
           headers="$(mktemp)"
           body="$(mktemp)"
           status="$(curl --silent --show-error --location \
-            --max-time 45 \
+            --max-time 60 \
             --dump-header "$headers" \
             --output "$body" \
             --write-out '%{http_code}' \
@@ -47,11 +67,28 @@ jobs:
           if (body?.paperOnly !== true) throw new Error('Top Picks paper-only boundary is missing');
           if (!Array.isArray(body?.data)) throw new Error('Top Picks data is not an array');
           if (!Array.isArray(body?.featured)) throw new Error('Top Picks featured is not an array');
+          if (body?.agentVersion !== 'V12-play-pipeline-repair-v1') throw new Error(`Unexpected Top Picks agent version: ${body?.agentVersion}`);
+          if (body?.maxIntelligenceEnrichments !== 24) throw new Error(`Unexpected enrichment cap: ${body?.maxIntelligenceEnrichments}`);
+          const markets = new Set(Array.isArray(body?.markets) ? body.markets : []);
+          if (!['h2h', 'spreads', 'totals'].every((market) => markets.has(market))) throw new Error('Top Picks is missing a repaired market family');
+          if (!body?.decisionCounts || !body?.ownedEvidence) throw new Error('Top Picks production diagnostics are missing');
+          const decisionTotal = Number(body.decisionCounts.PLAY || 0) + Number(body.decisionCounts.CAUTION || 0) + Number(body.decisionCounts.SKIP || 0);
+          if (decisionTotal !== Number(body.count || 0)) throw new Error('Top Picks decision counts do not match response count');
+          for (const pick of body.data) {
+            if (pick?.paperOnly !== true) throw new Error('A Top Picks summary row escaped the paper-only boundary');
+            if (pick?.probabilityAdjustedByIntelligence !== false) throw new Error('Independent evidence changed a production probability');
+          }
           console.log(JSON.stringify({
             ok: body.ok,
             view: body.view,
             paperOnly: body.paperOnly,
+            agentVersion: body.agentVersion,
             count: body.count,
-            featuredCount: body.featured.length
+            featuredCount: body.featured.length,
+            markets: body.markets,
+            decisionCounts: body.decisionCounts,
+            intelligenceLevels: body.intelligenceLevels,
+            ownedEvidence: body.ownedEvidence,
+            marketCandidateCount: body.marketCandidateCount
           }));
           NODE
