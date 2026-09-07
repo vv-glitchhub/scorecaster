@@ -5,15 +5,17 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const file = (path) => readFile(new URL(path, root), "utf8");
 
-test("home page uses the simplified Today experience", async () => {
+test("home page uses the PLAY-first Today experience", async () => {
   const page = await file("app/page.jsx");
   const today = await file("app/components/TodayPageClient.jsx");
   assert.match(page, /TodayPageClient/);
-  assert.match(today, /\/api\/scorecaster-app/);
-  assert.match(today, /view=summary/);
-  assert.match(today, /Päivän pitkäveto/);
+  assert.match(today, /\/api\/recommendations\?limit=20/);
+  assert.match(today, /Mitä pelata nyt/);
+  assert.match(today, /Pelaa näin/);
+  assert.match(today, /Ei varmennettua PLAY-kohdetta juuri nyt/);
+  assert.match(today, /Seuraa – älä pelaa vielä/);
   assert.match(today, /AI Feed/);
-  assert.match(today, /paper-only/);
+  assert.match(today, /paperianalyysi|paper analysis/);
 });
 
 test("Top Picks list consumers request the compact public view", async () => {

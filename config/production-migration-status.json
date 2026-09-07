@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
   "environment": "production",
-  "updatedAt": "2026-09-02T16:50:00Z",
-  "updatedBy": "Codex production migration, index and rollback-RLS verification via Supabase connector",
-  "notes": "Repository file presence never proves production application. All canonical entries are backed by explicit production evidence. The latest additive migration indexes both remaining Scorecaster foreign keys reported by the production performance advisor. Representative two-user ownership checks passed under the authenticated database role in a rolled-back production transaction; the complete bearer/cookie and physical-device gates remain explicit.",
+  "updatedAt": "2026-09-07T16:00:00Z",
+  "updatedBy": "ChatGPT production migration registry and live mapping verification via Supabase connector",
+  "notes": "Repository file presence never proves production application. Canonical entries are backed by explicit production evidence. PLAY Pipeline Repair V1 event-identity migrations were verified in the production migration registry and by live identity/market mapping counts; the paper-only safety boundary remains unchanged.",
   "migrations": [
     {
       "path": "supabase/scorecaster_schema.sql",
@@ -276,6 +276,22 @@
       "verifiedBy": "Codex production migration-registry verification via Supabase connector",
       "evidence": "docs/PRODUCTION_INTELLIGENCE_MIGRATION_EVIDENCE_2026_09_02.md#registered-migrations",
       "notes": "Production migration registry version 20260826032056."
+    },
+    {
+      "path": "supabase/scorecaster_event_identity_normalization_v2.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-07T16:00:00Z",
+      "verifiedBy": "ChatGPT production migration registry and live identity verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_PLAY_PIPELINE_REPAIR_EVIDENCE_2026_09_07.md#event-identity-normalization-v2",
+      "notes": "Production migration registry version 20260907141302. Provider/canonical team-name normalization verified on live event identities."
+    },
+    {
+      "path": "supabase/scorecaster_event_identity_fixture_map_v3.sql",
+      "status": "applied",
+      "verifiedAt": "2026-09-07T16:00:00Z",
+      "verifiedBy": "ChatGPT production migration registry and live market-mapping verification via Supabase connector",
+      "evidence": "docs/PRODUCTION_PLAY_PIPELINE_REPAIR_EVIDENCE_2026_09_07.md#event-identity-fixture-map-v3",
+      "notes": "Production migration registry version 20260907141651. Production verification showed 19/19 current identity rows verified and 20 market-mapped owned decisions in the latest 24-hour window."
     },
     {
       "path": "supabase/scorecaster_outcome_chronology_fix_v1.sql",
