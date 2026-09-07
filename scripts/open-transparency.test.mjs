@@ -71,7 +71,7 @@ test("public transparency API is unauthenticated, publishable-only and CORS-read
   assert.doesNotMatch(route, /select\([^\n]*payload/);
 });
 
-test("Scorecaster app and UI expose explanations, source attribution and formula links", async () => {
+test("Scorecaster keeps the homepage action-first while deep transparency remains reachable", async () => {
   const [route, today, feed, card, page, shell] = await Promise.all([
     file("app/api/scorecaster-app/route.js"),
     file("app/components/TodayPageClient.jsx"),
@@ -83,8 +83,18 @@ test("Scorecaster app and UI expose explanations, source attribution and formula
   assert.match(route, /methodology: OPEN_METHODOLOGY/);
   assert.match(route, /records: records\.map\(publicRecord\)/);
   assert.match(route, /rawLicensedPayloadsPublic: false/);
-  assert.match(today, /DecisionTransparencyCard/);
-  assert.match(today, /WATCH, CAUTION ja SKIP/);
+
+  // Today is intentionally a decision surface, not a developer-diagnostics wall.
+  // It must clearly distinguish PLAY from WAIT and route deeper reasoning to the
+  // event/feed/data surfaces where the full transparency components remain.
+  assert.match(today, /Mitä pelata nyt\?/);
+  assert.match(today, /Pelaa näin/);
+  assert.match(today, /Ei varmennettua PLAY-kohdetta juuri nyt/);
+  assert.match(today, /Seurattava ehdokas – ei pelisuositus/);
+  assert.match(today, /\/api\/recommendations\?limit=20/);
+  assert.match(today, /href="\/feed"/);
+  assert.match(today, /href="\/data-layer"/);
+
   assert.match(feed, /DecisionTransparencyCard/);
   assert.match(feed, /Kaikki kaavat ja lähteet/);
   assert.match(card, /Miksi AI päätyi tähän/);
