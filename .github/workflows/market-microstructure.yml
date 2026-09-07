@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
     paths:
+      - "lib/market-microstructure-v2.mjs"
+      - "lib/market-microstructure-activation.mjs"
+      - "app/api/internal/market-microstructure/**"
+      - "app/api/market-microstructure/**"
+      - "scripts/market-microstructure-v2.test.mjs"
+      - "supabase/scorecaster_market_microstructure_v2.sql"
       - ".github/workflows/market-microstructure.yml"
   schedule:
     - cron: "17 * * * *"
@@ -19,7 +25,7 @@ concurrency:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 15
     env:
       SCORECASTER_URL: ${{ vars.SCORECASTER_PRODUCTION_URL || 'https://scorecaster.vercel.app' }}
       CRON_SECRET: ${{ secrets.CRON_SECRET }}
@@ -31,13 +37,65 @@ jobs:
             exit 1
           fi
 
-      - name: Capture normalized provider prices
+      - name: Wait for exact production commit
+        if: github.event_name == 'push'
+        env:
+          TARGET_SHA: ${{ github.sha }}
+        shell: bash
         run: |
-          curl --fail --silent --show-error \
+          set -euo pipefail
+          for attempt in $(seq 1 40); do
+            observed="$(curl --silent --show-error --max-time 15 "${SCORECASTER_URL}/api/health" \
+              | python3 -c 'import json,sys; print(json.load(sys.stdin).get("commit", ""))' 2>/dev/null || true)"
+            if [[ "$observed" == "$TARGET_SHA" ]]; then
+              echo "Exact production commit is live: ${TARGET_SHA:0:8}"
+              exit 0
+            fi
+            echo "Waiting for production target=${TARGET_SHA:0:8} observed=${observed:0:8}"
+            sleep 15
+          done
+          echo "Production did not reach the exact target commit in time" >&2
+          exit 1
+
+      - name: Capture normalized provider prices
+        shell: bash
+        run: |
+          set -euo pipefail
+          report="$RUNNER_TEMP/market-microstructure-response.json"
+          http_code="$(curl --silent --show-error \
             --retry 2 \
             --max-time 150 \
+            --output "$report" \
+            --write-out "%{http_code}" \
+            -H "Accept: application/json" \
             -H "Authorization: Bearer $CRON_SECRET" \
-            "$SCORECASTER_URL/api/internal/market-microstructure"
+            "$SCORECASTER_URL/api/internal/market-microstructure")"
+
+          HTTP_CODE="$http_code" REPORT_PATH="$report" node <<'NODE'
+          const fs = require('node:fs');
+          const code = Number(process.env.HTTP_CODE || 0);
+          let payload = null;
+          try { payload = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8')); } catch {}
+          const safe = {
+            httpStatus: code,
+            ok: payload?.ok === true,
+            version: payload?.version || null,
+            status: payload?.status || null,
+            sports: Array.isArray(payload?.sports) ? payload.sports : [],
+            markets: Array.isArray(payload?.markets) ? payload.markets : [],
+            events: payload?.events ?? null,
+            normalizedRecords: payload?.normalizedRecords ?? null,
+            stored: payload?.stored ?? null,
+            rejected: payload?.rejected ?? null,
+            probabilityChanged: payload?.probabilityChanged ?? null,
+            realMoneyExecution: payload?.realMoneyExecution ?? null,
+            paperOnly: payload?.paperOnly ?? null,
+          };
+          console.log(JSON.stringify(safe));
+          if (code !== 200 || payload?.ok !== true || payload?.paperOnly !== true || payload?.probabilityChanged !== false || payload?.realMoneyExecution !== false) {
+            process.exit(1);
+          }
+          NODE
 
       - name: Read redacted market health
         run: |
