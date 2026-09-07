@@ -1,6 +1,7 @@
 import { SPORTS } from "../../../lib/sports";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
+import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-evidence-v1";
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
 import { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";
 import {
@@ -34,10 +35,12 @@ const TRANSITION_DEFAULT_LEAGUES = [
   "icehockey_sweden_hockey_league",
   "icehockey_nhl"
 ];
+const TOP_PICK_MARKETS = ["h2h", "spreads", "totals"];
 const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
 const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
 const MAX_INTELLIGENCE_ENRICHMENTS = 24;
+const MAX_MARKET_CANDIDATES_PER_LEAGUE_MARKET = 36;
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
@@ -55,6 +58,25 @@ function compactSportsIntelligence(report = {}) {
     injuries: Array.isArray(report.injuries) ? report.injuries.slice(0, 12) : [],
     lineups: Array.isArray(report.lineups) ? report.lineups.slice(0, 6) : [],
     news: Array.isArray(report.news) ? report.news.slice(0, 8) : []
+  };
+}
+
+function compactOwnedDecisionEvidence(evidence = {}) {
+  return {
+    applicable: evidence.applicable === true,
+    qualified: evidence.qualified === true,
+    source: evidence.source || null,
+    canonicalEventId: evidence.canonicalEventId || null,
+    selectionOutcome: evidence.selectionOutcome || null,
+    probability: evidence.probability ?? null,
+    marketConsensusProbability: evidence.marketConsensusProbability ?? null,
+    probabilityDelta: evidence.probabilityDelta ?? null,
+    supportsSelection: evidence.supportsSelection === true,
+    strongConflict: evidence.strongConflict === true,
+    confidence: evidence.confidence ?? null,
+    ageHours: evidence.ageHours ?? null,
+    marketMapped: evidence.marketMapped === true,
+    independentFromMarket: evidence.independentFromMarket === true
   };
 }
 
@@ -85,6 +107,7 @@ function publicPickSummary(pick = {}) {
     marketProbability: pick.marketProbability,
     modelProbability: pick.modelProbability,
     independentModelProbability: pick.independentModelProbability ?? null,
+    ownedDecisionEvidence: compactOwnedDecisionEvidence(pick.ownedDecisionEvidenceV1),
     probabilityDispersion: pick.probabilityDispersion,
     confidence: pick.confidence,
     sourceTrust: pick.sourceTrust,
@@ -229,7 +252,7 @@ function decisionExplanation({ decision, marketDecision, gateFailures, gate, edg
   if (decision === "WATCH") {
     return `CAUTION: data is usable, but PLAY requires at least 2.0% edge and 3.0% EV. Current edge ${(edge * 100).toFixed(1)}%, EV ${(ev * 100).toFixed(1)}%.`;
   }
-  return "PLAY: price and market-data gates passed, with no verified negative intelligence or unresolved evidence conflict blocking the selection.";
+  return "PLAY: price and market-data gates passed, with verified independent predictive evidence and no unresolved safety conflict.";
 }
 
 function applyQualityFallback(pick) {
@@ -267,6 +290,9 @@ function applyQualityFallback(pick) {
     `Market-data confidence ${(gate.confidence * 100).toFixed(0)}%.`,
     `Freshness: ${gate.freshness}.`,
     `Independent intelligence readiness: ${readiness}.`,
+    pick.ownedDecisionEvidenceV1?.qualified
+      ? `Owned model delta ${(Number(pick.ownedDecisionEvidenceV1.probabilityDelta || 0) * 100).toFixed(1)} percentage points for this selection.`
+      : "Owned model evidence is not qualified for this selection.",
     pick.evidenceGateReason || "Independent intelligence did not change the market probability.",
     "Fixture came from the configured live odds provider and is inside the near-term analysis window.",
     "Edge is best-price value versus a no-vig market consensus, not a guaranteed outcome prediction."
@@ -323,6 +349,50 @@ function rankPick(pick) {
   );
 }
 
+function preEnrichmentRank(pick) {
+  const owned = pick.ownedDecisionEvidenceV1 || {};
+  let ownedWeight = 0;
+  if (owned.qualified === true && owned.strongConflict === true) ownedWeight = -1.5;
+  else if (owned.qualified === true && owned.supportsSelection === true) {
+    ownedWeight = 1 + clamp(Number(owned.probabilityDelta || 0) * 5, -0.25, 0.75);
+  } else if (owned.marketMapped === true) ownedWeight = 0.15;
+
+  return (
+    ownedWeight +
+    Number(pick.edge || 0) * 4 +
+    Number(pick.ev || 0) * 2 +
+    Number(pick.confidence || 0) * 0.5 +
+    clamp(Number(pick.bookmakerCount || 0) / 12, 0, 0.7)
+  );
+}
+
+function selectIntelligenceCandidates(picks = []) {
+  const ranked = [...picks].sort((a, b) => preEnrichmentRank(b) - preEnrichmentRank(a));
+  const selected = [];
+  const selectedIds = new Set();
+  const representedEvents = new Set();
+
+  const add = (pick) => {
+    if (!pick || selectedIds.has(pick.id) || selected.length >= MAX_INTELLIGENCE_ENRICHMENTS) return;
+    selected.push(pick);
+    selectedIds.add(pick.id);
+    representedEvents.add(pick.gameId || pick.eventId || pick.id);
+  };
+
+  for (const pick of ranked) {
+    const eventId = pick.gameId || pick.eventId || pick.id;
+    const owned = pick.ownedDecisionEvidenceV1 || {};
+    if (owned.qualified === true && owned.supportsSelection === true && !owned.strongConflict && !representedEvents.has(eventId)) add(pick);
+  }
+  for (const pick of ranked) {
+    const eventId = pick.gameId || pick.eventId || pick.id;
+    if (!representedEvents.has(eventId)) add(pick);
+  }
+  for (const pick of ranked) add(pick);
+
+  return selected;
+}
+
 async function enrichSafely(pick) {
   try {
     const enriched = await enrichPickWithLiveIntelligence(pick);
@@ -351,9 +421,10 @@ function parseLeagues(searchParams, now = Date.now()) {
 
 async function loadLeague(origin, league, now) {
   try {
+    const markets = TOP_PICK_MARKETS.join(",");
     const response = await fetch(
-      `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=h2h`,
-      { next: { revalidate: 120 }, signal: AbortSignal.timeout(12000) }
+      `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=${encodeURIComponent(markets)}`,
+      { cache: "no-store", signal: AbortSignal.timeout(12000) }
     );
 
     if (!response.ok) return { picks: [], providerGames: 0, acceptedGames: 0 };
@@ -373,14 +444,16 @@ async function loadLeague(origin, league, now) {
       filterUpcomingPicks([{ commenceTime: game.commence_time }], ANALYSIS_WINDOW_HOURS, now).length === 1
     );
 
-    const picks = createTopPicksFromGames({
-      games: nearTermGames,
-      marketKey: "h2h",
-      bankroll: 1000,
-      kellyMode: "quarter",
-      minEdge: -1,
-      limit: 12
-    }).map((pick) => ({
+    const picks = TOP_PICK_MARKETS.flatMap((marketKey) =>
+      createTopPicksFromGames({
+        games: nearTermGames,
+        marketKey,
+        bankroll: 1000,
+        kellyMode: "quarter",
+        minEdge: -1,
+        limit: MAX_MARKET_CANDIDATES_PER_LEAGUE_MARKET
+      })
+    ).map((pick) => ({
       ...pick,
       origin,
       league,
@@ -439,10 +512,8 @@ export async function GET(request) {
   const { origin } = url;
   const leagueResults = await Promise.all(leagues.map((league) => loadLeague(origin, league, now)));
   const allPicks = leagueResults.flatMap((result) => result.picks);
-
-  const preFiltered = allPicks
-    .sort((a, b) => (Number(b.edge || 0) * Number(b.confidence || 0)) - (Number(a.edge || 0) * Number(a.confidence || 0)))
-    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS);
+  const picksWithOwnedEvidence = await attachOwnedDecisionEvidenceBatch(allPicks, { now });
+  const preFiltered = selectIntelligenceCandidates(picksWithOwnedEvidence);
 
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
   const sorted = enriched
@@ -466,14 +537,22 @@ export async function GET(request) {
     counts[value] = (counts[value] || 0) + 1;
     return counts;
   }, { PLAY: 0, CAUTION: 0, SKIP: 0 });
+  const ownedEvidence = picksWithOwnedEvidence.reduce((counts, pick) => {
+    const evidence = pick.ownedDecisionEvidenceV1 || {};
+    if (evidence.marketMapped) counts.marketMapped += 1;
+    if (evidence.qualified) counts.qualified += 1;
+    if (evidence.qualified && evidence.supportsSelection && !evidence.strongConflict) counts.supportive += 1;
+    if (evidence.qualified && evidence.strongConflict) counts.strongConflict += 1;
+    return counts;
+  }, { marketMapped: 0, qualified: 0, supportive: 0, strongConflict: 0 });
 
   return Response.json(
     {
       ok: true,
       source: "no-vig-market-consensus",
       fixtureSource: "live-odds-provider-only",
-      intelligenceMode: "team-attributed-audit-only",
-      agentVersion: "V11-model-lab+sports-intelligence-v1",
+      intelligenceMode: "owned-model+independent-evidence-gated",
+      agentVersion: "V12-play-pipeline-repair-v1",
       modelMode: "market-consensus",
       edgeType: "best-price-vs-no-vig-consensus",
       generatedAt: new Date(now).toISOString(),
@@ -481,6 +560,10 @@ export async function GET(request) {
       analysisWindowHours: ANALYSIS_WINDOW_HOURS,
       featuredWindowHours: FEATURED_WINDOW_HOURS,
       maxIntelligenceEnrichments: MAX_INTELLIGENCE_ENRICHMENTS,
+      marketCandidateCount: picksWithOwnedEvidence.length,
+      deepCandidateSelection: "owned-evidence-first+event-diversity",
+      markets: TOP_PICK_MARKETS,
+      ownedEvidence,
       view,
       leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
       defaultLeagueSeason: seasonForDate(now),
@@ -489,7 +572,7 @@ export async function GET(request) {
       excludedGames: Math.max(0, providerGames - acceptedGames),
       intelligenceLevels,
       decisionCounts,
-      disclaimer: "Only live-provider fixtures inside the near-term analysis window are shown. Independent intelligence can downgrade a pick but never changes the market probability or upgrades a pick to PLAY.",
+      disclaimer: "Live-provider market value is evaluated first. Scorecaster's owned model and other independent evidence may satisfy the existing evidence gate or downgrade a candidate, but they never change the market probability and no single evidence layer can create PLAY by itself.",
       leagues,
       count: sorted.length,
       featured: responseFeatured,
