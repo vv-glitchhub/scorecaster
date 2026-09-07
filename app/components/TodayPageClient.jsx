@@ -3,24 +3,91 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "./LanguageProvider";
-import DecisionTransparencyCard from "./DecisionTransparencyCard";
 
-const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
-const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
-
-function eventTitle(event, fallback) {
-  if (event?.homeTeam && event?.awayTeam) return `${event.homeTeam} – ${event.awayTeam}`;
-  return event?.eventName || event?.name || event?.title || fallback || "Ottelu";
+function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
-function eventMeta(event) {
-  return [event?.sport, event?.league].filter(Boolean).join(" · ") || "Scorecaster AI";
+function number(value, digits = 2) {
+  const parsed = finite(value);
+  return parsed === null ? "–" : parsed.toFixed(digits);
 }
 
-function decisionTone(decision) {
-  if (decision === "WATCH") return "border-emerald-400/30 bg-emerald-500/10 text-emerald-200";
-  if (decision === "CAUTION") return "border-amber-400/30 bg-amber-500/10 text-amber-100";
-  return "border-slate-500/30 bg-slate-500/10 text-slate-200";
+function percent(value, digits = 1) {
+  const parsed = finite(value);
+  return parsed === null ? "–" : `${(parsed * 100).toFixed(digits)} %`;
+}
+
+function marketLabel(marketKey, tr) {
+  const key = String(marketKey || "h2h").toLowerCase();
+  if (key === "spreads") return tr({ fi: "Tasoitus", en: "Spread", es: "Hándicap" });
+  if (key === "totals") return tr({ fi: "Maalit / pisteet", en: "Total", es: "Total" });
+  return tr({ fi: "Voittaja", en: "Winner", es: "Ganador" });
+}
+
+function recommendationHref(item) {
+  const query = new URLSearchParams();
+  if (item.sportKey) query.set("sport", item.sportKey);
+  if (item.selection) query.set("selection", item.selection);
+  const suffix = query.toString();
+  return `/event/${encodeURIComponent(item.eventId || item.id)}${suffix ? `?${suffix}` : ""}`;
+}
+
+function gateText(item, tr) {
+  const gate = item?.nextGate || {};
+  const code = gate.code;
+  if (code === "fresh-data") return tr({ fi: "odotetaan tuoreempaa markkinadataa", en: "waiting for fresher market data", es: "esperando datos de mercado más recientes" });
+  if (code === "bookmaker-coverage") return tr({ fi: `tarvitaan lisää vedonvälittäjiä (${gate.current ?? 0}/${gate.target ?? 4})`, en: `more bookmaker coverage is needed (${gate.current ?? 0}/${gate.target ?? 4})`, es: `se necesita más cobertura de casas (${gate.current ?? 0}/${gate.target ?? 4})` });
+  if (code === "confidence") return tr({ fi: "datan varmuus ei vielä riitä", en: "data confidence is not high enough yet", es: "la confianza de datos aún no es suficiente" });
+  if (code === "edge") return tr({ fi: `edge ei vielä ylitä 2 % rajaa (${percent(gate.current)})`, en: `edge has not yet cleared 2% (${percent(gate.current)})`, es: `la ventaja aún no supera 2% (${percent(gate.current)})` });
+  if (code === "ev") return tr({ fi: `EV ei vielä ylitä 3 % rajaa (${percent(gate.current)})`, en: `EV has not yet cleared 3% (${percent(gate.current)})`, es: `el EV aún no supera 3% (${percent(gate.current)})` });
+  if (code === "verified-evidence") return tr({ fi: "riippumaton evidence ei ole vielä varmennettu", en: "independent evidence is not verified yet", es: "la evidencia independiente aún no está verificada" });
+  return tr({ fi: "turvaportin viimeinen tarkistus puuttuu", en: "the final safety recheck is still pending", es: "falta la última revisión de seguridad" });
+}
+
+function PlayCard({ item, tr, onWatch, watchState }) {
+  const stake = finite(item.suggestedStake);
+  const state = watchState[item.eventId]?.state;
+  return (
+    <article className="overflow-hidden rounded-[2rem] border border-emerald-400/35 bg-emerald-500/10 shadow-2xl">
+      <div className="border-b border-emerald-400/20 bg-emerald-400/10 px-5 py-4 sm:px-6">
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-xs font-black uppercase tracking-[0.18em] text-emerald-300">● PLAY</div>
+          <div className="text-xs font-bold text-[var(--sc-muted)]">{item.sportTitle || item.league || item.sportKey}</div>
+        </div>
+      </div>
+      <div className="p-5 sm:p-6">
+        <h2 className="text-2xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{item.match}</h2>
+        <div className="mt-5 rounded-2xl border border-emerald-400/25 bg-[var(--sc-surface)]/70 p-5">
+          <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-muted)]">{tr({ fi: "Pelaa näin", en: "How to play it", es: "Cómo jugar" })}</div>
+          <div className="mt-2 text-2xl font-black text-[var(--sc-text)]">{item.selection || "–"}</div>
+          <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm font-bold text-[var(--sc-text-secondary)]">
+            <span>{marketLabel(item.marketKey, tr)}</span>
+            <span>@ {number(item.odds)}</span>
+            {item.bookmaker ? <span>{item.bookmaker}</span> : null}
+          </div>
+          <div className="mt-4 rounded-xl bg-emerald-400/10 px-4 py-3 text-sm font-bold text-emerald-100">
+            {tr({ fi: "Yksittäinen paperiveto", en: "Single paper bet", es: "Apuesta simulada simple" })}
+            {stake !== null ? ` · ${tr({ fi: "paperipanos", en: "paper stake", es: "stake simulado" })} ${number(stake, 1)} / 1000` : ""}
+          </div>
+        </div>
+
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">Edge</div><div className="mt-1 text-xl font-black text-emerald-300">{percent(item.edge)}</div></div>
+          <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">EV</div><div className="mt-1 text-xl font-black text-emerald-300">{percent(item.ev)}</div></div>
+          <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Oma malli", en: "Own model", es: "Modelo propio" })}</div><div className="mt-1 text-xl font-black text-[var(--sc-text)]">{percent(item.independentModelProbability)}</div></div>
+          <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Markkina", en: "Market", es: "Mercado" })}</div><div className="mt-1 text-xl font-black text-[var(--sc-text)]">{percent(item.marketProbability)}</div></div>
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          <Link href={recommendationHref(item)} className="flex-1 rounded-xl bg-[var(--sc-brand)] px-4 py-3 text-center text-sm font-black text-[var(--sc-brand-ink)]">{tr({ fi: "Avaa perustelut", en: "Open reasoning", es: "Abrir análisis" })}</Link>
+          <button type="button" onClick={() => onWatch(item)} disabled={state === "saving" || state === "saved"} className="rounded-xl border border-[var(--sc-border)] px-4 py-3 text-sm font-black text-[var(--sc-text)] disabled:opacity-50">{state === "saved" ? "✓" : state === "saving" ? "…" : tr({ fi: "Seuraa", en: "Watch", es: "Seguir" })}</button>
+        </div>
+      </div>
+    </article>
+  );
 }
 
 export default function TodayPageClient() {
@@ -34,12 +101,12 @@ export default function TodayPageClient() {
     if (!silent) setLoading(true);
     setError("");
     try {
-      const response = await fetch("/api/scorecaster-app?hours=2160&limit=1000&view=summary", { cache: "no-store" });
+      const response = await fetch("/api/recommendations?limit=20", { cache: "no-store" });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Data unavailable");
+      if (!response.ok || payload?.ok !== true) throw new Error(payload?.error || "Recommendations unavailable");
       setData(payload);
     } catch (cause) {
-      setError(cause?.message || "Data unavailable");
+      setError(cause?.message || "Recommendations unavailable");
     } finally {
       if (!silent) setLoading(false);
     }
@@ -51,200 +118,110 @@ export default function TodayPageClient() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const eventMap = useMemo(() => new Map((data?.events || []).map((event) => [event.eventId, event])), [data]);
-  const picks = useMemo(() => (data?.controlCenter?.dailyTop3 || []).slice(0, 3).map((pick, index) => {
-    const event = eventMap.get(pick.eventId) || {};
-    return {
-      ...pick,
-      rank: index + 1,
-      title: eventTitle(event, pick.eventId),
-      meta: eventMeta(event),
-      selection: pick.selection || event.selection || "",
-      sport: pick.sport || event.sport || "",
-      market: pick.market || event.market || "h2h",
-      event
-    };
-  }), [data, eventMap]);
-
-  const accumulator = useMemo(() => {
-    const legs = picks
-      .filter((pick) => pick.decision === "WATCH" && pick.selection && Number(pick.bestOdds) > 1)
-      .slice(0, 3);
-    const combinedOdds = legs.reduce((total, pick) => total * Number(pick.bestOdds), 1);
-    const averageScore = legs.length ? legs.reduce((total, pick) => total + Number(pick.score || 0), 0) / legs.length : 0;
-    return { legs, combinedOdds, averageScore, available: legs.length >= 2 };
-  }, [picks]);
-
-  const trends = useMemo(() => [...picks].sort((a, b) => Number(b.edge ?? -1) - Number(a.edge ?? -1)), [picks]);
+  const recommendations = useMemo(() => Array.isArray(data?.recommendations) ? data.recommendations : [], [data]);
+  const plays = useMemo(() => recommendations.filter((item) => item.decision === "PLAY"), [recommendations]);
+  const nearPlay = useMemo(() => {
+    const explicit = Array.isArray(data?.nearPlay) ? data.nearPlay : [];
+    const source = explicit.length ? explicit : recommendations.filter((item) => item.decision === "CAUTION");
+    return source.filter((item, index, all) => all.findIndex((candidate) => candidate.eventId === item.eventId && candidate.selection === item.selection) === index).slice(0, 5);
+  }, [data, recommendations]);
+  const leagues = Array.isArray(data?.leagues) ? data.leagues : [];
   const updated = data?.generatedAt ? new Date(data.generatedAt).toLocaleString(locale) : "–";
-  const summary = data?.controlCenter?.summary || {};
 
-  function eventHref(pick) {
-    const query = new URLSearchParams();
-    if (pick.sport) query.set("sport", pick.sport);
-    if (pick.selection) query.set("selection", pick.selection);
-    const suffix = query.toString();
-    return `/event/${encodeURIComponent(pick.eventId)}${suffix ? `?${suffix}` : ""}`;
-  }
-
-  async function addToWatchlist(pick) {
-    if (!pick.selection || !pick.sport) {
-      setWatchState((current) => ({
-        ...current,
-        [pick.eventId]: { state: "error", message: tr({ fi: "Avaa ottelu ja valitse ensin varmennettu kohde.", en: "Open the event and choose a verified selection first.", es: "Abre el evento y elige primero una selección verificada." }) }
-      }));
-      return;
-    }
-
-    setWatchState((current) => ({ ...current, [pick.eventId]: { state: "saving", message: "" } }));
+  async function addToWatchlist(item) {
+    if (!item?.eventId || !item?.selection || !item?.sportKey) return;
+    setWatchState((current) => ({ ...current, [item.eventId]: { state: "saving" } }));
     try {
       const response = await fetch("/api/cloud/watchlist", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: pick.eventId, selection: pick.selection, sport: pick.sport })
+        body: JSON.stringify({ eventId: item.eventId, selection: item.selection, sport: item.sportKey })
       });
-      const payload = await response.json();
+      const payload = await response.json().catch(() => null);
       if (!response.ok) throw new Error(payload?.error || "Watchlist save failed");
-      setWatchState((current) => ({
-        ...current,
-        [pick.eventId]: { state: "saved", message: tr({ fi: "Lisätty varmennettuun seurantaan.", en: "Added to the verified watchlist.", es: "Añadido a la lista verificada." }) }
-      }));
+      setWatchState((current) => ({ ...current, [item.eventId]: { state: "saved" } }));
     } catch (cause) {
-      setWatchState((current) => ({
-        ...current,
-        [pick.eventId]: { state: "error", message: cause?.message || "Watchlist save failed" }
-      }));
+      setWatchState((current) => ({ ...current, [item.eventId]: { state: "error", message: cause?.message || "Watchlist save failed" } }));
     }
   }
 
   return (
     <div className="space-y-7">
-      <section className="overflow-hidden rounded-[2rem] border border-[var(--sc-border)] bg-[var(--sc-surface)] p-6 shadow-2xl sm:p-8">
-        <div className="grid gap-7 lg:grid-cols-[minmax(0,1fr)_360px] lg:items-end">
+      <section className="overflow-hidden rounded-[2rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-6 shadow-2xl sm:p-8">
+        <div className="flex flex-wrap items-end justify-between gap-5">
           <div>
-            <div className="text-xs font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">{tr({ fi: "Scorecaster tänään", en: "Scorecaster today", es: "Scorecaster hoy" })}</div>
-            <h1 className="mt-3 max-w-3xl text-3xl font-black tracking-[-0.045em] text-[var(--sc-text)] sm:text-5xl">
-              {tr({ fi: "Parhaat saatavilla olevat AI-havainnot – myös silloin, kun vastaus on varovainen.", en: "The best available AI observations – even when the answer is cautious.", es: "Las mejores observaciones disponibles, incluso cuando la respuesta es prudente." })}
-            </h1>
-            <p className="mt-4 max-w-3xl text-sm leading-7 text-[var(--sc-muted)] sm:text-base">
-              {tr({ fi: "Jokainen kortti näyttää päätöksen, perustelun, lähteet, puuttuvat tiedot ja laskukaavat. WATCH, CAUTION ja SKIP ovat näkyviä – mitään ei piiloteta vain siksi, ettei vahvaa kohdetta löytynyt.", en: "Every card exposes the verdict, reasoning, sources, missing inputs and formulas. WATCH, CAUTION and SKIP remain visible instead of leaving the product empty.", es: "Cada tarjeta muestra decisión, motivos, fuentes, datos faltantes y fórmulas. WATCH, CAUTION y SKIP siguen visibles." })}
-            </p>
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link href="/feed" className="sc-button-primary">{tr({ fi: "Avaa AI Feed", en: "Open AI Feed", es: "Abrir AI Feed" })}</Link>
-              <Link href="/events" className="sc-button-secondary">{tr({ fi: "Kaikki ottelut", en: "All matches", es: "Todos los partidos" })}</Link>
-              <Link href="/transparency" className="sc-button-secondary">{tr({ fi: "Kaavat ja lähteet", en: "Formulas and sources", es: "Fórmulas y fuentes" })}</Link>
-            </div>
+            <div className="text-xs font-black uppercase tracking-[0.2em] text-[var(--sc-brand)]">{tr({ fi: "Scorecaster tänään", en: "Scorecaster today", es: "Scorecaster hoy" })}</div>
+            <h1 className="mt-2 text-4xl font-black tracking-[-0.05em] text-[var(--sc-text)] sm:text-5xl">{tr({ fi: "Mitä pelata nyt?", en: "What to play now?", es: "¿Qué jugar ahora?" })}</h1>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--sc-muted)] sm:text-base">{tr({ fi: "PLAY-kohteet näytetään aina ensin kaikista aktiivisista tuetuista lajeista. Jos yhtään kohdetta ei läpäise portteja, Scorecaster sanoo sen suoraan eikä muuta CAUTION-kohdetta pelisuositukseksi.", en: "PLAY picks are always shown first across active supported sports. If none pass the gates, Scorecaster says so instead of presenting CAUTION as a bet recommendation.", es: "Los PLAY aparecen primero entre los deportes activos compatibles. Si ninguno pasa los filtros, Scorecaster lo indica sin convertir CAUTION en recomendación." })}</p>
           </div>
-
-          <div className="rounded-3xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5">
-            <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-muted)]">{tr({ fi: "Tämän hetken tilanne", en: "Current status", es: "Estado actual" })}</div>
-            <div className="mt-3 text-4xl font-black text-[var(--sc-text)]">{loading ? "…" : picks.length}</div>
-            <div className="mt-1 text-sm font-bold text-[var(--sc-text-secondary)]">{tr({ fi: "AI-korttia näkyvissä", en: "AI cards visible", es: "tarjetas IA visibles" })}</div>
-            <div className="mt-4 grid grid-cols-3 gap-2 text-center text-xs">
-              <div className="rounded-xl bg-[var(--sc-surface)]/60 p-2"><div className="font-black text-emerald-300">{summary.watchCards || 0}</div><div className="text-[var(--sc-muted)]">WATCH</div></div>
-              <div className="rounded-xl bg-[var(--sc-surface)]/60 p-2"><div className="font-black text-amber-200">{summary.cautionCards || 0}</div><div className="text-[var(--sc-muted)]">CAUTION</div></div>
-              <div className="rounded-xl bg-[var(--sc-surface)]/60 p-2"><div className="font-black text-slate-200">{summary.skipCards || 0}</div><div className="text-[var(--sc-muted)]">SKIP</div></div>
-            </div>
-            <div className="mt-4 text-xs text-[var(--sc-muted)]">{tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" })}: {updated}</div>
-            <button type="button" onClick={() => load()} className="mt-4 text-xs font-black text-[var(--sc-brand)] hover:underline">{tr({ fi: "Päivitä nyt", en: "Refresh now", es: "Actualizar ahora" })}</button>
+          <div className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)]/70 px-5 py-4 text-right">
+            <div className="text-3xl font-black text-[var(--sc-text)]">{loading ? "…" : plays.length}</div>
+            <div className="text-xs font-bold uppercase tracking-[0.12em] text-[var(--sc-muted)]">PLAY</div>
+            <button type="button" onClick={() => load()} className="mt-2 text-xs font-black text-[var(--sc-brand)]">{tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })}</button>
           </div>
+        </div>
+        <div className="mt-5 flex flex-wrap gap-2 text-xs text-[var(--sc-muted)]">
+          <span>{tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" })}: {updated}</span>
+          <span>·</span>
+          <span>{tr({ fi: "Aktiivisia liigahakuja", en: "Active league searches", es: "Ligas activas consultadas" })}: {leagues.length || "–"}</span>
+          <span>·</span>
+          <span>{tr({ fi: "vain paperianalyysi", en: "paper analysis only", es: "solo análisis simulado" })}</span>
         </div>
       </section>
 
-      {error && <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-sm text-red-100">{error}</div>}
+      {error ? <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-sm text-red-100">{error}</div> : null}
 
-      <section>
-        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">Top 3</div>
-            <h2 className="mt-1 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "AI:n parhaat saatavilla olevat havainnot", en: "AI's best available observations", es: "Mejores observaciones disponibles" })}</h2>
+      {loading ? (
+        <div className="grid gap-4 lg:grid-cols-2">{[1, 2].map((item) => <div key={item} className="h-96 animate-pulse rounded-[2rem] border border-[var(--sc-border)] bg-[var(--sc-surface)]" />)}</div>
+      ) : plays.length ? (
+        <section>
+          <div className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-emerald-300">{tr({ fi: "Pelaa nämä ensin", en: "Play these first", es: "Juega estos primero" })}</div>
+          <div className="grid gap-5 lg:grid-cols-2">{plays.map((item) => <PlayCard key={`${item.eventId}-${item.selection}-${item.marketKey}`} item={item} tr={tr} onWatch={addToWatchlist} watchState={watchState} />)}</div>
+        </section>
+      ) : (
+        <section className="rounded-[2rem] border border-amber-400/30 bg-amber-500/10 p-6 sm:p-8">
+          <div className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">WAIT</div>
+          <h2 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[var(--sc-text)]">{tr({ fi: "Ei varmennettua PLAY-kohdetta juuri nyt", en: "No verified PLAY pick right now", es: "No hay PLAY verificado ahora" })}</h2>
+          <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--sc-muted)]">{tr({ fi: "Älä pelaa CAUTION-kohteita pelkän markkinaedgen perusteella. Alla näkyvät vain lähimpänä PLAYta olevat seurattavat ehdokkaat ja täsmälleen se ehto, joka vielä puuttuu.", en: "Do not play CAUTION picks from market edge alone. Below are only the candidates closest to PLAY and the exact gate still missing.", es: "No juegues CAUTION solo por ventaja de mercado. Abajo se muestran los candidatos más cercanos a PLAY y el filtro que falta." })}</p>
+        </section>
+      )}
+
+      {!loading && nearPlay.length ? (
+        <section>
+          <div className="mb-4 flex items-end justify-between gap-4">
+            <div>
+              <div className="text-xs font-black uppercase tracking-[0.18em] text-amber-200">{tr({ fi: "Lähimpänä PLAYta", en: "Closest to PLAY", es: "Más cerca de PLAY" })}</div>
+              <h2 className="mt-1 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Seuraa – älä pelaa vielä", en: "Watch – do not play yet", es: "Sigue – todavía no juegues" })}</h2>
+            </div>
+            <Link href="/feed" className="text-sm font-black text-[var(--sc-brand)]">{tr({ fi: "Kaikki analyysit", en: "All analysis", es: "Todos los análisis" })}</Link>
           </div>
-          <Link href="/events" className="text-sm font-black text-[var(--sc-brand)] hover:underline">{tr({ fi: "Näytä kaikki kohteet", en: "Show all picks", es: "Ver todos" })}</Link>
-        </div>
-
-        {loading && <div className="grid gap-4 lg:grid-cols-3">{[1, 2, 3].map((item) => <div key={item} className="h-96 animate-pulse rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)]" />)}</div>}
-        {!loading && !picks.length && (
-          <div className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-8 text-center">
-            <div className="text-lg font-black text-[var(--sc-text)]">{tr({ fi: "Julkaistavaa markkina- tai mallidataa ei löytynyt", en: "No publishable market or model data was found", es: "No se encontraron datos publicables" })}</div>
-            <p className="mx-auto mt-3 max-w-2xl text-sm leading-7 text-[var(--sc-muted)]">{tr({ fi: "Tämä ei ole käyttöliittymän tyhjä virhetila. Collector ei palauttanut yhtään tapahtumaa, jolle olisi markkinatodennäköisyys, malliarvio tai kelvollinen kerroin.", en: "This is not a hidden UI failure. The collector returned no event with a market probability, model estimate or valid odds.", es: "No es un fallo oculto de la interfaz. El recopilador no devolvió datos válidos." })}</p>
-            <Link href="/transparency" className="mt-5 inline-block text-sm font-black text-[var(--sc-brand)]">{tr({ fi: "Tarkista avoin datatilanne", en: "Inspect open data status", es: "Revisar datos abiertos" })}</Link>
-          </div>
-        )}
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          {picks.map((pick) => (
-            <article key={pick.eventId} className="flex flex-col rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5 transition hover:-translate-y-0.5 hover:border-[var(--sc-brand-border)]">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">#{pick.rank} · {pick.meta}</div>
-                  <h3 className="mt-2 text-xl font-black leading-tight text-[var(--sc-text)]">{pick.title}</h3>
+          <div className="space-y-3">
+            {nearPlay.map((item) => (
+              <article key={`${item.eventId}-${item.selection}-${item.marketKey}`} className="rounded-3xl border border-amber-400/20 bg-[var(--sc-surface)] p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div><div className="text-xs font-bold text-[var(--sc-muted)]">{item.sportTitle || item.league || item.sportKey}</div><div className="mt-1 text-xl font-black text-[var(--sc-text)]">{item.match}</div></div>
+                  <div className="rounded-full border border-amber-400/30 bg-amber-500/10 px-3 py-1 text-[10px] font-black text-amber-100">WAIT</div>
                 </div>
-                <span className={`rounded-full border px-3 py-1 text-[10px] font-black ${decisionTone(pick.decision)}`}>{pick.decision || "SKIP"}</span>
-              </div>
-
-              <p className="mt-4 text-sm leading-6 text-[var(--sc-muted)]">{pick.reason}</p>
-
-              <div className="mt-4 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
-                <div className="text-[10px] font-bold uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Nykyinen valinta", en: "Current selection", es: "Selección actual" })}</div>
-                <div className="mt-1 font-black text-[var(--sc-text)]">{pick.selection || tr({ fi: "Valinta varmistetaan ottelusivulla", en: "Selection is verified on the event page", es: "La selección se verifica en el evento" })}</div>
-              </div>
-
-              <div className="mt-5 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">AI score</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(pick.score, 0)}</div></div>
-                <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">Edge</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{percent(pick.edge)}</div></div>
-                <div className="rounded-2xl bg-[var(--sc-surface-soft)] p-3"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })}</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(pick.bestOdds)}</div></div>
-              </div>
-
-              <div className="mt-4"><DecisionTransparencyCard explanation={pick.explanation} compact /></div>
-
-              <div className="mt-auto flex gap-2 pt-5">
-                <Link href={eventHref(pick)} className="flex-1 rounded-xl bg-[var(--sc-brand)] px-3 py-3 text-center text-sm font-black text-[var(--sc-brand-ink)]">{tr({ fi: "Avaa ottelu", en: "Open event", es: "Abrir evento" })}</Link>
-                <button type="button" onClick={() => void addToWatchlist(pick)} disabled={watchState[pick.eventId]?.state === "saving" || watchState[pick.eventId]?.state === "saved"} className="rounded-xl border border-[var(--sc-border)] px-4 py-3 text-sm font-black text-[var(--sc-text-secondary)] disabled:opacity-50">{watchState[pick.eventId]?.state === "saved" ? "✓" : watchState[pick.eventId]?.state === "saving" ? "…" : tr({ fi: "Seuraa", en: "Watch", es: "Seguir" })}</button>
-              </div>
-              {watchState[pick.eventId]?.message ? <div className={`mt-3 text-xs leading-5 ${watchState[pick.eventId]?.state === "error" ? "text-amber-200" : "text-emerald-200"}`}>{watchState[pick.eventId].message}{/sign|auth|session|kirjaudu/i.test(watchState[pick.eventId].message) ? <Link href="/login" className="ml-1 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link> : null}</div> : null}
-            </article>
-          ))}
-        </div>
-      </section>
-
-      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
-        <div className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-6">
-          <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">{tr({ fi: "Päivän pitkäveto", en: "Daily accumulator", es: "Combinada del día" })}</div>
-          <h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "AI-paperiyhdistelmä", en: "AI paper accumulator", es: "Combinada simulada IA" })}</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Yhdistelmä rakennetaan vain WATCH-korteista, joilla on varmennettu valinta ja kelvollinen kerroin. Se on aina paper-only.", en: "The accumulator uses only WATCH cards with a verified selection and valid odds. It is always paper-only.", es: "La combinada usa solo tarjetas WATCH con selección y cuota verificadas. Siempre es simulada." })}</p>
-
-          {accumulator.available ? (
-            <>
-              <div className="mt-5 space-y-3">
-                {accumulator.legs.map((pick) => <div key={pick.eventId} className="flex items-center justify-between gap-4 rounded-2xl bg-[var(--sc-surface-soft)] p-4"><div><div className="font-black text-[var(--sc-text)]">{pick.title}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{pick.selection} · AI {number(pick.score, 0)} · {pick.decision}</div></div><div className="text-lg font-black text-[var(--sc-text)]">{number(pick.bestOdds)}</div></div>)}
-              </div>
-              <div className="mt-5 flex items-end justify-between rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5">
-                <div><div className="text-xs font-bold uppercase text-[var(--sc-muted)]">{tr({ fi: "Yhteiskerroin", en: "Combined odds", es: "Cuota combinada" })}</div><div className="mt-1 text-4xl font-black text-[var(--sc-text)]">{number(accumulator.combinedOdds)}</div></div>
-                <div className="text-right"><div className="text-xs text-[var(--sc-muted)]">{tr({ fi: "AI-keskiarvo", en: "AI average", es: "Media IA" })}</div><div className="text-xl font-black text-[var(--sc-text)]">{number(accumulator.averageScore, 0)}</div></div>
-              </div>
-              <Link href="/tracking" className="mt-4 block rounded-xl border border-[var(--sc-border)] px-4 py-3 text-center text-sm font-black text-[var(--sc-text)] hover:border-[var(--sc-brand-border)]">{tr({ fi: "Avaa paperiseuranta", en: "Open paper tracking", es: "Abrir seguimiento" })}</Link>
-            </>
-          ) : (
-            <div className="mt-5 rounded-2xl border border-amber-400/20 bg-amber-500/5 p-5">
-              <div className="font-black text-amber-100">{tr({ fi: "Ei vielä turvallisesti rakennettavaa yhdistelmää", en: "No supportable accumulator yet", es: "Aún no hay combinada justificable" })}</div>
-              <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tarvitaan vähintään kaksi WATCH-kohdetta, joilla on varmennettu valinta ja kerroin. CAUTION ei riitä yhdistelmän rakentamiseen.", en: "At least two WATCH cards with a verified selection and odds are required. CAUTION is not enough to build an accumulator.", es: "Se requieren al menos dos tarjetas WATCH con selección y cuota verificadas. CAUTION no es suficiente." })}</p>
-            </div>
-          )}
-        </div>
-
-        <div className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-6">
-          <div className="text-xs font-black uppercase tracking-[0.16em] text-[var(--sc-brand)]">{tr({ fi: "Trendit", en: "Trends", es: "Tendencias" })}</div>
-          <h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Mallietu ja puuttuvat tiedot", en: "Model edge and missing evidence", es: "Ventaja y datos faltantes" })}</h2>
-          <div className="mt-5 space-y-3">
-            {trends.map((pick, index) => <div key={pick.eventId} className="rounded-2xl border border-[var(--sc-border)] p-4"><div className="grid grid-cols-[32px_minmax(0,1fr)_auto] items-center gap-3"><div className="flex h-8 w-8 items-center justify-center rounded-full bg-[var(--sc-brand-soft)] text-xs font-black text-[var(--sc-text)]">{index + 1}</div><div className="min-w-0"><div className="truncate font-black text-[var(--sc-text)]">{pick.title}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{pick.missing?.length ? `${pick.missing.length} missing` : "All main inputs present"}</div></div><div className="font-black text-[var(--sc-brand)]">{percent(pick.edge)}</div></div></div>)}
+                <div className="mt-4 grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center">
+                  <div><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Seurattava ehdokas – ei pelisuositus", en: "Candidate to watch – not a bet recommendation", es: "Candidato a seguir – no recomendación" })}</div><div className="mt-1 font-black text-[var(--sc-text)]">{item.selection || "–"} @ {number(item.odds)}</div></div>
+                  <div><div className="text-[10px] text-[var(--sc-faint)]">Edge</div><div className="font-black text-[var(--sc-text)]">{percent(item.edge)}</div></div>
+                  <div><div className="text-[10px] text-[var(--sc-faint)]">EV</div><div className="font-black text-[var(--sc-text)]">{percent(item.ev)}</div></div>
+                  <Link href={recommendationHref(item)} className="rounded-xl border border-[var(--sc-border)] px-4 py-3 text-center text-sm font-black text-[var(--sc-text)]">{tr({ fi: "Avaa", en: "Open", es: "Abrir" })}</Link>
+                </div>
+                <div className="mt-4 rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-100"><span className="font-black">{tr({ fi: "Puuttuu:", en: "Still missing:", es: "Falta:" })}</span> {gateText(item, tr)}</div>
+              </article>
+            ))}
           </div>
-          <Link href="/feed" className="mt-5 block text-center text-sm font-black text-[var(--sc-brand)] hover:underline">{tr({ fi: "Katso kaikki perustelut AI Feedissä", en: "See every explanation in AI Feed", es: "Ver todas las explicaciones" })}</Link>
-        </div>
+        </section>
+      ) : null}
+
+      <section className="grid gap-4 sm:grid-cols-3">
+        <Link href="/events" className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Kaikki ottelut", en: "All matches", es: "Todos los partidos" })}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "Selaa lajeittain", en: "Browse by sport", es: "Explorar por deporte" })}</div></Link>
+        <Link href="/feed" className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5"><div className="font-black text-[var(--sc-text)]">AI Feed</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "WAIT, CAUTION ja perustelut", en: "WAIT, CAUTION and reasoning", es: "WAIT, CAUTION y motivos" })}</div></Link>
+        <Link href="/data-layer" className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Data & audit", en: "Data & audit", es: "Datos y auditoría" })}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "Providerit ja tekninen diagnostiikka", en: "Providers and technical diagnostics", es: "Proveedores y diagnóstico técnico" })}</div></Link>
       </section>
 
-      <div className="rounded-2xl border border-amber-400/20 bg-amber-500/5 p-4 text-xs leading-6 text-[var(--sc-muted)]">
-        {tr({ fi: "Scorecaster on päätöksenteon tukityökalu. Kaikki kohteet ja yhdistelmät ovat paper-only-analyysiä. Avoimuus tarkoittaa kaavojen, päätösrajojen, normalisoitujen syötteiden ja lähdeviitteiden näyttämistä – ei palveluntarjoajien lisenssien tai tietoturvan rikkomista.", en: "Scorecaster is a decision-support tool. All picks and accumulators are paper-only analysis. Transparency means publishing formulas, gates, normalized inputs and source references without violating licences or security.", es: "Scorecaster es una herramienta de apoyo. Todo es análisis simulado y transparente sin violar licencias ni seguridad." })}
-      </div>
+      <div className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 text-xs leading-6 text-[var(--sc-muted)]">{tr({ fi: "Scorecaster ei aseta oikeita vetoja. PLAY tarkoittaa, että kohde läpäisi nykyiset markkina-, mallievidence- ja turvaportit paperianalyysissä; se ei takaa lopputulosta.", en: "Scorecaster does not place real bets. PLAY means the current market, model-evidence and safety gates passed in paper analysis; it does not guarantee an outcome.", es: "Scorecaster no realiza apuestas reales. PLAY significa que los filtros actuales se superaron en análisis simulado; no garantiza el resultado." })}</div>
     </div>
   );
 }
