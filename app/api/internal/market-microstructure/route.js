@@ -12,9 +12,24 @@ export const maxDuration = 120;
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const ALLOWED_MARKETS = new Set(["h2h", "spreads", "totals"]);
-const CORE_DEFAULTS = ["icehockey_nhl", "basketball_nba", "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", "soccer_germany_bundesliga"];
-const SUMMER_DEFAULTS = ["baseball_mlb", "basketball_wnba", "soccer_usa_mls", "soccer_finland_veikkausliiga", "soccer_sweden_allsvenskan", "soccer_norway_eliteserien"];
-const TRANSITION_DEFAULTS = [...new Set([...SUMMER_DEFAULTS, ...CORE_DEFAULTS, "soccer_france_ligue_one"] )];
+const CORE_DEFAULTS = [
+  "icehockey_nhl",
+  "basketball_nba",
+  "soccer_epl",
+  "soccer_spain_la_liga",
+  "soccer_italy_serie_a",
+  "soccer_germany_bundesliga",
+  "soccer_france_ligue_one"
+];
+const SUMMER_DEFAULTS = [
+  "baseball_mlb",
+  "basketball_wnba",
+  "soccer_usa_mls",
+  "soccer_finland_veikkausliiga",
+  "soccer_sweden_allsvenskan",
+  "soccer_norway_eliteserien"
+];
+const TRANSITION_DEFAULTS = [...new Set([...SUMMER_DEFAULTS, ...CORE_DEFAULTS])];
 const WRITE_BATCH_SIZE = 1000;
 
 const response = (body, status = 200) => Response.json(body, { status, headers: HEADERS });
@@ -40,7 +55,7 @@ function configuredSports() {
     .split(",")
     .map((value) => clean(value, 100))
     .filter((value) => ALLOWED_SPORTS.has(value));
-  return [...new Set(requested.length ? requested : seasonDefaults())].slice(0, 12);
+  return [...new Set(requested.length ? requested : seasonDefaults())].slice(0, 16);
 }
 
 function configuredMarkets() {
@@ -65,6 +80,21 @@ function keepSupportedMarkets(games = []) {
       markets: (Array.isArray(bookmaker?.markets) ? bookmaker.markets : []).filter((market) => ALLOWED_MARKETS.has(String(market?.key || "").toLowerCase()))
     }))
   }));
+}
+
+function splitCaptureWindow(games = [], capturedAt) {
+  const captureMs = Date.parse(capturedAt);
+  const preStart = [];
+  const ignoredPostStart = [];
+  for (const game of Array.isArray(games) ? games : []) {
+    const commenceMs = Date.parse(String(game?.commence_time ?? game?.commenceTime ?? ""));
+    if (Number.isFinite(captureMs) && Number.isFinite(commenceMs) && captureMs >= commenceMs) {
+      ignoredPostStart.push(game);
+    } else {
+      preStart.push(game);
+    }
+  }
+  return { preStart, ignoredPostStart };
 }
 
 async function fetchLeague(request, sport, markets) {
@@ -134,13 +164,14 @@ export async function GET(request) {
   if (!activation.enabled) {
     return response({
       ok: true,
-      version: "scorecaster-market-microstructure-worker-v2.1",
+      version: "scorecaster-market-microstructure-worker-v2.2",
       status: "disabled",
       reason: activation.mode,
       activationMode: activation.mode,
       emergencyStopAvailable: activation.emergencyStopAvailable,
       sourceId: "the_odds_api",
       probabilityChanged: false,
+      realMoneyExecution: false,
       paperOnly: true
     });
   }
@@ -162,6 +193,7 @@ export async function GET(request) {
     const records = [];
     const rejected = [];
     const eventIds = new Set();
+    let ignoredPostStartGames = 0;
 
     for (let index = 0; index < results.length; index += 1) {
       const settled = results[index];
@@ -171,9 +203,26 @@ export async function GET(request) {
         continue;
       }
       const result = settled.value;
-      diagnostics.push({ sport, ok: result.ok, status: result.status, mode: result.mode, reason: result.reason, servedMarkets: result.servedMarkets, games: result.games.length });
-      if (!result.ok) continue;
-      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(result.games), {
+      if (!result.ok) {
+        diagnostics.push({ sport, ok: false, status: result.status, mode: result.mode, reason: result.reason, servedMarkets: result.servedMarkets, games: result.games.length });
+        continue;
+      }
+
+      const captureWindow = splitCaptureWindow(result.games, startedAt);
+      ignoredPostStartGames += captureWindow.ignoredPostStart.length;
+      diagnostics.push({
+        sport,
+        ok: true,
+        status: result.status,
+        mode: result.mode,
+        reason: result.reason,
+        servedMarkets: result.servedMarkets,
+        games: result.games.length,
+        preStartGames: captureWindow.preStart.length,
+        ignoredPostStartGames: captureWindow.ignoredPostStart.length
+      });
+
+      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(captureWindow.preStart), {
         capturedAt: startedAt,
         sourceId: "the_odds_api",
         captureId: runId
@@ -200,7 +249,7 @@ export async function GET(request) {
 
     return response({
       ok: status !== "failed",
-      version: "scorecaster-market-microstructure-worker-v2.1",
+      version: "scorecaster-market-microstructure-worker-v2.2",
       runId,
       startedAt,
       completedAt,
@@ -215,6 +264,7 @@ export async function GET(request) {
       writeBatches: Math.ceil(records.length / WRITE_BATCH_SIZE),
       duplicates: Math.max(0, records.length - inserted.length),
       rejected: rejected.length,
+      ignoredPostStartGames,
       diagnostics,
       sourceId: "the_odds_api",
       sourceAttribution: source?.attribution || "Market odds: The Odds API",
@@ -234,13 +284,14 @@ export async function GET(request) {
     }
     return response({
       ok: false,
-      version: "scorecaster-market-microstructure-worker-v2.1",
+      version: "scorecaster-market-microstructure-worker-v2.2",
       error: missingPatch(error)
         ? "Market Microstructure V2 production patch is not active"
         : process.env.NODE_ENV === "production" ? "Market capture failed" : String(error),
       requiredPatch: missingPatch(error) ? "scripts/apply-market-microstructure-v2.sql" : undefined,
       activationMode: activation.mode,
       emergencyStopAvailable: activation.emergencyStopAvailable,
+      realMoneyExecution: false,
       paperOnly: true
     }, missingPatch(error) ? 503 : 500);
   }
