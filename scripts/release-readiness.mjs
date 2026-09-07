@@ -32,9 +32,7 @@ async function json(relativePath) {
 }
 
 async function anyExists(candidates) {
-  for (const candidate of candidates) {
-    if (await exists(candidate)) return true;
-  }
+  for (const candidate of candidates) if (await exists(candidate)) return true;
   return false;
 }
 
@@ -93,7 +91,7 @@ for (const endpoint of protectedApis) {
 const migrations = manifest.supabaseMigrations || [];
 const discoveredMigrations = (await readdir(path.join(root, "supabase")))
   .filter((name) => /^scorecaster_[a-z0-9_]+\.sql$/.test(name))
-  .map((name) => "supabase/" + name)
+  .map((name) => `supabase/${name}`)
   .sort();
 const productionPatches = manifest.productionPatches || [];
 const expectedProductionPatches = [
@@ -102,6 +100,7 @@ const expectedProductionPatches = [
   "scripts/apply-ai-coach-v1.sql",
   "scripts/apply-verified-live-monitor-v1.sql"
 ];
+
 check(migrations.length > 0, "Release manifest must list the ordered Supabase rollout");
 check(unique(migrations), "Release manifest contains duplicate migrations");
 check(
@@ -110,6 +109,7 @@ check(
 );
 check(migrations[0] === "supabase/scorecaster_schema.sql", "Base schema must be the first migration");
 check(migrations[1] === "supabase/scorecaster_auth_cloud.sql", "Cloud auth and RLS must follow the base schema");
+
 const communityFeedIndex = migrations.indexOf("supabase/scorecaster_community_feed_v1.sql");
 const aiIntelligenceIndex = migrations.indexOf("supabase/scorecaster_ai_intelligence_v1.sql");
 const collectorIndex = migrations.indexOf("supabase/scorecaster_collector_v1.sql");
@@ -127,12 +127,15 @@ const shadowCandidateTriggerSafetyIndex = migrations.indexOf("supabase/scorecast
 const shadowCandidateBatchFixIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_batch_v1_fix.sql");
 const shadowCandidateAclIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_function_acl_v1.sql");
 const shadowCandidatePerformanceIndex = migrations.indexOf("supabase/scorecaster_shadow_candidate_settlement_performance_v2.sql");
+
 const postShadowMigrations = [
   "supabase/scorecaster_self_data_engine_v1.sql",
   "supabase/scorecaster_intelligence_core_v1.sql",
   "supabase/scorecaster_event_identity_map_v1.sql",
   "supabase/scorecaster_openfootball_bootstrap_v1.sql",
   "supabase/scorecaster_event_identity_refresh_v1.sql",
+  "supabase/scorecaster_event_identity_normalization_v2.sql",
+  "supabase/scorecaster_event_identity_fixture_map_v3.sql",
   "supabase/scorecaster_outcome_chronology_fix_v1.sql",
   "supabase/scorecaster_own_model_scheduler_v1.sql",
   "supabase/scorecaster_own_football_ml_v1.sql",
@@ -144,6 +147,7 @@ const postShadowMigrations = [
   "supabase/scorecaster_fk_index_hardening_v1.sql",
   "supabase/scorecaster_autonomous_audit_performance_v1.sql"
 ];
+
 check(communityFeedIndex === 2, "Community Feed must run immediately after Cloud Auth");
 check(aiIntelligenceIndex === collectorIndex + 1, "AI Intelligence must run immediately after Collector V1");
 check(unifiedDataIndex === aiIntelligenceIndex + 1, "Unified Data must run immediately after AI Intelligence");
@@ -168,6 +172,7 @@ for (const migration of migrations) {
   check(/^supabase\/scorecaster_[a-z0-9_]+\.sql$/.test(migration), `Unexpected migration path ${migration}`);
   check(await exists(migration), `Migration ${migration} is missing`);
 }
+
 check(
   JSON.stringify(productionPatches) === JSON.stringify(expectedProductionPatches),
   "Release manifest must list the four reviewed production patches in dependency order"
