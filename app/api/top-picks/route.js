@@ -26,10 +26,18 @@ const SUMMER_DEFAULT_LEAGUES = [
   "soccer_sweden_allsvenskan",
   "soccer_norway_eliteserien"
 ];
+const TRANSITION_DEFAULT_LEAGUES = [
+  ...SUMMER_DEFAULT_LEAGUES,
+  "soccer_epl",
+  "soccer_spain_la_liga",
+  "icehockey_finland_liiga",
+  "icehockey_sweden_hockey_league",
+  "icehockey_nhl"
+];
 const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
 const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
-const MAX_INTELLIGENCE_ENRICHMENTS = 12;
+const MAX_INTELLIGENCE_ENRICHMENTS = 24;
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
   "X-Content-Type-Options": "nosniff"
@@ -124,13 +132,15 @@ function clamp(value, min, max) {
 
 function seasonForDate(now = Date.now()) {
   const month = new Date(now).getUTCMonth();
+  if (month === 8) return "transition";
   return month >= 4 && month <= 7 ? "summer" : "core-season";
 }
 
 function defaultLeaguesForDate(now = Date.now()) {
-  return seasonForDate(now) === "summer"
-    ? SUMMER_DEFAULT_LEAGUES
-    : CORE_SEASON_DEFAULT_LEAGUES;
+  const season = seasonForDate(now);
+  if (season === "summer") return SUMMER_DEFAULT_LEAGUES;
+  if (season === "transition") return TRANSITION_DEFAULT_LEAGUES;
+  return CORE_SEASON_DEFAULT_LEAGUES;
 }
 
 function findLeagueTitle(key) {
@@ -335,7 +345,7 @@ function parseLeagues(searchParams, now = Date.now()) {
     .filter((league) => LEAGUE_KEYS.has(league))
     .sort();
 
-  if (!leagues.length || leagues.length > 6) return null;
+  if (!leagues.length || leagues.length > 12) return null;
   return leagues;
 }
 
@@ -363,9 +373,6 @@ async function loadLeague(origin, league, now) {
       filterUpcomingPicks([{ commenceTime: game.commence_time }], ANALYSIS_WINDOW_HOURS, now).length === 1
     );
 
-    // Keep all consensus-backed selections with at least two bookmakers.
-    // The decision gate below is responsible for classifying weak edges as SKIP,
-    // while the collector can still preserve the underlying market observation.
     const picks = createTopPicksFromGames({
       games: nearTermGames,
       marketKey: "h2h",
@@ -415,7 +422,7 @@ export async function GET(request) {
   const leagues = parseLeagues(url.searchParams, now);
   if (!leagues) {
     return Response.json(
-      { ok: false, error: "Choose between one and six supported leagues", data: [] },
+      { ok: false, error: "Choose between one and twelve supported leagues", data: [] },
       { status: 400, headers: CACHE_HEADERS }
     );
   }
