@@ -137,6 +137,21 @@ test("storage patch is service-only, immutable-oriented and pre-start constraine
   assert.doesNotMatch(sql, /drop\s+table|truncate\s+table|delete\s+from/i);
 });
 
+test("worker ignores already-started fixtures before normalization and covers all owned football leagues", async () => {
+  const worker = await source("app/api/internal/market-microstructure/route.js");
+  assert.match(worker, /splitCaptureWindow/);
+  assert.match(worker, /ignoredPostStartGames/);
+  assert.match(worker, /captureMs >= commenceMs/);
+  assert.match(worker, /slice\(0, 16\)/);
+  for (const sport of [
+    "soccer_epl",
+    "soccer_spain_la_liga",
+    "soccer_italy_serie_a",
+    "soccer_germany_bundesliga",
+    "soccer_france_ligue_one"
+  ]) assert.match(worker, new RegExp(sport));
+});
+
 test("worker, public audit, event UI and docs preserve the safety boundary", async () => {
   const [worker, api, eventPanel, page, workflow, docs] = await Promise.all([
     source("app/api/internal/market-microstructure/route.js"),
@@ -155,6 +170,8 @@ test("worker, public audit, event UI and docs preserve the safety boundary", asy
   assert.match(eventPanel, /sharpMoneyClaim=false/);
   assert.match(page, /Closing line/);
   assert.match(workflow, /api\/internal\/market-microstructure/);
+  assert.match(workflow, /payload\?\.status !== 'success'/);
+  assert.match(workflow, /payload\?\.rejected/);
   assert.match(docs, /never claims `sharp money`/i);
   for (const text of [api, eventPanel, page, docs]) {
     assert.doesNotMatch(text, /ODDS_API_KEY|SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET=/);
