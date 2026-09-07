@@ -19,18 +19,22 @@ test("Match Intelligence is event-specific and fail-closed", () => {
 test("Match Intelligence reuses one current event-detail request", () => {
   assert.equal(count(client, "fetch("), 1);
   assert.match(client, /\/api\/event-detail/);
+  assert.match(client, /AbortSignal\.timeout\(35_000\)/);
   assert.equal(client.includes("/api/data-layer"), false);
 });
 
-test("visual surface exposes coverage, disagreement and missing evidence", () => {
+test("visual surface keeps decision essentials simple and technical evidence in Pro Mode", () => {
+  assert.match(client, /What is still missing/);
+  assert.match(client, /Show technical audit/);
+  assert.match(client, /proMode \? <>/);
   assert.match(client, /Feature coverage/);
   assert.match(client, /Model disagreement/);
-  assert.match(client, /What changes the analysis/);
-  assert.match(client, /Missing information stays missing/);
+  assert.match(client, /Raw gates/);
 });
 
 test("Match Intelligence does not mutate production analysis", () => {
-  assert.match(client, /does not invent missing values, change production probabilities, or alter product decisions/);
+  assert.match(client, /Missing data stays missing/);
+  assert.match(client, /does not alter production probability or place real-money bets/);
   assert.equal(client.includes("method: \"POST\""), false);
   assert.equal(client.includes("method: 'POST'"), false);
 });
