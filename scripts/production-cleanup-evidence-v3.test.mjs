@@ -72,8 +72,12 @@ test("simple Match Intelligence hides technical audit behind Pro Mode and has a 
   assert.match(source, /proMode \? <>/);
 });
 
-test("self data engine captures point-in-time snapshots multiple times per day", () => {
+test("self data engine captures point-in-time snapshots multiple times per day outside Vercel Hobby cron", () => {
+  const workflow = read(".github/workflows/self-data-engine-v1.yml");
   const config = JSON.parse(read("vercel.json"));
-  const worker = config.crons.find((item) => item.path === "/api/internal/self-data-engine");
-  assert.equal(worker?.schedule, "15 1,7,13,19 * * *");
+  assert.match(workflow, /cron: "15 1,7,13,19 \* \* \*"/);
+  assert.match(workflow, /Authorization: Bearer \$\{CRON_SECRET\}/);
+  assert.match(workflow, /productionProbabilityChanged/);
+  assert.match(workflow, /realMoneyActionAvailable/);
+  assert.equal(config.crons.some((item) => item.path === "/api/internal/self-data-engine"), false);
 });
