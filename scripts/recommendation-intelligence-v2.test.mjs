@@ -83,7 +83,7 @@ test("current-window league readiness is explicitly not a historical rating", ()
   assert.match(rows[0].limitation, /not a historical/i);
 });
 
-test("Recommendation feed V2 exposes Near PLAY, radar and league readiness without changing decisions", () => {
+test("Recommendation feed V2.1 exposes Near PLAY, radar and league readiness without changing decisions", () => {
   const feed = buildRecommendationFeed([{
     eventId: "feed-event",
     sportKey: "soccer_epl",
@@ -101,7 +101,7 @@ test("Recommendation feed V2 exposes Near PLAY, radar and league readiness witho
     freshnessLabel: "fresh",
     sportsIntelligence: { readiness: { level: "market-only" } }
   }], { limit: 8 });
-  assert.equal(feed.version, "scorecaster-recommendation-feed-v2");
+  assert.equal(feed.version, "scorecaster-recommendation-feed-v2.1");
   assert.equal(feed.counts.CAUTION, 1);
   assert.equal(feed.counts.PLAY, 0);
   assert.equal(feed.counts.NEAR_PLAY, 1);
