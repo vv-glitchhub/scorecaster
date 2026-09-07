@@ -9,6 +9,12 @@ test("home page uses the PLAY-first Today experience", async () => {
   const page = await file("app/page.jsx");
   const today = await file("app/components/TodayPageClient.jsx");
   assert.match(page, /TodayPageClient/);
+  const todayIndex = page.indexOf("<TodayPageClient />");
+  const spotlightIndex = page.indexOf("<RecommendationSpotlight />");
+  const professionalIndex = page.indexOf('<ProfessionalSurfaceRail surface="today" />');
+  assert.ok(todayIndex >= 0, "TodayPageClient must be rendered on the home page");
+  assert.ok(spotlightIndex < 0 || todayIndex < spotlightIndex, "PLAY-first Today must render before Recommendation Spotlight");
+  assert.ok(professionalIndex < 0 || todayIndex < professionalIndex, "PLAY-first Today must render before professional diagnostics");
   assert.match(today, /\/api\/recommendations\?limit=20/);
   assert.match(today, /Mitä pelata nyt/);
   assert.match(today, /Pelaa näin/);
