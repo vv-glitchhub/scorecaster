@@ -1,84 +1,68 @@
+import { SPORTS } from "../../../lib/sports.js";
+
+const SUPPORTED_LEAGUES = SPORTS.flatMap((group) => group.leagues.map((league) => ({
+  key: league.key,
+  group: group.group,
+  title: league.title
+})));
+const SUPPORTED_KEYS = new Set(SUPPORTED_LEAGUES.map((league) => league.key));
+
 function getFallbackSports() {
-  return [
-    {
-      key: "icehockey_nhl",
-      group: "Ice Hockey",
-      title: "NHL",
-      description: "National Hockey League",
+  return SUPPORTED_LEAGUES
+    .filter((sport) => !String(sport.key).endsWith("_winner"))
+    .map((sport) => ({
+      key: sport.key,
+      group: sport.group,
+      title: sport.title,
+      description: sport.title,
       active: true,
       has_outrights: false,
-    },
-    {
-      key: "icehockey_liiga",
-      group: "Ice Hockey",
-      title: "Liiga",
-      description: "Finnish Liiga",
-      active: true,
-      has_outrights: false,
-    },
-    {
-      key: "basketball_nba",
-      group: "Basketball",
-      title: "NBA",
-      description: "National Basketball Association",
-      active: true,
-      has_outrights: false,
-    },
-    {
-      key: "soccer_epl",
-      group: "Soccer",
-      title: "Premier League",
-      description: "English Premier League",
-      active: true,
-      has_outrights: false,
-    },
-  ];
+      fallback: true
+    }));
 }
 
 function isAllowedSport(sport) {
   if (!sport?.active) return false;
-
-  const blockedGroups = ["Politics", "Awards", "Entertainment"];
-  if (blockedGroups.includes(sport.group)) return false;
-
-  const allowedGroups = ["Ice Hockey", "Basketball", "Soccer"];
-  if (!allowedGroups.includes(sport.group)) return false;
-
-  return true;
+  return SUPPORTED_KEYS.has(sport.key);
 }
 
 export async function GET() {
   try {
-    const res = await fetch(
-      `https://api.the-odds-api.com/v4/sports/?apiKey=${process.env.ODDS_API_KEY}`,
-      {
-        next: { revalidate: 60 * 60 * 24 * 3 },
-      }
-    );
+    const apiKey = process.env.ODDS_API_KEY;
+    if (!apiKey) {
+      return Response.json({
+        fallback: true,
+        data: getFallbackSports(),
+        error: "Live sports discovery is not configured"
+      });
+    }
 
-    const data = await res.json();
+    const res = await fetch(
+      `https://api.the-odds-api.com/v4/sports/?apiKey=${encodeURIComponent(apiKey)}`,
+      { next: { revalidate: 60 * 60 } }
+    );
+    const data = await res.json().catch(() => null);
 
     if (!res.ok) {
       return Response.json({
         fallback: true,
         data: getFallbackSports(),
-        error: data?.message || "Failed to fetch sports",
+        error: data?.message || "Failed to fetch sports"
       });
     }
 
-    const filtered = Array.isArray(data)
-      ? data.filter(isAllowedSport)
-      : [];
-
+    const filtered = Array.isArray(data) ? data.filter(isAllowedSport) : [];
     return Response.json({
       fallback: false,
-      data: filtered,
+      supportedCount: SUPPORTED_KEYS.size,
+      activeCount: filtered.length,
+      data: filtered
     });
-  } catch (error) {
+  } catch {
     return Response.json({
       fallback: true,
       data: getFallbackSports(),
-      error: "Failed to fetch sports",
+      error: "Failed to fetch sports"
     });
   }
 }

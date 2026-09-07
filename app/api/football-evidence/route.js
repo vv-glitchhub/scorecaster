@@ -1,4 +1,5 @@
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader.js";
+import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-evidence-v1.js";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -37,16 +38,34 @@ export async function GET(request) {
     const base = candidates.find((pick) => !selection || clean(pick.selection || pick.label, 140).toLowerCase() === selection.toLowerCase()) || candidates[0] || null;
     if (!base) return Response.json({ ok: false, error: "Event is not in the current verified analysis" }, { status: 404, headers: HEADERS });
 
-    const enriched = await enrichPickWithLiveIntelligence(base);
+    // Summary responses intentionally compact internal evidence. Rehydrate the
+    // owned model from the protected database before building the football
+    // evidence contract so the audit cannot accidentally report the model as
+    // unavailable when a verified event mapping already exists.
+    const [baseWithOwnedEvidence] = await attachOwnedDecisionEvidenceBatch([base], { now: Date.now() });
+    const enriched = await enrichPickWithLiveIntelligence(baseWithOwnedEvidence || base);
     const evidence = enriched.footballIndependentEvidenceV1 || null;
+    const owned = enriched.ownedDecisionEvidenceV1 || null;
+
     return Response.json({
       ok: true,
-      version: "football-evidence-api-v1",
+      version: "football-evidence-api-v1.1",
       eventId,
       match: enriched.match,
       selection: enriched.selection || enriched.label,
       decision: enriched.productDecision || "CAUTION",
       evidence,
+      ownedModel: owned ? {
+        available: owned.applicable === true && owned.probability !== null,
+        qualified: owned.qualified === true,
+        probability: owned.probability ?? null,
+        probabilityDelta: owned.probabilityDelta ?? null,
+        supportsSelection: owned.supportsSelection === true,
+        strongConflict: owned.strongConflict === true,
+        modelSelectedOutcome: owned.modelSelectedOutcome || null,
+        marketMapped: owned.marketMapped === true,
+        ageHours: owned.ageHours ?? null
+      } : null,
       soccerXgPoissonShadow: enriched.soccerXgPoissonShadowV1 ? {
         version: enriched.soccerXgPoissonShadowV1.version,
         modelId: enriched.soccerXgPoissonShadowV1.modelId,

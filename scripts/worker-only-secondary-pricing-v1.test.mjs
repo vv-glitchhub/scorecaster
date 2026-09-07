@@ -198,7 +198,7 @@ test("protected worker enriches only after CRON authorization guard", async () =
   const enrichment = route.indexOf("enrichPicksForUnifiedCapture(publicPicks");
   assert.ok(unauthorized >= 0);
   assert.ok(enrichment > unauthorized);
-  assert.match(route, /version:\s*"unified-sports-data-worker-v3"/);
+  assert.match(route, /version:\s*"unified-sports-data-worker-v3\.1"/);
   assert.match(route, /acquisition:\s*"protected-worker-only"/);
   assert.doesNotMatch(route, /SPORTSGAMEODDS_API_KEY/);
 });

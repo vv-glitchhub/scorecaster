@@ -12,8 +12,10 @@ export const maxDuration = 120;
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
 const ALLOWED_MARKETS = new Set(["h2h", "spreads", "totals"]);
-const CORE_DEFAULTS = ["icehockey_nhl", "basketball_nba", "soccer_epl", "soccer_spain_la_liga"];
-const SUMMER_DEFAULTS = ["baseball_mlb", "basketball_wnba", "soccer_usa_mls", "soccer_finland_veikkausliiga"];
+const CORE_DEFAULTS = ["icehockey_nhl", "basketball_nba", "soccer_epl", "soccer_spain_la_liga", "soccer_italy_serie_a", "soccer_germany_bundesliga"];
+const SUMMER_DEFAULTS = ["baseball_mlb", "basketball_wnba", "soccer_usa_mls", "soccer_finland_veikkausliiga", "soccer_sweden_allsvenskan", "soccer_norway_eliteserien"];
+const TRANSITION_DEFAULTS = [...new Set([...SUMMER_DEFAULTS, ...CORE_DEFAULTS, "soccer_france_ligue_one"] )];
+const WRITE_BATCH_SIZE = 1000;
 
 const response = (body, status = 200) => Response.json(body, { status, headers: HEADERS });
 const clean = (value, maximum = 240) => String(value ?? "")
@@ -29,6 +31,7 @@ function authorized(request) {
 
 function seasonDefaults(now = new Date()) {
   const month = now.getUTCMonth();
+  if (month === 8) return TRANSITION_DEFAULTS;
   return month >= 4 && month <= 7 ? SUMMER_DEFAULTS : CORE_DEFAULTS;
 }
 
@@ -37,11 +40,11 @@ function configuredSports() {
     .split(",")
     .map((value) => clean(value, 100))
     .filter((value) => ALLOWED_SPORTS.has(value));
-  return [...new Set(requested.length ? requested : seasonDefaults())].slice(0, 6);
+  return [...new Set(requested.length ? requested : seasonDefaults())].slice(0, 12);
 }
 
 function configuredMarkets() {
-  const requested = String(process.env.MARKET_MICROSTRUCTURE_MARKETS || "h2h")
+  const requested = String(process.env.MARKET_MICROSTRUCTURE_MARKETS || "h2h,spreads,totals")
     .split(",")
     .map((value) => clean(value, 40).toLowerCase())
     .filter((value) => ALLOWED_MARKETS.has(value));
@@ -52,6 +55,16 @@ function gamesFromPayload(payload) {
   if (Array.isArray(payload)) return payload;
   for (const key of ["data", "games", "events"]) if (Array.isArray(payload?.[key])) return payload[key];
   return [];
+}
+
+function keepSupportedMarkets(games = []) {
+  return games.map((game) => ({
+    ...game,
+    bookmakers: (Array.isArray(game?.bookmakers) ? game.bookmakers : []).map((bookmaker) => ({
+      ...bookmaker,
+      markets: (Array.isArray(bookmaker?.markets) ? bookmaker.markets : []).filter((market) => ALLOWED_MARKETS.has(String(market?.key || "").toLowerCase()))
+    }))
+  }));
 }
 
 async function fetchLeague(request, sport, markets) {
@@ -68,6 +81,7 @@ async function fetchLeague(request, sport, markets) {
     status: result.status,
     mode: payload?.mode || payload?.source || null,
     reason: payload?.reason || payload?.error || null,
+    servedMarkets: String(payload?.markets || markets.join(",")),
     games: result.ok ? gamesFromPayload(payload) : []
   };
 }
@@ -92,6 +106,20 @@ async function finishRun(admin, runId, changes) {
   if (error) throw error;
 }
 
+async function storeRecords(admin, records) {
+  const inserted = [];
+  for (let index = 0; index < records.length; index += WRITE_BATCH_SIZE) {
+    const batch = records.slice(index, index + WRITE_BATCH_SIZE);
+    const { data, error } = await admin
+      .from("market_provider_snapshots_v2")
+      .upsert(batch, { onConflict: "id", ignoreDuplicates: true })
+      .select("id");
+    if (error) throw error;
+    inserted.push(...(data || []));
+  }
+  return inserted;
+}
+
 export async function GET(request) {
   if (!process.env.CRON_SECRET) return response({ ok: false, error: "CRON_SECRET is not configured" }, 503);
   if (!authorized(request)) return response({ ok: false, error: "Unauthorized" }, 401);
@@ -106,7 +134,7 @@ export async function GET(request) {
   if (!activation.enabled) {
     return response({
       ok: true,
-      version: "scorecaster-market-microstructure-worker-v2",
+      version: "scorecaster-market-microstructure-worker-v2.1",
       status: "disabled",
       reason: activation.mode,
       activationMode: activation.mode,
@@ -143,9 +171,9 @@ export async function GET(request) {
         continue;
       }
       const result = settled.value;
-      diagnostics.push({ sport, ok: result.ok, status: result.status, mode: result.mode, reason: result.reason, games: result.games.length });
+      diagnostics.push({ sport, ok: result.ok, status: result.status, mode: result.mode, reason: result.reason, servedMarkets: result.servedMarkets, games: result.games.length });
       if (!result.ok) continue;
-      const normalized = normalizeMarketProviderGames(result.games, {
+      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(result.games), {
         capturedAt: startedAt,
         sourceId: "the_odds_api",
         captureId: runId
@@ -155,16 +183,7 @@ export async function GET(request) {
       for (const row of normalized.records) eventIds.add(row.event_id);
     }
 
-    let inserted = [];
-    if (records.length) {
-      const { data, error } = await admin
-        .from("market_provider_snapshots_v2")
-        .upsert(records.slice(0, 20_000), { onConflict: "id", ignoreDuplicates: true })
-        .select("id");
-      if (error) throw error;
-      inserted = data || [];
-    }
-
+    const inserted = records.length ? await storeRecords(admin, records) : [];
     const successfulSources = diagnostics.filter((item) => item.ok).length;
     const status = successfulSources === 0 ? "failed" : successfulSources < sports.length || rejected.length ? "partial" : "success";
     const completedAt = new Date().toISOString();
@@ -181,7 +200,7 @@ export async function GET(request) {
 
     return response({
       ok: status !== "failed",
-      version: "scorecaster-market-microstructure-worker-v2",
+      version: "scorecaster-market-microstructure-worker-v2.1",
       runId,
       startedAt,
       completedAt,
@@ -193,6 +212,7 @@ export async function GET(request) {
       events: eventIds.size,
       normalizedRecords: records.length,
       stored: inserted.length,
+      writeBatches: Math.ceil(records.length / WRITE_BATCH_SIZE),
       duplicates: Math.max(0, records.length - inserted.length),
       rejected: rejected.length,
       diagnostics,
@@ -214,7 +234,7 @@ export async function GET(request) {
     }
     return response({
       ok: false,
-      version: "scorecaster-market-microstructure-worker-v2",
+      version: "scorecaster-market-microstructure-worker-v2.1",
       error: missingPatch(error)
         ? "Market Microstructure V2 production patch is not active"
         : process.env.NODE_ENV === "production" ? "Market capture failed" : String(error),

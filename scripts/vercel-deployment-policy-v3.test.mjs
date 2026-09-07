@@ -26,12 +26,18 @@ test("build-stage ignoreCommand remains absent", async () => {
   assert.equal(Object.prototype.hasOwnProperty.call(config, "ignoreCommand"), false);
 });
 
-test("production cron remains unchanged", async () => {
+test("production crons stay on the reviewed maintenance and point-in-time capture schedule", async () => {
   const config = await readConfig();
-  assert.deepEqual(config.crons, [{
-    path: "/api/cron/update-ratings",
-    schedule: "0 5 * * *"
-  }]);
+  assert.deepEqual(config.crons, [
+    {
+      path: "/api/cron/update-ratings",
+      schedule: "0 5 * * *"
+    },
+    {
+      path: "/api/internal/self-data-engine",
+      schedule: "15 1,7,13,19 * * *"
+    }
+  ]);
 });
 
 test("deployment policy is infrastructure-only", async () => {

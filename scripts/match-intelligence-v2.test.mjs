@@ -101,17 +101,15 @@ test("selection evidence preserves explicit zero but never invents zero for miss
   assert.equal(zero.bookmakerCount, 0);
 });
 
-test("Match Intelligence shows explicit evidence states rather than zero-imputing missing sections", () => {
+test("Match Intelligence keeps missing technical evidence missing in Simple and Pro modes", () => {
   assert.match(client, /data-evidence-semantics-v2/);
   assert.match(client, /intelligenceState === "missing"/);
-  assert.match(client, /featureState === "no-observations"/);
-  assert.match(client, /ensembleState === "missing"/);
-  assert.match(client, /0 verified observations/);
-  assert.match(client, /Feature pipeline ran with 0 observations/);
-  assert.match(client, /Model pipeline ran with 0 observations/);
+  assert.match(client, /featureState === "observed" \? pct\(featureEngine\.eligibilityRate, 0\) : "—"/);
+  assert.match(client, /ensembleState === "missing" \? "—"/);
+  assert.match(client, /publishable = state === "observed" \|\| state === "no-observations"/);
   assert.match(client, /data-team-comparison/);
-  assert.match(client, /data-model-room/);
   assert.match(client, /Independent research models/);
+  assert.match(client, /proMode \? <>/);
 });
 
 test("web and native formatters keep missing numeric evidence missing", () => {
@@ -127,6 +125,7 @@ test("web and native formatters keep missing numeric evidence missing", () => {
 test("Pro-only model detail remains conditional", () => {
   assert.match(client, /proMode \?/);
   assert.match(client, /ModelRoom models=\{models\}/);
+  assert.match(client, /Raw gates/);
 });
 
 test("Match Intelligence links to event-specific Activity without adding a fetch", () => {
@@ -138,7 +137,7 @@ test("Match Intelligence links to event-specific Activity without adding a fetch
 test("V2 preserves the read-only production boundary", () => {
   assert.equal(client.includes("method: \"POST\""), false);
   assert.equal(client.includes("method: 'POST'"), false);
-  assert.match(client, /does not invent missing values, change production probabilities, or alter product decisions/);
-  assert.match(client, /Market benchmark/);
-  assert.match(client, /automatic promotion/);
+  assert.match(client, /Missing data stays missing/);
+  assert.match(client, /does not alter production probability or place real-money bets/);
+  assert.match(client, /Show technical audit/);
 });

@@ -26,6 +26,72 @@ function canonicalRequestUrl(request, sport, markets) {
   return canonical;
 }
 
+async function fetchPrimaryOdds({ sport, markets, apiKey }) {
+  const url = new URL(`https://api.the-odds-api.com/v4/sports/${sport}/odds`);
+  url.searchParams.set("apiKey", apiKey);
+  url.searchParams.set("regions", "eu");
+  url.searchParams.set("markets", markets);
+  url.searchParams.set("oddsFormat", "decimal");
+  url.searchParams.set("dateFormat", "iso");
+
+  try {
+    const response = await fetch(url.toString(), {
+      cache: "no-store",
+      signal: AbortSignal.timeout(12000)
+    });
+    const data = await response.json().catch(() => null);
+    return {
+      ok: response.ok && Array.isArray(data),
+      status: response.status,
+      data,
+      timedOut: false,
+      providerHeaders: {
+        requestsRemaining: response.headers.get("x-requests-remaining"),
+        requestsUsed: response.headers.get("x-requests-used"),
+        requestsLast: response.headers.get("x-requests-last")
+      }
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: null,
+      data: null,
+      timedOut: error?.name === "TimeoutError" || error?.name === "AbortError",
+      providerHeaders: { requestsRemaining: null, requestsUsed: null, requestsLast: null }
+    };
+  }
+}
+
+async function enrichAndRespond({ primary, sport, servedMarkets, requestedMarkets, fallbackReason = null }) {
+  const veikkaus = await enrichGamesWithVeikkaus({
+    games: primary.data,
+    sportKey: sport,
+    markets: servedMarkets.split(",")
+  });
+  const marketFallback = servedMarkets !== requestedMarkets;
+
+  return json({
+    ok: true,
+    source: "live",
+    mode: marketFallback ? "live-partial-markets" : veikkaus.games.length ? "live" : "live-empty",
+    sport,
+    markets: servedMarkets,
+    requestedMarkets,
+    marketFallback,
+    fallbackReason,
+    regions: "eu",
+    count: veikkaus.games.length,
+    providerHeaders: primary.providerHeaders,
+    bookmakerSources: {
+      primary: "the-odds-api",
+      veikkaus: veikkaus.state
+    },
+    paperOnly: true,
+    realMoneyBetting: false,
+    data: veikkaus.games
+  });
+}
+
 export async function GET(request) {
   const requestUrl = new URL(request.url);
   const unknownKeys = [...requestUrl.searchParams.keys()].filter(
@@ -57,85 +123,42 @@ export async function GET(request) {
     );
   }
 
-  try {
-    const url = new URL(`https://api.the-odds-api.com/v4/sports/${sport}/odds`);
-    url.searchParams.set("apiKey", apiKey);
-    url.searchParams.set("regions", "eu");
-    url.searchParams.set("markets", markets);
-    url.searchParams.set("oddsFormat", "decimal");
-    url.searchParams.set("dateFormat", "iso");
-
-    const response = await fetch(url.toString(), {
-      cache: "no-store",
-      signal: AbortSignal.timeout(12000)
-    });
-
-    const data = await response.json().catch(() => null);
-    const providerHeaders = {
-      requestsRemaining: response.headers.get("x-requests-remaining"),
-      requestsUsed: response.headers.get("x-requests-used"),
-      requestsLast: response.headers.get("x-requests-last")
-    };
-
-    if (!response.ok || !Array.isArray(data)) {
-      const upstreamStatus = response.status >= 400 && response.status < 500 ? 502 : 503;
-      return json(
-        {
-          ok: false,
-          source: "upstream_error",
-          reason: data?.message || "Live odds provider is temporarily unavailable",
-          upstreamStatus: response.status,
-          sport,
-          markets,
-          count: 0,
-          providerHeaders,
-          data: []
-        },
-        upstreamStatus,
-        { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" }
-      );
-    }
-
-    // Veikkaus is an optional second bookmaker feed. It is read-only and fail-open:
-    // if the dedicated provider key is missing, rate-limited or unavailable, the
-    // canonical The Odds API market remains untouched and usable.
-    const veikkaus = await enrichGamesWithVeikkaus({
-      games: data,
-      sportKey: sport,
-      markets: markets.split(",")
-    });
-
-    return json({
-      ok: true,
-      source: "live",
-      mode: veikkaus.games.length ? "live" : "live-empty",
-      sport,
-      markets,
-      regions: "eu",
-      count: veikkaus.games.length,
-      providerHeaders,
-      bookmakerSources: {
-        primary: "the-odds-api",
-        veikkaus: veikkaus.state
-      },
-      paperOnly: true,
-      realMoneyBetting: false,
-      data: veikkaus.games
-    });
-  } catch (error) {
-    const timedOut = error?.name === "TimeoutError" || error?.name === "AbortError";
-    return json(
-      {
-        ok: false,
-        source: "upstream_error",
-        reason: timedOut ? "Live odds request timed out" : "Live odds request failed",
-        sport,
-        markets,
-        count: 0,
-        data: []
-      },
-      503,
-      { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" }
-    );
+  const requestedMarkets = markets;
+  const primary = await fetchPrimaryOdds({ sport, markets: requestedMarkets, apiKey });
+  if (primary.ok) {
+    return enrichAndRespond({ primary, sport, servedMarkets: requestedMarkets, requestedMarkets });
   }
+
+  // Some leagues/providers expose H2H but not spreads/totals. Optional market
+  // support must not make the entire league disappear from Top Picks. Retry the
+  // canonical winner market only when a combined request fails.
+  if (requestedMarkets.includes(",") && requestedMarkets.includes("h2h")) {
+    const h2h = await fetchPrimaryOdds({ sport, markets: "h2h", apiKey });
+    if (h2h.ok) {
+      return enrichAndRespond({
+        primary: h2h,
+        sport,
+        servedMarkets: "h2h",
+        requestedMarkets,
+        fallbackReason: `Optional markets unavailable (primary HTTP ${primary.status ?? "timeout"})`
+      });
+    }
+  }
+
+  const upstreamStatus = primary.status !== null && primary.status >= 400 && primary.status < 500 ? 502 : 503;
+  return json(
+    {
+      ok: false,
+      source: "upstream_error",
+      reason: primary.data?.message || (primary.timedOut ? "Live odds request timed out" : "Live odds provider is temporarily unavailable"),
+      upstreamStatus: primary.status,
+      sport,
+      markets: requestedMarkets,
+      count: 0,
+      providerHeaders: primary.providerHeaders,
+      data: []
+    },
+    upstreamStatus,
+    { "Cache-Control": "no-store, max-age=0", "X-Content-Type-Options": "nosniff" }
+  );
 }
