@@ -42,13 +42,19 @@ test("NHL provider request exposes a strict model input contract", () => {
   assert.equal(contract.independentFromMarketPricing, true);
 });
 
-test("soccer provider request exposes per-90 xG inputs without market pricing", () => {
+test("soccer provider request exposes xG and shot-quality inputs without market pricing", () => {
   const request = buildSportsAnalyticsProviderRequest(soccerMatch());
   assert.equal(request.event.sport, "soccer");
   for (const metric of SPORTS_ANALYTICS_SOCCER_XG_REQUESTED_METRICS) assert.ok(request.requestedMetrics.includes(metric), metric);
   const contract = request.requestedModelContracts.find((item) => item.modelId === "soccer-xg-poisson-v1");
   assert.deepEqual(contract.requiredMetrics, ["xg-for-per-90", "xg-against-per-90"]);
-  assert.deepEqual(contract.optionalMetrics, ["post-shot-xg-for-per-90"]);
+  assert.deepEqual(contract.optionalMetrics, [
+    "post-shot-xg-for-per-90",
+    "shots-for-per-90",
+    "shots-against-per-90",
+    "shots-on-target-for-per-90",
+    "shots-on-target-against-per-90"
+  ]);
   assert.equal(contract.independentFromMarketPricing, true);
 });
 
