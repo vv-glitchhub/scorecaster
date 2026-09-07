@@ -87,13 +87,25 @@ jobs:
             normalizedRecords: payload?.normalizedRecords ?? null,
             stored: payload?.stored ?? null,
             rejected: payload?.rejected ?? null,
+            ignoredPostStartGames: payload?.ignoredPostStartGames ?? null,
             probabilityChanged: payload?.probabilityChanged ?? null,
             realMoneyExecution: payload?.realMoneyExecution ?? null,
             paperOnly: payload?.paperOnly ?? null,
           };
           console.log(JSON.stringify(safe));
-          if (code !== 200 || payload?.ok !== true || payload?.paperOnly !== true || payload?.probabilityChanged !== false || payload?.realMoneyExecution !== false) {
-            process.exit(1);
+
+          const baseSafe = code === 200 && payload?.ok === true && payload?.paperOnly === true && payload?.probabilityChanged === false && payload?.realMoneyExecution === false;
+          if (!baseSafe) process.exit(1);
+
+          if (process.env.GITHUB_EVENT_NAME === 'push') {
+            const markets = new Set(Array.isArray(payload?.markets) ? payload.markets : []);
+            const sports = new Set(Array.isArray(payload?.sports) ? payload.sports : []);
+            const requiredMarkets = ['h2h', 'spreads', 'totals'];
+            const ownedFootball = ['soccer_epl', 'soccer_spain_la_liga', 'soccer_italy_serie_a', 'soccer_germany_bundesliga', 'soccer_france_ligue_one'];
+            if (payload?.status !== 'success') throw new Error(`Post-deploy market proof requires success, got ${payload?.status}`);
+            if (Number(payload?.rejected || 0) !== 0) throw new Error(`Post-deploy market proof rejected ${payload?.rejected} rows`);
+            if (!requiredMarkets.every((market) => markets.has(market))) throw new Error('Post-deploy market proof is missing a required market');
+            if (!ownedFootball.every((sport) => sports.has(sport))) throw new Error('Post-deploy market proof is missing an owned-football league');
           }
           NODE
 
