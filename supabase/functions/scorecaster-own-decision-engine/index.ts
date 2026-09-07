@@ -3,15 +3,31 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const CHAMPION_ID = "scorecaster-own-football-baseline";
 const CHALLENGER_ID = "scorecaster-own-football-ml";
-const VERSION = "scorecaster-own-decision-engine-v1";
+const VERSION = "scorecaster-own-decision-engine-v1.1";
 const OUTCOMES = ["home", "draw", "away"] as const;
+const CLUB_TOKENS = new Set(["1", "fc", "afc", "cf", "sc", "ac", "fk", "bk", "if", "aif", "ud", "cd", "rc", "rcd", "ssc", "club", "football", "calcio", "futbol", "de"]);
 const finite = (v: unknown, fallback: number | null = null) => {
   if (v === null || v === undefined || v === "") return fallback;
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
 const clamp = (v: number, lo = 0, hi = 1) => Math.max(lo, Math.min(hi, v));
-const teamKey = (v: unknown) => String(v || "").toLowerCase().normalize("NFKD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+const teamKey = (v: unknown) => String(v || "")
+  .toLowerCase()
+  .normalize("NFKD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/[^a-z0-9]+/g, " ")
+  .split(/\s+/)
+  .filter(token => token && !CLUB_TOKENS.has(token))
+  .join("-");
+function sameTeam(left: unknown, right: unknown) {
+  const a = teamKey(left), b = teamKey(right);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const short = a.length <= b.length ? a : b;
+  const long = a.length <= b.length ? b : a;
+  return short.length >= 5 && long.startsWith(`${short}-`);
+}
 function bucket(date = new Date(), minutes = 30) { const d = new Date(date); d.setUTCMinutes(Math.floor(d.getUTCMinutes() / minutes) * minutes, 0, 0); return d.toISOString(); }
 async function hash(value: unknown) { const b = new TextEncoder().encode(JSON.stringify(value)); const h = await crypto.subtle.digest("SHA-256", b); return [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, "0")).join(""); }
 function validP(p: any) { const vals = OUTCOMES.map(k => finite(p?.[k])); return vals.every(v => v !== null && v! >= 0 && v! <= 1) && Math.abs(vals.reduce((s, v) => s + Number(v), 0) - 1) < 0.02; }
@@ -20,7 +36,52 @@ function confidence(probabilities: any) { const sorted = OUTCOMES.map(k => Numbe
 function maxGap(left: any, right: any) { return validP(left) && validP(right) ? Math.max(...OUTCOMES.map(k => Math.abs(Number(left[k]) - Number(right[k])))) : null; }
 async function fetchRows(admin: any, table: string, select: string, configure: (q: any) => any, max = 3000) { const rows: any[] = []; for (let from = 0; from < max; from += 1000) { let q = admin.from(table).select(select).range(from, from + 999); q = configure(q); const { data, error } = await q; if (error) throw error; rows.push(...(data || [])); if (!data || data.length < 1000) break; } return rows; }
 function latestBy(rows: any[], keyFn: (r: any) => string) { const map = new Map<string, any>(); for (const row of rows) { const key = keyFn(row); if (key && !map.has(key)) map.set(key, row); } return map; }
-function expectedSelection(outcome: string, fixture: any) { return outcome === "draw" ? "draw" : teamKey(outcome === "home" ? fixture.home_team : fixture.away_team); }
+
+function buildLatestMarketQuotes(rows: any[]) {
+  const latestCaptureByEvent = new Map<string, string>();
+  for (const row of rows) {
+    if (!row?.event_id || !row?.captured_at) continue;
+    if (!latestCaptureByEvent.has(row.event_id)) latestCaptureByEvent.set(row.event_id, row.captured_at);
+  }
+
+  const grouped = new Map<string, Map<string, any>>();
+  for (const row of rows) {
+    if (!row?.event_id || row.market !== "h2h" || row.captured_at !== latestCaptureByEvent.get(row.event_id)) continue;
+    const selectionName = String(row.selection || "").trim();
+    const key = selectionName.toLowerCase() === "draw" ? "draw" : teamKey(selectionName);
+    if (!key) continue;
+    if (!grouped.has(row.event_id)) grouped.set(row.event_id, new Map());
+    const event = grouped.get(row.event_id)!;
+    if (!event.has(key)) event.set(key, { selection: selectionName, prices: [], probabilities: [], sourceId: row.source_id || null });
+    const quote = event.get(key);
+    const price = finite(row.price);
+    const probability = finite(row.normalized_probability);
+    if (price !== null && price > 1) quote.prices.push(price);
+    if (probability !== null && probability > 0 && probability < 1) quote.probabilities.push(probability);
+  }
+
+  const result = new Map<string, any[]>();
+  for (const [eventId, event] of grouped.entries()) {
+    const quotes = [...event.values()].map((quote: any) => ({
+      selection: quote.selection,
+      sourceId: quote.sourceId,
+      bestOdds: quote.prices.length ? Math.max(...quote.prices) : null,
+      consensusProbability: quote.probabilities.length
+        ? quote.probabilities.reduce((sum: number, value: number) => sum + value, 0) / quote.probabilities.length
+        : null,
+      bookmakerCount: quote.prices.length,
+    }));
+    result.set(eventId, quotes);
+  }
+  return result;
+}
+
+function findMarketQuote(marketQuotes: Map<string, any[]>, sourceEventId: string, picked: string, fixture: any) {
+  const quotes = marketQuotes.get(sourceEventId) || [];
+  if (picked === "draw") return quotes.find(quote => String(quote.selection || "").toLowerCase() === "draw") || null;
+  const target = picked === "home" ? fixture.home_team : fixture.away_team;
+  return quotes.find(quote => sameTeam(quote.selection, target)) || null;
+}
 
 Deno.serve(async req => {
   if (req.method !== "POST") return Response.json({ ok: false, error: "POST required" }, { status: 405 });
@@ -44,8 +105,14 @@ Deno.serve(async req => {
     const challengers = latestBy(challengerRows, r => r.event_id);
     const identities = latestBy(identityRows, r => r.canonical_event_id);
     const sourceEventIds = [...new Set(identityRows.map(r => r.source_event_id).filter(Boolean))];
-    const marketRows = sourceEventIds.length ? await fetchRows(admin, "collector_records", "source_id,event_id,metric,value,payload,collected_at", q => q.in("event_id", sourceEventIds).in("metric", ["event_snapshot", "market_probability", "best_odds"]).order("collected_at", { ascending: false }), 9000) : [];
-    const marketLatest = latestBy(marketRows, r => `${r.event_id}:${r.metric}`);
+    const marketRows = sourceEventIds.length ? await fetchRows(
+      admin,
+      "market_provider_snapshots_v2",
+      "event_id,market,selection,price,normalized_probability,captured_at,source_id,bookmaker_key",
+      q => q.in("event_id", sourceEventIds).eq("market", "h2h").order("captured_at", { ascending: false }),
+      12000
+    ) : [];
+    const marketQuotes = buildLatestMarketQuotes(marketRows);
     const challengerGate = artifactResult.data?.promotion_gate || {};
     const challengerTrusted = challengerGate?.ownBaselineReviewCandidate === true;
     const rows: any[] = [];
@@ -73,17 +140,17 @@ Deno.serve(async req => {
       let marketMapped = false, marketSourceId = null, marketSourceEventId = null, marketProbability = null, marketOdds = null, paperEdge = null, paperEv = null;
       const identity = identities.get(fixture.event_id);
       if (identity) {
-        const snapshot = marketLatest.get(`${identity.source_event_id}:event_snapshot`);
-        const probability = marketLatest.get(`${identity.source_event_id}:market_probability`);
-        const odds = marketLatest.get(`${identity.source_event_id}:best_odds`);
-        const actualSelection = String(snapshot?.payload?.selection || "").toLowerCase() === "draw" ? "draw" : teamKey(snapshot?.payload?.selection);
-        if (actualSelection && actualSelection === expectedSelection(picked, fixture)) {
-          marketMapped = true; marketSourceId = identity.source_id; marketSourceEventId = identity.source_event_id;
-          marketProbability = finite(probability?.value); marketOdds = finite(odds?.value);
-          if (marketProbability !== null) paperEdge = fairP - marketProbability;
-          if (marketOdds !== null) paperEv = fairP * marketOdds - 1;
-          reasons.push("market-price-mapped-for-paper-comparison");
-        } else reasons.push("market-mapping-selection-mismatch");
+        const quote = findMarketQuote(marketQuotes, identity.source_event_id, picked, fixture);
+        if (quote && quote.consensusProbability !== null && quote.bestOdds !== null) {
+          marketMapped = true;
+          marketSourceId = quote.sourceId || identity.source_id;
+          marketSourceEventId = identity.source_event_id;
+          marketProbability = quote.consensusProbability;
+          marketOdds = quote.bestOdds;
+          paperEdge = fairP - marketProbability;
+          paperEv = fairP * marketOdds - 1;
+          reasons.push("full-market-price-mapped-for-paper-comparison");
+        } else reasons.push("market-selection-quote-unavailable");
       } else reasons.push("market-event-unmapped");
 
       const decisionHash = await hash({ eventId: fixture.event_id, asOfBucket, championVersion: champion.model_version, challengerVersion: challenger?.model_version || null, championPredictionHash: champion.prediction_hash });
@@ -101,7 +168,7 @@ Deno.serve(async req => {
         production_play_upgrade_allowed: false, production_probability_changed: false, automatic_model_promotion_allowed: false, real_money_action_available: false, paper_only: true,
       };
       rows.push(row);
-      if (samples.length < 8) samples.push({ eventId: row.event_id, match: `${row.home_team} vs ${row.away_team}`, decision, selection: picked, fairProbability: fairP, fairOdds, confidence: conf, challengerGap: gap, marketMapped });
+      if (samples.length < 8) samples.push({ eventId: row.event_id, match: `${row.home_team} vs ${row.away_team}`, decision, selection: picked, fairProbability: fairP, fairOdds, confidence: conf, challengerGap: gap, marketMapped, paperEdge, paperEv });
     }
     for (let i = 0; i < rows.length; i += 300) { const { error } = await admin.from("scorecaster_own_decisions_v1").upsert(rows.slice(i, i + 300), { onConflict: "decision_hash", ignoreDuplicates: true }); if (error) throw error; }
     await admin.from("scorecaster_source_health_snapshots_v1").insert({ captured_at: asOf, source_id: "scorecaster_own_decision_engine", status: rows.length ? "healthy" : "degraded", last_observed_at: asOf, age_minutes: 0, records_24h: rows.length, rights_ok: true, training_rights_ok: true, dependency_class: "primary", diagnostics: { version: VERSION, decisions: rows.length, ready: rows.filter(r => r.intelligence_decision === "OWN_PREDICTION_READY").length, caution: rows.filter(r => r.intelligence_decision === "OWN_PREDICTION_CAUTION").length, marketMapped: rows.filter(r => r.market_mapped).length, championModelId: CHAMPION_ID, challengerTrusted, independentFromMarketChampion: true }, paper_only: true });
