@@ -11,11 +11,11 @@ export const metadata = {
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
-      <ProfessionalSurfaceRail surface="today" />
+      <TodayPageClient />
       <RecommendationSpotlight />
       <AutoWatchRecommendationsPanel compact />
       <RecommendationAlertCTA />
-      <TodayPageClient />
+      <ProfessionalSurfaceRail surface="today" />
     </div>
   );
 }
