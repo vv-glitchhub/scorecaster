@@ -26,18 +26,15 @@ test("build-stage ignoreCommand remains absent", async () => {
   assert.equal(Object.prototype.hasOwnProperty.call(config, "ignoreCommand"), false);
 });
 
-test("production crons stay on the reviewed maintenance and point-in-time capture schedule", async () => {
+test("Vercel cron policy remains Hobby-compatible and daily only", async () => {
   const config = await readConfig();
   assert.deepEqual(config.crons, [
     {
       path: "/api/cron/update-ratings",
       schedule: "0 5 * * *"
-    },
-    {
-      path: "/api/internal/self-data-engine",
-      schedule: "15 1,7,13,19 * * *"
     }
   ]);
+  assert.equal(config.crons.some((item) => item.path === "/api/internal/self-data-engine"), false);
 });
 
 test("deployment policy is infrastructure-only", async () => {
