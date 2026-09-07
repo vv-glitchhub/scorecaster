@@ -52,10 +52,16 @@ test("market history has no silent 20k truncation and stores in batches", () => 
   assert.match(source, /h2h,spreads,totals/);
 });
 
-test("top European football leagues have form/rest feature profiles", () => {
-  const source = read("lib/form-rest-shadow-model.mjs");
-  for (const key of ["soccer_italy_serie_a", "soccer_germany_bundesliga", "soccer_france_ligue_one"]) {
-    assert.match(source, new RegExp(key));
+test("top European football leagues have form/rest feature and results-provider coverage", () => {
+  const formRest = read("lib/form-rest-shadow-model.mjs");
+  const results = read("lib/results-provider.js");
+  for (const [sportKey, providerKey] of [
+    ["soccer_italy_serie_a", "SERIEA"],
+    ["soccer_germany_bundesliga", "BUNDESLIGA"],
+    ["soccer_france_ligue_one", "LIGUE1"]
+  ]) {
+    assert.match(formRest, new RegExp(sportKey));
+    assert.match(results, new RegExp(`${sportKey}: \\\"${providerKey}\\\"`));
   }
 });
 
