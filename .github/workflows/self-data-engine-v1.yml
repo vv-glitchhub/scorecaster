@@ -19,9 +19,14 @@ on:
       - "app/api/cron/update-ratings/**"
       - "scripts/self-data-engine-v1.test.mjs"
       - "supabase/scorecaster_self_data_engine_v1.sql"
+      - ".github/workflows/self-data-engine-v1.yml"
+  schedule:
+    - cron: "15 1,7,13,19 * * *"
+  workflow_dispatch:
 
 jobs:
   verify:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -38,3 +43,53 @@ jobs:
           NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: local-ci-placeholder
         run: npm run build
+
+  production-capture:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Invoke protected production Self Data Engine
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          PRODUCTION_BASE_URL: https://scorecaster.vercel.app
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CRON_SECRET:-}" ]]; then
+            echo "CRON_SECRET is not configured"
+            exit 1
+          fi
+
+          report="$RUNNER_TEMP/self-data-engine-response.json"
+          http_code="$(curl --silent --show-error --max-time 150 --retry 2 --retry-delay 5 \
+            --output "$report" \
+            --write-out "%{http_code}" \
+            --header "Accept: application/json" \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${PRODUCTION_BASE_URL}/api/internal/self-data-engine")"
+
+          HTTP_CODE="$http_code" REPORT_PATH="$report" node <<'NODE'
+          const fs = require('node:fs');
+          const code = Number(process.env.HTTP_CODE || 0);
+          let payload = null;
+          try { payload = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8')); } catch {}
+          const safe = {
+            httpStatus: code,
+            ok: payload?.ok === true,
+            version: payload?.version || null,
+            status: payload?.status || null,
+            eventsSeen: payload?.eventsSeen ?? null,
+            featureSnapshots: payload?.featureSnapshots ?? null,
+            decisionsWritten: payload?.decisionsWritten ?? null,
+            eligibleForModel: payload?.eligibleForModel ?? null,
+            leakageGuardPassed: payload?.leakageGuardPassed ?? null,
+            paperOnly: payload?.paperOnly ?? null,
+            realMoneyActionAvailable: payload?.realMoneyActionAvailable ?? null,
+            productionProbabilityChanged: payload?.productionProbabilityChanged ?? null,
+          };
+          console.log(JSON.stringify(safe));
+          if (code !== 200 || payload?.ok !== true || payload?.paperOnly !== true || payload?.realMoneyActionAvailable !== false || payload?.productionProbabilityChanged !== false) {
+            process.exit(1);
+          }
+          NODE
