@@ -36,6 +36,32 @@ function soccerModel(overrides = {}) {
   };
 }
 
+function ownedDecision(overrides = {}) {
+  return {
+    applicable: true,
+    qualified: true,
+    source: "scorecaster-owned-baseline",
+    modelId: "scorecaster-own-football-baseline",
+    modelVersion: "baseline-v1",
+    probability: 0.56,
+    marketConsensusProbability: 0.52,
+    probabilityDelta: 0.04,
+    supportsSelection: true,
+    strongConflict: false,
+    confidence: 0.48,
+    marketMapped: true,
+    independentFromMarket: true,
+    chronologySafe: true,
+    fresh: true,
+    ageHours: 0.5,
+    asOf: "2026-08-24T09:30:00Z",
+    predictionHash: "owned-prediction-hash",
+    trainingDataHash: "owned-training-hash",
+    paperOnly: true,
+    ...overrides
+  };
+}
+
 function status(overrides = {}) {
   return { ok: true, sport: "soccer", mode: "stored-pregame-advanced", providerCount: 1, newestObservedAt: "2026-08-23T10:00:00Z", horizon: "2026-08-24T10:00:00Z", ...overrides };
 }
@@ -87,6 +113,60 @@ test("football evidence verifies chronology-safe xG plus live injuries and form/
   assert.equal(evidence.productionEdgeChanged, false);
   assert.equal(evidence.productionEvChanged, false);
   assert.equal(evidence.decisionUpgradeAllowedByThisLayer, false);
+});
+
+test("owned model plus verified form/rest can verify more than 24 hours before kickoff without live injuries", () => {
+  const farPick = pick({ commenceTime: "2026-08-26T10:00:00Z" });
+  const evidence = buildFootballIndependentEvidenceV1(farPick, {
+    sportsReport: report({ providerLive: { injuries: false, news: true, lineup: false }, readiness: { level: "partial" } }),
+    soccerModel: {},
+    ownedDecision: ownedDecision(),
+    advancedStatus: {},
+    formRest: form(),
+    providerConfiguration: {},
+    now: NOW
+  });
+
+  assert.equal(evidence.families.predictive.sourceType, "owned-model");
+  assert.equal(evidence.families.predictive.qualified, true);
+  assert.equal(evidence.families.availability.injuryRequired, false);
+  assert.equal(evidence.readiness.level, "verified");
+  assert.equal(evidence.readiness.allowsIndependentPlayEvidence, true);
+  assert.equal(evidence.productionProbabilityChanged, false);
+});
+
+test("owned model still requires live injury status inside final 24 hours", () => {
+  const nearPick = pick({ commenceTime: "2026-08-25T08:00:00Z" });
+  const evidence = buildFootballIndependentEvidenceV1(nearPick, {
+    sportsReport: report({ providerLive: { injuries: false, news: true, lineup: false }, readiness: { level: "partial" } }),
+    soccerModel: {},
+    ownedDecision: ownedDecision(),
+    advancedStatus: {},
+    formRest: form(),
+    providerConfiguration: {},
+    now: NOW
+  });
+
+  assert.equal(evidence.families.availability.injuryRequired, true);
+  assert.equal(evidence.readiness.level, "partial");
+  assert.equal(evidence.readiness.allowsIndependentPlayEvidence, false);
+  assert.ok(evidence.readiness.missing.some((item) => /24-hour window/i.test(item)));
+});
+
+test("owned model strong conflict blocks PLAY even when supporting evidence is available", () => {
+  const evidence = buildFootballIndependentEvidenceV1(pick({ commenceTime: "2026-08-26T10:00:00Z" }), {
+    sportsReport: report({ providerLive: { injuries: false, news: true, lineup: false } }),
+    soccerModel: {},
+    ownedDecision: ownedDecision({ probability: 0.44, probabilityDelta: -0.08, supportsSelection: false, strongConflict: true }),
+    advancedStatus: {},
+    formRest: form(),
+    providerConfiguration: {},
+    now: NOW
+  });
+
+  assert.equal(evidence.families.predictive.strongConflict, true);
+  assert.equal(evidence.readiness.allowsIndependentPlayEvidence, false);
+  assert.ok(evidence.criticalConflicts.some((item) => /Scorecaster owned model/i.test(item)));
 });
 
 test("final six-hour window requires both confirmed starting lineups", () => {
