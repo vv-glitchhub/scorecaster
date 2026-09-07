@@ -77,7 +77,21 @@ test("self data engine captures point-in-time snapshots multiple times per day o
   const config = JSON.parse(read("vercel.json"));
   assert.match(workflow, /cron: "15 1,7,13,19 \* \* \*"/);
   assert.match(workflow, /Authorization: Bearer \$\{CRON_SECRET\}/);
+  assert.match(workflow, /github\.event_name == 'push'/);
+  assert.match(workflow, /\/api\/health/);
+  assert.match(workflow, /TARGET_SHA/);
   assert.match(workflow, /productionProbabilityChanged/);
   assert.match(workflow, /realMoneyActionAvailable/);
   assert.equal(config.crons.some((item) => item.path === "/api/internal/self-data-engine"), false);
+});
+
+test("market capture proves the exact deployed commit and preserves paper-only boundaries", () => {
+  const workflow = read(".github/workflows/market-microstructure.yml");
+  assert.match(workflow, /app\/api\/internal\/market-microstructure/);
+  assert.match(workflow, /github\.event_name == 'push'/);
+  assert.match(workflow, /\/api\/health/);
+  assert.match(workflow, /TARGET_SHA/);
+  assert.match(workflow, /probabilityChanged/);
+  assert.match(workflow, /realMoneyExecution/);
+  assert.match(workflow, /paperOnly/);
 });
