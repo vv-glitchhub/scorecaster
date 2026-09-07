@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { applySportsIntelligenceGate, buildSportsIntelligenceReport } from "../lib/sports-intelligence-v1.mjs";
 import { evaluateIndependentIntelligenceSafetyV1 } from "../lib/intelligence-play-safety-v1.mjs";
+import { buildOwnedDecisionEvidenceV1 } from "../lib/owned-decision-evidence-v1.js";
 import { INJURY_FETCHER_POLICY, sportToSportsDataLeague } from "../lib/injury-fetcher.js";
 import {
   fetchSportsDataSoccerLineupForMatch,
@@ -201,6 +202,46 @@ test("SportsData soccer lineup fetch is capability-driven and does not call far-
   assert.equal(calls, 0);
 });
 
+test("owned decision evidence maps provider aliases, stays independent and only applies to h2h", () => {
+  const ownedPick = {
+    gameId: "provider-event-1",
+    marketKey: "h2h",
+    homeTeam: "Levante",
+    awayTeam: "Barcelona",
+    selection: "Barcelona",
+    commenceTime: "2026-07-18T18:00:00Z",
+    consensusProbability: 0.42
+  };
+  const row = {
+    event_id: "canonical-event-1",
+    as_of: "2026-07-18T11:30:00Z",
+    intelligence_decision: "OWN_PREDICTION_READY",
+    selected_outcome: "away",
+    confidence_score: 0.45,
+    champion_model_id: "scorecaster-own-football-baseline",
+    champion_model_version: "baseline-v1",
+    champion_probabilities: { home: 0.25, draw: 0.2, away: 0.55 },
+    market_mapped: true,
+    market_source_event_id: "provider-event-1",
+    reason_codes: ["scorecaster-owned-baseline-ready", "market-not-used-by-champion"],
+    provenance: { championTrainingDataHash: "training-hash", championPredictionHash: "prediction-hash" },
+    paper_only: true
+  };
+
+  const evidence = buildOwnedDecisionEvidenceV1(ownedPick, row, { now: NOW });
+  assert.equal(evidence.qualified, true);
+  assert.equal(evidence.selectionOutcome, "away");
+  assert.equal(evidence.probability, 0.55);
+  assert.equal(evidence.probabilityDelta, 0.13);
+  assert.equal(evidence.supportsSelection, true);
+  assert.equal(evidence.independentFromMarket, true);
+  assert.equal(evidence.marketMapped, true);
+
+  const spread = buildOwnedDecisionEvidenceV1({ ...ownedPick, marketKey: "spreads" }, row, { now: NOW });
+  assert.equal(spread.applicable, false);
+  assert.equal(spread.qualified, false);
+});
+
 test("market-only context is neutral and preserves a market-qualified PLAY", () => {
   const report = buildSportsIntelligenceReport({
     match,
@@ -280,13 +321,18 @@ test("Top Picks calculates market value before intelligence downgrade rules", as
   const marketIndex = route.indexOf("marketDecision = \"BET\"");
   const safetyIndex = route.indexOf("const decision = preserveSafetyGate(marketDecision, pick)");
 
-  assert.match(route, /MAX_INTELLIGENCE_ENRICHMENTS\s*=\s*12/);
+  assert.match(route, /MAX_INTELLIGENCE_ENRICHMENTS\s*=\s*24/);
   assert.ok(marketIndex >= 0 && safetyIndex > marketIndex);
   assert.match(route, /evaluateIndependentIntelligenceSafetyV1/);
   assert.match(route, /allowsIndependentPlayEvidence !== true/);
   assert.match(route, /PLAY requires verified independent evidence/);
+  assert.match(route, /attachOwnedDecisionEvidenceBatch/);
+  assert.match(route, /TOP_PICK_MARKETS\s*=\s*\["h2h", "spreads", "totals"\]/);
+  assert.match(route, /function selectIntelligenceCandidates/);
+  assert.match(route, /owned-evidence-first\+event-diversity/);
   assert.match(route, /function publicPickSummary/);
   assert.match(route, /function compactSportsIntelligence/);
+  assert.match(route, /ownedDecisionEvidence/);
   assert.match(route, /view === "summary" \? sorted\.map\(publicPickSummary\) : sorted/);
   assert.match(route, /view === "summary" \? featured\.map\(publicPickSummary\) : featured/);
   assert.doesNotMatch(route.slice(route.indexOf("function publicPickSummary"), route.indexOf("function clamp")), /featureEngineV1|unifiedSportsData|intelligenceFusionV2|modelFactoryV1/);
