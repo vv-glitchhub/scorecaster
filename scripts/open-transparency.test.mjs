@@ -91,7 +91,8 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   assert.match(today, /Pelaa näin/);
   assert.match(today, /Miksi PLAY\?/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
-  assert.match(today, /PLAY-porttia/);
+  assert.match(today, /visibleGateSummary/);
+  assert.match(today, /porttia/);
   assert.match(today, /Seurattava ehdokas – ei pelisuositus/);
   assert.match(today, /\/api\/recommendations\?limit=20/);
   assert.match(today, /href="\/feed"/);
