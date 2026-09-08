@@ -16,9 +16,11 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.ok(spotlightIndex < 0 || todayIndex < spotlightIndex, "PLAY-first Today must render before Recommendation Spotlight");
   assert.ok(professionalIndex < 0 || todayIndex < professionalIndex, "PLAY-first Today must render before professional diagnostics");
   assert.match(today, /\/api\/recommendations\?limit=20/);
-  assert.match(today, /Mitä pelata nyt/);
+  assert.match(today, /Mitä pelata tänään/);
   assert.match(today, /Pelaa näin/);
-  assert.match(today, /Ei varmennettua PLAY-kohdetta juuri nyt/);
+  assert.match(today, /Miksi PLAY/);
+  assert.match(today, /Ei PLAY-kohteita juuri nyt/);
+  assert.match(today, /PLAY-porttia/);
   assert.match(today, /Seuraa – älä pelaa vielä/);
   assert.match(today, /AI Feed/);
   assert.match(today, /paperianalyysi|paper analysis/);
