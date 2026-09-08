@@ -2,6 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  activeMarketLeagues,
+  marketSeason,
+  topPicksDefaultLeagues
+} from "../lib/active-market-universe.js";
+import {
   filterUpcomingPicks,
   isUsableLiveFixture,
   kickoffTimestamp,
@@ -73,22 +78,27 @@ test("kickoff parser preserves missing or malformed values as unavailable", () =
   assert.equal(kickoffTimestamp("not-a-date"), null);
 });
 
-test("Top Picks uses active summer leagues instead of off-season core defaults", async () => {
+test("Top Picks uses the shared active summer universe instead of off-season core defaults", async () => {
   const route = await readFile(new URL("../app/api/top-picks/route.js", import.meta.url), "utf8");
-
-  for (const league of [
+  const summerLeagues = [
     "baseball_mlb",
     "basketball_wnba",
     "soccer_usa_mls",
     "soccer_finland_veikkausliiga",
     "soccer_sweden_allsvenskan",
     "soccer_norway_eliteserien"
-  ]) {
-    assert.match(route, new RegExp(league));
+  ];
+
+  assert.equal(marketSeason(NOW), "summer");
+  const active = activeMarketLeagues(NOW);
+  const defaults = topPicksDefaultLeagues(NOW, 12);
+  for (const league of summerLeagues) {
+    assert.ok(active.includes(league), `${league} must be in the shared summer universe`);
+    assert.ok(defaults.includes(league), `${league} must be in the Top Picks summer defaults`);
   }
-  assert.match(route, /seasonForDate/);
+
+  assert.match(route, /topPicksDefaultLeagues/);
   assert.match(route, /season-aware-default/);
-  assert.match(route, /month >= 4 && month <= 7/);
 });
 
 test("Top Picks explains every SKIP without weakening the safety gate", async () => {
