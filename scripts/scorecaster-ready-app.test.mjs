@@ -27,7 +27,8 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.match(today, /Pelaa näin/);
   assert.match(today, /Miksi PLAY/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
-  assert.match(today, /PLAY-porttia/);
+  assert.match(today, /visibleGateSummary/);
+  assert.match(today, /porttia/);
   assert.match(today, /Seuraa – älä pelaa vielä/);
   assert.match(today, /AI Feed/);
   assert.match(today, /paperianalyysi|paper analysis/);
