@@ -1,4 +1,5 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
+import { activeMarketLeagues } from "../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../lib/sports.js";
 
 const CACHE_HEADERS = {
@@ -6,24 +7,6 @@ const CACHE_HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 const SUPPORTED_KEYS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
-const FALLBACK_ACTIVE_SPORTS = [
-  "americanfootball_nfl",
-  "baseball_mlb",
-  "basketball_nba",
-  "basketball_wnba",
-  "icehockey_finland_liiga",
-  "icehockey_nhl",
-  "icehockey_sweden_hockey_league",
-  "soccer_epl",
-  "soccer_finland_veikkausliiga",
-  "soccer_france_ligue_one",
-  "soccer_germany_bundesliga",
-  "soccer_italy_serie_a",
-  "soccer_norway_eliteserien",
-  "soccer_spain_la_liga",
-  "soccer_sweden_allsvenskan",
-  "soccer_usa_mls"
-];
 
 function parseLimit(searchParams) {
   const raw = Number(searchParams.get("limit") || 8);
@@ -66,9 +49,9 @@ async function loadActiveSportKeys(origin) {
       .map((sport) => sport.key);
     if (response.ok && active.length) return [...new Set(active)].sort();
   } catch {
-    // Fall through to the bounded fallback universe below.
+    // Fall through to the shared, season-aware market universe below.
   }
-  return FALLBACK_ACTIVE_SPORTS.filter(recommendationCapable).sort();
+  return activeMarketLeagues().filter(recommendationCapable).sort();
 }
 
 function chunks(values, size = 12) {
@@ -132,6 +115,7 @@ export async function GET(request) {
     const markets = [...new Set(successful.flatMap((result) => Array.isArray(result.payload?.markets) ? result.payload.markets : []))];
     const sportFamilies = [...new Set(leagues.map((league) => String(league || "").split("_")[0]).filter(Boolean))];
     const upstreamTimes = successful.map((result) => Date.parse(result.payload?.generatedAt || 0)).filter(Number.isFinite);
+    const marketCandidates = successful.reduce((sum, result) => sum + Number(result.payload?.marketCandidateCount || 0), 0);
 
     return Response.json(
       {
@@ -145,6 +129,8 @@ export async function GET(request) {
         leagues,
         markets,
         sportFamilies,
+        marketCandidateCount: marketCandidates,
+        analyzedRecommendationCount: picks.length,
         requestedSportCount: activeSports.length,
         upstreamBatchCount: targets.length,
         crossSportCoverage: requestedSports ? "requested" : "all-active-supported",
