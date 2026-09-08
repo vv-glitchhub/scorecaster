@@ -2,6 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import {
+  OWNED_FOOTBALL_LEAGUES,
+  activeMarketLeagues
+} from "../lib/active-market-universe.js";
+import {
   buildMarketMicrostructure,
   MARKET_MICROSTRUCTURE_VERSION,
   normalizeMarketProviderGames
@@ -137,19 +141,19 @@ test("storage patch is service-only, immutable-oriented and pre-start constraine
   assert.doesNotMatch(sql, /drop\s+table|truncate\s+table|delete\s+from/i);
 });
 
-test("worker ignores already-started fixtures before normalization and covers all owned football leagues", async () => {
+test("worker ignores already-started fixtures and consumes the shared owned-football universe", async () => {
   const worker = await source("app/api/internal/market-microstructure/route.js");
+  const transitionUniverse = activeMarketLeagues(Date.parse("2026-09-08T12:00:00Z"));
+
   assert.match(worker, /splitCaptureWindow/);
   assert.match(worker, /ignoredPostStartGames/);
   assert.match(worker, /captureMs >= commenceMs/);
+  assert.match(worker, /activeMarketLeagues\(now\)/);
   assert.match(worker, /slice\(0, 16\)/);
-  for (const sport of [
-    "soccer_epl",
-    "soccer_spain_la_liga",
-    "soccer_italy_serie_a",
-    "soccer_germany_bundesliga",
-    "soccer_france_ligue_one"
-  ]) assert.match(worker, new RegExp(sport));
+  assert.match(worker, /scorecaster-market-microstructure-worker-v2\.3/);
+  for (const sport of OWNED_FOOTBALL_LEAGUES) {
+    assert.ok(transitionUniverse.includes(sport), `${sport} must be present in the shared transition universe`);
+  }
 });
 
 test("worker, public audit, event UI and docs preserve the safety boundary", async () => {
