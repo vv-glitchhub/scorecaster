@@ -87,9 +87,11 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   // Today is intentionally a decision surface, not a developer-diagnostics wall.
   // It must clearly distinguish PLAY from WAIT and route deeper reasoning to the
   // event/feed/data surfaces where the full transparency components remain.
-  assert.match(today, /Mitä pelata nyt\?/);
+  assert.match(today, /Mitä pelata tänään\?/);
   assert.match(today, /Pelaa näin/);
-  assert.match(today, /Ei varmennettua PLAY-kohdetta juuri nyt/);
+  assert.match(today, /Miksi PLAY\?/);
+  assert.match(today, /Ei PLAY-kohteita juuri nyt/);
+  assert.match(today, /PLAY-porttia/);
   assert.match(today, /Seurattava ehdokas – ei pelisuositus/);
   assert.match(today, /\/api\/recommendations\?limit=20/);
   assert.match(today, /href="\/feed"/);
