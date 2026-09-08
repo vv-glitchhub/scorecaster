@@ -1,8 +1,14 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-source-registry.mjs";
+import { normalizeCollectorBatch } from "../../../../lib/collector-normalize.mjs";
 import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 import { normalizeMarketProviderGames } from "../../../../lib/market-microstructure-v2.mjs";
+import {
+  MARKET_FAMILIES,
+  activeMarketLeagues,
+  marketSeason,
+} from "../../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../../lib/sports.js";
 import { GET as getOddsRoute } from "../../odds/route.js";
 
@@ -11,25 +17,7 @@ export const maxDuration = 120;
 
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 const ALLOWED_SPORTS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
-const ALLOWED_MARKETS = new Set(["h2h", "spreads", "totals"]);
-const CORE_DEFAULTS = [
-  "icehockey_nhl",
-  "basketball_nba",
-  "soccer_epl",
-  "soccer_spain_la_liga",
-  "soccer_italy_serie_a",
-  "soccer_germany_bundesliga",
-  "soccer_france_ligue_one"
-];
-const SUMMER_DEFAULTS = [
-  "baseball_mlb",
-  "basketball_wnba",
-  "soccer_usa_mls",
-  "soccer_finland_veikkausliiga",
-  "soccer_sweden_allsvenskan",
-  "soccer_norway_eliteserien"
-];
-const TRANSITION_DEFAULTS = [...new Set([...SUMMER_DEFAULTS, ...CORE_DEFAULTS])];
+const ALLOWED_MARKETS = new Set(MARKET_FAMILIES);
 const WRITE_BATCH_SIZE = 1000;
 
 const response = (body, status = 200) => Response.json(body, { status, headers: HEADERS });
@@ -44,26 +32,20 @@ function authorized(request) {
   return Boolean(secret) && request.headers.get("authorization") === `Bearer ${secret}`;
 }
 
-function seasonDefaults(now = new Date()) {
-  const month = now.getUTCMonth();
-  if (month === 8) return TRANSITION_DEFAULTS;
-  return month >= 4 && month <= 7 ? SUMMER_DEFAULTS : CORE_DEFAULTS;
-}
-
-function configuredSports() {
+function configuredSports(now = Date.now()) {
   const requested = String(process.env.MARKET_MICROSTRUCTURE_SPORTS || "")
     .split(",")
     .map((value) => clean(value, 100))
     .filter((value) => ALLOWED_SPORTS.has(value));
-  return [...new Set(requested.length ? requested : seasonDefaults())].slice(0, 16);
+  return [...new Set(requested.length ? requested : activeMarketLeagues(now))].slice(0, 16);
 }
 
 function configuredMarkets() {
-  const requested = String(process.env.MARKET_MICROSTRUCTURE_MARKETS || "h2h,spreads,totals")
+  const requested = String(process.env.MARKET_MICROSTRUCTURE_MARKETS || MARKET_FAMILIES.join(","))
     .split(",")
     .map((value) => clean(value, 40).toLowerCase())
     .filter((value) => ALLOWED_MARKETS.has(value));
-  return [...new Set(requested.length ? requested : ["h2h"])].sort().slice(0, 3);
+  return [...new Set(requested.length ? requested : MARKET_FAMILIES)].sort().slice(0, 3);
 }
 
 function gamesFromPayload(payload) {
@@ -97,6 +79,33 @@ function splitCaptureWindow(games = [], capturedAt) {
   return { preStart, ignoredPostStart };
 }
 
+function fixtureSnapshotInputs(games = [], sport, capturedAt) {
+  const rows = [];
+  for (const game of Array.isArray(games) ? games : []) {
+    const eventId = game?.id || game?.gameId || game?.eventId;
+    if (!eventId) continue;
+    const bookmakerCount = Array.isArray(game?.bookmakers) ? game.bookmakers.length : 0;
+    rows.push({
+      eventId,
+      sport: game?.sport_key || game?.sportKey || sport,
+      league: game?.sport_title || game?.sportTitle || sport,
+      observedAt: capturedAt,
+      metric: "fixture_snapshot",
+      confidence: bookmakerCount >= 2 ? 0.9 : 0.75,
+      sourceTrust: 0.9,
+      payload: {
+        homeTeam: game?.home_team || game?.homeTeam || null,
+        awayTeam: game?.away_team || game?.awayTeam || null,
+        commenceTime: game?.commence_time || game?.commenceTime || null,
+        bookmakerCount,
+        marketFamiliesRequested: [...MARKET_FAMILIES],
+        capturedAlongsideMarketMicrostructure: true,
+      },
+    });
+  }
+  return rows;
+}
+
 async function fetchLeague(request, sport, markets) {
   const target = new URL("/api/odds", request.url);
   target.search = new URLSearchParams({ sport, markets: markets.join(",") }).toString();
@@ -112,6 +121,7 @@ async function fetchLeague(request, sport, markets) {
     mode: payload?.mode || payload?.source || null,
     reason: payload?.reason || payload?.error || null,
     servedMarkets: String(payload?.markets || markets.join(",")),
+    providerHeaders: payload?.providerHeaders || null,
     games: result.ok ? gamesFromPayload(payload) : []
   };
 }
@@ -150,6 +160,32 @@ async function storeRecords(admin, records) {
   return inserted;
 }
 
+async function storeFixtureSnapshots(admin, inputs, capturedAt) {
+  if (!inputs.length) return { prepared: 0, stored: 0, rejected: 0, error: null };
+  try {
+    const normalized = normalizeCollectorBatch(inputs, {
+      sourceId: "the_odds_api",
+      collectedAt: capturedAt,
+    });
+    if (!normalized.records.length) {
+      return { prepared: inputs.length, stored: 0, rejected: normalized.rejectedCount, error: null };
+    }
+    const { error } = await admin.from("collector_records").upsert(normalized.records, {
+      onConflict: "fingerprint",
+      ignoreDuplicates: true,
+    });
+    if (error) throw error;
+    return {
+      prepared: inputs.length,
+      stored: normalized.records.length,
+      rejected: normalized.rejectedCount,
+      error: null,
+    };
+  } catch {
+    return { prepared: inputs.length, stored: 0, rejected: 0, error: "fixture-snapshot-store-failed" };
+  }
+}
+
 export async function GET(request) {
   if (!process.env.CRON_SECRET) return response({ ok: false, error: "CRON_SECRET is not configured" }, 503);
   if (!authorized(request)) return response({ ok: false, error: "Unauthorized" }, 401);
@@ -164,7 +200,7 @@ export async function GET(request) {
   if (!activation.enabled) {
     return response({
       ok: true,
-      version: "scorecaster-market-microstructure-worker-v2.2",
+      version: "scorecaster-market-microstructure-worker-v2.3",
       status: "disabled",
       reason: activation.mode,
       activationMode: activation.mode,
@@ -181,8 +217,9 @@ export async function GET(request) {
 
   const runId = randomUUID();
   const startedAt = new Date().toISOString();
-  const sports = configuredSports();
+  const sports = configuredSports(startedAt);
   const markets = configuredMarkets();
+  const season = marketSeason(startedAt);
   let runCreated = false;
 
   try {
@@ -192,6 +229,7 @@ export async function GET(request) {
     const diagnostics = [];
     const records = [];
     const rejected = [];
+    const fixtureInputs = [];
     const eventIds = new Set();
     let ignoredPostStartGames = 0;
 
@@ -204,12 +242,13 @@ export async function GET(request) {
       }
       const result = settled.value;
       if (!result.ok) {
-        diagnostics.push({ sport, ok: false, status: result.status, mode: result.mode, reason: result.reason, servedMarkets: result.servedMarkets, games: result.games.length });
+        diagnostics.push({ sport, ok: false, status: result.status, mode: result.mode, reason: result.reason, servedMarkets: result.servedMarkets, providerHeaders: result.providerHeaders, games: result.games.length });
         continue;
       }
 
       const captureWindow = splitCaptureWindow(result.games, startedAt);
       ignoredPostStartGames += captureWindow.ignoredPostStart.length;
+      fixtureInputs.push(...fixtureSnapshotInputs(captureWindow.preStart, sport, startedAt));
       diagnostics.push({
         sport,
         ok: true,
@@ -217,6 +256,7 @@ export async function GET(request) {
         mode: result.mode,
         reason: result.reason,
         servedMarkets: result.servedMarkets,
+        providerHeaders: result.providerHeaders,
         games: result.games.length,
         preStartGames: captureWindow.preStart.length,
         ignoredPostStartGames: captureWindow.ignoredPostStart.length
@@ -233,6 +273,7 @@ export async function GET(request) {
     }
 
     const inserted = records.length ? await storeRecords(admin, records) : [];
+    const fixtureSnapshots = await storeFixtureSnapshots(admin, fixtureInputs, startedAt);
     const successfulSources = diagnostics.filter((item) => item.ok).length;
     const status = successfulSources === 0 ? "failed" : successfulSources < sports.length || rejected.length ? "partial" : "success";
     const completedAt = new Date().toISOString();
@@ -244,16 +285,21 @@ export async function GET(request) {
       record_count: inserted.length,
       rejected_count: rejected.length,
       duplicate_count: Math.max(0, records.length - inserted.length),
-      diagnostics: [...diagnostics, ...rejected.slice(0, 100)]
+      diagnostics: [
+        ...diagnostics,
+        { fixtureSnapshots },
+        ...rejected.slice(0, 100)
+      ]
     });
 
     return response({
       ok: status !== "failed",
-      version: "scorecaster-market-microstructure-worker-v2.2",
+      version: "scorecaster-market-microstructure-worker-v2.3",
       runId,
       startedAt,
       completedAt,
       status,
+      season,
       activationMode: activation.mode,
       emergencyStopAvailable: activation.emergencyStopAvailable,
       sports,
@@ -265,6 +311,7 @@ export async function GET(request) {
       duplicates: Math.max(0, records.length - inserted.length),
       rejected: rejected.length,
       ignoredPostStartGames,
+      fixtureSnapshots,
       diagnostics,
       sourceId: "the_odds_api",
       sourceAttribution: source?.attribution || "Market odds: The Odds API",
@@ -284,7 +331,7 @@ export async function GET(request) {
     }
     return response({
       ok: false,
-      version: "scorecaster-market-microstructure-worker-v2.2",
+      version: "scorecaster-market-microstructure-worker-v2.3",
       error: missingPatch(error)
         ? "Market Microstructure V2 production patch is not active"
         : process.env.NODE_ENV === "production" ? "Market capture failed" : String(error),

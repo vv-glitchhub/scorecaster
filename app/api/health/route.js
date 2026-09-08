@@ -2,6 +2,7 @@ import { notificationDeliveryConfiguration } from "../../../lib/notification-del
 import { autonomousAgentConfiguration } from "../../../lib/autonomous-agent-config.js";
 import { settlementMonitorConfiguration } from "../../../lib/settlement-monitor-config.js";
 import { agentDecisionSigningReadiness } from "../../../lib/agent-decision-signing-key.mjs";
+import { activeMarketUniverse } from "../../../lib/active-market-universe.js";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +18,7 @@ export async function GET() {
   const autonomousAgent = autonomousAgentConfiguration();
   const settlementMonitor = settlementMonitorConfiguration();
   const agentDecisionSigning = await agentDecisionSigningReadiness();
+  const marketUniverse = activeMarketUniverse();
 
   const services = {
     localQuickUse: true,
@@ -68,6 +70,14 @@ export async function GET() {
     mobileAgentV11Portfolio: true,
     mobileAgentV11ModelLab: true,
     mobileAgentV11Explanations: true,
+    agentV12PlayPipeline: true,
+    agentV12OwnedModelEvidenceBridge: true,
+    agentV12IndependentEvidenceGate: true,
+    agentV12AutomaticPromotionAllowed: false,
+    agentV12RealMoneyActionAvailable: false,
+    recommendationDecisionSurface: true,
+    recommendationNearPlayGateSummary: true,
+    recommendationNoForcedPlay: true,
     sportsIntelligenceV1: true,
     sportsIntelligenceTeamAttribution: true,
     sportsIntelligenceDowngradeOnly: true,
@@ -75,7 +85,7 @@ export async function GET() {
     sportsIntelligenceChangesMarketProbability: false,
     sportsIntelligenceConflictGate: true,
     sportsIntelligenceCacheMinutes: 5,
-    sportsIntelligenceMaxEnrichmentsPerTopPicksRequest: 12,
+    sportsIntelligenceMaxEnrichmentsPerTopPicksRequest: 24,
     sportsIntelligenceRegressionTests: true,
     newsProviderConfigured,
     injuryProviderConfigured,
@@ -174,6 +184,17 @@ export async function GET() {
     liveFixtureOnlyTopPicks: true,
     nearTermTopPicksWindowHours: 168,
     featuredTopPicksWindowHours: 72,
+    topPicksMarkets: marketUniverse.markets,
+    activeMarketUniverseVersion: marketUniverse.version,
+    activeMarketSeason: marketUniverse.season,
+    activeMarketLeagues: marketUniverse.leagues,
+    ownedFootballLeagueCoverage: marketUniverse.ownedFootballLeagues,
+    marketMicrostructureFixtureSnapshotSidecar: true,
+    marketMicrostructureRawPayloadStored: false,
+    intelligenceCoreLearningExamples: true,
+    intelligenceCoreVerifiedOutcomeLearning: true,
+    intelligenceCorePointInTimeFeatures: true,
+    intelligenceCoreAutomaticModelPromotionAllowed: false,
     noVigMarketConsensus: true,
     fixedProbabilityBoostRemoved: true,
     numericDataConfidence: true,
@@ -183,7 +204,7 @@ export async function GET() {
     paperSettlementRegressionTests: true,
     fixtureIntegrityRegressionTests: true,
     dailyTopThree: true,
-    leagueFilters: ["NHL", "NBA", "EPL", "La Liga", "Liiga", "SHL"],
+    leagueFilters: marketUniverse.leagues,
     mobileRoiAndClv: true,
     mobilePerformanceAnalytics: true,
     mobileLeagueAnalytics: true,
@@ -290,17 +311,18 @@ export async function GET() {
               ? "Optional: configure the server-only OpenAI key for grounded explanations"
               : !notificationDelivery.deliveryActive
                 ? "Apply Notification Delivery V1, configure the fail-closed worker and enable exactly one protected scheduler after real-device testing"
-                : "Verify Expo tickets and receipts on a physical device, including invalid-token cleanup";
+                : "Keep verified outcome, PIT feature and PLAY-gate evidence workers healthy; no real-money execution is enabled";
 
   return Response.json(
     {
       app: "Scorecaster",
       status: requiredLocalServicesReady ? "ok" : "degraded",
       mode: services.supabaseConfigured ? "consensus-mobile-cloud-ready" : "local-first",
-      modelMode: "market-consensus-with-shadow-calibration-labs",
+      modelMode: "market-consensus-with-owned-independent-model-evidence",
       edgeType: "best-price-vs-no-vig-consensus",
-      agentMode: "V11-model-lab-with-team-attributed-sports-intelligence-audit",
-      intelligenceMode: "verified-team-attribution-downgrade-only",
+      agentMode: "V12-play-pipeline-with-owned-model-evidence-and-governed-learning",
+      intelligenceMode: "owned-model-plus-verified-independent-evidence-gated",
+      marketUniverse,
       watchlistMode: "V2-server-verified-user-isolated-with-alert-inbox-and-manual-market-timeline",
       marketTimelineMode: "user-triggered-server-verified-descriptive-history-no-sharp-inference",
       alertDeliveryMode: notificationDelivery.deliveryActive

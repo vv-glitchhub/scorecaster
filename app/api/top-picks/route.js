@@ -5,36 +5,16 @@ import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-ev
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
 import { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";
 import {
+  isSupportedMarketLeague,
+  marketSeason,
+  topPicksDefaultLeagues,
+} from "../../../lib/active-market-universe.js";
+import {
   filterUpcomingPicks,
   isUsableLiveFixture
 } from "../../../lib/fixture-integrity.mjs";
 
 const ALL_LEAGUES = SPORTS.flatMap((group) => group.leagues);
-const LEAGUE_KEYS = new Set(ALL_LEAGUES.map((league) => league.key));
-const CORE_SEASON_DEFAULT_LEAGUES = [
-  "icehockey_nhl",
-  "icehockey_finland_liiga",
-  "icehockey_sweden_hockey_league",
-  "basketball_nba",
-  "soccer_epl",
-  "soccer_spain_la_liga"
-];
-const SUMMER_DEFAULT_LEAGUES = [
-  "baseball_mlb",
-  "basketball_wnba",
-  "soccer_usa_mls",
-  "soccer_finland_veikkausliiga",
-  "soccer_sweden_allsvenskan",
-  "soccer_norway_eliteserien"
-];
-const TRANSITION_DEFAULT_LEAGUES = [
-  ...SUMMER_DEFAULT_LEAGUES,
-  "soccer_epl",
-  "soccer_spain_la_liga",
-  "icehockey_finland_liiga",
-  "icehockey_sweden_hockey_league",
-  "icehockey_nhl"
-];
 const TOP_PICK_MARKETS = ["h2h", "spreads", "totals"];
 const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
@@ -153,17 +133,8 @@ function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
 
-function seasonForDate(now = Date.now()) {
-  const month = new Date(now).getUTCMonth();
-  if (month === 8) return "transition";
-  return month >= 4 && month <= 7 ? "summer" : "core-season";
-}
-
 function defaultLeaguesForDate(now = Date.now()) {
-  const season = seasonForDate(now);
-  if (season === "summer") return SUMMER_DEFAULT_LEAGUES;
-  if (season === "transition") return TRANSITION_DEFAULT_LEAGUES;
-  return CORE_SEASON_DEFAULT_LEAGUES;
+  return topPicksDefaultLeagues(now, 12);
 }
 
 function findLeagueTitle(key) {
@@ -412,7 +383,7 @@ function parseLeagues(searchParams, now = Date.now()) {
   if (!requested) return defaultLeaguesForDate(now);
 
   const leagues = [...new Set(requested.split(",").map((value) => value.trim()).filter(Boolean))]
-    .filter((league) => LEAGUE_KEYS.has(league))
+    .filter(isSupportedMarketLeague)
     .sort();
 
   if (!leagues.length || leagues.length > 12) return null;
@@ -566,7 +537,7 @@ export async function GET(request) {
       ownedEvidence,
       view,
       leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
-      defaultLeagueSeason: seasonForDate(now),
+      defaultLeagueSeason: marketSeason(now),
       providerGames,
       acceptedGames,
       excludedGames: Math.max(0, providerGames - acceptedGames),

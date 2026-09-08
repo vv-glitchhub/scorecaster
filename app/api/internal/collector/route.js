@@ -8,21 +8,17 @@ import {
   collectorJsonProviderConfiguration,
   fetchCollectorJsonRecords,
 } from "../../../../lib/collector-json-provider";
+import { activeMarketLeagues } from "../../../../lib/active-market-universe.js";
 import { GET as getOddsRoute } from "../../odds/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
-const FALLBACK_LEAGUES = [
-  "baseball_mlb",
-  "basketball_wnba",
-  "soccer_usa_mls",
-  "soccer_finland_veikkausliiga",
-  "soccer_sweden_allsvenskan",
-  "soccer_norway_eliteserien",
-  "americanfootball_nfl",
-];
+
+function fallbackLeagues(now = Date.now()) {
+  return activeMarketLeagues(now).slice(0, 16);
+}
 
 function response(payload, status = 200) {
   return Response.json(payload, { status, headers: HEADERS });
@@ -86,8 +82,9 @@ async function fetchLeagueOdds(origin, league) {
 async function collectFixtureSnapshots(origin, collectedAt) {
   const rows = [];
   const diagnostics = [];
+  const leagues = fallbackLeagues(collectedAt);
   const results = await Promise.allSettled(
-    FALLBACK_LEAGUES.map(async (league) => {
+    leagues.map(async (league) => {
       const result = await fetchLeagueOdds(origin, league);
       const games = result.response.ok && result.payload?.ok !== false
         ? gamesFromPayload(result.payload)
@@ -109,7 +106,7 @@ async function collectFixtureSnapshots(origin, collectedAt) {
 
   for (let index = 0; index < results.length; index += 1) {
     const result = results[index];
-    const league = FALLBACK_LEAGUES[index];
+    const league = leagues[index];
     if (result.status === "rejected") {
       diagnostics.push({ league, ok: false, error: String(result.reason) });
       continue;
@@ -159,6 +156,7 @@ async function collectFixtureSnapshots(origin, collectedAt) {
       collectedAt,
     }),
     diagnostics,
+    leagues,
   };
 }
 
@@ -191,6 +189,7 @@ export async function GET(request) {
     const sourceStatus = [];
     const errors = [];
     let diagnostics = [];
+    let fixtureLeagues = [];
     let internal = { records: [], received: 0, accepted: 0, rejectedCount: 0, publishable: 0, researchOnly: 0 };
 
     try {
@@ -207,6 +206,7 @@ export async function GET(request) {
         const fallback = await collectFixtureSnapshots(origin, startedAt);
         internal = fallback.normalized;
         diagnostics = fallback.diagnostics;
+        fixtureLeagues = fallback.leagues;
       }
 
       sourceStatus.push({
@@ -214,6 +214,7 @@ export async function GET(request) {
         mode: internal.records.length ? "live" : "live-empty",
         ok: internal.records.length > 0,
         records: internal.records.length,
+        fixtureLeagues,
         diagnostics,
       });
       if (!internal.records.length) errors.push({ sourceId: "scorecaster_internal", error: "no-live-records", diagnostics });
@@ -271,7 +272,7 @@ export async function GET(request) {
 
     return response({
       ok: status !== "failed",
-      version: "scorecaster-collector-v4",
+      version: "scorecaster-collector-v5-shared-universe",
       runId,
       startedAt,
       completedAt,
@@ -280,6 +281,7 @@ export async function GET(request) {
       publishable,
       researchOnly,
       rejected,
+      fixtureLeagues,
       sources: sourceStatus,
       diagnostics,
       registry: collectorRegistrySummary(),
