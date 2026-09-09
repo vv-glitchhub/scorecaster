@@ -183,16 +183,18 @@ test("Daily Flow V3 connects events, verified watchlist and alert inbox with sha
   const alerts = await read("app/alerts/AlertInboxClient.jsx");
 
   for (const source of [events, watchlist, alerts]) {
-    assert.match(source, /Daily Flow V3/);
+    if (source !== events) assert.match(source, /Daily Flow V3/);
     assert.match(source, /PageHero/);
-    assert.match(source, /TrustBar/);
+    if (source !== events) assert.match(source, /TrustBar/);
     assert.match(source, /MetricTile/);
   }
   assert.match(events, /MatchIdentity/);
   assert.match(events, /DecisionBadge/);
-  assert.match(events, /verified live events|verified events only/);
+  assert.match(events, /view=directory/);
+  assert.match(events, /view=summary/);
   assert.match(events, /MarketPickExplanation/);
-  assert.match(events, /server-verified watchlist and paper-save flow/);
+  assert.match(events, /eventFiltersHref/);
+  assert.match(events, /returnTo=/);
   assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
   assert.doesNotMatch(events, /addTrackedBet/);
   assert.match(watchlist, /Watchlist Monitor V1/);

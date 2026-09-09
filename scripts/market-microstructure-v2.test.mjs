@@ -181,3 +181,17 @@ test("worker, public audit, event UI and docs preserve the safety boundary", asy
     assert.doesNotMatch(text, /ODDS_API_KEY|SUPABASE_SERVICE_ROLE_KEY|CRON_SECRET=/);
   }
 });
+
+test("a fully stale market has no current price, direction or fabricated probability move", () => {
+  const captured = capture("2026-08-05T10:00:00.000Z", [["alpha", 2, 2], ["beta", 2, 2], ["gamma", 2, 2]], "11111111-1111-5111-8111-111111111111");
+  const result = buildMarketMicrostructure(captured.records, { eventId, market: "h2h", selection: "Home", generatedAt: "2026-08-05T12:00:00.000Z" });
+  const home = result.selections[0];
+  assert.equal(home.current.providerCount, 0);
+  assert.equal(home.current.averagePrice, null);
+  assert.equal(home.current.probability, null);
+  assert.equal(home.movement.probabilityChange, null);
+  assert.equal(home.movement.priceChange, null);
+  assert.equal(home.movement.direction, "unknown");
+  assert.equal(home.movement.causeLabel, "insufficient-current-evidence");
+  assert.equal(home.movement.broadEvidence.detected, false);
+});

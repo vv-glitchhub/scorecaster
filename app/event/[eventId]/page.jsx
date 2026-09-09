@@ -7,6 +7,8 @@ import EventMarketMicrostructurePanel from "./EventMarketMicrostructurePanel";
 import EventVerifiedLiveMonitorPanel from "./EventVerifiedLiveMonitorPanel";
 import FootballIndependentEvidencePanel from "./FootballIndependentEvidencePanel";
 import MatchCenterV5 from "./MatchCenterV5";
+import DeferredSection from "../../components/DeferredSection";
+import { safeNextPath } from "../../../lib/auth-navigation.mjs";
 
 export const metadata = {
   title: "Event Detail",
@@ -16,9 +18,10 @@ export const metadata = {
 export default async function EventDetailPage({ params, searchParams }) {
   const resolvedParams = await params;
   const resolvedSearch = await searchParams;
-  const eventId = decodeURIComponent(String(resolvedParams?.eventId || ""));
+  const eventId = String(resolvedParams?.eventId || "");
   const sport = String(resolvedSearch?.sport || "");
   const selection = String(resolvedSearch?.selection || "");
+  const returnTo = safeNextPath(resolvedSearch?.returnTo, "/events");
   const encodedEvent = encodeURIComponent(eventId);
   const encodedSport = encodeURIComponent(sport);
   const encodedSelection = encodeURIComponent(selection);
@@ -27,8 +30,12 @@ export default async function EventDetailPage({ params, searchParams }) {
 
   return (
     <div className="space-y-10">
-      <MatchCenterV5 eventId={eventId} sport={sport} selection={selection} />
+      <EventDetailClient eventId={eventId} sport={sport} initialSelection={selection} returnTo={returnTo} />
+      <DeferredSection title={{ fi: "Ottelukeskus: vire, kokoonpanot ja kertoimet", en: "Match center: form, lineups and odds", es: "Centro del partido: forma, alineaciones y cuotas" }}>
+        <MatchCenterV5 eventId={eventId} sport={sport} selection={selection} />
+      </DeferredSection>
 
+      <DeferredSection title={{ fi: "Ottelun ja suosituksen historia", en: "Match and recommendation history", es: "Historial del partido y de la recomendación" }}>
       <section className="rounded-[1.55rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5" data-match-journey-story-v2="true">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div className="max-w-3xl">
@@ -49,14 +56,26 @@ export default async function EventDetailPage({ params, searchParams }) {
         </div>
         <div className="mt-3 text-xs font-bold text-[var(--sc-muted)]">paper-only · historical evidence is never reconstructed · decisionUpgradeAllowed=false</div>
       </section>
+      </DeferredSection>
 
-      <EventDetailClient eventId={eventId} sport={sport} initialSelection={selection} />
-      <FootballIndependentEvidencePanel eventId={eventId} sport={sport} selection={selection} />
-      <EventVerifiedLiveMonitorPanel eventId={eventId} />
-      <ProfessionalExplanationCard eventId={eventId} />
-      <EventMarketMicrostructurePanel eventId={eventId} />
-      <EventContextPanel eventId={eventId} sport={sport} />
-      <EventDataAuditClient eventId={eventId} sport={sport} />
+      <DeferredSection title={{ fi: "Riippumaton mallinäyttö", en: "Independent model evidence", es: "Evidencia del modelo independiente" }}>
+        <FootballIndependentEvidencePanel eventId={eventId} sport={sport} selection={selection} />
+      </DeferredSection>
+      <DeferredSection title={{ fi: "Live-tilanne", en: "Live status", es: "Estado en directo" }}>
+        <EventVerifiedLiveMonitorPanel eventId={eventId} />
+      </DeferredSection>
+      <DeferredSection title={{ fi: "Arvion tarkka selitys", en: "Detailed explanation", es: "Explicación detallada" }}>
+        <ProfessionalExplanationCard eventId={eventId} />
+      </DeferredSection>
+      <DeferredSection title={{ fi: "Kertoimien historia", en: "Odds history", es: "Historial de cuotas" }}>
+        <EventMarketMicrostructurePanel eventId={eventId} />
+      </DeferredSection>
+      <DeferredSection title={{ fi: "Uutiset ja taustatiedot", en: "News and context", es: "Noticias y contexto" }}>
+        <EventContextPanel eventId={eventId} sport={sport} />
+      </DeferredSection>
+      <DeferredSection title={{ fi: "Datan lähteet ja tarkistus", en: "Data sources and audit", es: "Fuentes de datos y auditoría" }}>
+        <EventDataAuditClient eventId={eventId} sport={sport} />
+      </DeferredSection>
     </div>
   );
 }

@@ -126,7 +126,8 @@ test("web Event Detail uses verified actions without bookmaker redirects", async
   assert.match(client, /No deposit, payment, bookmaker link or real-money bet/);
   assert.doesNotMatch(client, /window\.location.*book/i);
   assert.match(directory, /\/event\//);
-  assert.match(directory, /current Top Picks analysis/);
+  assert.match(directory, /view=directory/);
+  assert.match(directory, /view=summary/);
 });
 
 test("native app opens Event Detail as a transient screen and returns to Picks", async () => {
@@ -153,7 +154,7 @@ test("Event Detail V3 prioritizes the decision ticket and keeps supporting model
   const native = await readFile(new URL("../mobile/src/screens/EventDetailScreen.tsx", import.meta.url), "utf8");
 
   for (const token of ["PageHero", "TrustBar", "MatchIdentity", "DecisionBadge", "MetricTile", "Decision ticket"]) assert.match(web, new RegExp(token));
-  assert.match(web, /Event Detail V3/);
+  assert.match(web, /Otteluanalyysi/);
   assert.match(web, /Näytä Sports Intelligence -auditointi/);
   assert.match(web, /Näytä vire- ja lepo-varjomalli/);
   assert.match(web, /<details/);
