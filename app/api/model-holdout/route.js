@@ -28,6 +28,9 @@ export async function GET(request) {
       cached: result.cached === true,
       collection: {
         snapshotRowsScanned: result.snapshotRowsScanned || 0,
+        snapshotLimitReached: result.snapshotLimitReached === true,
+        maximumSnapshotRows: result.maximumSnapshotRows || null,
+        leagueLimitReached: result.leagueLimitReached === true,
         shadowSnapshotRows: result.shadowSnapshotRows || 0,
         leaguesRequested: result.leaguesRequested || 0,
         resultsReceived: result.resultsReceived || 0,

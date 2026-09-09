@@ -2,15 +2,15 @@
 
 import { useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
+import { formatValidationMetric, validationNumber, VALIDATION_REVIEW_POLICY as policy } from "../../lib/validation-lab-v1.mjs";
+import ModelValidationSummary from "./ModelValidationSummary";
 
 function number(value, digits = 4) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed.toFixed(digits) : "—";
+  return formatValidationMetric(value, { digits });
 }
 
 function percent(value, digits = 1) {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? `${(parsed * 100).toFixed(digits)}%` : "—";
+  return formatValidationMetric(value, { percent: true, digits });
 }
 
 function clean(value) {
@@ -19,7 +19,7 @@ function clean(value) {
 
 function modelStatus(model = {}) {
   const skill = model.marketBenchmark || {};
-  if (skill.skillClaimAllowed === true) return "PROVEN VS MARKET";
+  if (model.validationEvidence?.stage === "research-review") return "RESEARCH REVIEW";
   if (skill.reviewEligible === true) return "MARKET-SKILL REVIEW";
   if (model.status === "review-ready") return "HOLDOUT REVIEW";
   if (model.status === "research") return "RESEARCH";
@@ -28,14 +28,14 @@ function modelStatus(model = {}) {
 
 function sortedModels(models = []) {
   return [...models].sort((left, right) => {
-    const leftClaim = left?.marketBenchmark?.skillClaimAllowed === true ? 1 : 0;
-    const rightClaim = right?.marketBenchmark?.skillClaimAllowed === true ? 1 : 0;
+    const leftClaim = left?.validationEvidence?.stage === "research-review" ? 1 : 0;
+    const rightClaim = right?.validationEvidence?.stage === "research-review" ? 1 : 0;
     if (leftClaim !== rightClaim) return rightClaim - leftClaim;
     const leftReview = left?.marketBenchmark?.reviewEligible === true ? 1 : 0;
     const rightReview = right?.marketBenchmark?.reviewEligible === true ? 1 : 0;
     if (leftReview !== rightReview) return rightReview - leftReview;
-    const leftSkill = Number(left?.marketBenchmark?.brierSkillScore);
-    const rightSkill = Number(right?.marketBenchmark?.brierSkillScore);
+    const leftSkill = validationNumber(left?.marketBenchmark?.brierSkillScore);
+    const rightSkill = validationNumber(right?.marketBenchmark?.brierSkillScore);
     if (Number.isFinite(leftSkill) && Number.isFinite(rightSkill) && leftSkill !== rightSkill) return rightSkill - leftSkill;
     return Number(right?.sampleSize || 0) - Number(left?.sampleSize || 0);
   });
@@ -48,12 +48,12 @@ export default function ModelHoldoutScorecard() {
   async function loadHoldout() {
     setState((current) => ({ ...current, loading: true, error: "" }));
     try {
-      const response = await fetch("/api/model-holdout?days=180", { cache: "no-store" });
+      const response = await fetch("/api/model-holdout?days=180", { cache: "no-store", signal: AbortSignal.timeout(55_000) });
       const payload = await response.json();
       if (!response.ok || payload?.ok === false) throw new Error(payload?.error || "Holdout report unavailable");
       setState({ loading: false, loaded: true, error: "", payload });
     } catch (error) {
-      setState({ loading: false, loaded: true, error: error instanceof Error ? error.message : "Holdout report unavailable", payload: null });
+      setState({ loading: false, loaded: true, error: error?.name === "TimeoutError" ? tr({ fi: "Laskenta kesti liian kauan. Yritä uudelleen.", en: "Evaluation timed out. Please try again.", es: "La evaluación tardó demasiado. Inténtalo de nuevo." }) : tr({ fi: "Testiraporttia ei saada juuri nyt. Yritä uudelleen.", en: "The validation report is unavailable. Please try again.", es: "El informe no está disponible. Inténtalo de nuevo." }), payload: null });
     }
   }
 
@@ -64,18 +64,18 @@ export default function ModelHoldoutScorecard() {
   const readinessModels = Array.isArray(readiness.models) ? readiness.models : [];
 
   return (
-    <section className="sc-surface rounded-[1.65rem] p-5 sm:p-6" data-model-holdout-scorecard-v1="true">
+    <section id="validation-lab" className="sc-surface scroll-mt-24 rounded-[1.65rem] p-5 sm:p-6" data-model-holdout-scorecard-v1="true" aria-busy={state.loading}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="max-w-3xl">
-          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Model Research Scorecard V1</div>
+          <div className="text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Validation Lab V1</div>
           <h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">
             {tr({ fi: "Todisteet: malli vastaan markkina", en: "Evidence: model versus market", es: "Evidencia: modelo frente al mercado" })}
           </h2>
           <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">
             {tr({
-              fi: "Raportti ladataan vain pyynnöstä, koska holdout voi hakea tuloksia usealle liigalle. Scorecaster ei kutsu mallia markkinaa paremmaksi ennen 100+ samaan pregame-otokseen paritettua riviä, positiivista Brier Skill Scorea ja parempaa log lossia.",
-              en: "The report loads only on request because holdout evaluation may fetch results for multiple leagues. Scorecaster does not call a model better than market before 100+ paired pregame rows, positive Brier Skill Score and improved log loss.",
-              es: "El informe se carga solo bajo petición porque el holdout puede consultar resultados de varias ligas. Scorecaster no declara que un modelo supere al mercado sin 100+ filas prepartido emparejadas, Brier Skill Score positivo y mejor log loss."
+              fi: "Kuinka hyvin riippumattomat tutkimusmallit ennustavat? Vertaa ennen ottelua tallennettuja arvioita lopputuloksiin ja saman ottelun markkinahintaan. Näet otoskoon, puuttuvat todisteet ja kuukausittaisen kehityksen. Historiallinen vertailu ei vielä osoita tulevaa tuottavuutta.",
+              en: "How well do independent research models predict? Compare pregame snapshots with final results and the same event's market benchmark. Inspect sample size, missing evidence and monthly performance. A historical comparison does not establish future profitability.",
+              es: "¿Qué precisión tienen los modelos independientes de investigación? Compara predicciones previas con resultados finales y el mercado del mismo evento. Consulta el tamaño de muestra, la evidencia pendiente y la evolución mensual. Una comparación histórica no demuestra rentabilidad futura."
             })}
           </p>
         </div>
@@ -84,16 +84,28 @@ export default function ModelHoldoutScorecard() {
         </button>
       </div>
 
+      <details className="mt-4 rounded-xl border border-[var(--sc-border)] p-4">
+        <summary className="cursor-pointer text-sm font-bold text-[var(--sc-text)]">{tr({ fi: "Miten testinäyttö arvioidaan?", en: "How is validation evidence assessed?", es: "¿Cómo se evalúa la evidencia?" })}</summary>
+        <p className="mt-3 text-sm leading-6 text-[var(--sc-muted)]">{tr({
+          fi: `Tutkimusarvioon tarvitaan vähintään ${policy.minimumPairedEvents} ottelua, markkinavertailu jokaiselle arvioidulle ottelulle, pienempi Brier-virhe ja log loss sekä toistuva parannus vähintään ${policy.minimumCompleteMonths} päättyneessä kuukaudessa (${policy.minimumEventsPerMonth}+ ottelua/kuukausi). Nämä ovat version ${policy.version} tutkimusrajoja, eivät todistettuja tuottavuusrajoja.`,
+          en: `Research review needs at least ${policy.minimumPairedEvents} events, a benchmark for every evaluated event, lower Brier error and log loss, and repeated improvement across ${policy.minimumCompleteMonths} completed months (${policy.minimumEventsPerMonth}+ events/month). These are research rules in ${policy.version}, not proven profitability thresholds.`,
+          es: `La revisión requiere al menos ${policy.minimumPairedEvents} eventos, referencia para cada evento, menor Brier y log loss y mejora repetida durante ${policy.minimumCompleteMonths} meses completos (${policy.minimumEventsPerMonth}+ eventos/mes). Son reglas de investigación de ${policy.version}, no umbrales de rentabilidad demostrada.`
+        })}</p>
+        <p className="mt-2 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Historiallisia tuloksia ei merkitä jälkikäteen ennakkoon rekisteröidyksi testiksi. Mallin tuotantohyväksyntä edellyttää erillistä testisuunnitelmaa, koulutusaineiston ajallista varmennusta ja arviointia.", en: "Historical results are not retroactively labeled preregistered. Production approval requires a separate test protocol, verified training chronology and review.", es: "Los resultados históricos no se etiquetan retrospectivamente como preregistrados. La aprobación requiere protocolo separado, cronología de entrenamiento verificada y revisión." })}</p>
+      </details>
+
       {!state.loaded && (
         <div className="mt-5 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 text-sm text-[var(--sc-muted)]">
           {tr({ fi: "Ei automaattista tuloshakua sivun avauksessa. Paina nappia, kun haluat päivitetyn tutkimusraportin.", en: "No automatic result-provider work on page load. Request the current research report when needed.", es: "No se consultan resultados automáticamente al abrir la página. Solicita el informe cuando lo necesites." })}
         </div>
       )}
 
-      {state.error && <div className="mt-5 rounded-xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-200">{state.error}</div>}
+      {state.error && <div role="alert" className="mt-5 rounded-xl border border-rose-400/25 bg-rose-400/10 p-4 text-sm text-rose-200">{state.error}</div>}
 
       {state.loaded && !state.error && (
         <>
+          <p className="mt-4 text-xs leading-5 text-[var(--sc-muted)]">{tr({ fi: "Raportti käsittelee riippumattomia shadow-tutkimusmalleja ja saatavilla olevaa otosta. Se ei ole kaikkien Scorecaster-mallien eikä koko 180 päivän aineiston kattavuustodistus.", en: "This report covers independent shadow research models and the available sample. It does not certify all Scorecaster models or complete 180-day coverage.", es: "Este informe cubre modelos shadow independientes y la muestra disponible. No certifica todos los modelos ni una cobertura completa de 180 días." })}</p>
+          {(collection.snapshotLimitReached || collection.leagueLimitReached || collection.providerFailures?.length > 0) && <p role="status" className="mt-3 rounded-xl border border-amber-400/30 p-3 text-sm text-amber-100">{tr({ fi: "Aineisto on rajallinen: haku saavutti rajarvon tai osa tuloslähteistä ei vastannut. Tarkastele tuloksia osittaisena otoksena.", en: "Coverage is limited: the query reached a cap or some result sources were unavailable. Treat this report as a partial sample.", es: "Cobertura limitada: se alcanzó un límite o faltan fuentes de resultados. Este informe es una muestra parcial." })}</p>}
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
             {[
               ["Status", clean(state.payload?.status)],
@@ -144,12 +156,12 @@ export default function ModelHoldoutScorecard() {
               {models.map((model) => {
                 const skill = model.marketBenchmark || {};
                 return (
-                  <article key={model.modelVersion || model.modelId} className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
+                  <article key={JSON.stringify([model.modelId, model.modelVersion, model.sportKey, model.league])} className="rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
                     <div className="flex flex-wrap items-start justify-between gap-3">
                       <div>
                         <div className="text-xs font-black uppercase tracking-[0.12em] text-[var(--sc-brand)]">{clean(model.sport)} · {modelStatus(model)}</div>
                         <div className="mt-1 font-black text-[var(--sc-text)]">{model.modelId || model.modelVersion || "unknown model"}</div>
-                        <div className="mt-1 text-xs text-[var(--sc-muted)]">{model.modelVersion || "—"}</div>
+                        <div className="mt-1 break-words text-xs text-[var(--sc-muted)]">{model.modelVersion || "—"} · {model.league || model.sportKey || "—"}</div>
                       </div>
                       <div className="text-right text-xs text-[var(--sc-muted)]"><div>N={model.sampleSize || 0}</div><div>paired={skill.sampleSize || 0}</div></div>
                     </div>
@@ -167,6 +179,8 @@ export default function ModelHoldoutScorecard() {
                       <div className="rounded-xl border border-[var(--sc-border)] p-3 text-[var(--sc-muted)]">Market Brier: <strong className="text-[var(--sc-text)]">{number(skill.marketBrier)}</strong><br />Model paired Brier: <strong className="text-[var(--sc-text)]">{number(skill.modelBrierOnBenchmarkRows)}</strong></div>
                       <div className="rounded-xl border border-[var(--sc-border)] p-3 text-[var(--sc-muted)]">Market log loss: <strong className="text-[var(--sc-text)]">{number(skill.marketLogLoss)}</strong><br />Improvement: <strong className="text-[var(--sc-text)]">{number(skill.logLossImprovement)}</strong></div>
                     </div>
+
+                    <ModelValidationSummary evidence={model.validationEvidence} />
 
                     <div className="mt-3 rounded-xl border border-[var(--sc-border)] p-3 text-xs leading-5 text-[var(--sc-muted)]">
                       Skill claim allowed: <strong className="text-[var(--sc-text)]">{skill.skillClaimAllowed === true ? "YES" : "NO"}</strong> · Market-skill review: <strong className="text-[var(--sc-text)]">{skill.reviewEligible === true ? "YES" : "NO"}</strong> · Ensemble weight: <strong className="text-[var(--sc-text)]">NO</strong>
