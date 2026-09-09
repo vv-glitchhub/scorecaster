@@ -89,10 +89,11 @@ async function requireAuth(request, requestId) {
   return auth;
 }
 
-async function loadCurrentPicks(request, sports) {
+async function loadCurrentPicks(request, sports, eventId = "") {
   if (!sports.length) return [];
   const target = new URL("/api/top-picks", request.url);
   target.searchParams.set("sports", [...new Set(sports)].sort().slice(0, 6).join(","));
+  if (eventId && sports.length === 1) target.searchParams.set("eventId", eventId);
   const response = await getTopPicks(new Request(target, { method: "GET" }));
   const payload = await response.json();
   if (!response.ok || payload?.ok !== true) return [];
@@ -183,7 +184,7 @@ export async function POST(request) {
     return jsonResponse({ ok: false, error: "A supported live fixture and selection are required" }, 400, requestId);
   }
 
-  const currentPicks = await loadCurrentPicks(request, [sport]);
+  const currentPicks = await loadCurrentPicks(request, [sport], eventId);
   const pick = currentPicks.find((item) => sameSelection(item, eventId, selection));
   if (!pick) {
     return jsonResponse({ ok: false, error: "The selection is not present in the current verified live-provider analysis" }, 409, requestId);

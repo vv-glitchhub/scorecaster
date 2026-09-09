@@ -1,6 +1,7 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
 import { activeMarketLeagues } from "../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../lib/sports.js";
+import { loadAvailableBatches } from "../../../lib/live-market-availability.mjs";
 
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -24,7 +25,7 @@ function topPicksUrl(origin, sports = null) {
 async function loadTopPicks(target) {
   const response = await fetch(target, {
     cache: "no-store",
-    signal: AbortSignal.timeout(30000)
+    signal: AbortSignal.timeout(45000)
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok !== true) {
@@ -99,7 +100,7 @@ export async function GET(request) {
   const targets = chunks(activeSports, 12).map((group) => topPicksUrl(url.origin, group.join(",")));
 
   try {
-    const results = await Promise.all(targets.map(loadTopPicks));
+    const results = await loadAvailableBatches(targets, loadTopPicks);
     const successful = results.filter((result) => result.ok);
     if (!successful.length) {
       const first = results[0];
@@ -134,7 +135,8 @@ export async function GET(request) {
         requestedSportCount: activeSports.length,
         upstreamBatchCount: targets.length,
         crossSportCoverage: requestedSports ? "requested" : "all-active-supported",
-        partialUpstream: successful.length !== results.length,
+        partialUpstream: successful.length !== results.length || successful.some(result => result.payload?.partialUpstream),
+        unavailableLeagues: results.flatMap((result, index) => result.ok ? result.payload?.unavailableLeagues || [] : chunks(activeSports, 12)[index].map(sportKey => ({ sportKey, reason: "unavailable" }))),
         disclaimer: "Paper-only decision support. PLAY means the current data passed Scorecaster's evidence and market gates; it is not a guarantee and no real-money bet is placed."
       },
       { headers: CACHE_HEADERS }

@@ -80,6 +80,8 @@ async function loadCurrentPicks(request, bets) {
   )].sort().slice(0, 6);
   const target = new URL("/api/top-picks", request.url);
   if (sports.length) target.searchParams.set("sports", sports.join(","));
+  const eventIds = [...new Set(bets.map(eventId).filter(Boolean))];
+  if (sports.length === 1 && eventIds.length === 1) target.searchParams.set("eventId", eventIds[0]);
   const response = await getTopPicks(new Request(target, { method: "GET" }));
   const payload = await response.json();
   if (!response.ok) {
