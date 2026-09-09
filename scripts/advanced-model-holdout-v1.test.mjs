@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildAdvancedModelHoldoutV1 } from "../lib/advanced-model-holdout-v1.mjs";
+import { buildAdvancedModelHoldoutV1 as buildHoldout } from "../lib/advanced-model-holdout-v1.mjs";
+
+// Fixed evaluation date keeps future-final rejection independent of the CI clock.
+const buildAdvancedModelHoldoutV1 = (snapshots, results, options = {}) => buildHoldout(snapshots, results, { now: Date.parse("2027-02-01T00:00:00Z"), ...options });
 
 function addMarketBenchmark(snapshot, probabilities, { capturedAt } = {}) {
   const capture = capturedAt || snapshot.captured_at;
@@ -269,7 +272,8 @@ test("100 paired rows beating the market become market-skill review eligible but
   assert.equal(model.marketBenchmark.sampleSize, 100);
   assert.equal(model.marketBenchmark.fullComparableSample, true);
   assert.equal(model.reviewEligibleByMarketSkill, true);
-  assert.equal(model.marketBenchmark.skillClaimAllowed, true);
+  assert.equal(model.marketBenchmark.positiveComparison, true);
+  assert.equal(model.marketBenchmark.skillClaimAllowed, false);
   assert.ok(model.marketBenchmark.brierSkillScore > 0);
   assert.ok(model.marketBenchmark.logLossImprovement > 0);
   assert.equal(model.ensembleWeightAvailable, false);

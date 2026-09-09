@@ -32,12 +32,12 @@ test("scorecard exposes paired market-skill evidence and sample sizes", () => {
   assert.match(client, /sampleSize/);
 });
 
-test("best-model language is gated by formal skillClaimAllowed", () => {
-  assert.match(client, /skill\.skillClaimAllowed === true/);
-  assert.match(client, /PROVEN VS MARKET/);
+test("retrospective scorecard shows research review without proven-market claims", () => {
+  assert.doesNotMatch(client, /PROVEN VS MARKET/);
+  assert.match(client, /RESEARCH REVIEW/);
   assert.match(client, /MARKET-SKILL REVIEW/);
   assert.match(client, /COLLECTING/);
-  assert.match(client, /Scorecaster does not call a model better than market before 100\+ paired pregame rows/);
+  assert.match(client, /A historical comparison does not establish future profitability/);
 });
 
 test("scorecard preserves shadow-only safety boundaries", () => {
