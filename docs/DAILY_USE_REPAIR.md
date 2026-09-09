@@ -13,3 +13,5 @@ The daily user path is now Today → Matches → Event analysis → Watchlist / 
 No model thresholds, evidence requirements, user isolation, provider rights or real-money restrictions were loosened.
 
 Validation: deterministic request, routing, directory, partial-provider, redirect, local storage and stale-market regressions run in Scorecaster CI with the existing event, paper-flow, security and build gates. The initial local production build passed. The workspace disconnected during subsequent testing; the final branch is verified by CI. No real user password was changed and no password-recovery email was sent during verification.
+
+The protected API and public page implementation fingerprints were recomputed by CI after reviewing the changed routes. Retained production probe evidence was not relabeled as current; stale evidence continues to fail closed until a new production probe is captured.

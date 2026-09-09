@@ -65,7 +65,7 @@ test("event cards expose reasoning and continue through verified paper tracking"
     file("app/components/MarketPickExplanation.jsx")
   ]);
   assert.match(events, /MarketPickExplanation/);
-  assert.match(events, /Tarkista ja valitse toiminto/);
+  assert.match(events, /Avaa ottelu ja analyysi/);
   assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
   assert.doesNotMatch(events, /addTrackedBet/);
   assert.match(explanation, /p_market = 1 \/ odds/);
