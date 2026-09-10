@@ -30,7 +30,7 @@ jobs:
         run: npm install --no-audit --no-fund --silent
 
       - name: Acceptance and validation regressions
-        run: node --test scripts/acceptance-validation-v1.test.mjs
+        run: node --test scripts/acceptance-validation-v1.test.mjs scripts/event-identity-normalization-v4.test.mjs
 
       - name: Validation Lab regressions
         run: node --test scripts/validation-lab-v1.test.mjs scripts/advanced-model-holdout-v1.test.mjs
