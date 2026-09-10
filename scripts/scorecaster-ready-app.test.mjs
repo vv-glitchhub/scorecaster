@@ -23,7 +23,11 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.ok(spotlightIndex < 0 || todayIndex < spotlightIndex, "PLAY-first Today must render before Recommendation Spotlight");
   assert.ok(professionalIndex < 0 || todayIndex < professionalIndex, "PLAY-first Today must render before professional diagnostics");
   assert.match(today, /\/api\/recommendations\?limit=20/);
-  assert.match(today, /Mitä pelata tänään/);
+  assert.match(today, /data-homepage-premium-v2="true"/);
+  assert.match(today, /REAL DATA\. SMARTER DECISIONS\./);
+  assert.match(today, /Vedonlyöntipäätökset fiksummin/);
+  assert.match(today, /Top AI Picks/);
+  assert.match(today, /Match Hub/);
   assert.match(today, /Pelaa näin/);
   assert.match(today, /Miksi PLAY/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
@@ -31,7 +35,9 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.match(today, /porttia/);
   assert.match(today, /Seuraa – älä pelaa vielä/);
   assert.match(today, /AI Feed/);
+  assert.match(today, /Paper Slip/);
   assert.match(today, /paperianalyysi|paper analysis/);
+  assert.doesNotMatch(today, /Place Bet|potential return/i);
 });
 
 test("shared market universe keeps the owned football leagues aligned across Sep and Oct", () => {
