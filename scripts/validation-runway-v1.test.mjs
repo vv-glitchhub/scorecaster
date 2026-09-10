@@ -41,3 +41,11 @@ test("Validation Runway communicates the evidence contract and is linked from ac
   assert.match(client, /Manual promotion/);
   assert.match(acceptance, /href="\/validation-runway"/);
 });
+
+test("Validation Runway timestamps are deterministic across Vercel and browsers", () => {
+  assert.match(client, /OPERATIONAL_TIME_ZONE = "Europe\/Helsinki"/);
+  assert.match(client, /timeZone:\s*OPERATIONAL_TIME_ZONE/);
+  assert.match(client, /timeZone:\s*"UTC"/);
+  assert.match(client, /hint=\{kickoff\.utc\}/);
+  assert.doesNotMatch(client, /toLocaleString\(locale\)/);
+});
