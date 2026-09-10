@@ -131,3 +131,17 @@ test("dashboard is discoverable, honest while loading and model holdout remains 
   assert.match(page, /AcceptanceValidationClient/);
   assert.match(release, /href="\/acceptance-validation"/);
 });
+
+test("release readiness never renders unloaded live checks as 0 or pending", async () => {
+  const client = await readFile(new URL("../app/release-readiness/ReleaseReadinessClient.jsx", import.meta.url), "utf8");
+  const page = await readFile(new URL("../app/release-readiness/page.jsx", import.meta.url), "utf8");
+
+  assert.match(client, /data-release-readiness-v1="true"/);
+  assert.match(client, /value=\{loading \? "…"/);
+  assert.match(client, /ready: healthKnown \?/);
+  assert.match(client, /TARKISTETAAN/);
+  assert.match(client, /KIRJAUDU JATKAAKSESI/);
+  assert.match(client, /knownChecks\.length/);
+  assert.doesNotMatch(page, /title: "Release Readiness \| Scorecaster"/);
+  assert.match(page, /title: "Release Readiness"/);
+});
