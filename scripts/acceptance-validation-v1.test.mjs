@@ -5,6 +5,7 @@ import { buildAcceptanceValidationV1, ACCEPTANCE_VALIDATION_VERSION } from "../l
 
 const healthy = {
   health: {
+    app: "Scorecaster",
     status: "ok",
     deployment: "production",
     commit: "abc123",
@@ -48,6 +49,19 @@ const healthy = {
   },
   operations: null
 };
+
+test("unloaded state is checking, never code-blocked or zero-filled", () => {
+  const result = buildAcceptanceValidationV1();
+  assert.equal(result.overallStatus, "checking");
+  assert.equal(result.evidenceStage, "checking");
+  assert.equal(result.codeReady, false);
+  assert.equal(result.evidenceReady, false);
+  assert.equal(result.metrics.modelPredictions, null);
+  assert.equal(result.metrics.verifiedFinalOutcomes, null);
+  assert.equal(result.externalChecks.find((item) => item.id === "lineups")?.status, "unknown");
+  assert.equal(result.externalChecks.find((item) => item.id === "liiga-provider")?.status, "unknown");
+  assert.ok(result.codeChecks.every((item) => item.status === "unknown"));
+});
 
 test("current-like production state is code-ready but collecting real evidence", () => {
   const result = buildAcceptanceValidationV1(healthy);
@@ -97,12 +111,15 @@ test("external evidence stays explicit and Liiga provider gap is not hidden", ()
   assert.equal(result.externalChecks.find((item) => item.id === "liiga-provider")?.status, "provider-gap");
 });
 
-test("dashboard is discoverable and model holdout remains manual", async () => {
+test("dashboard is discoverable, honest while loading and model holdout remains manual", async () => {
   const client = await readFile(new URL("../app/acceptance-validation/AcceptanceValidationClient.jsx", import.meta.url), "utf8");
   const page = await readFile(new URL("../app/acceptance-validation/page.jsx", import.meta.url), "utf8");
   const release = await readFile(new URL("../app/release-readiness/page.jsx", import.meta.url), "utf8");
 
   assert.match(client, /data-acceptance-validation-v1="true"/);
+  assert.match(client, /CHECKING LIVE STATE/);
+  assert.match(client, /value=\{checking \? "…"/);
+  assert.match(client, /value === null \|\| value === undefined \|\| value === ""/);
   assert.match(client, /fetch\("\/api\/health"/);
   assert.match(client, /fetch\("\/api\/intelligence-core\/health"/);
   assert.match(client, /fetch\("\/api\/calibration\/health"/);
@@ -110,6 +127,7 @@ test("dashboard is discoverable and model holdout remains manual", async () => {
   assert.match(client, /fetch\("\/api\/model-holdout\?days=180"/);
   assert.match(client, /onClick=\{\(\) => void loadHoldout\(\)\}/);
   assert.match(client, /Historical outperformance does not guarantee future returns/);
+  assert.match(page, /title: "Acceptance & Validation"/);
   assert.match(page, /AcceptanceValidationClient/);
   assert.match(release, /href="\/acceptance-validation"/);
 });
