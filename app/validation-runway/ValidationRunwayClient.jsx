@@ -4,18 +4,42 @@ import Link from "next/link";
 import { useLanguage } from "../components/LanguageProvider";
 import { MetricTile, PageHero, SectionHeader } from "../components/ProductUI";
 
+const OPERATIONAL_TIME_ZONE = "Europe/Helsinki";
+
 function formatNumber(value) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.round(parsed).toLocaleString("fi-FI") : "–";
 }
 
+function formatOperationalTime(value, locale) {
+  const date = value ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) return { local: "–", utc: "–" };
+  const local = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: OPERATIONAL_TIME_ZONE,
+    timeZoneName: "short"
+  }).format(date);
+  const utc = new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "UTC",
+    hour12: false
+  }).format(date);
+  return { local, utc: `${utc} UTC` };
+}
+
 export default function ValidationRunwayClient({ data }) {
   const { tr, locale } = useLanguage();
   const completeIdentity = Number(data?.upcomingEvents) > 0 && Number(data?.unmappedEvents) === 0;
-  const kickoff = data?.earliestUpcomingKickoff ? new Date(data.earliestUpcomingKickoff) : null;
-  const kickoffText = kickoff && !Number.isNaN(kickoff.getTime())
-    ? kickoff.toLocaleString(locale, { dateStyle: "medium", timeStyle: "short" })
-    : "–";
+  const kickoff = formatOperationalTime(data?.earliestUpcomingKickoff, locale);
+  const checkedAt = formatOperationalTime(data?.asOf, locale);
 
   return (
     <div className="space-y-7" data-validation-runway-v1="true">
@@ -63,7 +87,7 @@ export default function ValidationRunwayClient({ data }) {
           <MetricTile label={tr({ fi: "Verified canonical-ID", en: "Verified canonical IDs", es: "ID canónicos verificados" })} value={formatNumber(data?.verifiedIdentityMappings)} tone={completeIdentity ? "green" : "yellow"} />
           <MetricTile label={tr({ fi: "Unmapped", en: "Unmapped", es: "Sin mapear" })} value={formatNumber(data?.unmappedEvents)} tone={Number(data?.unmappedEvents) === 0 ? "green" : "yellow"} />
           <MetricTile label={tr({ fi: "Aloitetut chronology-safe", en: "Started chronology-safe", es: "Iniciados chronology-safe" })} value={formatNumber(data?.chronologySafeStartedEvents)} tone="blue" />
-          <MetricTile label={tr({ fi: "Aikaisin kickoff", en: "Earliest kickoff", es: "Inicio más próximo" })} value={kickoffText} tone="purple" />
+          <MetricTile label={tr({ fi: "Aikaisin kickoff", en: "Earliest kickoff", es: "Inicio más próximo" })} value={kickoff.local} hint={kickoff.utc} tone="purple" />
         </div>
       </section>
 
@@ -81,7 +105,7 @@ export default function ValidationRunwayClient({ data }) {
       </section>
 
       <div className="text-xs text-[var(--sc-faint)]">
-        {data?.asOf ? `${tr({ fi: "Runway tarkistettu", en: "Runway checked", es: "Runway comprobado" })}: ${new Date(data.asOf).toLocaleString(locale)}` : ""}
+        {data?.asOf ? `${tr({ fi: "Runway tarkistettu", en: "Runway checked", es: "Runway comprobado" })}: ${checkedAt.local} · ${checkedAt.utc}` : ""}
       </div>
     </div>
   );
