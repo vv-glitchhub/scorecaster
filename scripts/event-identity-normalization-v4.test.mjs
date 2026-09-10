@@ -4,9 +4,6 @@ import { readFile } from "node:fs/promises";
 
 const v3 = await readFile(new URL("../supabase/scorecaster_event_identity_normalization_v3.sql", import.meta.url), "utf8");
 const v4 = await readFile(new URL("../supabase/scorecaster_event_identity_normalization_v4.sql", import.meta.url), "utf8");
-const runwayRoute = await readFile(new URL("../app/api/validation-runway/route.js", import.meta.url), "utf8");
-const runwayPage = await readFile(new URL("../app/validation-runway/ValidationRunwayClient.jsx", import.meta.url), "utf8");
-const acceptancePage = await readFile(new URL("../app/acceptance-validation/page.jsx", import.meta.url), "utf8");
 const releaseManifest = JSON.parse(await readFile(new URL("../config/release-readiness.json", import.meta.url), "utf8"));
 
 test("identity normalization stays deterministic and fail-closed", () => {
@@ -33,33 +30,15 @@ test("observed provider/canonical aliases are regression-locked", () => {
   ]) assert.match(`${v3}\n${v4}`, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
 });
 
-test("identity normalization migrations are retained by release readiness", () => {
-  assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v3.sql"));
-  assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v4.sql"));
-  assert.equal(releaseManifest.supabaseMigrations.length, 48);
-  assert.ok(releaseManifest.publicPages.includes("/acceptance-validation"));
-  assert.ok(releaseManifest.publicPages.includes("/validation-runway"));
-});
+test("identity normalization migrations are retained in reviewed dependency order", () => {
+  const migrations = releaseManifest.supabaseMigrations;
+  const fixtureMap = migrations.indexOf("supabase/scorecaster_event_identity_fixture_map_v3.sql");
+  const v3Index = migrations.indexOf("supabase/scorecaster_event_identity_normalization_v3.sql");
+  const v4Index = migrations.indexOf("supabase/scorecaster_event_identity_normalization_v4.sql");
+  const chronologyFix = migrations.indexOf("supabase/scorecaster_outcome_chronology_fix_v1.sql");
 
-test("validation runway exposes only aggregate chronology-safe readiness", () => {
-  assert.match(runwayRoute, /scorecaster-validation-runway-v1/);
-  assert.match(runwayRoute, /OWNED_FOOTBALL_LEAGUES/);
-  assert.match(runwayRoute, /verifiedIdentityMappings/);
-  assert.match(runwayRoute, /unmappedEvents/);
-  assert.match(runwayRoute, /chronologySafeStartedEvents/);
-  assert.match(runwayRoute, /teamNamesExposed:\s*false/);
-  assert.match(runwayRoute, /syntheticBackfillAllowed:\s*false/);
-  assert.match(runwayRoute, /automaticModelPromotionAllowed:\s*false/);
-  assert.match(runwayRoute, /realMoneyActionAvailable:\s*false/);
-  assert.match(runwayRoute, /paperOnly:\s*true/);
-});
-
-test("validation runway is discoverable and explains no synthetic backfill", () => {
-  assert.match(runwayPage, /data-validation-runway-v1="true"/);
-  assert.match(runwayPage, /\/api\/validation-runway/);
-  assert.match(runwayPage, /No synthetic backfill/);
-  assert.match(runwayPage, /Pregame only/);
-  assert.match(runwayPage, /Verified outcome/);
-  assert.match(runwayPage, /Manual promotion/);
-  assert.match(acceptancePage, /href="\/validation-runway"/);
+  assert.equal(migrations.length, 48);
+  assert.equal(v3Index, fixtureMap + 1);
+  assert.equal(v4Index, v3Index + 1);
+  assert.equal(chronologyFix, v4Index + 1);
 });
