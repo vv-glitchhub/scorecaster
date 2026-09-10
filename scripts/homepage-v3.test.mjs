@@ -5,14 +5,17 @@ import { readFile } from "node:fs/promises";
 const root = new URL("../", import.meta.url);
 const file = (path) => readFile(new URL(path, root), "utf8");
 
-test("homepage renders the mobile-first V3 surface", async () => {
-  const [page, home] = await Promise.all([
+test("homepage renders the mobile-first V3 surface through the stable Today entrypoint", async () => {
+  const [page, entry, home] = await Promise.all([
     file("app/page.jsx"),
+    file("app/components/TodayPageClient.jsx"),
     file("app/components/TodayPageV3.jsx")
   ]);
 
-  assert.match(page, /TodayPageClient from "\.\/components\/TodayPageV3"/);
+  assert.match(page, /TodayPageClient from "\.\/components\/TodayPageClient"/);
   assert.match(page, /<TodayPageClient \/>/);
+  assert.match(entry, /TodayPageV3 from "\.\/TodayPageV3"/);
+  assert.match(entry, /<TodayPageV3 \/>/);
   assert.match(home, /data-homepage-v3="mobile-first"/);
   assert.match(home, /REAL DATA · PAPER ONLY/);
   assert.match(home, /Dataa\. /);
