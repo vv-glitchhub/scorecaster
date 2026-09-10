@@ -4,22 +4,21 @@ import { readFile } from "node:fs/promises";
 
 const read = (path) => readFile(new URL(`../${path}`, import.meta.url), "utf8");
 
-test("Today cards retain verified event identity and only actionable WATCH legs enter the accumulator", async () => {
+test("Today keeps verified event identity and routes paper actions through audited detail/tracking surfaces", async () => {
   const [route, today, events] = await Promise.all([
     read("app/api/scorecaster-app/route.js"),
-    read("app/components/TodayPageClient.jsx"),
+    read("app/components/TodayPageV3.jsx"),
     read("app/events/EventsClient.jsx")
   ]);
 
   assert.match(route, /function enrichDailyCards/);
   assert.match(route, /selection: cleanText/);
   assert.match(route, /actionableSelection: Boolean/);
-  assert.match(today, /item\.decision === "PLAY"/);
-  assert.match(today, /\/api\/cloud\/watchlist/);
-  assert.match(today, /function recommendationHref\(item\)/);
+  assert.match(today, /item\?\.decision === "PLAY"/);
+  assert.match(today, /function eventHref\(item\)/);
   assert.match(today, /encodeURIComponent\(item\.eventId \|\| item\.id\)/);
-  assert.doesNotMatch(today, /scorecaster-today-saved|\/events\?eventId/);
-  assert.match(today, /<Link href="\/events"/);
+  assert.match(today, /href="\/tracking"/);
+  assert.doesNotMatch(today, /\/api\/cloud\/watchlist|scorecaster-today-saved|\/events\?eventId|savePaperPick/);
   assert.match(events, /Avaa ottelu ja analyysi/);
   assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
   assert.doesNotMatch(events, /addTrackedBet|scorecaster-events|savePaperPick/);
