@@ -17,6 +17,7 @@ const EMPTY = {
 const STATUS_STYLE = {
   ready: "border-emerald-400/30 bg-emerald-400/10 text-emerald-300",
   collecting: "border-sky-400/30 bg-sky-400/10 text-sky-300",
+  checking: "border-slate-400/20 bg-slate-400/10 text-slate-300",
   external: "border-amber-400/30 bg-amber-400/10 text-amber-200",
   "auth-required": "border-amber-400/30 bg-amber-400/10 text-amber-200",
   "optional-gap": "border-slate-400/20 bg-slate-400/10 text-slate-300",
@@ -26,6 +27,7 @@ const STATUS_STYLE = {
 };
 
 function finite(value) {
+  if (value === null || value === undefined || value === "") return null;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : null;
 }
@@ -49,11 +51,12 @@ function statusLabel(value, tr) {
   const labels = {
     ready: tr({ fi: "VALMIS", en: "READY", es: "LISTO" }),
     collecting: tr({ fi: "KERÄÄNTYY", en: "COLLECTING", es: "RECOPILANDO" }),
+    checking: tr({ fi: "TARKISTETAAN", en: "CHECKING", es: "COMPROBANDO" }),
     external: tr({ fi: "ULKOINEN TESTI", en: "EXTERNAL TEST", es: "PRUEBA EXTERNA" }),
     "auth-required": tr({ fi: "KIRJAUDU", en: "SIGN IN", es: "INICIAR SESIÓN" }),
     "optional-gap": tr({ fi: "VALINNAINEN PUUTE", en: "OPTIONAL GAP", es: "FALTA OPCIONAL" }),
     "provider-gap": tr({ fi: "PROVIDER-PUUTE", en: "PROVIDER GAP", es: "FALTA PROVEEDOR" }),
-    unknown: tr({ fi: "EI TIETOA", en: "UNKNOWN", es: "DESCONOCIDO" }),
+    unknown: tr({ fi: "TARKISTETAAN", en: "CHECKING", es: "COMPROBANDO" }),
     blocked: tr({ fi: "BLOKATTU", en: "BLOCKED", es: "BLOQUEADO" })
   };
   return labels[value] || String(value || "–").toUpperCase();
@@ -78,9 +81,14 @@ function CheckRow({ item, tr }) {
 
 function overallCopy(status, tr) {
   const map = {
+    checking: {
+      label: "CHECKING LIVE STATE",
+      tone: "sky",
+      title: tr({ fi: "Tarkistetaan tuotanto ja todistusaineisto", en: "Checking production and evidence", es: "Comprobando producción y evidencia" })
+    },
     "code-blocked": {
       label: "CODE BLOCKED",
-      tone: "red",
+      tone: "sky",
       title: tr({ fi: "Tuotantokoodissa on vielä blokkeri", en: "Production code still has a blocker", es: "El código de producción aún tiene un bloqueo" })
     },
     "collecting-evidence": {
@@ -99,7 +107,7 @@ function overallCopy(status, tr) {
       title: tr({ fi: "Scorecaster on valmis release-arvioon", en: "Scorecaster is ready for release review", es: "Scorecaster está listo para revisión de lanzamiento" })
     }
   };
-  return map[status] || map["collecting-evidence"];
+  return map[status] || map.checking;
 }
 
 function bestModel(models = []) {
@@ -184,6 +192,7 @@ export default function AcceptanceValidationClient() {
   const benchmark = leader?.marketBenchmark || {};
   const timestamp = overview.health?.timestamp ? new Date(overview.health.timestamp) : null;
   const timestampText = timestamp && !Number.isNaN(timestamp.getTime()) ? timestamp.toLocaleString(locale) : "–";
+  const checking = status.overallStatus === "checking";
 
   return (
     <div className="space-y-7" data-acceptance-validation-v1="true">
@@ -206,8 +215,8 @@ export default function AcceptanceValidationClient() {
           <Link href="/model-lab#validation-lab" className="sc-button-ghost">Validation Lab</Link>
         </>}
         aside={<div className="grid grid-cols-2 gap-2">
-          <MetricTile compact label={tr({ fi: "Koodi", en: "Code", es: "Código" })} value={status.codeReady ? "READY" : "CHECK"} tone={status.codeReady ? "green" : "yellow"} />
-          <MetricTile compact label={tr({ fi: "Näyttö", en: "Evidence", es: "Evidencia" })} value={status.evidenceReady ? "READY" : "GROWING"} tone={status.evidenceReady ? "green" : "blue"} />
+          <MetricTile compact label={tr({ fi: "Koodi", en: "Code", es: "Código" })} value={checking ? "…" : status.codeReady ? "READY" : "CHECK"} tone={checking ? "blue" : status.codeReady ? "green" : "yellow"} />
+          <MetricTile compact label={tr({ fi: "Näyttö", en: "Evidence", es: "Evidencia" })} value={checking ? "…" : status.evidenceReady ? "READY" : "GROWING"} tone={status.evidenceReady ? "green" : "blue"} />
         </div>}
       />
 
@@ -222,8 +231,8 @@ export default function AcceptanceValidationClient() {
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <MetricTile label={tr({ fi: "Malliennusteet", en: "Model predictions", es: "Predicciones" })} value={number(status.metrics.modelPredictions)} hint={tr({ fi: "Tallennetut shadow-ennusteet", en: "Stored shadow predictions", es: "Predicciones shadow guardadas" })} tone="blue" />
           <MetricTile label={tr({ fi: "Vahvistetut tulokset", en: "Verified outcomes", es: "Resultados verificados" })} value={number(status.metrics.verifiedFinalOutcomes)} hint={tr({ fi: "Finality verified", en: "Finality verified", es: "Finalidad verificada" })} tone="green" />
-          <MetricTile label={tr({ fi: "Learning-esimerkit", en: "Learning examples", es: "Ejemplos learning" })} value={number(status.metrics.learningExamples)} hint={`${status.minimumReviewSample}+ ${tr({ fi: "ennen review-otosta", en: "before review sample", es: "antes de revisión" })}`} tone={status.metrics.learningExamples >= status.minimumReviewSample ? "green" : "yellow"} />
-          <MetricTile label={tr({ fi: "Kalibraatiohavainnot", en: "Calibration observations", es: "Observaciones calibración" })} value={number(status.metrics.calibrationObservations)} hint={`${status.minimumReviewSample}+ ${tr({ fi: "ennen review-otosta", en: "before review sample", es: "antes de revisión" })}`} tone={status.metrics.calibrationObservations >= status.minimumReviewSample ? "green" : "yellow"} />
+          <MetricTile label={tr({ fi: "Learning-esimerkit", en: "Learning examples", es: "Ejemplos learning" })} value={number(status.metrics.learningExamples)} hint={`${status.minimumReviewSample}+ ${tr({ fi: "ennen review-otosta", en: "before review sample", es: "antes de revisión" })}`} tone={(status.metrics.learningExamples ?? 0) >= status.minimumReviewSample ? "green" : "yellow"} />
+          <MetricTile label={tr({ fi: "Kalibraatiohavainnot", en: "Calibration observations", es: "Observaciones calibración" })} value={number(status.metrics.calibrationObservations)} hint={`${status.minimumReviewSample}+ ${tr({ fi: "ennen review-otosta", en: "before review sample", es: "antes de revisión" })}`} tone={(status.metrics.calibrationObservations ?? 0) >= status.minimumReviewSample ? "green" : "yellow"} />
           <MetricTile label={tr({ fi: "ML-ennusteet", en: "ML predictions", es: "Predicciones ML" })} value={number(status.metrics.mlPredictions)} hint={tr({ fi: "Challenger pysyy shadow-tilassa", en: "Challenger remains shadow-only", es: "Challenger sigue en shadow" })} tone="purple" />
         </div>
       </section>
