@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage } from "../components/LanguageProvider";
 import { ProfessionalPortfolioRail } from "../components/ProfessionalSurfaceRail";
+import DeferredSection from "../components/DeferredSection";
 
 export default function TrackingLayout({ children }) {
   const pathname = usePathname();
@@ -23,7 +24,6 @@ export default function TrackingLayout({ children }) {
 
   return (
     <div className="space-y-8">
-      <ProfessionalPortfolioRail />
       <nav aria-label={tr({ fi: "Omat vedot -näkymät", en: "My Picks views", es: "Vistas de Mis apuestas" })} className="grid gap-2 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-2 sm:grid-cols-2">
         {tabs.map((tab) => {
           const active = pathname === tab.href;
@@ -41,6 +41,7 @@ export default function TrackingLayout({ children }) {
         })}
       </nav>
       {children}
+      <DeferredSection title={{ fi: "Paperiseurannan lisäasetukset ja analytiikka", en: "Tracking settings and analytics", es: "Ajustes de seguimiento y análisis" }}><ProfessionalPortfolioRail /></DeferredSection>
     </div>
   );
 }

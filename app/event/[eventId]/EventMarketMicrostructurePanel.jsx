@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../components/LanguageProvider";
 
-const decimal = (value) => Number.isFinite(Number(value)) ? Number(value).toFixed(2) : "–";
-const pp = (value) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? "+" : ""}${(Number(value) * 100).toFixed(1)} pp` : "–";
+const observed = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
+const decimal = (value) => observed(value) ? Number(value).toFixed(2) : "–";
+const pp = (value) => observed(value) ? `${Number(value) >= 0 ? "+" : ""}${(Number(value) * 100).toFixed(1)} pp` : "–";
 
 function Summary({ item, tr }) {
   return (

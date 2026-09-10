@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "../../../lib/supabase/server";
 
-function safeNextPath(value) {
-  return value && value.startsWith("/") && !value.startsWith("//") ? value : "/profile";
-}
+import { safeNextPath } from "../../../lib/auth-navigation.mjs";
 
 export async function GET(request) {
   const url = new URL(request.url);
@@ -11,6 +9,7 @@ export async function GET(request) {
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
   const type = url.searchParams.get("type");
+  const failure = code => NextResponse.redirect(new URL("/login?" + new URLSearchParams({ error: code, next }), url.origin));
 
   try {
     const supabase = await createClient();
@@ -24,17 +23,15 @@ export async function GET(request) {
         type
       }));
     } else {
-      return NextResponse.redirect(new URL("/login?error=missing_confirmation", url.origin));
+      return failure("missing_confirmation");
     }
 
     if (error) {
-      return NextResponse.redirect(new URL(`/login?error=${encodeURIComponent(error.message)}`, url.origin));
+      return failure("confirmation_failed");
     }
 
     return NextResponse.redirect(new URL(next, url.origin));
-  } catch (error) {
-    return NextResponse.redirect(
-      new URL(`/login?error=${encodeURIComponent(error?.message || "confirmation_failed")}`, url.origin)
-    );
+  } catch {
+    return failure("confirmation_failed");
   }
 }

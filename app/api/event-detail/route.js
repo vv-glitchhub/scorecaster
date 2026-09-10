@@ -57,6 +57,7 @@ export async function GET(request) {
 
   const target = new URL("/api/top-picks", request.url);
   target.searchParams.set("sports", sport);
+  target.searchParams.set("eventId", eventId);
   const sourceResponse = await getTopPicks(new Request(target, { method: "GET" }));
   const payload = await sourceResponse.json();
   if (!sourceResponse.ok) {

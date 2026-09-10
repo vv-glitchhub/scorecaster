@@ -1,4 +1,5 @@
 import { SPORTS } from "../../../lib/sports";
+import { directoryFixtures, marketCoverage } from "../../../lib/live-market-availability.mjs";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-evidence-v1";
@@ -390,18 +391,19 @@ function parseLeagues(searchParams, now = Date.now()) {
   return leagues;
 }
 
-async function loadLeague(origin, league, now) {
+async function loadLeague(origin, league, now, { directory = false, eventId = "" } = {}) {
+  const unavailable = (errorCode, httpStatus = null) => ({ ok: false, sportKey: league, errorCode, httpStatus, picks: [], fixtures: [], providerGames: 0, acceptedGames: 0 });
   try {
-    const markets = TOP_PICK_MARKETS.join(",");
+    const markets = directory ? "h2h" : TOP_PICK_MARKETS.join(",");
     const response = await fetch(
       `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=${encodeURIComponent(markets)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(12000) }
+      { cache: "no-store", signal: AbortSignal.timeout(directory ? 18000 : 28000) }
     );
 
-    if (!response.ok) return { picks: [], providerGames: 0, acceptedGames: 0 };
+    if (!response.ok) return unavailable("provider-unavailable", response.status);
     const data = await response.json();
     if (data?.source !== "live" || data?.ok !== true) {
-      return { picks: [], providerGames: 0, acceptedGames: 0 };
+      return unavailable("invalid-provider-response", response.status);
     }
 
     const providerGames = getGamesFromResponse(data);
@@ -415,9 +417,13 @@ async function loadLeague(origin, league, now) {
       filterUpcomingPicks([{ commenceTime: game.commence_time }], ANALYSIS_WINDOW_HOURS, now).length === 1
     );
 
+    const fixtures = directoryFixtures(nearTermGames, league, findLeagueTitle(league));
+    if (directory) return { ok: true, sportKey: league, fixtures, picks: [], providerGames: providerGames.length, acceptedGames: fixtures.length };
+    // An event drill-down must not depend on making the league top 24.
+    const analysisGames = eventId ? nearTermGames.filter((game) => String(game.id) === eventId) : nearTermGames;
     const picks = TOP_PICK_MARKETS.flatMap((marketKey) =>
       createTopPicksFromGames({
-        games: nearTermGames,
+        games: analysisGames,
         marketKey,
         bankroll: 1000,
         kellyMode: "quarter",
@@ -435,18 +441,22 @@ async function loadLeague(origin, league, now) {
     }));
 
     return {
+      ok: true,
+      sportKey: league,
+      marketFallback: data.marketFallback === true,
+      fixtures,
       picks,
       providerGames: providerGames.length,
       acceptedGames: nearTermGames.length
     };
-  } catch {
-    return { picks: [], providerGames: 0, acceptedGames: 0 };
+  } catch (error) {
+    return unavailable(error?.name === "TimeoutError" ? "timeout" : "provider-unavailable");
   }
 }
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const unknownKeys = [...url.searchParams.keys()].filter((key) => !["sports", "view"].includes(key));
+  const unknownKeys = [...url.searchParams.keys()].filter((key) => !["sports", "view", "eventId"].includes(key));
   if (unknownKeys.length) {
     return Response.json(
       { ok: false, error: "Unsupported query parameter", data: [] },
@@ -455,7 +465,7 @@ export async function GET(request) {
   }
 
   const view = url.searchParams.get("view") || "full";
-  if (!new Set(["full", "summary"]).has(view)) {
+  if (!new Set(["full", "summary", "directory"]).has(view)) {
     return Response.json(
       { ok: false, error: "Unsupported view", data: [] },
       { status: 400, headers: CACHE_HEADERS }
@@ -471,17 +481,30 @@ export async function GET(request) {
     );
   }
 
+  const eventId = url.searchParams.get("eventId") || "";
+  if (url.searchParams.has("eventId") && (!/^[a-zA-Z0-9_-]{1,180}$/.test(eventId) || leagues.length !== 1 || view === "directory")) {
+    return Response.json({ ok: false, error: "An event ID requires exactly one supported league and an analysis view", data: [] }, { status: 400, headers: CACHE_HEADERS });
+  }
+
   if (url.searchParams.has("sports")) {
     const canonicalSports = leagues.join(",");
     if (url.searchParams.get("sports") !== canonicalSports) {
       const canonical = new URL(request.url);
-      canonical.search = new URLSearchParams({ sports: canonicalSports, ...(view === "summary" ? { view } : {}) }).toString();
+      canonical.search = new URLSearchParams({ sports: canonicalSports, ...(view !== "full" ? { view } : {}), ...(eventId ? { eventId } : {}) }).toString();
       return Response.redirect(canonical, 307);
     }
   }
 
   const { origin } = url;
-  const leagueResults = await Promise.all(leagues.map((league) => loadLeague(origin, league, now)));
+  const leagueResults = await Promise.all(leagues.map((league) => loadLeague(origin, league, now, { directory: view === "directory", eventId })));
+  const coverage = marketCoverage(leagueResults);
+  if (coverage.allUnavailable) {
+    return Response.json({ ok: false, error: "Live market data is temporarily unavailable", errorCode: "market-data-unavailable", ...coverage, data: [], events: [], paperOnly: true }, { status: 503, headers: CACHE_HEADERS });
+  }
+  if (view === "directory") {
+    const events = leagueResults.flatMap(result => result.fixtures).sort((a, b) => Date.parse(a.commenceTime) - Date.parse(b.commenceTime));
+    return Response.json({ ok: true, view, source: "live-odds-provider-only", generatedAt: new Date(now).toISOString(), analysisWindowHours: ANALYSIS_WINDOW_HOURS, leagues, ...coverage, acceptedGames: events.length, count: events.length, events, data: [], paperOnly: true }, { headers: CACHE_HEADERS });
+  }
   const allPicks = leagueResults.flatMap((result) => result.picks);
   const picksWithOwnedEvidence = await attachOwnedDecisionEvidenceBatch(allPicks, { now });
   const preFiltered = selectIntelligenceCandidates(picksWithOwnedEvidence);
@@ -520,6 +543,7 @@ export async function GET(request) {
   return Response.json(
     {
       ok: true,
+      ...coverage,
       source: "no-vig-market-consensus",
       fixtureSource: "live-odds-provider-only",
       intelligenceMode: "owned-model+independent-evidence-gated",

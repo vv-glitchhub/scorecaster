@@ -14,12 +14,13 @@ test("Today cards retain verified event identity and only actionable WATCH legs 
   assert.match(route, /function enrichDailyCards/);
   assert.match(route, /selection: cleanText/);
   assert.match(route, /actionableSelection: Boolean/);
-  assert.match(today, /pick\.decision === "WATCH" && pick\.selection/);
+  assert.match(today, /item\.decision === "PLAY"/);
   assert.match(today, /\/api\/cloud\/watchlist/);
-  assert.match(today, /`\/event\/\$\{encodeURIComponent\(pick\.eventId\)\}/);
+  assert.match(today, /function recommendationHref\(item\)/);
+  assert.match(today, /encodeURIComponent\(item\.eventId \|\| item\.id\)/);
   assert.doesNotMatch(today, /scorecaster-today-saved|\/events\?eventId/);
-  assert.match(today, /<Link href="\/events"[^>]*>\{tr\(\{ fi: "Näytä kaikki kohteet"/);
-  assert.match(events, /Tarkista ja valitse toiminto/);
+  assert.match(today, /<Link href="\/events"/);
+  assert.match(events, /Avaa ottelu ja analyysi/);
   assert.match(events, /<Link href=\{href\} className="sc-button-primary/);
   assert.doesNotMatch(events, /addTrackedBet|scorecaster-events|savePaperPick/);
 });
@@ -37,7 +38,7 @@ test("My picks is cloud-first with authenticated settlement and a local fallback
     read("app/tracking/page.jsx"),
     read("app/api/cloud/bets/route.js")
   ]);
-  assert.match(tracking, /fetch\("\/api\/cloud\/bets", \{ cache: "no-store" \}\)/);
+  assert.match(tracking, /fetch\("\/api\/cloud\/bets", \{ cache: "no-store", signal:/);
   assert.match(tracking, /betsResponse\.status === 401/);
   assert.match(tracking, /setStorageMode\("local"\)/);
   assert.match(tracking, /method: "PATCH"/);
