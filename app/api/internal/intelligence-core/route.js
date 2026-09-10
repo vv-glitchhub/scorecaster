@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { getCollectorSource, listCollectorSources } from "../../../../lib/collector-source-registry.mjs";
+import { OWNED_FOOTBALL_LEAGUES } from "../../../../lib/active-market-universe.js";
+import { selectLatestEligiblePregameFeatures } from "../../../../lib/learning-feature-selection.mjs";
 import {
   INTELLIGENCE_CORE_VERSION,
   OWN_FOOTBALL_MODEL_ID,
@@ -116,7 +118,7 @@ export async function GET(request) {
     const [collectorResult, observationsResult, outcomesResult, featuresResult, sourceHealthResult] = await Promise.all([
       admin.from("collector_records").select("fingerprint,source_id,source_type,event_id,entity_id,sport,league,metric,value,unit,observed_at,collected_at,payload,confidence,source_trust,commercial_use_allowed,publishable").gte("collected_at", since).order("collected_at", { ascending: false }).limit(10000),
       admin.from("sports_analytics_observations").select("fingerprint,event_id,sport_key,canonical_sport,league,participant_id,family,metric,value,unit,observed_at,captured_at,provider,source_trust,confidence,metadata").gte("captured_at", since).order("captured_at", { ascending: false }).limit(10000),
-      admin.from("scorecaster_event_outcomes_v1").select("id,outcome_hash,event_id,sport_key,league,home_team,away_team,commence_time,status,home_score,away_score,outcome,resolved_at,observed_at,captured_at,confidence,source_count,source_ids,provenance,finality_verified").eq("status", "final").eq("finality_verified", true).order("commence_time", { ascending: true }).limit(15000),
+      admin.from("scorecaster_event_outcomes_v1").select("id,outcome_hash,event_id,sport_key,league,home_team,away_team,commence_time,status,home_score,away_score,outcome,resolved_at,observed_at,captured_at,confidence,source_count,source_ids,provenance,finality_verified").eq("status", "final").eq("finality_verified", true).order("commence_time", { ascending: false }).limit(15000),
       admin.from("scorecaster_pit_feature_snapshots_v1").select("id,event_id,sport_key,league,home_team,away_team,commence_time,as_of,as_of_bucket,feature_schema_version,input_hash,features,source_lineage,data_quality,eligible_for_model,leakage_guard_passed").order("as_of", { ascending: false }).limit(2500),
       admin.from("scorecaster_source_health_snapshots_v1").select("source_id,status,last_observed_at,age_minutes,records_24h,rights_ok,training_rights_ok,dependency_class,diagnostics,captured_at").order("captured_at", { ascending: false }).limit(200),
     ]);
@@ -128,10 +130,15 @@ export async function GET(request) {
     await upsertChunks(admin, "scorecaster_canonical_facts_v1", canonicalFacts, "fact_hash");
 
     const outcomes = outcomesResult.data || [];
+    const rawFeatures = featuresResult.data || [];
     const teamStates = buildFootballTeamStates(outcomes, asOf);
     const latestFeatureByEvent = new Map();
-    for (const feature of featuresResult.data || []) if (!latestFeatureByEvent.has(feature.event_id)) latestFeatureByEvent.set(feature.event_id, feature);
+    for (const feature of rawFeatures) if (!latestFeatureByEvent.has(feature.event_id)) latestFeatureByEvent.set(feature.event_id, feature);
     const features = [...latestFeatureByEvent.values()];
+    const learningFeatures = selectLatestEligiblePregameFeatures(rawFeatures, {
+      now: Date.parse(asOf),
+      leagues: OWNED_FOOTBALL_LEAGUES,
+    });
 
     for (const feature of features) {
       addAlias(teamStates, feature.home_team);
@@ -211,9 +218,11 @@ export async function GET(request) {
     const rights = Object.fromEntries(listCollectorSources().map((source) => [source.id, { modelTrainingAllowed: source.modelTrainingAllowed === true }]));
     rights.openfootball_cc0 = { modelTrainingAllowed: true };
     const learningRows = [];
-    for (const feature of features.filter((row) => row.commence_time && Date.parse(row.commence_time) < Date.now()).slice(0, 1500)) {
+    let learningMatchedOutcomes = 0;
+    for (const feature of learningFeatures.slice(0, 1500)) {
       const outcome = outcomeMatch(feature, outcomes);
       if (!outcome) continue;
+      learningMatchedOutcomes += 1;
       const example = buildLearningExample({ featureSnapshot: feature, outcome, sourceRights: rights });
       if (!example) continue;
       if (feature.data_quality?.hasIndependentSignal !== true) {
@@ -260,6 +269,8 @@ export async function GET(request) {
       teamStatesMaterialized: stateRows.length,
       predictionsPrepared: predictionRows.length,
       predictionCandidates: predictionSummary.length,
+      learningCandidates: learningFeatures.length,
+      learningMatchedOutcomes,
       learningExamplesPrepared: learningRows.length,
       trainingEligiblePrepared: learningRows.filter((row) => row.eligible_for_training).length,
       model: { id: OWN_FOOTBALL_MODEL_ID, version: OWN_FOOTBALL_MODEL_VERSION, status: "shadow", independentFromMarket: true, productionProbabilityChanged: false },
