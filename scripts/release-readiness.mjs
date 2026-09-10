@@ -136,6 +136,8 @@ const postShadowMigrations = [
   "supabase/scorecaster_event_identity_refresh_v1.sql",
   "supabase/scorecaster_event_identity_normalization_v2.sql",
   "supabase/scorecaster_event_identity_fixture_map_v3.sql",
+  "supabase/scorecaster_event_identity_normalization_v3.sql",
+  "supabase/scorecaster_event_identity_normalization_v4.sql",
   "supabase/scorecaster_outcome_chronology_fix_v1.sql",
   "supabase/scorecaster_own_model_scheduler_v1.sql",
   "supabase/scorecaster_own_football_ml_v1.sql",
