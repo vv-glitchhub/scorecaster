@@ -85,9 +85,14 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   assert.match(route, /rawLicensedPayloadsPublic: false/);
 
   // Today is intentionally a decision surface, not a developer-diagnostics wall.
-  // It must clearly distinguish PLAY from WAIT and route deeper reasoning to the
-  // event/feed/data surfaces where the full transparency components remain.
-  assert.match(today, /Mitä pelata tänään\?/);
+  // The premium redesign must still distinguish PLAY from WAIT, show real market/model
+  // inputs and route deeper reasoning to the event/feed/data surfaces.
+  assert.match(today, /data-homepage-premium-v2="true"/);
+  assert.match(today, /REAL DATA\. SMARTER DECISIONS\./);
+  assert.match(today, /Vedonlyöntipäätökset fiksummin/);
+  assert.match(today, /Top AI Picks/);
+  assert.match(today, /Match Hub/);
+  assert.match(today, /Probability Edge/);
   assert.match(today, /Pelaa näin/);
   assert.match(today, /Miksi PLAY\?/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
@@ -95,8 +100,12 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   assert.match(today, /porttia/);
   assert.match(today, /Seurattava ehdokas – ei pelisuositus/);
   assert.match(today, /\/api\/recommendations\?limit=20/);
+  assert.match(today, /independentModelProbability/);
+  assert.match(today, /marketProbability/);
   assert.match(today, /href="\/feed"/);
   assert.match(today, /href="\/data-layer"/);
+  assert.match(today, /PAPER ONLY/);
+  assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI|92% Confidence/i);
 
   assert.match(feed, /DecisionTransparencyCard/);
   assert.match(feed, /Kaikki kaavat ja lähteet/);
