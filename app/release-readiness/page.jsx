@@ -3,7 +3,7 @@ import manifest from "../../config/release-readiness.json";
 import ReleaseReadinessClient from "./ReleaseReadinessClient";
 
 export const metadata = {
-  title: "Release Readiness | Scorecaster"
+  title: "Release Readiness"
 };
 
 export default function ReleaseReadinessPage() {

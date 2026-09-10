@@ -42,33 +42,34 @@ export default function ReleaseReadinessClient({ profile }) {
   useEffect(() => { void load(); }, []);
 
   const checks = useMemo(() => {
+    const healthKnown = Boolean(data.health?.app);
     const services = data.health?.services || {};
     const checklist = data.operations?.checklist || {};
     return [
       {
         id: "live-deployment",
         label: tr({ fi: "Live-deploy vastaa", en: "Live deployment responds", es: "El despliegue responde" }),
-        ready: data.health?.app === "Scorecaster"
+        ready: healthKnown ? data.health?.app === "Scorecaster" : null
       },
       {
         id: "supabase",
         label: tr({ fi: "Supabase public config", en: "Supabase public configuration", es: "Configuración pública de Supabase" }),
-        ready: Boolean(services.supabaseConfigured)
+        ready: healthKnown ? Boolean(services.supabaseConfigured) : null
       },
       {
         id: "account-deletion",
         label: tr({ fi: "Tilin palvelinpoisto", en: "Server-side account deletion", es: "Eliminación de cuenta en servidor" }),
-        ready: Boolean(services.accountDeletionConfigured)
+        ready: healthKnown ? Boolean(services.accountDeletionConfigured) : null
       },
       {
         id: "odds-provider",
         label: tr({ fi: "Odds API ja tulospalvelu", en: "Odds API and score provider", es: "Odds API y proveedor de resultados" }),
-        ready: Boolean(services.oddsApiConfigured)
+        ready: healthKnown ? Boolean(services.oddsApiConfigured) : null
       },
       {
         id: "agent-signing",
         label: tr({ fi: "Agent-päätösten allekirjoitus", en: "Agent decision signing", es: "Firma de decisiones Agent" }),
-        ready: Boolean(services.agentV10DecisionSigningConfigured)
+        ready: healthKnown ? Boolean(services.agentV10DecisionSigningConfigured) : null
       },
       {
         id: "watchlist-migrations",
@@ -103,15 +104,31 @@ export default function ReleaseReadinessClient({ profile }) {
     ];
   }, [data, tr]);
 
-  const readyCount = checks.filter((item) => item.ready).length;
-  const automatedReady = checks.length > 0 && readyCount === checks.length;
+  const knownChecks = checks.filter((item) => item.ready !== null);
+  const readyCount = knownChecks.filter((item) => item.ready === true).length;
+  const allChecksKnown = knownChecks.length === checks.length;
+  const automatedReady = allChecksKnown && readyCount === checks.length;
+  const unknownMode = loading ? "checking" : data.health?.app && !data.operations ? "auth" : "unknown";
+  const readinessTone = loading || !allChecksKnown
+    ? "border-slate-400/20 bg-slate-400/10 text-slate-200"
+    : automatedReady
+      ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200"
+      : "border-yellow-400/30 bg-yellow-400/10 text-yellow-100";
+  const readinessText = loading
+    ? tr({ fi: "TARKISTETAAN", en: "CHECKING", es: "COMPROBANDO" })
+    : !allChecksKnown
+      ? tr({ fi: "KIRJAUDU JATKAAKSESI", en: "SIGN IN TO CONTINUE", es: "INICIA SESIÓN PARA CONTINUAR" })
+      : automatedReady
+        ? tr({ fi: "AUTOMAATIO VALMIS", en: "AUTOMATION READY", es: "AUTOMATIZACIÓN LISTA" })
+        : tr({ fi: "AKTIVOINTI KESKEN", en: "ACTIVATION INCOMPLETE", es: "ACTIVACIÓN INCOMPLETA" });
+
   const date = (value) => {
     const parsed = new Date(value || "");
     return Number.isNaN(parsed.getTime()) ? "–" : parsed.toLocaleString(locale);
   };
 
   return (
-    <div className="space-y-7">
+    <div className="space-y-7" data-release-readiness-v1="true">
       <section className="rounded-[2rem] border border-white/10 bg-[radial-gradient(circle_at_top_left,rgba(16,185,129,0.22),transparent_34%),linear-gradient(135deg,#020617,#0f172a_60%,#020617)] p-6 shadow-2xl md:p-10">
         <div className="inline-flex rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-2 text-sm font-black text-emerald-200">Release Readiness V1</div>
         <h1 className="mt-5 max-w-5xl text-4xl font-black tracking-tight md:text-6xl">
@@ -132,7 +149,11 @@ export default function ReleaseReadinessClient({ profile }) {
       {error && <div className="rounded-2xl border border-red-400/30 bg-red-400/10 p-5 text-red-100">{error}<Link href="/login" className="ml-2 font-black underline">{tr({ fi: "Kirjaudu", en: "Sign in", es: "Iniciar sesión" })}</Link></div>}
 
       <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-        <Metric label={tr({ fi: "Automaattiset tarkistukset", en: "Automated checks", es: "Comprobaciones automáticas" })} value={`${readyCount}/${checks.length}`} tone={automatedReady ? "text-emerald-300" : "text-yellow-200"} />
+        <Metric
+          label={tr({ fi: "Automaattiset tarkistukset", en: "Automated checks", es: "Comprobaciones automáticas" })}
+          value={loading ? "…" : knownChecks.length ? `${readyCount}/${knownChecks.length}` : "–"}
+          tone={automatedReady ? "text-emerald-300" : allChecksKnown ? "text-yellow-200" : "text-slate-300"}
+        />
         <Metric label={tr({ fi: "SQL-migraatiot", en: "SQL migrations", es: "Migraciones SQL" })} value={profile.migrationCount} />
         <Metric label={tr({ fi: "Julkiset smoke-sivut", en: "Public smoke pages", es: "Páginas públicas" })} value={profile.publicPageCount} />
         <Metric label={tr({ fi: "Suojatut API-probet", en: "Protected API probes", es: "Pruebas API protegidas" })} value={profile.protectedProbeCount} />
@@ -146,12 +167,10 @@ export default function ReleaseReadinessClient({ profile }) {
               <h2 className="text-2xl font-black">{tr({ fi: "Automaattinen tuotantovalmius", en: "Automated production readiness", es: "Preparación automática" })}</h2>
               <p className="mt-2 text-slate-400">{tr({ fi: "Nämä tilat tulevat oikeasta health- ja Operations-datasta.", en: "These states come from live health and Operations data.", es: "Estos estados proceden de datos reales de Health y Operations." })}</p>
             </div>
-            <span className={`rounded-full border px-4 py-2 text-sm font-black ${automatedReady ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : "border-yellow-400/30 bg-yellow-400/10 text-yellow-100"}`}>
-              {automatedReady ? tr({ fi: "AUTOMAATIO VALMIS", en: "AUTOMATION READY", es: "AUTOMATIZACIÓN LISTA" }) : tr({ fi: "AKTIVOINTI KESKEN", en: "ACTIVATION INCOMPLETE", es: "ACTIVACIÓN INCOMPLETA" })}
-            </span>
+            <span className={`rounded-full border px-4 py-2 text-sm font-black ${readinessTone}`}>{readinessText}</span>
           </div>
           <div className="mt-5 grid gap-3 md:grid-cols-2">
-            {checks.map((item) => <CheckRow key={item.id} label={item.label} ready={item.ready} tr={tr} />)}
+            {checks.map((item) => <CheckRow key={item.id} label={item.label} ready={item.ready} unknownMode={unknownMode} tr={tr} />)}
           </div>
         </div>
 
@@ -188,7 +207,12 @@ function Metric({ label, value, tone = "text-white" }) {
   return <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5"><div className="text-sm text-slate-400">{label}</div><div className={`mt-2 break-words text-3xl font-black ${tone}`}>{value}</div></div>;
 }
 
-function CheckRow({ label, ready, tr }) {
+function CheckRow({ label, ready, unknownMode, tr }) {
   const unknown = ready === null;
-  return <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"><div className="font-bold text-slate-200">{label}</div><span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : unknown ? "bg-slate-400/10 text-slate-300" : "bg-yellow-400/10 text-yellow-200"}`}>{ready ? tr({ fi: "VALMIS", en: "READY", es: "LISTO" }) : unknown ? tr({ fi: "KIRJAUDU", en: "SIGN IN", es: "INICIAR SESIÓN" }) : tr({ fi: "KESKEN", en: "PENDING", es: "PENDIENTE" })}</span></div>;
+  const unknownLabel = unknownMode === "checking"
+    ? tr({ fi: "TARKISTETAAN", en: "CHECKING", es: "COMPROBANDO" })
+    : unknownMode === "auth"
+      ? tr({ fi: "KIRJAUDU", en: "SIGN IN", es: "INICIAR SESIÓN" })
+      : tr({ fi: "EI TIETOA", en: "UNKNOWN", es: "DESCONOCIDO" });
+  return <div className="flex items-center justify-between gap-3 rounded-2xl border border-white/10 bg-slate-950 p-4"><div className="font-bold text-slate-200">{label}</div><span className={`rounded-full px-3 py-1 text-xs font-black ${ready ? "bg-emerald-400/10 text-emerald-300" : unknown ? "bg-slate-400/10 text-slate-300" : "bg-yellow-400/10 text-yellow-200"}`}>{ready ? tr({ fi: "VALMIS", en: "READY", es: "LISTO" }) : unknown ? unknownLabel : tr({ fi: "KESKEN", en: "PENDING", es: "PENDIENTE" })}</span></div>;
 }
