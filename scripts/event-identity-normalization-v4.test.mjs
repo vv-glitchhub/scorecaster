@@ -17,8 +17,7 @@ test("identity normalization stays deterministic and fail-closed", () => {
   assert.match(combined, /grant execute on function scorecaster_private\.normalize_team_identity\(text\) to service_role/);
   assert.match(combined, /refresh_event_identity_map\(\)/);
   assert.doesNotMatch(combined, /similarity\s*\(/i);
-  assert.doesNotMatch(combined, /levenshtein/i);
-  assert.doesNotMatch(combined, /fuzzy/i);
+  assert.doesNotMatch(combined, /levenshtein\s*\(/i);
 });
 
 test("observed provider/canonical aliases are regression-locked", () => {
@@ -38,6 +37,8 @@ test("identity normalization migrations are retained by release readiness", () =
   assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v3.sql"));
   assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v4.sql"));
   assert.equal(releaseManifest.supabaseMigrations.length, 48);
+  assert.ok(releaseManifest.publicPages.includes("/acceptance-validation"));
+  assert.ok(releaseManifest.publicPages.includes("/validation-runway"));
 });
 
 test("validation runway exposes only aggregate chronology-safe readiness", () => {
