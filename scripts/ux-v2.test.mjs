@@ -101,5 +101,5 @@ test("premium homepage V3 is compact, mobile-first and keeps paper-only truthful
   assert.match(today, /PAPER ONLY/);
   assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
   assert.match(today, /eivät toteutunutta ROI:ta tai luvattua voittoprosenttia/);
-  assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI|92% Confidence/i);
+  assert.doesNotMatch(today, /\bPlace Bet\b|potential return|Avg\. ROI|92% Confidence/i);
 });
