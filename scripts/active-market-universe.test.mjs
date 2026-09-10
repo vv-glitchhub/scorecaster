@@ -4,7 +4,11 @@ import { readFile } from "node:fs/promises";
 import {
   MARKET_FAMILIES,
   OWNED_FOOTBALL_LEAGUES,
+  TEMPORARILY_UNAVAILABLE_MARKET_LEAGUES,
   activeMarketLeagues,
+  activeMarketUnavailableLeagues,
+  activeMarketUniverse,
+  isSupportedMarketLeague,
   marketSeason,
   topPicksDefaultLeagues,
 } from "../lib/active-market-universe.js";
@@ -28,6 +32,20 @@ test("transition Top Picks always represents every owned football league", () =>
   }
   assert.ok(topPicks.length <= 12);
   assert.deepEqual(MARKET_FAMILIES, ["h2h", "spreads", "totals"]);
+});
+
+test("an upstream capability gap is disclosed and excluded from default scans without removing product support", () => {
+  const now = Date.parse("2026-09-10T12:00:00Z");
+  const active = activeMarketLeagues(now);
+  const unavailable = activeMarketUnavailableLeagues(now);
+  const universe = activeMarketUniverse(now);
+  assert.equal(TEMPORARILY_UNAVAILABLE_MARKET_LEAGUES.length, 1);
+  assert.equal(TEMPORARILY_UNAVAILABLE_MARKET_LEAGUES[0].key, "icehockey_finland_liiga");
+  assert.equal(isSupportedMarketLeague("icehockey_finland_liiga"), true, "UI/direct support remains intact");
+  assert.equal(active.includes("icehockey_finland_liiga"), false, "default workers must fail closed around an unavailable primary provider league");
+  assert.deepEqual(unavailable.map((item) => item.key), ["icehockey_finland_liiga"]);
+  assert.equal(universe.version, "scorecaster-active-market-universe-v2");
+  assert.deepEqual(universe.unavailableLeagues.map((item) => item.reason), ["primary-provider-unavailable"]);
 });
 
 test("Top Picks, collector, recommendations and market worker consume the shared universe", async () => {
