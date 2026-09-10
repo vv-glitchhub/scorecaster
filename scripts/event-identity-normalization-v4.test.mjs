@@ -7,6 +7,7 @@ const v4 = await readFile(new URL("../supabase/scorecaster_event_identity_normal
 const runwayRoute = await readFile(new URL("../app/api/validation-runway/route.js", import.meta.url), "utf8");
 const runwayPage = await readFile(new URL("../app/validation-runway/ValidationRunwayClient.jsx", import.meta.url), "utf8");
 const acceptancePage = await readFile(new URL("../app/acceptance-validation/page.jsx", import.meta.url), "utf8");
+const releaseManifest = JSON.parse(await readFile(new URL("../config/release-readiness.json", import.meta.url), "utf8"));
 
 test("identity normalization stays deterministic and fail-closed", () => {
   const combined = `${v3}\n${v4}`;
@@ -31,6 +32,12 @@ test("observed provider/canonical aliases are regression-locked", () => {
     "Parma",
     "Angers SCO"
   ]) assert.match(`${v3}\n${v4}`, new RegExp(token.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"));
+});
+
+test("identity normalization migrations are retained by release readiness", () => {
+  assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v3.sql"));
+  assert.ok(releaseManifest.supabaseMigrations.includes("supabase/scorecaster_event_identity_normalization_v4.sql"));
+  assert.equal(releaseManifest.supabaseMigrations.length, 48);
 });
 
 test("validation runway exposes only aggregate chronology-safe readiness", () => {
