@@ -45,5 +45,5 @@ test("homepage V3 keeps short league labels and truthful paper-only metrics", as
   assert.match(home, /marketProbability/);
   assert.match(home, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
   assert.match(home, /eivät toteutunutta ROI:ta tai luvattua voittoprosenttia/);
-  assert.doesNotMatch(home, /Place Bet|Potential Return|Avg\. ROI|guaranteed win/i);
+  assert.doesNotMatch(home, /Place Bet|Potential Return|Avg\. ROI|guaranteed win rate|guaranteed profit/i);
 });
