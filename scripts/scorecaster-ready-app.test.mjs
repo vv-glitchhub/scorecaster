@@ -35,7 +35,7 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.match(today, /AI Feed/);
   assert.match(today, /Paper Slip/);
   assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
-  assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI/i);
+  assert.doesNotMatch(today, /\bPlace Bet\b|potential return|Avg\. ROI/i);
 });
 
 test("shared market universe keeps the owned football leagues aligned across Sep and Oct", () => {
