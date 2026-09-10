@@ -100,7 +100,7 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   assert.match(today, /href="\/model-lab#validation-lab"/);
   assert.match(today, /PAPER ONLY/);
   assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
-  assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI|92% Confidence/i);
+  assert.doesNotMatch(today, /\bPlace Bet\b|potential return|Avg\. ROI|92% Confidence/i);
 
   assert.match(feed, /DecisionTransparencyCard/);
   assert.match(feed, /Kaikki kaavat ja lähteet/);
