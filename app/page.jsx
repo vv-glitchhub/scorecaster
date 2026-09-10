@@ -2,7 +2,7 @@ import AutoWatchRecommendationsPanel from "./components/AutoWatchRecommendations
 import ProfessionalSurfaceRail from "./components/ProfessionalSurfaceRail";
 import RecommendationAlertCTA from "./components/RecommendationAlertCTA";
 import RecommendationSpotlight from "./components/RecommendationSpotlight";
-import TodayPageClient from "./components/TodayPageClient";
+import TodayPageClient from "./components/TodayPageV3";
 import DeferredSection from "./components/DeferredSection";
 
 export const metadata = {
