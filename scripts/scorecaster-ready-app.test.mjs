@@ -14,7 +14,7 @@ const file = (path) => readFile(new URL(path, root), "utf8");
 
 test("home page uses the PLAY-first Today experience", async () => {
   const page = await file("app/page.jsx");
-  const today = await file("app/components/TodayPageClient.jsx");
+  const today = await file("app/components/TodayPageV3.jsx");
   assert.match(page, /TodayPageClient/);
   const todayIndex = page.indexOf("<TodayPageClient />");
   const spotlightIndex = page.indexOf("<RecommendationSpotlight />");
@@ -23,21 +23,19 @@ test("home page uses the PLAY-first Today experience", async () => {
   assert.ok(spotlightIndex < 0 || todayIndex < spotlightIndex, "PLAY-first Today must render before Recommendation Spotlight");
   assert.ok(professionalIndex < 0 || todayIndex < professionalIndex, "PLAY-first Today must render before professional diagnostics");
   assert.match(today, /\/api\/recommendations\?limit=20/);
-  assert.match(today, /data-homepage-premium-v2="true"/);
-  assert.match(today, /REAL DATA\. SMARTER DECISIONS\./);
-  assert.match(today, /Vedonlyöntipäätökset fiksummin/);
+  assert.match(today, /data-homepage-v3="mobile-first"/);
+  assert.match(today, /REAL DATA · PAPER ONLY/);
+  assert.match(today, /Dataa\. /);
+  assert.match(today, /Parempia päätöksiä/);
   assert.match(today, /Top AI Picks/);
   assert.match(today, /Match Hub/);
-  assert.match(today, /Pelaa näin/);
-  assert.match(today, /Miksi PLAY/);
+  assert.match(today, /independentModelProbability/);
+  assert.match(today, /marketProbability/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
-  assert.match(today, /visibleGateSummary/);
-  assert.match(today, /porttia/);
-  assert.match(today, /Seuraa – älä pelaa vielä/);
   assert.match(today, /AI Feed/);
   assert.match(today, /Paper Slip/);
-  assert.match(today, /paperianalyysi|paper analysis/);
-  assert.doesNotMatch(today, /Place Bet|potential return/i);
+  assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
+  assert.doesNotMatch(today, /\bPlace Bet\b|potential return|Avg\. ROI/i);
 });
 
 test("shared market universe keeps the owned football leagues aligned across Sep and Oct", () => {

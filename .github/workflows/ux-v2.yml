@@ -42,5 +42,8 @@ jobs:
       - name: UX V2 regression tests
         run: npm run test:ux-v2
 
+      - name: Homepage V3 mobile-first regression tests
+        run: node --test scripts/homepage-v3.test.mjs
+
       - name: Production build
         run: npm run build
