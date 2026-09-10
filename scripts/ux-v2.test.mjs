@@ -84,3 +84,23 @@ test("operator tools are collapsed and mobile heroes use narrower typography", a
   assert.match(product, /clamp\(2rem,8vw,4\.6rem\)/);
   assert.match(product, /rounded-\[1\.75rem\]/);
 });
+
+test("premium homepage mirrors the sports-intelligence terminal layout without fake performance or real-money execution", async () => {
+  const today = await file("app/components/TodayPageClient.jsx");
+  assert.match(today, /data-homepage-premium-v2="true"/);
+  assert.match(today, /REAL DATA\. SMARTER DECISIONS\./);
+  assert.match(today, /Top AI Picks/);
+  assert.match(today, /Match Hub/);
+  assert.match(today, /Probability Edge/);
+  assert.match(today, /Paper Slip/);
+  assert.match(today, /Market Insights/);
+  assert.match(today, /Intelligence Edge/);
+  assert.match(today, /xl:grid-cols-\[minmax\(260px,.78fr\)_minmax\(430px,1.45fr\)_minmax\(280px,.82fr\)\]/);
+  assert.match(today, /\/api\/recommendations\?limit=20/);
+  assert.match(today, /independentModelProbability/);
+  assert.match(today, /marketProbability/);
+  assert.match(today, /PAPER ONLY/);
+  assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
+  assert.match(today, /eivät toteutunutta ROI:ta tai luvattua voittoprosenttia/);
+  assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI|92% Confidence/i);
+});
