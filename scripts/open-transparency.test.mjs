@@ -74,7 +74,7 @@ test("public transparency API is unauthenticated, publishable-only and CORS-read
 test("Scorecaster keeps the homepage action-first while deep transparency remains reachable", async () => {
   const [route, today, feed, card, page, shell] = await Promise.all([
     file("app/api/scorecaster-app/route.js"),
-    file("app/components/TodayPageClient.jsx"),
+    file("app/components/TodayPageV3.jsx"),
     file("app/feed/FeedClient.jsx"),
     file("app/components/DecisionTransparencyCard.jsx"),
     file("app/transparency/TransparencyClient.jsx"),
@@ -84,27 +84,22 @@ test("Scorecaster keeps the homepage action-first while deep transparency remain
   assert.match(route, /records: records\.map\(publicRecord\)/);
   assert.match(route, /rawLicensedPayloadsPublic: false/);
 
-  // Today is intentionally a decision surface, not a developer-diagnostics wall.
-  // The premium redesign must still distinguish PLAY from WAIT, show real market/model
-  // inputs and route deeper reasoning to the event/feed/data surfaces.
-  assert.match(today, /data-homepage-premium-v2="true"/);
-  assert.match(today, /REAL DATA\. SMARTER DECISIONS\./);
-  assert.match(today, /Vedonlyöntipäätökset fiksummin/);
+  // Today remains an action-first surface while preserving real market/model inputs,
+  // honest missing-evidence states and direct access to deeper transparency surfaces.
+  assert.match(today, /data-homepage-v3="mobile-first"/);
+  assert.match(today, /REAL DATA · PAPER ONLY/);
+  assert.match(today, /Dataa\. /);
+  assert.match(today, /Parempia päätöksiä/);
   assert.match(today, /Top AI Picks/);
   assert.match(today, /Match Hub/);
-  assert.match(today, /Probability Edge/);
-  assert.match(today, /Pelaa näin/);
-  assert.match(today, /Miksi PLAY\?/);
   assert.match(today, /Ei PLAY-kohteita juuri nyt/);
-  assert.match(today, /visibleGateSummary/);
-  assert.match(today, /porttia/);
-  assert.match(today, /Seurattava ehdokas – ei pelisuositus/);
   assert.match(today, /\/api\/recommendations\?limit=20/);
   assert.match(today, /independentModelProbability/);
   assert.match(today, /marketProbability/);
   assert.match(today, /href="\/feed"/);
-  assert.match(today, /href="\/data-layer"/);
+  assert.match(today, /href="\/model-lab#validation-lab"/);
   assert.match(today, /PAPER ONLY/);
+  assert.match(today, /Ei vedonvälittäjä\. Ei lähetä vetoa eikä siirrä rahaa\./);
   assert.doesNotMatch(today, /Place Bet|potential return|Avg\. ROI|92% Confidence/i);
 
   assert.match(feed, /DecisionTransparencyCard/);
