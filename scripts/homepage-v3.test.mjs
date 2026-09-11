@@ -71,3 +71,22 @@ test("homepage V3 surfaces partial upstream failures without presenting unverifi
   assert.match(home, /Some markets did not respond\. Only verified data is shown\./);
   assert.doesNotMatch(home, /fallback odds|synthetic odds|estimated bookmaker/i);
 });
+
+test("homepage V3 preserves safe navigation from a recommendation to the event detail route", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /if \(!item\?\.eventId && !item\?\.id\) return "\/events"/);
+  assert.match(home, /query\.set\("sport", item\.sportKey\)/);
+  assert.match(home, /query\.set\("selection", item\.selection\)/);
+  assert.match(home, /encodeURIComponent\(item\.eventId \|\| item\.id\)/);
+  assert.match(home, /href=\{eventHref\(item\)\}/);
+});
+
+test("homepage V3 keeps empty recommendation states explicit instead of fabricating picks", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /Ei varmennettuja nostoja juuri nyt\./);
+  assert.match(home, /No verified picks right now\./);
+  assert.match(home, /No hay selecciones verificadas ahora\./);
+  assert.doesNotMatch(home, /dummy pick|demo pick|placeholder odds|fake pick/i);
+});
