@@ -114,6 +114,11 @@ test("ready app fails closed on request errors instead of presenting stale data 
   const client = await file("app/ScorecasterReadyClient.jsx");
   assert.match(client, /catch \(cause\) \{ setError\(cause\.message \|\| "Data unavailable"\); setData\(null\); \}/);
   assert.match(client, /!loading && !selectedEvent && !error/);
+  assert.match(client, /const known = \(value\) => value \?\? "–"/);
+  assert.match(client, /known\(control\?\.readiness\?\.score\)/);
+  assert.match(client, /known\(control\?\.summary\?\.records\)/);
+  assert.match(client, /control\?\.summary\?\.freshnessHours == null \? "–"/);
+  assert.doesNotMatch(client, /control\?\.readiness\?\.score \?\? 0/);
   assert.match(client, /cache: "no-store"/);
 });
 

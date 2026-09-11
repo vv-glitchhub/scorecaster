@@ -7,6 +7,7 @@ import { DecisionBadge, EmptyState, MetricTile, PageHero, SectionHeader, TrustBa
 
 const pct = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
 const num = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
+const known = (value) => value ?? "–";
 const tone = (status) => status === "ready" || status === "healthy" ? "green" : status === "blocked" || status === "degraded" ? "red" : "yellow";
 
 export default function ScorecasterReadyClient() {
@@ -43,7 +44,7 @@ export default function ScorecasterReadyClient() {
 
   const heroAside = <div>
     <div className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{tr({ fi: "Tuotantovalmius", en: "Production readiness", es: "Preparación" })}</div>
-    <div className="mt-2 text-5xl font-black text-white">{control?.readiness?.score ?? 0}<span className="text-xl text-slate-500">/100</span></div>
+    <div className="mt-2 text-5xl font-black text-white">{known(control?.readiness?.score)}<span className="text-xl text-slate-500">/100</span></div>
     <div className="mt-3"><DecisionBadge decision={control?.readiness?.status === "ready" ? "WATCH" : "SKIP"} /></div>
   </div>;
 
@@ -66,10 +67,10 @@ export default function ScorecasterReadyClient() {
     {error && <div className="rounded-3xl border border-red-400/30 bg-red-500/10 p-6 text-red-100"><div className="font-black">{error}</div><div className="mt-2 text-sm text-red-200">{tr({ fi: "Collector V1 pitää aktivoida tuotantoon ennen kuin kaikki data näkyy.", en: "Collector V1 must be activated in production before all data becomes visible.", es: "Collector V1 debe activarse en producción." })}</div></div>}
 
     <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <MetricTile label={tr({ fi: "Havaintoja", en: "Observations", es: "Observaciones" })} value={loading ? "…" : control?.summary?.records ?? 0} />
-      <MetricTile label={tr({ fi: "Tapahtumia", en: "Events", es: "Eventos" })} value={loading ? "…" : control?.summary?.events ?? 0} />
-      <MetricTile label={tr({ fi: "Lähteitä", en: "Sources", es: "Fuentes" })} value={loading ? "…" : control?.summary?.sources ?? 0} />
-      <MetricTile label={tr({ fi: "Tuoreus", en: "Freshness", es: "Actualidad" })} value={loading ? "…" : `${num(control?.summary?.freshnessHours, 1)} h`} tone={Number(control?.summary?.freshnessHours || 99) <= 2 ? "green" : "yellow"} />
+      <MetricTile label={tr({ fi: "Havaintoja", en: "Observations", es: "Observaciones" })} value={loading ? "…" : known(control?.summary?.records)} />
+      <MetricTile label={tr({ fi: "Tapahtumia", en: "Events", es: "Eventos" })} value={loading ? "…" : known(control?.summary?.events)} />
+      <MetricTile label={tr({ fi: "Lähteitä", en: "Sources", es: "Fuentes" })} value={loading ? "…" : known(control?.summary?.sources)} />
+      <MetricTile label={tr({ fi: "Tuoreus", en: "Freshness", es: "Actualidad" })} value={loading ? "…" : control?.summary?.freshnessHours == null ? "–" : `${num(control.summary.freshnessHours, 1)} h`} tone={Number(control?.summary?.freshnessHours ?? 99) <= 2 ? "green" : "yellow"} />
     </section>
 
     <section className="rounded-3xl border border-white/10 bg-slate-950/50 p-5 sm:p-6">
