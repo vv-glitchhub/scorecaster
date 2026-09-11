@@ -110,6 +110,13 @@ test("ready app still exposes all core production views", async () => {
   assert.match(client, /Näytä kaikki data/);
 });
 
+test("ready app fails closed on request errors instead of presenting stale data as empty", async () => {
+  const client = await file("app/ScorecasterReadyClient.jsx");
+  assert.match(client, /catch \(cause\) \{ setError\(cause\.message \|\| "Data unavailable"\); setData\(null\); \}/);
+  assert.match(client, /!loading && !selectedEvent && !error/);
+  assert.match(client, /cache: "no-store"/);
+});
+
 test("legacy value surface uses fresh unified data instead of stale value_bets rows", async () => {
   const route = await file("app/api/value-bets/route.js");
   const client = await file("app/components/ValueBetsSection.js");
