@@ -90,3 +90,15 @@ test("homepage V3 keeps empty recommendation states explicit instead of fabricat
   assert.match(home, /No hay selecciones verificadas ahora\./);
   assert.doesNotMatch(home, /dummy pick|demo pick|placeholder odds|fake pick/i);
 });
+
+test("homepage remote-data hook aborts stale requests and avoids hidden-tab polling", async () => {
+  const remote = await file("app/components/useRemoteJson.js");
+
+  assert.match(remote, /const controller = new AbortController\(\)/);
+  assert.match(remote, /let active = true/);
+  assert.match(remote, /if \(active\) setState/);
+  assert.match(remote, /active = false; controller\.abort\(\)/);
+  assert.match(remote, /document\.visibilityState === "visible"/);
+  assert.match(remote, /window\.clearInterval\(timer\)/);
+  assert.match(remote, /state\.key === key/);
+});
