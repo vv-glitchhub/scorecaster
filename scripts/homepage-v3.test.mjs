@@ -102,3 +102,14 @@ test("homepage remote-data hook aborts stale requests and avoids hidden-tab poll
   assert.match(remote, /window\.clearInterval\(timer\)/);
   assert.match(remote, /state\.key === key/);
 });
+
+test("homepage remote-data hook clears stale values across refresh, query changes and request failures", async () => {
+  const remote = await file("app/components/useRemoteJson.js");
+
+  assert.match(remote, /setState\(\{ key, data: null, error: null, loading: true \}\)/);
+  assert.match(remote, /fetchJson\(url, \{ timeoutMs, signal: controller\.signal \}\)/);
+  assert.match(remote, /setState\(\{ key, data, error: null, loading: false \}\)/);
+  assert.match(remote, /setState\(\{ key, data: null, error, loading: false \}\)/);
+  assert.match(remote, /state\.key === key \? state : \{ data: null, error: null, loading: true \}/);
+  assert.match(remote, /setRevision\(value => value \+ 1\)/);
+});
