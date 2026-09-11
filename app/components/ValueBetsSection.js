@@ -12,6 +12,7 @@ export default function ValueBetsSection() {
       try {
         const res = await fetch("/api/value-bets", { cache: "no-store" });
         const data = await res.json();
+        if (!res.ok) throw new Error(data?.error || "Value observations unavailable");
         setBets(Array.isArray(data?.valueBets) ? data.valueBets : []);
         setFreshness(data?.freshness || "unknown");
       } catch (error) {
@@ -44,9 +45,11 @@ export default function ValueBetsSection() {
   if (!bets.length) {
     return (
       <div>
-        {freshness === "stale"
-          ? "Current market capture is stale, so Scorecaster is not showing old value observations."
-          : "No current positive-value paper observations found."}
+        {freshness === "error"
+          ? "Value observations are temporarily unavailable."
+          : freshness === "stale"
+            ? "Current market capture is stale, so Scorecaster is not showing old value observations."
+            : "No current positive-value paper observations found."}
       </div>
     );
   }
