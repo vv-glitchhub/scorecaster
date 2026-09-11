@@ -135,6 +135,9 @@ test("legacy value surface uses fresh unified data instead of stale value_bets r
 
   assert.match(client, /data\?\.valueBets/);
   assert.match(client, /cache: "no-store"/);
+  assert.match(client, /if \(!res\.ok\) throw new Error/);
+  assert.match(client, /setFreshness\("error"\)/);
+  assert.match(client, /Value observations are temporarily unavailable\./);
   assert.match(client, /not showing old value observations/);
 });
 
