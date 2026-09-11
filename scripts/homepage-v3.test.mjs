@@ -50,3 +50,24 @@ test("homepage V3 keeps short league labels and truthful paper-only metrics", as
   assert.match(home, /eivät toteutunutta ROI:ta tai luvattua voittoprosenttia/);
   assert.doesNotMatch(home, /\bPlace Bet\b|Potential Return|Avg\. ROI|guaranteed win rate|guaranteed profit/i);
 });
+
+test("homepage V3 fails visibly and recoverably when recommendations cannot be loaded", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /error: loadError/);
+  assert.match(home, /requestErrorText\(loadError, tr\)/);
+  assert.match(home, /role="alert"/);
+  assert.match(home, /onClick=\{refresh\}/);
+  assert.match(home, /Yritä uudelleen/);
+  assert.match(home, /value=\{loading \? "…" : error \? "–" : analyzed\.toLocaleString\("fi-FI"\)\}/);
+});
+
+test("homepage V3 surfaces partial upstream failures without presenting unverified data as complete", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /data\?\.partialUpstream/);
+  assert.match(home, /role="status"/);
+  assert.match(home, /Osa markkinoista ei vastannut\. Näytetään vain varmennettu data\./);
+  assert.match(home, /Some markets did not respond\. Only verified data is shown\./);
+  assert.doesNotMatch(home, /fallback odds|synthetic odds|estimated bookmaker/i);
+});
