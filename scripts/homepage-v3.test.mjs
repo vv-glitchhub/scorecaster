@@ -60,6 +60,7 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
   assert.match(home, /onClick=\{refresh\}/);
   assert.match(home, /Yritä uudelleen/);
   assert.match(home, /value=\{loading \? "…" : error \? "–" : analyzed\.toLocaleString\("fi-FI"\)\}/);
+  assert.match(home, /label="PLAY nyt" value=\{loading \? "…" : error \? "–" : plays\.length\}/);
 });
 
 test("homepage V3 surfaces partial upstream failures without presenting unverified data as complete", async () => {

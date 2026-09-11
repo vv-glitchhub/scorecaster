@@ -143,7 +143,7 @@ export default function TodayPageV3() {
 
       <section aria-label={tr({ fi: "Päivän yhteenveto", en: "Daily summary", es: "Resumen diario" })} className="grid grid-cols-3 gap-2 sm:gap-3">
         <Metric label={tr({ fi: "Analysoitu", en: "Analyzed", es: "Analizado" })} value={loading ? "…" : error ? "–" : analyzed.toLocaleString("fi-FI")} accent="text-sky-300" icon="▥" />
-        <Metric label="PLAY nyt" value={loading ? "…" : plays.length} accent="text-white" icon="▣" />
+        <Metric label="PLAY nyt" value={loading ? "…" : error ? "–" : plays.length} accent="text-white" icon="▣" />
         <Metric label={tr({ fi: "Paras edge", en: "Best edge", es: "Mejor edge" })} value={loading ? "…" : formatPercent(bestEdge)} accent="text-emerald-300" icon="ϟ" />
       </section>
 
