@@ -1,14 +1,24 @@
 import { supabaseAdmin } from "../../../lib/supabase-admin";
+import { recordImprovementSignal } from "../../../lib/caster-intelligence";
 
 export async function POST(req) {
   try {
+    const body = await req.json();
+
+    if (body?.kind === "caster_telemetry") {
+      const site = req.headers.get("sec-fetch-site");
+      if (site === "cross-site") return Response.json({ ok: false }, { status: 403 });
+      await recordImprovementSignal(body.signal || {});
+      return Response.json({ ok: true }, { status: 202 });
+    }
+
     const {
       message,
       selectedSportKey,
       selectedGroup,
       selectedGame,
       bankroll,
-    } = await req.json();
+    } = body;
 
     if (!message || !message.trim()) {
       return Response.json({ error: "Message required" }, { status: 400 });
@@ -44,7 +54,7 @@ export async function POST(req) {
   } catch (error) {
     console.error("feedback route error:", error);
     return Response.json(
-      { error: "Failed to save feedback", details: String(error) },
+      { error: "Failed to save feedback" },
       { status: 500 }
     );
   }

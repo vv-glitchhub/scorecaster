@@ -3,6 +3,7 @@ import AppShell from "./components/AppShell";
 import { LanguageProvider } from "./components/LanguageProvider";
 import { ProfessionalPreferencesProvider } from "./components/ProfessionalPreferencesProvider";
 import PwaRegister from "./components/PwaRegister";
+import CasterTelemetry from "./components/CasterTelemetry";
 
 export const metadata = {
   metadataBase: new URL("https://scorecaster.vercel.app"),
@@ -54,6 +55,7 @@ export default function RootLayout({ children }) {
           <ProfessionalPreferencesProvider>
             <AppShell>{children}</AppShell>
             <PwaRegister />
+            <CasterTelemetry />
           </ProfessionalPreferencesProvider>
         </LanguageProvider>
       </body>
