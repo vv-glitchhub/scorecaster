@@ -17,10 +17,10 @@ function emit(signal) {
   if (seen.has(signature)) return;
   seen.add(signature);
   if (seen.size > 20) seen.delete(seen.values().next().value);
-  fetch("/api/improvement-signals", {
+  fetch("/api/feedback", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify(signal),
+    body: JSON.stringify({ kind: "caster_telemetry", signal }),
     keepalive: true,
   }).catch(() => {});
 }
