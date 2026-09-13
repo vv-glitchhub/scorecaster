@@ -8,6 +8,9 @@ export async function POST(req) {
     if (body?.kind === "caster_telemetry") {
       const site = req.headers.get("sec-fetch-site");
       if (site === "cross-site") return Response.json({ ok: false }, { status: 403 });
+      if (site && !["same-origin", "same-site", "none"].includes(site)) {
+        return Response.json({ ok: false }, { status: 403 });
+      }
       try {
         await recordImprovementSignal(body.signal || {});
         return Response.json({ ok: true }, { status: 202 });
