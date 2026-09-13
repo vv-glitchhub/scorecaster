@@ -8,8 +8,13 @@ export async function POST(req) {
     if (body?.kind === "caster_telemetry") {
       const site = req.headers.get("sec-fetch-site");
       if (site === "cross-site") return Response.json({ ok: false }, { status: 403 });
-      await recordImprovementSignal(body.signal || {});
-      return Response.json({ ok: true }, { status: 202 });
+      try {
+        await recordImprovementSignal(body.signal || {});
+        return Response.json({ ok: true }, { status: 202 });
+      } catch (error) {
+        console.error("telemetry signal error:", error);
+        return Response.json({ ok: false, error: "Telemetry unavailable" }, { status: 503 });
+      }
     }
 
     const {
