@@ -1,5 +1,5 @@
 import { supabaseAdmin } from "../../../lib/supabase-admin";
-import { recordImprovementSignal } from "../../../lib/caster-intelligence";
+import { isTelemetryOriginAllowed, recordImprovementSignal } from "../../../lib/caster-intelligence";
 
 export async function POST(req) {
   try {
@@ -7,8 +7,7 @@ export async function POST(req) {
 
     if (body?.kind === "caster_telemetry") {
       const site = req.headers.get("sec-fetch-site");
-      if (site === "cross-site") return Response.json({ ok: false }, { status: 403 });
-      if (site && !["same-origin", "same-site", "none"].includes(site)) {
+      if (!isTelemetryOriginAllowed(site)) {
         return Response.json({ ok: false }, { status: 403 });
       }
       try {

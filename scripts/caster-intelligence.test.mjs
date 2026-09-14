@@ -1,6 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { priorityScore, sanitizeTelemetry } from "../lib/caster-intelligence.js";
+import { isTelemetryOriginAllowed, priorityScore, sanitizeTelemetry } from "../lib/caster-intelligence.js";
+
+test("telemetry rejects cross-site and unknown origins while allowing trusted fetch sites", () => {
+  assert.equal(isTelemetryOriginAllowed("cross-site"), false);
+  assert.equal(isTelemetryOriginAllowed("same-origin"), true);
+  assert.equal(isTelemetryOriginAllowed("same-site"), true);
+  assert.equal(isTelemetryOriginAllowed("none"), true);
+  assert.equal(isTelemetryOriginAllowed(null), true);
+  assert.equal(isTelemetryOriginAllowed("unexpected"), false);
+});
 
 test("Caster Intelligence strips sensitive telemetry keys", () => {
   const clean = sanitizeTelemetry({ route: "/today", email: "private@example.com", nested: { token: "secret", status: "error" } });
