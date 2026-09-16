@@ -57,6 +57,17 @@ test("shared UX styles preserve keyboard and reduced-motion accessibility", asyn
   assert.match(styles, /sc-input/);
 });
 
+test("Daily Focus presents recommendation reasons as readable evidence", async () => {
+  const dailyFocus = await read("app/components/DailyFocusV1.jsx");
+
+  assert.match(dailyFocus, /function formatReason\(value\)/);
+  assert.match(dailyFocus, /replace\(\/\[_\\s\]\+\/g/);
+  assert.match(dailyFocus, /reasons\.map\(formatReason\)\.find\(Boolean\)/);
+  assert.doesNotMatch(dailyFocus, /if \(reasons\[0\]\) return reasons\[0\]/);
+  assert.match(dailyFocus, /Evidence context/);
+  assert.match(dailyFocus, /Some markets are unavailable/);
+});
+
 test("Visual V3 provides a custom brand, icons, team identity and persisted light-dark appearance", async () => {
   const brand = await read("app/components/BrandUI.jsx");
   const shell = await read("app/components/AppShell.jsx");
