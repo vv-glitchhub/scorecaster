@@ -36,6 +36,14 @@ function decisionTone(decision) {
   return "border-white/10 bg-white/[0.04] text-slate-300";
 }
 
+function formatReason(value) {
+  if (typeof value !== "string") return null;
+  const normalized = value.replace(/[_\s]+/g, " ").trim();
+  if (!normalized) return null;
+  const readable = `${normalized.charAt(0).toUpperCase()}${normalized.slice(1)}`;
+  return /[.!?]$/.test(readable) ? readable : `${readable}.`;
+}
+
 function evidenceSummary(focus, tr) {
   if (!focus) return null;
   const reasons = Array.isArray(focus.decisionReasons) ? focus.decisionReasons.filter(Boolean) : [];
@@ -44,7 +52,8 @@ function evidenceSummary(focus, tr) {
   const modelProbability = finite(focus.independentModelProbability);
   const marketProbability = finite(focus.marketProbability ?? focus.consensusProbability);
 
-  if (reasons[0]) return reasons[0];
+  const reason = reasons.map(formatReason).find(Boolean);
+  if (reason) return reason;
   if (bookmakerCount !== null && bookmakerCount < 4) {
     return tr({ fi: `${bookmakerCount} vedonvälittäjän markkina — seuraa varauksella`, en: `Market from ${bookmakerCount} bookmakers — watch with caution`, es: `Mercado de ${bookmakerCount} operadores — seguir con cautela` });
   }
