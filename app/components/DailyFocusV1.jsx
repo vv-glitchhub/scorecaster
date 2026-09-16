@@ -81,11 +81,23 @@ function freshnessLabel(value, tr) {
   const normalized = value.trim().toLowerCase();
   const labels = {
     fresh: tr({ fi: "tuore", en: "fresh", es: "reciente" }),
+    live: tr({ fi: "reaaliaikainen", en: "live", es: "en vivo" }),
+    healthy: tr({ fi: "kunnossa", en: "healthy", es: "saludable" }),
     recent: tr({ fi: "äskettäinen", en: "recent", es: "reciente" }),
     aging: tr({ fi: "vanhenemassa", en: "aging", es: "envejeciendo" }),
-    stale: tr({ fi: "vanhentunut", en: "stale", es: "desactualizado" })
+    stale: tr({ fi: "vanhentunut", en: "stale", es: "desactualizado" }),
+    outdated: tr({ fi: "vanhentunut", en: "outdated", es: "desactualizado" }),
+    degraded: tr({ fi: "heikentynyt", en: "degraded", es: "degradado" }),
+    unknown: tr({ fi: "tuntematon", en: "unknown", es: "desconocido" })
   };
   return labels[normalized] || value.trim();
+}
+
+function freshnessTone(value) {
+  if (typeof value !== "string") return undefined;
+  return /stale|outdated|degraded|unknown|vanhentunut|heikentynyt|tuntematon|desactualizado|desconocido|degradado/i.test(value)
+    ? "warning"
+    : undefined;
 }
 
 function evidenceMetadata(focus, feed, tr) {
@@ -108,7 +120,7 @@ function evidenceMetadata(focus, feed, tr) {
       fi: `Tuoreus: ${freshness}`,
       en: `Freshness: ${freshness}`,
       es: `Frescura: ${freshness}`
-    }), tone: /stale|vanhentunut|desactualizado/i.test(freshness) ? "warning" : undefined });
+    }), tone: freshnessTone(focus.freshnessLabel || focus.dataQuality?.freshness) });
   }
   if (source) {
     metadata.push(tr({
