@@ -57,6 +57,65 @@ function evidenceSummary(focus, tr) {
   return tr({ fi: "Perustiedot ovat rajalliset — tarkista ottelun analyysi", en: "Evidence is limited — check the match analysis", es: "La evidencia es limitada — revisa el análisis del partido" });
 }
 
+function formatUpdatedAt(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(timestamp));
+}
+
+function evidenceMetadata(focus, feed, tr) {
+  if (!focus) return [];
+  const metadata = [];
+  const bookmakerCount = finite(focus.bookmakerCount);
+  const freshness = focus.freshnessLabel || focus.dataQuality?.freshness;
+  const updatedAt = formatUpdatedAt(focus.lastUpdate || feed?.upstreamGeneratedAt);
+  const source = focus.fixtureSource || feed?.fixtureSource;
+
+  if (bookmakerCount !== null) {
+    metadata.push(tr({
+      fi: `${bookmakerCount} vedonvälittäjää`,
+      en: `${bookmakerCount} bookmakers`,
+      es: `${bookmakerCount} operadores`
+    }));
+  }
+  if (freshness) {
+    metadata.push(tr({
+      fi: `Tuoreus: ${freshness}`,
+      en: `Freshness: ${freshness}`,
+      es: `Frescura: ${freshness}`
+    }));
+  }
+  if (source) {
+    metadata.push(tr({
+      fi: `Lähde: ${source}`,
+      en: `Source: ${source}`,
+      es: `Fuente: ${source}`
+    }));
+  }
+  if (updatedAt) {
+    metadata.push(tr({
+      fi: `Päivitetty ${updatedAt}`,
+      en: `Updated ${updatedAt}`,
+      es: `Actualizado ${updatedAt}`
+    }));
+  }
+  if (feed?.partialUpstream === true) {
+    metadata.push({
+      label: tr({
+        fi: "Osa markkinoista puuttuu",
+        en: "Some markets are unavailable",
+        es: "Faltan algunos mercados"
+      }),
+      tone: "warning"
+    });
+  }
+  return metadata;
+}
+
 export default function DailyFocusV1() {
   const { tr } = useLanguage();
   const { data, loading, error } = useRemoteJson("/api/recommendations?limit=6", {
@@ -79,6 +138,7 @@ export default function DailyFocusV1() {
   const modelProbability = finite(focus?.independentModelProbability);
   const marketProbability = finite(focus?.marketProbability ?? focus?.consensusProbability);
   const edge = finite(focus?.edge);
+  const metadata = evidenceMetadata(focus, data, tr);
 
   return (
     <section
@@ -124,6 +184,15 @@ export default function DailyFocusV1() {
                 <span className="font-black text-sky-200">{tr({ fi: "Miksi tämä näkyy: ", en: "Why this is here: ", es: "Por qué aparece: " })}</span>
                 {evidenceSummary(focus, tr)}
               </p>
+              {metadata.length ? (
+                <div className="mt-2 flex max-w-3xl flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500" aria-label={tr({ fi: "Todisteiden konteksti", en: "Evidence context", es: "Contexto de evidencia" })}>
+                  {metadata.map((item, index) => (
+                    <span key={`${item.label}-${index}`} className={item.tone === "warning" ? "text-amber-300" : undefined}>
+                      {item.label}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="mt-3">
