@@ -1,4 +1,5 @@
 import AutoWatchRecommendationsPanel from "./components/AutoWatchRecommendationsPanel";
+import DailyFocusV1 from "./components/DailyFocusV1";
 import ProfessionalSurfaceRail from "./components/ProfessionalSurfaceRail";
 import RecommendationAlertCTA from "./components/RecommendationAlertCTA";
 import RecommendationSpotlight from "./components/RecommendationSpotlight";
@@ -12,6 +13,7 @@ export const metadata = {
 export default function DashboardPage() {
   return (
     <div className="space-y-6">
+      <DailyFocusV1 />
       <TodayPageClient />
       <DeferredSection title={{ fi: "Suositusvertailu ja automaattinen seuranta", en: "Recommendation comparison and automatic watching", es: "Comparación y seguimiento automático" }}>
         <div className="space-y-5">
