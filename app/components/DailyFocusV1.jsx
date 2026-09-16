@@ -36,6 +36,27 @@ function decisionTone(decision) {
   return "border-white/10 bg-white/[0.04] text-slate-300";
 }
 
+function evidenceSummary(focus, tr) {
+  if (!focus) return null;
+  const reasons = Array.isArray(focus.decisionReasons) ? focus.decisionReasons.filter(Boolean) : [];
+  const bookmakerCount = finite(focus.bookmakerCount);
+  const confidence = finite(focus.confidence);
+  const modelProbability = finite(focus.independentModelProbability);
+  const marketProbability = finite(focus.marketProbability ?? focus.consensusProbability);
+
+  if (reasons[0]) return reasons[0];
+  if (bookmakerCount !== null && bookmakerCount < 4) {
+    return tr({ fi: `${bookmakerCount} vedonvälittäjän markkina — seuraa varauksella`, en: `Market from ${bookmakerCount} bookmakers — watch with caution`, es: `Mercado de ${bookmakerCount} operadores — seguir con cautela` });
+  }
+  if (modelProbability !== null && marketProbability !== null) {
+    return tr({ fi: "Malli ja markkina on vertailtu", en: "Model and market probabilities have been compared", es: "Se compararon las probabilidades del modelo y del mercado" });
+  }
+  if (confidence !== null) {
+    return tr({ fi: `Luottamus ${percent(confidence, 0)} — tarkista ottelun tiedot`, en: `${percent(confidence, 0)} confidence — check the match details`, es: `Confianza ${percent(confidence, 0)} — revisa los detalles del partido` });
+  }
+  return tr({ fi: "Perustiedot ovat rajalliset — tarkista ottelun analyysi", en: "Evidence is limited — check the match analysis", es: "La evidencia es limitada — revisa el análisis del partido" });
+}
+
 export default function DailyFocusV1() {
   const { tr } = useLanguage();
   const { data, loading, error } = useRemoteJson("/api/recommendations?limit=6", {
@@ -90,7 +111,7 @@ export default function DailyFocusV1() {
             </div>
           ) : focus ? (
             <div className="mt-3 min-w-0">
-              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{tr({ fi: "Analyysin kärki juuri nyt", en: "Top verified analysis right now", es: "Análisis verificado destacado" })}</div>
+              <div className="text-[10px] font-bold uppercase tracking-[0.12em] text-slate-500">{tr({ fi: "Analyysin kärki juuri nyt", en: "Top signal right now", es: "Señal destacada ahora" })}</div>
               <div className="mt-1 truncate text-lg font-black tracking-[-0.03em] text-white sm:text-xl">{focus.match || focus.selection || "–"}</div>
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-slate-400">
                 <span>{focus.selection || "–"}</span>
@@ -99,10 +120,14 @@ export default function DailyFocusV1() {
                 <span>{tr({ fi: "malli", en: "model", es: "modelo" })} <strong className="text-sky-300">{percent(modelProbability, 0)}</strong></span>
                 <span>{tr({ fi: "markkina", en: "market", es: "mercado" })} <strong className="text-slate-200">{percent(marketProbability, 0)}</strong></span>
               </div>
+              <p className="mt-2 max-w-2xl text-[11px] leading-5 text-slate-300">
+                <span className="font-black text-sky-200">{tr({ fi: "Miksi tämä näkyy: ", en: "Why this is here: ", es: "Por qué aparece: " })}</span>
+                {evidenceSummary(focus, tr)}
+              </p>
             </div>
           ) : (
             <div className="mt-3">
-              <div className="text-sm font-black text-white">{tr({ fi: "Ei varmennettua fokusta juuri nyt", en: "No verified focus right now", es: "No hay foco verificado ahora" })}</div>
+              <div className="text-sm font-black text-white">{tr({ fi: "Ei kelpuutettua fokusta juuri nyt", en: "No qualifying focus right now", es: "No hay un foco que cumpla ahora" })}</div>
               <p className="mt-1 text-[11px] text-slate-500">{tr({ fi: "Scorecaster ei täytä näkymää tekaistuilla nostoilla.", en: "Scorecaster does not fabricate a pick to fill the surface.", es: "Scorecaster no inventa una selección para llenar la vista." })}</p>
             </div>
           )}
