@@ -76,11 +76,23 @@ function formatUpdatedAt(value) {
   }).format(new Date(timestamp));
 }
 
+function freshnessLabel(value, tr) {
+  if (typeof value !== "string" || !value.trim()) return null;
+  const normalized = value.trim().toLowerCase();
+  const labels = {
+    fresh: tr({ fi: "tuore", en: "fresh", es: "reciente" }),
+    recent: tr({ fi: "äskettäinen", en: "recent", es: "reciente" }),
+    aging: tr({ fi: "vanhenemassa", en: "aging", es: "envejeciendo" }),
+    stale: tr({ fi: "vanhentunut", en: "stale", es: "desactualizado" })
+  };
+  return labels[normalized] || value.trim();
+}
+
 function evidenceMetadata(focus, feed, tr) {
   if (!focus) return [];
   const metadata = [];
   const bookmakerCount = finite(focus.bookmakerCount);
-  const freshness = focus.freshnessLabel || focus.dataQuality?.freshness;
+  const freshness = freshnessLabel(focus.freshnessLabel || focus.dataQuality?.freshness, tr);
   const updatedAt = formatUpdatedAt(focus.lastUpdate || feed?.upstreamGeneratedAt);
   const source = focus.fixtureSource || feed?.fixtureSource;
 
@@ -92,11 +104,11 @@ function evidenceMetadata(focus, feed, tr) {
     }));
   }
   if (freshness) {
-    metadata.push(tr({
+    metadata.push({ label: tr({
       fi: `Tuoreus: ${freshness}`,
       en: `Freshness: ${freshness}`,
       es: `Frescura: ${freshness}`
-    }));
+    }), tone: /stale|vanhentunut|desactualizado/i.test(freshness) ? "warning" : undefined });
   }
   if (source) {
     metadata.push(tr({
@@ -194,7 +206,8 @@ export default function DailyFocusV1() {
                 {evidenceSummary(focus, tr)}
               </p>
               {metadata.length ? (
-                <div className="mt-2 flex max-w-3xl flex-wrap gap-x-3 gap-y-1 text-[10px] text-slate-500" aria-label={tr({ fi: "Todisteiden konteksti", en: "Evidence context", es: "Contexto de evidencia" })}>
+                <div className="mt-2 flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-slate-500" aria-label={tr({ fi: "Todisteiden konteksti", en: "Evidence context", es: "Contexto de evidencia" })}>
+                  <span className="font-black uppercase tracking-[0.12em] text-slate-400">{tr({ fi: "Tietopohja", en: "Data context", es: "Contexto de datos" })}</span>
                   {metadata.map((item, index) => (
                     <span key={`${item.label}-${index}`} className={item.tone === "warning" ? "text-amber-300" : undefined}>
                       {item.label}
