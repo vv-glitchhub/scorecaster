@@ -68,6 +68,16 @@ test("Daily Focus presents recommendation reasons as readable evidence", async (
   assert.match(dailyFocus, /Some markets are unavailable/);
 });
 
+test("Daily Focus normalizes verified freshness states and preserves unknown tokens", async () => {
+  const dailyFocus = await read("app/components/DailyFocusV1.jsx");
+
+  for (const token of ["live", "healthy", "recent", "aging", "outdated", "degraded", "unknown"]) {
+    assert.match(dailyFocus, new RegExp(`${token}:`), `missing freshness mapping for ${token}`);
+  }
+  assert.match(dailyFocus, /labels\[normalized\] \|\| value\.trim\(\)/);
+  assert.match(dailyFocus, /stale\|outdated\|degraded\|unknown/);
+});
+
 test("Visual V3 provides a custom brand, icons, team identity and persisted light-dark appearance", async () => {
   const brand = await read("app/components/BrandUI.jsx");
   const shell = await read("app/components/AppShell.jsx");
