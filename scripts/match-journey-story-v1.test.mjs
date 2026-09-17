@@ -91,6 +91,11 @@ test("Match Story is embedded in local paper tracking without a provider request
   assert.match(story, /buildMatchStoryV1/);
   assert.match(story, /data-match-story-v1/);
   assert.match(story, /data-match-story-missing/);
+  assert.match(story, /function evidenceSummary\(story, tr\)/);
+  assert.match(story, /data-match-story-evidence/);
+  assert.match(story, /Market context only/);
+  assert.match(story, /Evidence incomplete/);
+  assert.match(story, /Do not treat this as model confirmation/);
   assert.match(story, /One result is an observation, not proof of model skill/);
   assert.doesNotMatch(story, /fetch\(/);
   assert.match(eventPage, /Match Journey \+ Story V2/);
