@@ -110,9 +110,36 @@ function evidenceSummary(story, tr) {
   };
 }
 
+function freshnessSummary(freshness, tr) {
+  const copy = {
+    fresh: {
+      label: tr({ fi: "Evidenssi tuore", en: "Evidence fresh", es: "Evidencia reciente" }),
+      detail: tr({ fi: "Käytettävissä on tuoreusmerkintä.", en: "A fresh data-quality signal is available.", es: "Hay una señal reciente de calidad de datos." }),
+      tone: "text-emerald-200"
+    },
+    aging: {
+      label: tr({ fi: "Evidenssi ikääntyy", en: "Evidence aging", es: "Evidencia envejeciendo" }),
+      detail: tr({ fi: "Tarkista Match Journeysta, ovatko markkina- ja tapahtumatiedot yhä ajan tasalla.", en: "Recheck Match Journey to confirm market and event data are still current.", es: "Revisa Match Journey para confirmar que los datos siguen actualizados." }),
+      tone: "text-amber-200"
+    },
+    stale: {
+      label: tr({ fi: "Evidenssi vanhentunut", en: "Evidence stale", es: "Evidencia obsoleta" }),
+      detail: tr({ fi: "Päivitä tiedot ennen päätöksen toistamista.", en: "Refresh the data before repeating the decision process.", es: "Actualiza los datos antes de repetir el proceso." }),
+      tone: "text-rose-200"
+    },
+    unknown: {
+      label: tr({ fi: "Tuoreus tuntematon", en: "Evidence freshness unknown", es: "Antigüedad desconocida" }),
+      detail: tr({ fi: "Tuoreudesta ei ole saatavilla varmennettua merkintää.", en: "No verified freshness signal is available.", es: "No hay una señal verificada de antigüedad." }),
+      tone: "text-[var(--sc-muted)]"
+    }
+  };
+  return copy[freshness] || copy.unknown;
+}
+
 export default function MatchStoryCard({ bet, tr, locale }) {
   const story = buildMatchStoryV1(bet);
   const evidence = evidenceSummary(story, tr);
+  const freshness = freshnessSummary(story.evidence.freshness, tr);
   const money = (value) => value === null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(value);
   const journeyHref = bet?.eventId && bet?.sportKey
     ? `/match-intelligence?eventId=${encodeURIComponent(bet.eventId)}&sport=${encodeURIComponent(bet.sportKey)}${bet?.selection ? `&selection=${encodeURIComponent(bet.selection)}` : ""}`
@@ -145,6 +172,10 @@ export default function MatchStoryCard({ bet, tr, locale }) {
           <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Evidenssihierarkia", en: "Evidence hierarchy", es: "Jerarquía de evidencia" })}</div>
           <div className="mt-1 text-sm font-black text-[var(--sc-text)]">{evidence.label}</div>
           <p className="mt-1 text-xs leading-5 text-[var(--sc-muted)]">{evidence.detail}</p>
+          <div className={`mt-3 border-t border-white/10 pt-2 text-xs font-bold ${freshness.tone}`} data-match-story-freshness={story.evidence.freshness}>
+            {freshness.label}
+            <span className="ml-2 font-normal text-[var(--sc-muted)]">· {freshness.detail}</span>
+          </div>
         </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
