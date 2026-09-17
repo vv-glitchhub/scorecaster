@@ -78,6 +78,17 @@ test("Daily Focus normalizes verified freshness states and preserves unknown tok
   assert.match(dailyFocus, /stale\|outdated\|degraded\|unknown/);
 });
 
+test("Daily Focus turns evidence state into cautious decision guidance", async () => {
+  const dailyFocus = await read("app/components/DailyFocusV1.jsx");
+
+  assert.match(dailyFocus, /function evidenceAction\(focus, feed, tr\)/);
+  assert.match(dailyFocus, /data may be stale or partial/);
+  assert.match(dailyFocus, /independent model probability is unavailable/);
+  assert.match(dailyFocus, /review the match analysis before recording a paper pick/);
+  assert.match(dailyFocus, /Decision guidance/);
+  assert.match(dailyFocus, /aria-label=/);
+});
+
 test("Visual V3 provides a custom brand, icons, team identity and persisted light-dark appearance", async () => {
   const brand = await read("app/components/BrandUI.jsx");
   const shell = await read("app/components/AppShell.jsx");

@@ -149,6 +149,44 @@ function evidenceMetadata(focus, feed, tr) {
   return metadata;
 }
 
+function evidenceAction(focus, feed, tr) {
+  if (!focus) return null;
+  const freshness = String(focus.freshnessLabel || focus.dataQuality?.freshness || "").toLowerCase();
+  if (feed?.partialUpstream === true || /stale|outdated|degraded|unknown/.test(freshness)) {
+    return tr({
+      fi: "Tarkista otteluanalyysi ennen paperivalinnan kirjaamista — tietopohja voi olla vanhentunut tai osittainen.",
+      en: "Check the match analysis before recording a paper pick — the data may be stale or partial.",
+      es: "Revisa el análisis antes de registrar una selección simulada: los datos pueden estar desactualizados o incompletos."
+    });
+  }
+  if (finite(focus.independentModelProbability) === null) {
+    return tr({
+      fi: "Seuraa kohdetta varauksella — riippumattoman mallin todennäköisyys puuttuu.",
+      en: "Watch with caution — independent model probability is unavailable.",
+      es: "Sigue con cautela: falta la probabilidad del modelo independiente."
+    });
+  }
+  if (focus.decision === "CAUTION") {
+    return tr({
+      fi: "Tarkista puuttuva näyttö ennen paperivalinnan kirjaamista.",
+      en: "Review the missing evidence before recording a paper pick.",
+      es: "Revisa la evidencia faltante antes de registrar una selección simulada."
+    });
+  }
+  if (focus.decision === "PLAY") {
+    return tr({
+      fi: "Nykyiset tarkistukset ovat läpäisty — lue otteluanalyysi ennen paperivalinnan kirjaamista.",
+      en: "Current checks passed — review the match analysis before recording a paper pick.",
+      es: "Las comprobaciones actuales se aprobaron: revisa el análisis antes de registrar una selección simulada."
+    });
+  }
+  return tr({
+    fi: "Tarkista otteluanalyysi ennen päätöstä.",
+    en: "Review the match analysis before deciding.",
+    es: "Revisa el análisis del partido antes de decidir."
+  });
+}
+
 export default function DailyFocusV1() {
   const { tr } = useLanguage();
   const { data, loading, error } = useRemoteJson("/api/recommendations?limit=6", {
@@ -172,6 +210,7 @@ export default function DailyFocusV1() {
   const marketProbability = finite(focus?.marketProbability ?? focus?.consensusProbability);
   const edge = finite(focus?.edge);
   const metadata = evidenceMetadata(focus, data, tr);
+  const action = evidenceAction(focus, data, tr);
 
   return (
     <section
@@ -226,6 +265,11 @@ export default function DailyFocusV1() {
                     </span>
                   ))}
                 </div>
+              ) : null}
+              {action ? (
+                <p className="mt-2 max-w-3xl rounded-lg border border-sky-400/15 bg-sky-400/[0.05] px-2.5 py-2 text-[10px] leading-4 text-sky-100" aria-label={tr({ fi: "Toimintaohje", en: "Decision guidance", es: "Guía para decidir" })}>
+                  <span className="font-black uppercase tracking-[0.12em] text-sky-300">{tr({ fi: "Seuraava askel", en: "Next step", es: "Siguiente paso" })}: </span>{action}
+                </p>
               ) : null}
             </div>
           ) : (
