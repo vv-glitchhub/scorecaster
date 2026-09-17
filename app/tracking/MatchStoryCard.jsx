@@ -82,8 +82,37 @@ function storyTone(state) {
   return "border-sky-300/20 bg-sky-300/10";
 }
 
+function evidenceSummary(story, tr) {
+  const model = story.decisionSnapshot.modelProbability;
+  const market = story.decisionSnapshot.marketProbability;
+  const hasModel = model !== null;
+  const hasMarket = market !== null;
+  const missing = story.missing.length > 0;
+
+  if (!hasModel && hasMarket) {
+    return {
+      label: tr({ fi: "Vain markkinakonteksti", en: "Market context only", es: "Solo contexto de mercado" }),
+      detail: tr({ fi: "Mallin todennäköisyys puuttuu. Älä tulkitse tätä mallin vahvistukseksi.", en: "The model probability is missing. Do not treat this as model confirmation.", es: "Falta la probabilidad del modelo. No lo trates como confirmación del modelo." }),
+      tone: "border-amber-300/25 bg-amber-300/10"
+    };
+  }
+  if (missing || (!hasModel && !hasMarket)) {
+    return {
+      label: tr({ fi: "Evidenssi keskeneräinen", en: "Evidence incomplete", es: "Evidencia incompleta" }),
+      detail: tr({ fi: "Täydennä puuttuvat tiedot Match Journeyssa ennen saman prosessin toistamista.", en: "Review the missing fields in Match Journey before repeating the process.", es: "Revisa los campos ausentes en Match Journey antes de repetir el proceso." }),
+      tone: "border-amber-300/25 bg-amber-300/10"
+    };
+  }
+  return {
+    label: tr({ fi: "Evidenssi saatavilla", en: "Evidence available", es: "Evidencia disponible" }),
+    detail: tr({ fi: "Malli- ja markkinatieto on tallessa; arvioi silti tulos erillään prosessista.", en: "Model and market context are recorded; review outcome separately from process.", es: "El contexto del modelo y del mercado está guardado; revisa el resultado separado del proceso." }),
+    tone: "border-emerald-300/25 bg-emerald-300/10"
+  };
+}
+
 export default function MatchStoryCard({ bet, tr, locale }) {
   const story = buildMatchStoryV1(bet);
+  const evidence = evidenceSummary(story, tr);
   const money = (value) => value === null ? "—" : new Intl.NumberFormat(locale, { style: "currency", currency: "EUR" }).format(value);
   const journeyHref = bet?.eventId && bet?.sportKey
     ? `/match-intelligence?eventId=${encodeURIComponent(bet.eventId)}&sport=${encodeURIComponent(bet.sportKey)}${bet?.selection ? `&selection=${encodeURIComponent(bet.selection)}` : ""}`
@@ -111,6 +140,12 @@ export default function MatchStoryCard({ bet, tr, locale }) {
 
       <div className="border-t border-[var(--sc-brand-border)] p-4 sm:p-5">
         <p className="max-w-4xl text-sm leading-6 text-[var(--sc-text-secondary)]">{verdictCopy(story.verdict, tr)}</p>
+
+        <div className={`mt-4 rounded-xl border p-3 ${evidence.tone}`} data-match-story-evidence="true">
+          <div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Evidenssihierarkia", en: "Evidence hierarchy", es: "Jerarquía de evidencia" })}</div>
+          <div className="mt-1 text-sm font-black text-[var(--sc-text)]">{evidence.label}</div>
+          <p className="mt-1 text-xs leading-5 text-[var(--sc-muted)]">{evidence.detail}</p>
+        </div>
 
         <div className="mt-5 grid gap-3 md:grid-cols-3">
           <section className={`rounded-[1.2rem] border p-4 ${storyTone(story.outcome.state)}`}>
