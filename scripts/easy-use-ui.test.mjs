@@ -63,7 +63,7 @@ test("homepage live data stays bounded and shares concurrent recommendation load
   const dailyFocus = await read("app/components/DailyFocusV1.jsx");
   const today = await read("app/components/TodayPageV3.jsx");
 
-  assert.match(recommendations, /topPicksDefaultLeagues\(Date\.now\(\), 12\)/);
+  assert.match(recommendations, /topPicksDefaultLeagues\(now, 12\)/);
   assert.match(recommendations, /TOP_PICKS_TIMEOUT_MS = 55000/);
   assert.match(recommendations, /TOP_PICKS_CACHE_MS = 30000/);
   assert.match(recommendations, /topPicksInflight/);
