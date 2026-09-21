@@ -1,5 +1,5 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
-import { activeMarketLeagues } from "../../../lib/active-market-universe.js";
+import { activeMarketLeagues, topPicksDefaultLeagues } from "../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../lib/sports.js";
 import { loadAvailableBatches } from "../../../lib/live-market-availability.mjs";
 
@@ -8,6 +8,11 @@ const CACHE_HEADERS = {
   "X-Content-Type-Options": "nosniff"
 };
 const SUPPORTED_KEYS = new Set(SPORTS.flatMap((group) => group.leagues.map((league) => league.key)));
+const TOP_PICKS_TIMEOUT_MS = 55000;
+const TOP_PICKS_CACHE_MS = 30000;
+const TOP_PICKS_CACHE_MAX = 12;
+const topPicksCache = new Map();
+const topPicksInflight = new Map();
 
 function parseLimit(searchParams) {
   const raw = Number(searchParams.get("limit") || 8);
@@ -22,10 +27,19 @@ function topPicksUrl(origin, sports = null) {
   return target;
 }
 
-async function loadTopPicks(target) {
+function pruneTopPicksCache(now = Date.now()) {
+  for (const [key, entry] of topPicksCache) {
+    if (now - entry.cachedAt >= TOP_PICKS_CACHE_MS) topPicksCache.delete(key);
+  }
+  while (topPicksCache.size > TOP_PICKS_CACHE_MAX) {
+    topPicksCache.delete(topPicksCache.keys().next().value);
+  }
+}
+
+async function fetchTopPicks(target) {
   const response = await fetch(target, {
     cache: "no-store",
-    signal: AbortSignal.timeout(45000)
+    signal: AbortSignal.timeout(TOP_PICKS_TIMEOUT_MS)
   });
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok !== true) {
@@ -34,25 +48,40 @@ async function loadTopPicks(target) {
   return { ok: true, status: response.status, payload, data: Array.isArray(payload.data) ? payload.data : [] };
 }
 
+async function loadTopPicks(target) {
+  const key = target.toString();
+  const now = Date.now();
+  pruneTopPicksCache(now);
+
+  const cached = topPicksCache.get(key);
+  if (cached && now - cached.cachedAt < TOP_PICKS_CACHE_MS) return cached.result;
+
+  const pending = topPicksInflight.get(key);
+  if (pending) return pending;
+
+  const request = fetchTopPicks(target)
+    .then((result) => {
+      if (result.ok) {
+        topPicksCache.set(key, { cachedAt: Date.now(), result });
+        pruneTopPicksCache();
+      }
+      return result;
+    })
+    .finally(() => topPicksInflight.delete(key));
+
+  topPicksInflight.set(key, request);
+  return request;
+}
+
 function recommendationCapable(key) {
   return SUPPORTED_KEYS.has(key) && !String(key).endsWith("_winner");
 }
 
-async function loadActiveSportKeys(origin) {
-  try {
-    const response = await fetch(new URL("/api/sports", origin), {
-      cache: "no-store",
-      signal: AbortSignal.timeout(12000)
-    });
-    const payload = await response.json().catch(() => null);
-    const active = (Array.isArray(payload?.data) ? payload.data : [])
-      .filter((sport) => sport?.active !== false && recommendationCapable(sport?.key))
-      .map((sport) => sport.key);
-    if (response.ok && active.length) return [...new Set(active)].sort();
-  } catch {
-    // Fall through to the shared, season-aware market universe below.
-  }
-  return activeMarketLeagues().filter(recommendationCapable).sort();
+function defaultRecommendationSports(now = Date.now()) {
+  const active = new Set(activeMarketLeagues(now).filter(recommendationCapable));
+  return topPicksDefaultLeagues(now, 12)
+    .filter((key) => active.has(key))
+    .sort();
 }
 
 function chunks(values, size = 12) {
@@ -92,7 +121,7 @@ export async function GET(request) {
   const requestedSports = url.searchParams.get("sports");
   const activeSports = requestedSports
     ? [...new Set(requestedSports.split(",").map((item) => item.trim()).filter(recommendationCapable))].sort()
-    : await loadActiveSportKeys(url.origin);
+    : defaultRecommendationSports();
   if (!activeSports.length) {
     return Response.json({ ok: false, error: "No active supported sports are available" }, { status: 503, headers: CACHE_HEADERS });
   }
@@ -134,7 +163,7 @@ export async function GET(request) {
         analyzedRecommendationCount: picks.length,
         requestedSportCount: activeSports.length,
         upstreamBatchCount: targets.length,
-        crossSportCoverage: requestedSports ? "requested" : "all-active-supported",
+        crossSportCoverage: requestedSports ? "requested" : "season-aware-default",
         partialUpstream: successful.length !== results.length || successful.some(result => result.payload?.partialUpstream),
         unavailableLeagues: results.flatMap((result, index) => result.ok ? result.payload?.unavailableLeagues || [] : chunks(activeSports, 12)[index].map(sportKey => ({ sportKey, reason: "unavailable" }))),
         disclaimer: "Paper-only decision support. PLAY means the current data passed Scorecaster's evidence and market gates; it is not a guarantee and no real-money bet is placed."

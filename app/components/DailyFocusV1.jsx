@@ -189,7 +189,7 @@ function evidenceAction(focus, feed, tr) {
 
 export default function DailyFocusV1() {
   const { tr } = useLanguage();
-  const { data, loading, error } = useRemoteJson("/api/recommendations?limit=6", {
+  const { data, loading, error } = useRemoteJson("/api/recommendations?limit=20", {
     refreshMs: 300000,
     timeoutMs: 60000
   });

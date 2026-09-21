@@ -57,6 +57,22 @@ test("shared UX styles preserve keyboard and reduced-motion accessibility", asyn
   assert.match(styles, /sc-input/);
 });
 
+test("homepage live data stays bounded and shares concurrent recommendation loads", async () => {
+  const recommendations = await read("app/api/recommendations/route.js");
+  const dailyFocus = await read("app/components/DailyFocusV1.jsx");
+  const today = await read("app/components/TodayPageV3.jsx");
+
+  assert.match(recommendations, /topPicksDefaultLeagues\(now, 12\)/);
+  assert.match(recommendations, /TOP_PICKS_TIMEOUT_MS = 55000/);
+  assert.match(recommendations, /TOP_PICKS_CACHE_MS = 30000/);
+  assert.match(recommendations, /topPicksInflight/);
+  assert.match(recommendations, /season-aware-default/);
+  assert.doesNotMatch(recommendations, /loadActiveSportKeys/);
+
+  assert.match(dailyFocus, /\/api\/recommendations\?limit=20/);
+  assert.match(today, /\/api\/recommendations\?limit=20/);
+});
+
 test("Daily Focus presents recommendation reasons as readable evidence", async () => {
   const dailyFocus = await read("app/components/DailyFocusV1.jsx");
 

@@ -21,6 +21,9 @@ const ANALYSIS_WINDOW_HOURS = 24 * 7;
 const FEATURED_WINDOW_HOURS = 72;
 const PROVIDER_MAX_FUTURE_HOURS = 24 * 45;
 const MAX_INTELLIGENCE_ENRICHMENTS = 24;
+const OWNED_EVIDENCE_WAIT_MS = 2500;
+const INTELLIGENCE_WAIT_MS = 8000;
+const OPTIONAL_TIMEOUT = Symbol("optional-timeout");
 const MAX_MARKET_CANDIDATES_PER_LEAGUE_MARKET = 36;
 const CACHE_HEADERS = {
   "Cache-Control": "no-store, max-age=0",
@@ -132,6 +135,20 @@ function publicPickSummary(pick = {}) {
 
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
+
+async function boundedOptional(promise, timeoutMs) {
+  let timer;
+  try {
+    return await Promise.race([
+      Promise.resolve(promise),
+      new Promise((resolve) => {
+        timer = setTimeout(() => resolve(OPTIONAL_TIMEOUT), timeoutMs);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
 }
 
 function defaultLeaguesForDate(now = Date.now()) {
@@ -367,7 +384,14 @@ function selectIntelligenceCandidates(picks = []) {
 
 async function enrichSafely(pick) {
   try {
-    const enriched = await enrichPickWithLiveIntelligence(pick);
+    const enriched = await boundedOptional(enrichPickWithLiveIntelligence(pick), INTELLIGENCE_WAIT_MS);
+    if (enriched === OPTIONAL_TIMEOUT) {
+      return applyQualityFallback({
+        ...pick,
+        agentVersion: "consensus-timeout-fallback",
+        evidenceGateReason: "Independent intelligence timed out; market-only caution remains in force."
+      });
+    }
     return applyQualityFallback(enriched);
   } catch (error) {
     return applyQualityFallback({
@@ -506,7 +530,12 @@ export async function GET(request) {
     return Response.json({ ok: true, view, source: "live-odds-provider-only", generatedAt: new Date(now).toISOString(), analysisWindowHours: ANALYSIS_WINDOW_HOURS, leagues, ...coverage, acceptedGames: events.length, count: events.length, events, data: [], paperOnly: true }, { headers: CACHE_HEADERS });
   }
   const allPicks = leagueResults.flatMap((result) => result.picks);
-  const picksWithOwnedEvidence = await attachOwnedDecisionEvidenceBatch(allPicks, { now });
+  const ownedEvidenceResult = await boundedOptional(
+    attachOwnedDecisionEvidenceBatch(allPicks, { now }),
+    OWNED_EVIDENCE_WAIT_MS
+  );
+  const ownedEvidenceTimedOut = ownedEvidenceResult === OPTIONAL_TIMEOUT;
+  const picksWithOwnedEvidence = ownedEvidenceTimedOut ? allPicks : ownedEvidenceResult;
   const preFiltered = selectIntelligenceCandidates(picksWithOwnedEvidence);
 
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
@@ -555,6 +584,9 @@ export async function GET(request) {
       analysisWindowHours: ANALYSIS_WINDOW_HOURS,
       featuredWindowHours: FEATURED_WINDOW_HOURS,
       maxIntelligenceEnrichments: MAX_INTELLIGENCE_ENRICHMENTS,
+      ownedEvidenceWaitMs: OWNED_EVIDENCE_WAIT_MS,
+      ownedEvidenceTimedOut,
+      intelligenceWaitMs: INTELLIGENCE_WAIT_MS,
       marketCandidateCount: picksWithOwnedEvidence.length,
       deepCandidateSelection: "owned-evidence-first+event-diversity",
       markets: TOP_PICK_MARKETS,

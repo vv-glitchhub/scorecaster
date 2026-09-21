@@ -78,6 +78,21 @@ test("Top Picks, recommendations, collector and market capture consume the same 
   assert.match(health, /intelligenceCoreAutomaticModelPromotionAllowed:\s*false/);
 });
 
+test("Top Picks degrades optional intelligence quickly when evidence services are slow", async () => {
+  const [topPicks, ownedEvidence] = await Promise.all([
+    file("app/api/top-picks/route.js"),
+    file("lib/owned-decision-evidence-v1.js")
+  ]);
+
+  assert.match(topPicks, /OWNED_EVIDENCE_WAIT_MS = 2500/);
+  assert.match(topPicks, /INTELLIGENCE_WAIT_MS = 8000/);
+  assert.match(topPicks, /consensus-timeout-fallback/);
+  assert.match(topPicks, /ownedEvidenceTimedOut/);
+  assert.match(topPicks, /market-only caution remains in force/);
+  assert.match(ownedEvidence, /OWNED_QUERY_TIMEOUT_MS = 2500/);
+  assert.match(ownedEvidence, /\.abortSignal\(AbortSignal\.timeout\(OWNED_QUERY_TIMEOUT_MS\)\)/);
+});
+
 test("Top Picks list consumers request the compact public view", async () => {
   const consumers = await Promise.all([
     file("app/DashboardClient.jsx"),
