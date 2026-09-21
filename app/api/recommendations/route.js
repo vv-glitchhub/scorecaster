@@ -1,5 +1,5 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
-import { topPicksDefaultLeagues } from "../../../lib/active-market-universe.js";
+import { activeMarketLeagues, topPicksDefaultLeagues } from "../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../lib/sports.js";
 import { loadAvailableBatches } from "../../../lib/live-market-availability.mjs";
 
@@ -77,6 +77,13 @@ function recommendationCapable(key) {
   return SUPPORTED_KEYS.has(key) && !String(key).endsWith("_winner");
 }
 
+function defaultRecommendationSports(now = Date.now()) {
+  const active = new Set(activeMarketLeagues(now).filter(recommendationCapable));
+  return topPicksDefaultLeagues(now, 12)
+    .filter((key) => active.has(key))
+    .sort();
+}
+
 function chunks(values, size = 12) {
   const output = [];
   for (let index = 0; index < values.length; index += size) output.push(values.slice(index, index + size));
@@ -114,7 +121,7 @@ export async function GET(request) {
   const requestedSports = url.searchParams.get("sports");
   const activeSports = requestedSports
     ? [...new Set(requestedSports.split(",").map((item) => item.trim()).filter(recommendationCapable))].sort()
-    : topPicksDefaultLeagues(Date.now(), 12).filter(recommendationCapable).sort();
+    : defaultRecommendationSports();
   if (!activeSports.length) {
     return Response.json({ ok: false, error: "No active supported sports are available" }, { status: 503, headers: CACHE_HEADERS });
   }
