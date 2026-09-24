@@ -6,6 +6,7 @@ const auditClient = fs.readFileSync(new URL("../app/event/[eventId]/EventDataAud
 const modelPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventModelAuditPanel.jsx", import.meta.url), "utf8");
 const uncertaintyPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventUncertaintyPanel.jsx", import.meta.url), "utf8");
 const soccerPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventSoccerXgPoissonPanel.jsx", import.meta.url), "utf8");
+const advancedPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventAdvancedSignalReadinessPanel.jsx", import.meta.url), "utf8");
 const basketballPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventBasketballEfficiencyPanel.jsx", import.meta.url), "utf8");
 const mlbPanel = fs.readFileSync(new URL("../app/event/[eventId]/EventMlbPitchingOffensePanel.jsx", import.meta.url), "utf8");
 const dataLayer = fs.readFileSync(new URL("../app/api/data-layer/route.js", import.meta.url), "utf8");
@@ -49,6 +50,16 @@ test("soccer xG audit exposes full 1X2 probability and holdout boundaries", () =
   assert.match(soccerPanel, /performanceWeightAvailable/);
   assert.match(dataLayer, /advancedModelHoldoutEndpoint/);
   assert.match(dataLayer, /holdoutInventsPerformanceWeight: false/);
+});
+
+test("event audit translates raw xG, model-risk and advanced-readiness reason codes for users", () => {
+  assert.match(soccerPanel, /reasonLabel/);
+  assert.match(soccerPanel, /Kotijoukkueen xGF\/90 puuttuu/);
+  assert.match(modelPanel, /Alle kaksi aidosti riippumatonta malliperhettä/);
+  assert.match(modelPanel, /Alle kaksi kalibrointivalmista mallia/);
+  assert.match(advancedPanel, /Kytke oikea xG\/xGA-datalähde/);
+  assert.match(advancedPanel, /Provider puuttuu/);
+  assert.doesNotMatch(soccerPanel, />\{reason\}<\/span>/);
 });
 
 test("basketball efficiency audit exposes H2H and projected points", () => {
