@@ -1,5 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
-import { buildUnifiedDataHistory } from "../../../../lib/unified-sports-data-v2.mjs";
+import { buildUnifiedDataHistory, evaluateUnifiedDataIncidents, summarizeProviderQuality } from "../../../../lib/unified-sports-data-v2.mjs";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +87,28 @@ export async function GET(request) {
       : snapshotResult.data || [];
     const observations = (providerResult.data || []).filter((row) => !eventId || row.event_id === eventId).filter((row) => !selection || row.selection === selection);
     const closingRecords = (closingResult.data || []).filter((row) => !eventId || row.event_id === eventId).filter((row) => !selection || row.selection === selection);
-    const incidents = (incidentResult.data || []).filter((row) => !eventId || !row.event_id || row.event_id === eventId);
+    const storedIncidents = (incidentResult.data || []).filter((row) => !eventId || !row.event_id || row.event_id === eventId);
+    const providerQuality = summarizeProviderQuality(observations);
+    const currentProviderIncidents = evaluateUnifiedDataIncidents([], providerQuality)
+      .filter((row) => row.incidentType === "provider_health")
+      .map((row) => ({
+        fingerprint: row.fingerprint,
+        incident_type: row.incidentType,
+        severity: row.severity,
+        title: row.title,
+        message: row.message,
+        event_id: row.eventId,
+        provider_key: row.providerKey,
+        details: row.details,
+        active: true,
+        first_seen_at: null,
+        last_seen_at: new Date().toISOString(),
+        resolved_at: null
+      }));
+    const incidents = [
+      ...storedIncidents.filter((row) => row.incident_type !== "provider_health"),
+      ...currentProviderIncidents
+    ];
     const data = buildUnifiedDataHistory({ snapshots, observations, closingRecords, incidents });
 
     return response({
