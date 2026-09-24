@@ -131,6 +131,43 @@ test("provider quality and incidents identify persistent outages and divergence"
   assert.ok(incidents.some((item) => item.incidentType === "provider_health"));
 });
 
+test("provider quality distinguishes configuration gaps from operational provider failures", () => {
+  const passive = summarizeProviderQuality(Array.from({ length: 6 }, () => ({
+    provider_key: "lineup-provider",
+    family: "lineups",
+    mode: "not_configured",
+    ok: false
+  })))[0];
+  assert.equal(passive.status, "not_configured");
+  assert.equal(passive.primaryFailureMode, "not_configured");
+  assert.equal(passive.incidentEligible, false);
+  assert.equal(evaluateUnifiedDataIncidents([], [passive]).length, 0);
+
+  const limited = summarizeProviderQuality([
+    { provider_key: "newsapi", family: "news", mode: "live", ok: true },
+    ...Array.from({ length: 5 }, () => ({ provider_key: "newsapi", family: "news", mode: "rate_limited", ok: false }))
+  ])[0];
+  assert.equal(limited.status, "degraded");
+  assert.equal(limited.primaryFailureMode, "rate_limited");
+  const rateIncident = evaluateUnifiedDataIncidents([], [limited])[0];
+  assert.match(rateIncident.title, /rate limit/i);
+  assert.match(rateIncident.message, /primary blocker: rate limiting/i);
+
+  const subscription = summarizeProviderQuality([
+    ...Array.from({ length: 5 }, () => ({ provider_key: "sportsdata", family: "injuries", mode: "api_error", ok: false })),
+    { provider_key: "sportsdata", family: "injuries", mode: "subscription_unavailable", ok: false }
+  ])[0];
+  assert.equal(subscription.primaryFailureMode, "subscription_unavailable");
+  assert.match(evaluateUnifiedDataIncidents([], [subscription])[0].title, /subscription/i);
+
+  const quota = summarizeProviderQuality([
+    { provider_key: "sportsgameodds", family: "odds", mode: "live", ok: true },
+    ...Array.from({ length: 4 }, () => ({ provider_key: "sportsgameodds", family: "odds", mode: "quota_exhausted", ok: false }))
+  ])[0];
+  assert.equal(quota.primaryFailureMode, "quota_exhausted");
+  assert.match(evaluateUnifiedDataIncidents([], [quota])[0].title, /quota/i);
+});
+
 test("history summarizes trends, closing records and active incidents", () => {
   const data = buildUnifiedDataHistory({
     snapshots: [
