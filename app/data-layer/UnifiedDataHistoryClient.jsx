@@ -20,6 +20,37 @@ function severityTone(value) {
   return "border-sky-400/30 bg-sky-400/10 text-sky-200";
 }
 
+function providerStatusTone(value) {
+  if (value === "healthy") return "border-emerald-400/30 bg-emerald-400/10 text-emerald-200";
+  if (value === "offline") return "border-rose-400/30 bg-rose-400/10 text-rose-200";
+  if (value === "not_configured") return "border-sky-400/30 bg-sky-400/10 text-sky-200";
+  return "border-amber-400/30 bg-amber-400/10 text-amber-200";
+}
+
+function providerStatusLabel(value, tr) {
+  const labels = {
+    healthy: { fi: "toimii", en: "healthy", es: "correcto" },
+    degraded: { fi: "heikentynyt", en: "degraded", es: "degradado" },
+    offline: { fi: "pois käytöstä", en: "offline", es: "sin conexión" },
+    not_configured: { fi: "ei konfiguroitu", en: "not configured", es: "no configurado" }
+  };
+  return labels[value] ? tr(labels[value]) : value || "–";
+}
+
+function providerFailureLabel(value, tr) {
+  const labels = {
+    rate_limited: { fi: "API:n rate limit", en: "API rate limit", es: "límite de API" },
+    quota_exhausted: { fi: "kiintiö loppu", en: "quota exhausted", es: "cuota agotada" },
+    subscription_unavailable: { fi: "tilaus ei kata dataa", en: "subscription unavailable", es: "suscripción no disponible" },
+    timeout: { fi: "aikakatkaisu", en: "timeout", es: "tiempo agotado" },
+    fetch_error: { fi: "hakuyhteys epäonnistui", en: "fetch failure", es: "fallo de consulta" },
+    api_error: { fi: "providerin API-virhe", en: "provider API error", es: "error de API" },
+    unsupported_league: { fi: "sarja ei tuettu", en: "unsupported league", es: "liga no compatible" },
+    not_configured: { fi: "ei konfiguroitu", en: "not configured", es: "no configurado" }
+  };
+  return labels[value] ? tr(labels[value]) : String(value || "").replaceAll("_", " ");
+}
+
 export default function UnifiedDataHistoryClient({ eventId = "", selection = "", compact = false }) {
   const { tr, locale } = useLanguage();
   const [hours, setHours] = useState(compact ? 168 : 72);
@@ -98,7 +129,7 @@ export default function UnifiedDataHistoryClient({ eventId = "", selection = "",
         <section className="sc-surface rounded-[1.6rem] p-5 sm:p-6">
           <div className="font-black text-[var(--sc-text)]">Provider Quality</div>
           <div className="mt-4 space-y-3">
-            {(state.data?.providerQuality || []).map((provider) => <div key={provider.provider} className="rounded-[1.1rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{provider.provider}</div><div className="text-xs text-[var(--sc-muted)]">{provider.family} · {provider.samples} samples</div></div><span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${provider.status === "healthy" ? "border-emerald-400/30 bg-emerald-400/10 text-emerald-200" : provider.status === "offline" ? "border-rose-400/30 bg-rose-400/10 text-rose-200" : "border-amber-400/30 bg-amber-400/10 text-amber-200"}`}>{provider.status}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><span className="text-[var(--sc-faint)]">Availability</span><div className="font-black">{percent(provider.availabilityRate)}</div></div><div><span className="text-[var(--sc-faint)]">Trust</span><div className="font-black">{percent(provider.averageTrust)}</div></div><div><span className="text-[var(--sc-faint)]">Divergence</span><div className="font-black">{percent(provider.averageDivergence, 1)}</div></div></div></div>)}
+            {(state.data?.providerQuality || []).map((provider) => <div key={provider.provider} className="rounded-[1.1rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="flex items-start justify-between gap-3"><div><div className="font-black text-[var(--sc-text)]">{provider.provider}</div><div className="text-xs text-[var(--sc-muted)]">{provider.family} · {provider.samples} {tr({ fi: "havaintoa", en: "samples", es: "muestras" })}</div>{provider.primaryFailureMode ? <div className="mt-1 text-[11px] text-[var(--sc-faint)]">{tr({ fi: "Pääsyy", en: "Primary blocker", es: "Bloqueo principal" })}: {providerFailureLabel(provider.primaryFailureMode, tr)}</div> : null}</div><span className={`rounded-full border px-2 py-1 text-[10px] font-black uppercase ${providerStatusTone(provider.status)}`}>{providerStatusLabel(provider.status, tr)}</span></div><div className="mt-3 grid grid-cols-3 gap-2 text-xs"><div><span className="text-[var(--sc-faint)]">Availability</span><div className="font-black">{percent(provider.availabilityRate)}</div></div><div><span className="text-[var(--sc-faint)]">Trust</span><div className="font-black">{percent(provider.averageTrust)}</div></div><div><span className="text-[var(--sc-faint)]">Divergence</span><div className="font-black">{percent(provider.averageDivergence, 1)}</div></div></div></div>)}
             {(state.data?.providerQuality || []).length === 0 && <div className="text-sm text-[var(--sc-muted)]">{tr({ fi: "Provider-havaintoja ei ole vielä tallennettu.", en: "No provider observations have been stored yet.", es: "Aún no hay observaciones." })}</div>}
           </div>
         </section>
