@@ -20,8 +20,42 @@ function statusTone(status) {
   return "border-amber-400/25 bg-amber-400/10 text-amber-100";
 }
 
-function StatusBadge({ status }) {
-  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] ${statusTone(status)}`}>{compact(status, "unknown")}</span>;
+function familyLabel(value, tr) {
+  const labels = {
+    "expected-performance": { fi: "xG / odotettu suoritus", en: "xG / expected performance", es: "xG / rendimiento esperado" },
+    "performance-statistics": { fi: "Suoritustilastot", en: "Performance statistics", es: "Estadísticas de rendimiento" },
+    tracking: { fi: "Tracking / sijaintidata", en: "Tracking / location data", es: "Tracking / datos de posición" }
+  };
+  return labels[value] ? tr(labels[value]) : compact(value);
+}
+
+function statusLabel(status, tr) {
+  const labels = {
+    "provider-not-configured": { fi: "Provider puuttuu", en: "Provider missing", es: "Falta proveedor" },
+    "provider-configured-metric-gap": { fi: "Datan peitto puuttuu", en: "Data coverage gap", es: "Falta cobertura" },
+    "model-output-rejected": { fi: "Mallituotos estetty", en: "Model output blocked", es: "Salida bloqueada" },
+    "shadow-model-needs-holdout": { fi: "Holdout puuttuu", en: "Holdout missing", es: "Falta holdout" },
+    "review-ready-shadow": { fi: "Review-valmis", en: "Review ready", es: "Listo para revisión" }
+  };
+  return labels[status] ? tr(labels[status]) : compact(status, tr({ fi: "Tuntematon", en: "Unknown", es: "Desconocido" }));
+}
+
+function requirementLabel(value, tr) {
+  const labels = {
+    "configure-real-expected-performance-data-source-or-model-provider": { fi: "Kytke oikea xG/xGA-datalähde tai riippumaton malliprovider.", en: "Connect a real xG/xGA data source or independent model provider.", es: "Conecta una fuente xG/xGA real o un proveedor de modelo independiente." },
+    "configure-real-performance-statistics-data-source-or-model-provider": { fi: "Kytke laukaus-, hallinta- ja paineistusdataa tarjoava lähde.", en: "Connect a source for shots, possession and pressure statistics.", es: "Conecta una fuente de tiros, posesión y presión." },
+    "configure-real-tracking-data-source-or-model-provider": { fi: "Kytke lisensoitu tracking- tai sijaintidatan lähde.", en: "Connect a licensed tracking or location-data source.", es: "Conecta una fuente licenciada de tracking o posición." },
+    "chronological-holdout-and-calibration-evidence": { fi: "Kerää kronologinen holdout-aineisto ja kalibrointinäyttö.", en: "Collect chronological holdout and calibration evidence.", es: "Recopila holdout cronológico y evidencia de calibración." },
+    "fix-model-lineage-chronology-or-audit-errors": { fi: "Korjaa mallin lineage-, aikajärjestys- tai auditointivirheet.", en: "Fix model lineage, chronology or audit errors.", es: "Corrige errores de linaje, cronología o auditoría." }
+  };
+  if (labels[value]) return tr(labels[value]);
+  if (String(value || "").startsWith("increase-")) return tr({ fi: "Kasvata varmennetun datan peittoa ennen mallinnusta.", en: "Increase verified metric coverage before modeling.", es: "Aumenta la cobertura verificada antes de modelar." });
+  if (String(value || "").startsWith("supply-audited-deterministic-")) return tr({ fi: "Lisää auditoitu deterministinen todennäköisyysmalli.", en: "Add an audited deterministic probability model.", es: "Añade un modelo probabilístico determinista auditado." });
+  return String(value || "").replaceAll("-", " ");
+}
+
+function StatusBadge({ status, tr }) {
+  return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] ${statusTone(status)}`}>{statusLabel(status, tr)}</span>;
 }
 
 function FamilyCard({ row, tr }) {
@@ -30,10 +64,10 @@ function FamilyCard({ row, tr }) {
     <div className="rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-sm font-black text-[var(--sc-text)]">{compact(row?.family)}</div>
-          <div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "Seuraava vaatimus", en: "Next requirement", es: "Siguiente requisito" })}: {compact(row?.nextRequirement)}</div>
+          <div className="text-sm font-black text-[var(--sc-text)]">{familyLabel(row?.family, tr)}</div>
+          <div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "Seuraava vaatimus", en: "Next requirement", es: "Siguiente requisito" })}: {requirementLabel(row?.nextRequirement, tr)}</div>
         </div>
-        <StatusBadge status={row?.status} />
+        <StatusBadge status={row?.status} tr={tr} />
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-3 text-xs sm:grid-cols-4">
@@ -73,7 +107,7 @@ export default function EventAdvancedSignalReadinessPanel({ row }) {
         <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Advanced provider", en: "Advanced provider", es: "Proveedor avanzado" })}</div><div className="mt-2 text-lg font-black text-[var(--sc-text)]">{provider?.configured === true ? tr({ fi: "Konfiguroitu", en: "Configured", es: "Configurado" }) : tr({ fi: "Ei konfiguroitu", en: "Not configured", es: "No configurado" })}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{compact(provider?.source)}</div></div>
         <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Shadow-perheitä", en: "Shadow families", es: "Familias shadow" })}</div><div className="mt-2 text-2xl font-black text-[var(--sc-text)]">{Number(counts?.shadowModelReadyFamilies || 0)}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "aidosti uutta signaaliperhettä", en: "advanced signal families with models", es: "familias avanzadas con modelo" })}</div></div>
         <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Holdout-valmiit", en: "Holdout ready", es: "Holdout listo" })}</div><div className="mt-2 text-2xl font-black text-[var(--sc-text)]">{Number(counts?.reviewReadyFamilies || 0)}</div><div className="mt-1 text-xs text-[var(--sc-muted)]">{tr({ fi: "perhettä review-tasolla", en: "families ready for review", es: "familias listas para revisión" })}</div></div>
-        <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Seuraava prioriteetti", en: "Next priority", es: "Siguiente prioridad" })}</div><div className="mt-2 text-sm font-black text-[var(--sc-text)]">{compact(next?.family, tr({ fi: "ei puutteita", en: "none", es: "ninguna" }))}</div><div className="mt-1 break-words text-xs text-[var(--sc-muted)]">{compact(next?.requirement)}</div></div>
+        <div className="rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4"><div className="text-[10px] font-black uppercase tracking-[0.14em] text-[var(--sc-faint)]">{tr({ fi: "Seuraava prioriteetti", en: "Next priority", es: "Siguiente prioridad" })}</div><div className="mt-2 text-sm font-black text-[var(--sc-text)]">{next?.family ? familyLabel(next.family, tr) : tr({ fi: "ei puutteita", en: "none", es: "ninguna" })}</div><div className="mt-1 break-words text-xs text-[var(--sc-muted)]">{next?.requirement ? requirementLabel(next.requirement, tr) : "–"}</div></div>
       </div>
 
       <div className="mt-6 grid gap-3 xl:grid-cols-3">
