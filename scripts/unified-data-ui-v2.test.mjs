@@ -36,6 +36,8 @@ test("web exposes history, calibration, provider health and combined incidents",
   ]);
   assert.match(page, /UnifiedCalibrationClient/);
   assert.match(history, /Provider Quality/);
+  assert.match(history, /providerFailureLabel/);
+  assert.match(history, /not_configured/);
   assert.match(history, /Closing odds/);
   assert.match(calibration, /\/api\/data-layer\/calibration/);
   assert.match(calibration, /automatic PLAY upgrades/);
