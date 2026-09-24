@@ -29,6 +29,28 @@ function AuditBadge({ ok, children }) {
   return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${badgeClass(ok)}`}>{children}</span>;
 }
 
+function reasonLabel(reason, tr) {
+  const labels = {
+    "fewer-than-two-independent-model-groups": { fi: "Alle kaksi aidosti riippumatonta malliperhettä", en: "Fewer than two genuinely independent model families", es: "Menos de dos familias de modelos independientes" },
+    "fewer-than-two-independent-models": { fi: "Alle kaksi riippumatonta mallia", en: "Fewer than two independent models", es: "Menos de dos modelos independientes" },
+    "fewer-than-two-calibration-ready-model-groups": { fi: "Alle kaksi kalibrointivalmista malliperhettä", en: "Fewer than two calibration-ready model families", es: "Menos de dos familias listas para calibración" },
+    "fewer-than-two-calibration-ready-models": { fi: "Alle kaksi kalibrointivalmista mallia", en: "Fewer than two calibration-ready models", es: "Menos de dos modelos listos para calibración" },
+    "data-trust-gate-not-safe": { fi: "Datan luotettavuusportti ei ole vielä turvallinen", en: "Data-trust gate is not yet safe", es: "El control de confianza de datos aún no es seguro" },
+    "data-trust-below-0.55": { fi: "Datan luottamus on alle 55 %", en: "Data trust is below 55%", es: "La confianza de datos es inferior al 55%" },
+    "verified-data-coverage-below-0.40": { fi: "Varmennetun datan peitto on alle 40 %", en: "Verified data coverage is below 40%", es: "La cobertura verificada es inferior al 40%" },
+    "future-dated-feature-rejected": { fi: "Tulevaisuuteen vuotava signaali hylättiin", en: "A future-dated signal was rejected", es: "Se rechazó una señal con fecha futura" },
+    "high-model-disagreement": { fi: "Mallien välinen erimielisyys on korkea", en: "Model disagreement is high", es: "El desacuerdo entre modelos es alto" },
+    "invalid-probability": { fi: "Mallin todennäköisyys ei ole kelvollinen", en: "Model probability is invalid", es: "La probabilidad del modelo no es válida" },
+    "not-independent-predictive-model": { fi: "Malli ei ole riippumaton ennustemalli", en: "Model is not an independent predictive model", es: "El modelo no es predictivo e independiente" },
+    "not-deterministic": { fi: "Malli ei ole deterministinen", en: "Model is not deterministic", es: "El modelo no es determinista" },
+    "prediction-chronology-violation": { fi: "Ennusteen aikaraja rikkoutui", en: "Prediction chronology boundary failed", es: "Falló el límite cronológico" },
+    "performance-evidence-chronology-violation": { fi: "Kalibrointinäytön aikaraja rikkoutui", en: "Performance evidence chronology failed", es: "Falló la cronología de la evidencia" },
+    "banned-random-or-legacy-model": { fi: "Vanha tai satunnaisuuteen perustuva malli estettiin", en: "Legacy or random model was blocked", es: "Se bloqueó un modelo antiguo o aleatorio" }
+  };
+  if (labels[reason]) return tr(labels[reason]);
+  return String(reason || "").replaceAll("-", " ");
+}
+
 function ModelRow({ model, tr }) {
   const performance = model?.performance || {};
   return (
@@ -46,7 +68,7 @@ function ModelRow({ model, tr }) {
         <div><div className="text-[var(--sc-faint)]">{tr({ fi: "Holdout N", en: "Holdout N", es: "Holdout N" })}</div><div className="mt-1 font-black text-[var(--sc-text)]">{number(performance?.sampleSize, 0)}</div></div>
         <div><div className="text-[var(--sc-faint)]">{tr({ fi: "Kalibroitu paino", en: "Calibrated weight", es: "Peso calibrado" })}</div><div className="mt-1 font-black text-[var(--sc-text)]">{performance?.calibrationReady === true ? tr({ fi: "kyllä", en: "yes", es: "sí" }) : tr({ fi: "ei", en: "no", es: "no" })}</div></div>
       </div>
-      {Array.isArray(model?.rejectionReasons) && model.rejectionReasons.length > 0 ? <div className="mt-3 text-xs leading-5 text-amber-100">{model.rejectionReasons.join(" · ")}</div> : null}
+      {Array.isArray(model?.rejectionReasons) && model.rejectionReasons.length > 0 ? <div className="mt-3 text-xs leading-5 text-amber-100">{model.rejectionReasons.map((reason) => reasonLabel(reason, tr)).join(" · ")}</div> : null}
     </div>
   );
 }
@@ -103,7 +125,7 @@ export default function EventModelAuditPanel({ row }) {
 
           <div className="rounded-[1.2rem] border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4">
             <div className="text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-brand)]">{tr({ fi: "Miksi ei PLAY?", en: "Why not PLAY?", es: "¿Por qué no PLAY?" })}</div>
-            <div className="mt-3 space-y-2">{Array.isArray(riskGate?.reasons) && riskGate.reasons.length ? riskGate.reasons.slice(0, 8).map((reason) => <div key={reason} className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-100">{reason}</div>) : <div className="text-sm text-[var(--sc-muted)]">{tr({ fi: "Ei aktiivisia malliriskin estoja.", en: "No active model-risk blockers.", es: "No hay bloqueos activos de riesgo del modelo." })}</div>}</div>
+            <div className="mt-3 space-y-2">{Array.isArray(riskGate?.reasons) && riskGate.reasons.length ? riskGate.reasons.slice(0, 8).map((reason) => <div key={reason} className="rounded-lg border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs text-amber-100">{reasonLabel(reason, tr)}</div>) : <div className="text-sm text-[var(--sc-muted)]">{tr({ fi: "Ei aktiivisia malliriskin estoja.", en: "No active model-risk blockers.", es: "No hay bloqueos activos de riesgo del modelo." })}</div>}</div>
           </div>
         </div>
       </div>

@@ -17,6 +17,18 @@ function StatusBadge({ ready, children }) {
   return <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.12em] ${ready ? "border-emerald-400/25 bg-emerald-400/10 text-emerald-200" : "border-amber-400/25 bg-amber-400/10 text-amber-100"}`}>{children}</span>;
 }
 
+function reasonLabel(reason, tr) {
+  const labels = {
+    "missing-home-xgf90": { fi: "Kotijoukkueen xGF/90 puuttuu", en: "Home xGF/90 is missing", es: "Falta xGF/90 local" },
+    "missing-home-xga90": { fi: "Kotijoukkueen xGA/90 puuttuu", en: "Home xGA/90 is missing", es: "Falta xGA/90 local" },
+    "missing-away-xgf90": { fi: "Vierasjoukkueen xGF/90 puuttuu", en: "Away xGF/90 is missing", es: "Falta xGF/90 visitante" },
+    "missing-away-xga90": { fi: "Vierasjoukkueen xGA/90 puuttuu", en: "Away xGA/90 is missing", es: "Falta xGA/90 visitante" },
+    "unsupported-selection": { fi: "Valintaa ei voida mapata 1X2-tulokseen", en: "Selection cannot be mapped to 1X2", es: "La selección no se puede mapear a 1X2" }
+  };
+  if (labels[reason]) return tr(labels[reason]);
+  return String(reason || "").replaceAll("-", " ");
+}
+
 export default function EventSoccerXgPoissonPanel({ row }) {
   const { tr } = useLanguage();
   const model = row?.soccerXgPoissonShadow;
@@ -78,7 +90,7 @@ export default function EventSoccerXgPoissonPanel({ row }) {
       ) : (
         <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/5 p-4">
           <div className="text-sm font-black text-amber-100">{tr({ fi: "Miksi xG-malli ei vielä laske probabilitya", en: "Why the xG model is not producing a probability yet", es: "Por qué el modelo xG aún no produce probabilidad" })}</div>
-          <div className="mt-3 flex flex-wrap gap-2">{reasons.length ? reasons.map((reason) => <span key={reason} className="rounded-full border border-amber-400/20 px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.1em] text-amber-100">{reason}</span>) : <span className="text-xs text-[var(--sc-muted)]">no advanced inputs</span>}</div>
+          <div className="mt-3 flex flex-wrap gap-2">{reasons.length ? reasons.map((reason) => <span key={reason} className="rounded-full border border-amber-400/20 px-2.5 py-1 text-[10px] font-black tracking-[0.02em] text-amber-100">{reasonLabel(reason, tr)}</span>) : <span className="text-xs text-[var(--sc-muted)]">{tr({ fi: "Riippumattomia xG-syötteitä ei ole saatavilla.", en: "No independent xG inputs are available.", es: "No hay entradas xG independientes." })}</span>}</div>
         </div>
       )}
     </section>
