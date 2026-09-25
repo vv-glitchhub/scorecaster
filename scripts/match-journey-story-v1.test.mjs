@@ -87,10 +87,11 @@ test("Match Journey reuses one verified event-detail request and remains read-on
 });
 
 test("Match Story is embedded in local paper tracking without a provider request", async () => {
-  const [tracking, story, eventPage] = await Promise.all([
+  const [tracking, story, eventPage, eventOverview] = await Promise.all([
     read("app/tracking/page.jsx"),
     read("app/tracking/MatchStoryCard.jsx"),
-    read("app/event/[eventId]/page.jsx")
+    read("app/event/[eventId]/page.jsx"),
+    read("app/event/[eventId]/EventJourneyOverview.jsx")
   ]);
 
   assert.match(tracking, /import MatchStoryCard/);
@@ -108,9 +109,9 @@ test("Match Story is embedded in local paper tracking without a provider request
   assert.match(story, /Do not treat this as model confirmation/);
   assert.match(story, /One result is an observation, not proof of model skill/);
   assert.doesNotMatch(story, /fetch\(/);
-  assert.match(eventPage, /Match Journey \+ Story V2/);
-  assert.match(eventPage, /data-match-journey-story-v2/);
-  assert.match(eventPage, /Open Match Journey/);
+  assert.match(eventOverview, /data-match-journey-overview/);
+  assert.match(eventOverview, /Avaa ottelun aikajana/);
+  assert.match(eventOverview, /Missing history is never reconstructed afterward/);
 });
 
 test("the selected market survives Event Detail, Match Journey and Match Story navigation", async () => {
