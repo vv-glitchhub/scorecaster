@@ -89,6 +89,10 @@ test("homepage V3 keeps empty recommendation states explicit instead of fabricat
   assert.match(home, /Ei varmennettuja nostoja juuri nyt\./);
   assert.match(home, /No verified picks right now\./);
   assert.match(home, /No hay selecciones verificadas ahora\./);
+  assert.match(home, /data-today-empty-recovery="true"/);
+  assert.match(home, /Scorecaster does not fill this view with fabricated picks\. Browse matches or refresh the data\./);
+  assert.match(home, /onClick=\{refresh\}/);
+  assert.match(home, /href="\/events"/);
   assert.doesNotMatch(home, /dummy pick|demo pick|placeholder odds|fake pick/i);
 });
 
