@@ -79,6 +79,9 @@ test("Match Journey reuses one verified event-detail request and remains read-on
   assert.match(journey, /data-match-journey-v1/);
   assert.match(journey, /data-journey-primary-decision/);
   assert.match(journey, /data-journey-alternatives/);
+  assert.match(journey, /data-journey-next-step/);
+  assert.match(journey, /paper tracking/);
+  assert.match(journey, /verified price/);
   assert.match(journey, /data-match-journey-boundary/);
   assert.match(journey, /selections\.find/);
   assert.match(journey, /selections\[0\]/);
