@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import DecisionTransparencyCard from "../components/DecisionTransparencyCard";
+import { requestErrorText } from "../../lib/client-request.mjs";
 
 const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
 const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
@@ -63,11 +64,11 @@ export default function FeedClient() {
       ]);
       const feedPayload = await feedResponse.json();
       const commentsPayload = await commentsResponse.json().catch(() => ({ comments: [] }));
-      if (!feedResponse.ok) throw new Error(feedPayload.error || "AI Feed unavailable");
+      if (!feedResponse.ok) throw Object.assign(new Error("AI Feed unavailable"), { status: feedResponse.status });
       setData(feedPayload);
       if (commentsResponse.ok) setComments(commentsPayload.comments || []);
     } catch (cause) {
-      setError(cause?.message || "AI Feed unavailable");
+      setError(requestErrorText(cause, tr));
     } finally {
       if (!silent) setLoading(false);
     }
@@ -136,12 +137,12 @@ export default function FeedClient() {
         body: JSON.stringify({ eventId, message })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Comment failed");
+      if (!response.ok) throw Object.assign(new Error("Comment failed"), { status: response.status });
       setComments((current) => [payload.comment, ...current]);
       setDrafts((current) => ({ ...current, [eventId]: "" }));
       setCommentStatus((current) => ({ ...current, [eventId]: tr({ fi: "Kommentti julkaistu", en: "Comment published", es: "Comentario publicado" }) }));
     } catch (cause) {
-      setCommentStatus((current) => ({ ...current, [eventId]: cause?.message || "Comment failed" }));
+      setCommentStatus((current) => ({ ...current, [eventId]: requestErrorText(cause, tr) }));
     }
   }
 
@@ -162,11 +163,11 @@ export default function FeedClient() {
         body: JSON.stringify({ id: comment.id })
       });
       const payload = await response.json();
-      if (!response.ok) throw new Error(payload.error || "Comment could not be deleted");
+      if (!response.ok) throw Object.assign(new Error("Comment could not be deleted"), { status: response.status });
       setComments((current) => current.filter((item) => item.id !== payload.deletedId));
       setCommentStatus((current) => ({ ...current, [comment.event_id]: tr({ fi: "Kommentti poistettu", en: "Comment deleted", es: "Comentario eliminado" }) }));
     } catch (cause) {
-      setCommentStatus((current) => ({ ...current, [comment.event_id]: cause?.message || "Comment could not be deleted" }));
+      setCommentStatus((current) => ({ ...current, [comment.event_id]: requestErrorText(cause, tr) }));
     } finally {
       setDeletingCommentId("");
     }
@@ -188,12 +189,12 @@ export default function FeedClient() {
         <div className="mt-6 flex flex-wrap gap-2">
           <button type="button" onClick={() => setSort("latest")} className={`rounded-full px-4 py-2 text-xs font-black ${sort === "latest" ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)]" : "border border-[var(--sc-border)] text-[var(--sc-muted)]"}`}>{tr({ fi: "Uusimmat", en: "Latest", es: "Últimos" })}</button>
           <button type="button" onClick={() => setSort("trending")} className={`rounded-full px-4 py-2 text-xs font-black ${sort === "trending" ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)]" : "border border-[var(--sc-border)] text-[var(--sc-muted)]"}`}>{tr({ fi: "Nousussa", en: "Trending", es: "Tendencias" })}</button>
-          <button type="button" onClick={() => loadFeed()} className="rounded-full border border-[var(--sc-border)] px-4 py-2 text-xs font-black text-[var(--sc-muted)]">{tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })}</button>
+          <button type="button" disabled={loading} onClick={() => loadFeed()} className="rounded-full border border-[var(--sc-border)] px-4 py-2 text-xs font-black text-[var(--sc-muted)] disabled:cursor-wait disabled:opacity-50">{loading ? tr({ fi: "Ladataan…", en: "Loading…", es: "Cargando…" }) : tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })}</button>
           <Link href="/transparency" className="rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-4 py-2 text-xs font-black text-[var(--sc-text)]">{tr({ fi: "Kaikki kaavat ja lähteet", en: "All formulas and sources", es: "Todas las fórmulas y fuentes" })}</Link>
         </div>
       </section>
 
-      {error && <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-sm text-red-100">{error}</div>}
+      {error && <div className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-sm text-red-100" data-ai-feed-recovery="true"><div>{error}</div><button type="button" disabled={loading} onClick={() => loadFeed()} className="mt-4 rounded-xl border border-red-200/30 px-4 py-2 text-xs font-black text-red-50 disabled:cursor-wait disabled:opacity-50" data-ai-feed-retry="true">{loading ? tr({ fi: "Ladataan…", en: "Loading…", es: "Cargando…" }) : tr({ fi: "Yritä uudelleen", en: "Try again", es: "Intentar de nuevo" })}</button></div>}
       {loading && <div className="space-y-4">{[1, 2, 3].map((item) => <div key={item} className="h-[34rem] animate-pulse rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)]" />)}</div>}
       {!loading && !posts.length && (
         <div className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-10 text-center">

@@ -168,6 +168,16 @@ test("AI Feed has automatic refresh and authenticated community comments", async
   assert.match(migration, /auth\.uid\(\) = user_id/);
 });
 
+test("AI Feed recovery uses safe localized copy and an actionable retry", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  assert.match(feed, /requestErrorText\(cause, tr\)/);
+  assert.match(feed, /data-ai-feed-recovery/);
+  assert.match(feed, /data-ai-feed-retry/);
+  assert.match(feed, /Yritä uudelleen/);
+  assert.doesNotMatch(feed, /setError\(cause\?\.message/);
+  assert.doesNotMatch(feed, /setCommentStatus\(\(current\) => \(\{ \.\.\.current, \[eventId\]: cause\?\.message/);
+});
+
 test("community comments hide user UUIDs and allow deletion only by the owner", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   const route = await file("app/api/community/comments/route.js");
