@@ -5,6 +5,7 @@ import fs from "node:fs";
 const page = fs.readFileSync(new URL("../app/match-intelligence/page.jsx", import.meta.url), "utf8");
 const client = fs.readFileSync(new URL("../app/match-intelligence/MatchIntelligenceClient.jsx", import.meta.url), "utf8");
 const eventPage = fs.readFileSync(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8");
+const eventJourneyOverview = fs.readFileSync(new URL("../app/event/[eventId]/EventJourneyOverview.jsx", import.meta.url), "utf8");
 
 function count(text, token) {
   return text.split(token).length - 1;
@@ -40,6 +41,6 @@ test("Match Intelligence does not mutate production analysis", () => {
 });
 
 test("event detail links to the visual intelligence surface", () => {
-  assert.match(eventPage, /data-match-intelligence-entry/);
+  assert.match(eventJourneyOverview, /data-match-intelligence-entry/);
   assert.match(eventPage, /\/match-intelligence\?eventId=/);
 });
