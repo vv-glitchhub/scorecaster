@@ -29,6 +29,14 @@ test("Match Story keeps pending and missing closing evidence explicit", () => {
   assert.equal(story.decisionSnapshot.ev, 0);
   assert.deepEqual(story.missing, ["closing-odds", "settled-result"]);
   assert.equal(story.contract.missingClosingOddsImputed, false);
+  assert.equal(story.evidence.freshness, "unknown");
+});
+
+test("Match Story preserves explicit evidence freshness without inventing it", () => {
+  assert.equal(buildMatchStoryV1({ freshnessLabel: "fresh" }).evidence.freshness, "fresh");
+  assert.equal(buildMatchStoryV1({ dataQuality: { freshness: "stale" } }).evidence.freshness, "stale");
+  assert.equal(buildMatchStoryV1({ freshnessLabel: "unsupported" }).evidence.freshness, "unknown");
+  assert.equal(buildMatchStoryV1({ dataQuality: { freshness: "" } }).evidence.freshness, "unknown");
 });
 
 test("Match Story separates outcome from price process", () => {
@@ -93,6 +101,8 @@ test("Match Story is embedded in local paper tracking without a provider request
   assert.match(story, /data-match-story-missing/);
   assert.match(story, /function evidenceSummary\(story, tr\)/);
   assert.match(story, /data-match-story-evidence/);
+  assert.match(story, /data-match-story-freshness/);
+  assert.match(story, /Evidence freshness unknown/);
   assert.match(story, /Market context only/);
   assert.match(story, /Evidence incomplete/);
   assert.match(story, /Do not treat this as model confirmation/);
