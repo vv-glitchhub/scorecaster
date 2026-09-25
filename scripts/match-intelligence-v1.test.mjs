@@ -24,6 +24,16 @@ test("Match Intelligence reuses one current event-detail request", () => {
   assert.equal(client.includes("/api/data-layer"), false);
 });
 
+test("Match Journey offers safe, actionable recovery without exposing raw errors", () => {
+  assert.match(client, /data-match-journey-recovery/);
+  assert.match(client, /data-match-journey-retry/);
+  assert.match(client, /Verified match analysis is temporarily unavailable/);
+  assert.match(client, /setRetryKey\(\(value\) => value \+ 1\)/);
+  assert.match(client, /state\.error/);
+  assert.equal(client.includes("error?.message"), false);
+  assert.equal(client.includes("error.message"), false);
+});
+
 test("visual surface keeps decision essentials simple and technical evidence in Pro Mode", () => {
   assert.match(client, /What is still missing/);
   assert.match(client, /Show technical audit/);

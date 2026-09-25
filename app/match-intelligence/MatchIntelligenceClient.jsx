@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import { useProfessionalPreferences } from "../components/ProfessionalPreferencesProvider";
 import MatchJourneyV1 from "./MatchJourneyV1";
@@ -60,10 +60,12 @@ export default function MatchIntelligenceClient({ eventId, sport, selection = ""
   const { tr } = useLanguage();
   const { proMode, toggleProMode } = useProfessionalPreferences();
   const [state, setState] = useState({ loading: true, error: "", detail: null });
+  const [retryKey, setRetryKey] = useState(0);
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
-    async function load() {
+    setState((current) => ({ ...current, loading: true, error: "" }));
+    async function request() {
       try {
         const query = new URLSearchParams({ eventId, sport });
         if (selection) query.set("selection", selection);
@@ -72,16 +74,20 @@ export default function MatchIntelligenceClient({ eventId, sport, selection = ""
         if (!response.ok) throw new Error(payload?.error || "Analysis unavailable");
         if (!cancelled) setState({ loading: false, error: "", detail: payload.detail || null });
       } catch (error) {
-        const message = error?.name === "TimeoutError" ? tr({ fi: "Analyysi ei valmistunut ajoissa. Päivitä näkymä ja yritä uudelleen.", en: "The analysis did not finish in time. Refresh and try again.", es: "El análisis no terminó a tiempo. Actualiza e inténtalo de nuevo." }) : error instanceof Error ? error.message : "Analysis unavailable";
+        const message = error?.name === "TimeoutError"
+          ? tr({ fi: "Analyysi ei valmistunut ajoissa. Yritä uudelleen.", en: "The analysis took too long to finish. Try again.", es: "El análisis tardó demasiado. Inténtalo de nuevo." })
+          : tr({ fi: "Varmennettua otteluanalyysiä ei voitu ladata juuri nyt. Yritä uudelleen tai palaa ottelulistaan.", en: "Verified match analysis is temporarily unavailable. Try again or return to the events list.", es: "El análisis verificado no está disponible ahora. Inténtalo de nuevo o vuelve a la lista de eventos." });
         if (!cancelled) setState({ loading: false, error: message, detail: null });
       }
     }
-    void load();
+    void request();
     return () => { cancelled = true; };
   }, [eventId, selection, sport, tr]);
 
+  useEffect(() => load(), [load, retryKey]);
+
   if (state.loading) return <section className="sc-surface overflow-hidden rounded-[1.65rem] p-6" data-match-journey-loading="true"><div className="mx-auto grid max-w-2xl place-items-center py-8 text-center"><div className="grid h-16 w-16 rotate-45 place-items-center rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] shadow-[var(--sc-brand-shadow)]"><div className="h-5 w-5 rounded-md bg-[var(--sc-brand)]" /></div><div className="mt-6 text-[10px] font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">Match Journey V1</div><h1 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{tr({ fi: "Kootaan ottelun analyysiä…", en: "Building the match analysis…", es: "Preparando el análisis…" })}</h1><p className="mt-2 text-sm text-[var(--sc-muted)]">{tr({ fi: "Jos varmennettua dataa puuttuu, näkymä kertoo sen suoraan.", en: "If verified data is missing, the view will say so directly.", es: "Si faltan datos verificados, la vista lo indicará." })}</p><div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-[var(--sc-border)]"><div className="h-full w-2/3 rounded-full bg-[var(--sc-brand)] motion-safe:animate-pulse" /></div></div></section>;
-  if (!state.detail) return <section className="sc-surface rounded-[1.65rem] p-6"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Match Journey ei ole saatavilla", en: "Match Journey unavailable", es: "Match Journey no disponible" })}</div><div className="mt-2 text-sm text-[var(--sc-muted)]">{state.error}</div><Link href="/events" className="sc-button-secondary mt-4 inline-flex">{tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}</Link></section>;
+  if (!state.detail) return <section className="sc-surface rounded-[1.65rem] p-6" data-match-journey-recovery="true"><div className="font-black text-[var(--sc-text)]">{tr({ fi: "Match Journey ei ole saatavilla", en: "Match Journey unavailable", es: "Match Journey no disponible" })}</div><div className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{state.error}</div><div className="mt-4 flex flex-wrap gap-3"><button type="button" onClick={() => setRetryKey((value) => value + 1)} className="sc-button-primary" data-match-journey-retry="true">{tr({ fi: "Yritä uudelleen", en: "Try again", es: "Intentar de nuevo" })}</button><Link href="/events" className="sc-button-secondary inline-flex">{tr({ fi: "Takaisin otteluihin", en: "Back to events", es: "Volver a eventos" })}</Link></div></section>;
 
   const detail = state.detail;
   const intelligence = detail.sportsIntelligence || {};
