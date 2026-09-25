@@ -60,6 +60,36 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
     ? `/event/${encodeURIComponent(detail.eventId)}?sport=${encodeURIComponent(eventSport)}&selection=${encodeURIComponent(primary.selection)}`
     : `/event/${encodeURIComponent(detail.eventId)}?sport=${encodeURIComponent(eventSport)}`;
   const decision = primary ? normalizedDecision(primary.decision) : null;
+  const hasVerifiedOdds = finite(primary?.odds) !== null && Boolean(primary?.bookmaker);
+  const nextStep = evidenceMissing
+    ? {
+        label: tr({ fi: "Täydennä evidenssi", en: "Complete the evidence review", es: "Completa la revisión de evidencia" }),
+        detail: tr({ fi: "Osa ottelun evidenssistä puuttuu. Tarkista päätöslippu ennen kuin tallennat mitään paperiseurantaan.", en: "Part of the match evidence is missing. Review the decision ticket before saving anything to paper tracking.", es: "Falta parte de la evidencia del partido. Revisa el ticket antes de guardar algo en el seguimiento simulado." }),
+        href: eventHref,
+        action: tr({ fi: "Tarkista päätöslippu", en: "Review decision ticket", es: "Revisar ticket" })
+      }
+    : !primary
+      ? {
+          label: tr({ fi: "Päätös ei ole valmis", en: "Decision is not ready", es: "La decisión no está lista" }),
+          detail: tr({ fi: "Julkaistavaa valintaa ei ole. Ottelun audit avaa saatavilla olevan kontekstin ilman puuttuvan datan täydentämistä.", en: "No publishable selection is available. The event audit shows the available context without filling in missing data.", es: "No hay una selección publicable. La auditoría muestra el contexto disponible sin completar datos ausentes." }),
+          href: eventHref,
+          action: tr({ fi: "Avaa ottelun audit", en: "Open event audit", es: "Abrir auditoría" })
+        }
+      : decision === "PLAY" && hasVerifiedOdds
+        ? {
+            label: tr({ fi: "Seuraava askel: paperiseuranta", en: "Next step: paper tracking", es: "Siguiente paso: seguimiento simulado" }),
+            detail: tr({ fi: "Päätöksellä on varmennettu hinta. Tallenna se vain omaan paperiseurantaan ja seuraa myöhemmin sulkeutumishintaa.", en: "This decision has a verified price. Save it to your paper tracker and review the closing price later.", es: "Esta decisión tiene una cuota verificada. Guárdala en tu seguimiento simulado y revisa después la cuota de cierre." }),
+            href: "/tracking",
+            action: tr({ fi: "Avaa paperiseuranta", en: "Open paper tracking", es: "Abrir seguimiento" })
+          }
+        : {
+            label: tr({ fi: "Seuraava askel: tarkista ennen seurantaa", en: "Next step: review before tracking", es: "Siguiente paso: revisar antes de seguir" }),
+            detail: decision === "SKIP"
+              ? tr({ fi: "Nykyinen päätös ei tue paperivalinnan tallentamista. Käy evidenssi läpi tai seuraa markkinaa ilman tallennusta.", en: "The current decision does not support saving a paper pick. Review the evidence or monitor the market without saving it.", es: "La decisión actual no permite guardar una selección simulada. Revisa la evidencia o sigue el mercado sin guardarla." })
+              : tr({ fi: "Varmennettu hinta tai riittävä evidenssi puuttuu. Tarkista päätöslippu ennen paperiseurantaa.", en: "A verified price or sufficient evidence is missing. Review the decision ticket before paper tracking.", es: "Falta una cuota verificada o evidencia suficiente. Revisa el ticket antes del seguimiento simulado." }),
+            href: eventHref,
+            action: tr({ fi: "Tarkista päätöslippu", en: "Review decision ticket", es: "Revisar ticket" })
+          };
   const kickoff = detail?.commenceTime
     ? new Date(detail.commenceTime).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : tr({ fi: "alkamisaika puuttuu", en: "kickoff unavailable", es: "hora no disponible" });
@@ -176,6 +206,13 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
               ))}
               {alternatives.length === 0 ? <div className="sm:col-span-2 rounded-xl border border-amber-300/20 bg-amber-300/10 p-4 text-sm text-[var(--sc-muted)]">{tr({ fi: "Muita julkaistavia valintoja ei ole.", en: "No other publishable selections are available.", es: "No hay otras selecciones publicables." })}</div> : null}
             </div>
+          </section>
+
+          <section className="rounded-[1.5rem] border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] p-5" data-journey-next-step="true">
+            <div className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--sc-brand)]">{tr({ fi: "Seuraava askel", en: "Next step", es: "Siguiente paso" })}</div>
+            <h3 className="mt-1 text-lg font-black text-[var(--sc-text)]">{nextStep.label}</h3>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-[var(--sc-muted)]">{nextStep.detail}</p>
+            <Link href={nextStep.href} className="sc-button-secondary mt-4 inline-flex">{nextStep.action}</Link>
           </section>
         </div>
       </div>
