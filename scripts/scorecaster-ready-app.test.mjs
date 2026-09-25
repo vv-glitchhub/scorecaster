@@ -192,3 +192,18 @@ test("ready app keeps real-money execution disabled", async () => {
   assert.match(client, /ei aseta vetoja eikä siirrä rahaa/);
   assert.doesNotMatch(route, /placeBet|executeBet|payment|withdraw/i);
 });
+
+
+test("event detail keeps engineering diagnostics behind one product-level disclosure", async () => {
+  const [page, journey] = await Promise.all([
+    file("app/event/[eventId]/page.jsx"),
+    file("app/event/[eventId]/EventJourneyOverview.jsx")
+  ]);
+  assert.match(page, /Lisätiedot ja syväanalyysi/);
+  assert.match(page, /More details and deep analysis/);
+  assert.match(page, /Datan lähteet ja tekninen tarkistus/);
+  assert.match(journey, /Ottelun aikajana/);
+  assert.match(journey, /Aikajana näyttää vain tallennetut ja varmennetut havainnot/);
+  assert.doesNotMatch(page, /decisionUpgradeAllowed=false/);
+  assert.doesNotMatch(page, /Match Journey \+ Story V2/);
+});
