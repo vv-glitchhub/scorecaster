@@ -177,6 +177,9 @@ test("AI Feed recovery uses safe localized copy and an actionable retry", async 
   assert.match(feed, /role="alert"/);
   assert.match(feed, /Browse matches/);
   assert.match(feed, /data-ai-feed-loading/);
+  assert.match(feed, /data-ai-feed-empty-recovery/);
+  assert.match(feed, /data-ai-feed-empty-retry/);
+  assert.match(feed, /Refresh feed/);
   assert.doesNotMatch(feed, /h-\[34rem\]/);
   assert.doesNotMatch(feed, /setError\(cause\?\.message/);
   assert.doesNotMatch(feed, /setCommentStatus\(\(current\) => \(\{ \.\.\.current, \[eventId\]: cause\?\.message/);
