@@ -83,13 +83,16 @@ test("Bookmaker Intelligence is personal closing-line research rather than a pro
 });
 
 test("event detail connects Match Journey, Recommendation Journey and post-settlement Story", async () => {
-  const source = await readFile(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8");
-  assert.match(source, /data-match-journey-story-v2="true"/);
-  assert.match(source, /\/match-intelligence\?eventId=/);
-  assert.match(source, /\/journey\?eventId=/);
-  assert.match(source, /Match Story \/ paper history/);
-  assert.match(source, /historical evidence is never reconstructed/i);
-  assert.match(source, /decisionUpgradeAllowed=false/);
+  const [page, overview] = await Promise.all([
+    readFile(new URL("../app/event/[eventId]/page.jsx", import.meta.url), "utf8"),
+    readFile(new URL("../app/event/[eventId]/EventJourneyOverview.jsx", import.meta.url), "utf8")
+  ]);
+  assert.match(overview, /data-match-journey-overview="true"/);
+  assert.match(page, /\/match-intelligence\?eventId=/);
+  assert.match(page, /\/journey\?eventId=/);
+  assert.match(overview, /Oma paperiseuranta/);
+  assert.match(overview, /Missing history is never reconstructed afterward/);
+  assert.doesNotMatch(overview, /decisionUpgradeAllowed=false/);
 });
 
 test("League Readiness clearly remains a current-window metric rather than a historical league ranking", async () => {
