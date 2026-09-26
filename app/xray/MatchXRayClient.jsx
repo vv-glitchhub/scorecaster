@@ -181,10 +181,20 @@ export default function MatchXRayClient() {
         <div className="space-y-6">
           <section className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5 sm:p-7">
             <div className="flex flex-wrap items-center justify-between gap-3"><div><div className="text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-brand)]">{result.xrayVersion}</div><h2 className="mt-2 text-2xl font-black text-[var(--sc-text)]">{result.event.home} vs {result.event.away}</h2></div><span className="rounded-full border border-amber-400/25 bg-amber-400/10 px-3 py-1 text-xs font-black text-amber-100">observation only</span></div>
+            <div className="mt-6 rounded-2xl border border-[var(--sc-brand)]/20 bg-[var(--sc-brand)]/5 p-4 sm:p-5">
+              <div className="text-xs font-black uppercase tracking-[0.14em] text-[var(--sc-brand)]">{tr({ fi: "Päätöshetken yhteenveto", en: "Decision snapshot", es: "Resumen para decidir" })}</div>
+              <p className="mt-2 text-lg font-black leading-7 text-[var(--sc-text)]">
+                {tr({ fi: "Suurin mallin tukema lopputulos on", en: "The model's strongest outcome is", es: "El resultado más respaldado por el modelo es" })} {strongest && <span className="text-[var(--sc-brand)]">{strongest[0] === "draw" ? tr({ fi: "tasapeli", en: "the draw", es: "el empate" }) : strongest[0] === "home" ? result.event.home : result.event.away} ({pct(strongest[1])})</span>}.
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{tr({ fi: "Tämä on havaintoihin perustuva paperityökalu, ei vetokehotus. Vertaa tulosta tuoreeseen, varmennettuun markkinatietoon ennen johtopäätöksiä.", en: "This is an observation-based paper tool, not a betting instruction. Compare it with fresh, verified market data before drawing conclusions.", es: "Esta es una herramienta de observación para seguimiento en papel, no una instrucción de apuesta. Compárala con datos de mercado recientes y verificados antes de sacar conclusiones." })}</p>
+            </div>
             <div className="mt-7"><ProbabilityStrip result={result} /></div>
             {strongest && <p className="mt-5 text-sm leading-7 text-[var(--sc-muted)]">{tr({ fi: "Suurin 1X2-todennäköisyys", en: "Largest 1X2 probability", es: "Mayor probabilidad 1X2" })}: <strong className="text-[var(--sc-text)]">{strongest[0].toUpperCase()} {pct(strongest[1])}</strong></p>}
           </section>
 
+          <details className="rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5 sm:p-6">
+            <summary className="cursor-pointer text-lg font-black text-[var(--sc-text)]">{tr({ fi: "Avaa edistynyt analyysi", en: "Open advanced analysis", es: "Abrir análisis avanzado" })}</summary>
+            <div className="mt-5 space-y-6">
           <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <MetricCard label="Home xG" value={num(result.model.expectedGoals.home)} />
             <MetricCard label="Away xG" value={num(result.model.expectedGoals.away)} />
@@ -230,6 +240,8 @@ export default function MatchXRayClient() {
             <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4"><MetricCard label="Closing line used" value={String(result.audit.closingLineUsed)} /><MetricCard label="Post-kickoff data" value={String(result.audit.postKickoffDataUsed)} /><MetricCard label="Invented metrics" value={String(result.audit.inventedMetrics)} /><MetricCard label="Reproducible" value={String(result.audit.reproducible)} /></div>
             <div className="mt-5 flex flex-wrap gap-3 text-sm font-bold"><Link href="/probabilities" className="text-[var(--sc-brand)] hover:underline">Open 1X2 model</Link><Link href="/sources" className="text-[var(--sc-brand)] hover:underline">Source registry</Link><a href={`/api/xray?home=${encodeURIComponent(result.event.home)}&away=${encodeURIComponent(result.event.away)}`} className="text-[var(--sc-brand)] hover:underline">Public audit JSON</a></div>
           </section>
+            </div>
+          </details>
         </div>
       )}
     </div>
