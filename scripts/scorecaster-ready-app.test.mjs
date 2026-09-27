@@ -185,6 +185,17 @@ test("AI Feed recovery uses safe localized copy and an actionable retry", async 
   assert.doesNotMatch(feed, /setCommentStatus\(\(current\) => \(\{ \.\.\.current, \[eventId\]: cause\?\.message/);
 });
 
+test("AI Feed explains optional community comment failures without blocking verified analysis", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  assert.match(feed, /Promise\.allSettled/);
+  assert.match(feed, /commentsError/);
+  assert.match(feed, /data-ai-feed-comments-recovery/);
+  assert.match(feed, /Community comments are temporarily unavailable\./);
+  assert.match(feed, /data-ai-feed-comments-retry/);
+  assert.match(feed, /setComments\(\[\]\)/);
+  assert.match(feed, /The verified AI feed is still available\./);
+});
+
 test("community comments hide user UUIDs and allow deletion only by the owner", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   const route = await file("app/api/community/comments/route.js");
