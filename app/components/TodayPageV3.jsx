@@ -153,7 +153,20 @@ export default function TodayPageV3() {
         ))}
       </nav>
 
-      {error ? <div role="alert" className="flex items-center justify-between gap-3 rounded-[1rem] border border-red-400/20 bg-red-400/[0.06] px-3.5 py-3 text-xs text-red-100"><span>{error}</span><button type="button" onClick={refresh} className="shrink-0 font-black underline">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button></div> : null}
+      {error ? <section data-today-recovery="true" role="alert" className="rounded-[1.15rem] border border-red-400/20 bg-[linear-gradient(135deg,rgba(127,29,29,.18),rgba(15,23,42,.72))] px-4 py-4 sm:px-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm font-black text-red-100">{tr({ fi: "Päivän varmennettu analyysi ei latautunut", en: "Today’s verified analysis is unavailable", es: "El análisis verificado de hoy no está disponible" })}</div>
+            <p className="mt-1.5 max-w-2xl text-xs leading-5 text-red-100/70">{tr({ fi: "Yhteys analyysipalveluun katkesi. Emme täytä näkymää arvioiduilla tai keksityillä nostoilla — voit yrittää uudelleen tai siirtyä varmennettuihin otteluihin.", en: "The analysis service could not be reached. We will not fill this view with estimated or fabricated picks — retry or continue with verified matches.", es: "No se pudo contactar con el servicio de análisis. No rellenaremos esta vista con selecciones estimadas o inventadas: inténtalo de nuevo o continúa con partidos verificados." })}</p>
+            <p className="mt-2 text-[11px] text-red-100/55">{error}</p>
+          </div>
+          <button type="button" onClick={refresh} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-red-200/20 bg-red-100/10 px-3 text-xs font-black text-red-50 hover:bg-red-100/15">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-red-100/10 pt-3">
+          <Link href="/events" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/[0.08] px-3 text-xs font-black text-sky-200">{tr({ fi: "Selaa varmennettuja otteluita →", en: "Browse verified matches →", es: "Explorar partidos verificados →" })}</Link>
+          <Link href="/feed" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-black text-slate-300">AI Feed →</Link>
+        </div>
+      </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
