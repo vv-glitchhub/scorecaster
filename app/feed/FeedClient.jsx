@@ -247,22 +247,25 @@ export default function FeedClient() {
                 </div>
 
                 <div className="mt-5 rounded-2xl bg-[var(--sc-surface-soft)] p-4 text-sm leading-7 text-[var(--sc-text-secondary)]">
-                  <strong className="text-[var(--sc-text)]">{post.reason}</strong><br />
-                  {tr({ fi: `AI-sijoitus #${post.rank}, pisteet ${number(post.score, 0)}/100, mallietu ${percent(post.edge)}, datan laatu ${percent(post.quality)} ja ${post.sources || 0} lähdettä.`, en: `AI rank #${post.rank}, score ${number(post.score, 0)}/100, model edge ${percent(post.edge)}, data quality ${percent(post.quality)} and ${post.sources || 0} sources.`, es: `Rango IA #${post.rank}, puntuación ${number(post.score, 0)}/100, ventaja ${percent(post.edge)}, calidad ${percent(post.quality)} y ${post.sources || 0} fuentes.` })}
+                  <strong className="text-[var(--sc-text)]">{post.reason}</strong>
                 </div>
 
-                <div className="mt-4 grid grid-cols-3 gap-2">
-                  <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">AI score</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(post.score, 0)}</div></div>
-                  <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">Edge</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{percent(post.edge)}</div></div>
-                  <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })}</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(post.bestOdds)}</div></div>
-                </div>
+                <details className="mt-4 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-black text-[var(--sc-text)]">{tr({ fi: "Näytä evidenssin yhteenveto", en: "Show evidence summary", es: "Mostrar resumen de evidencia" })}</summary>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">AI score</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(post.score, 0)}</div></div>
+                    <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">Edge</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{percent(post.edge)}</div></div>
+                    <div className="rounded-2xl border border-[var(--sc-border)] p-3 text-center"><div className="text-[10px] font-bold uppercase text-[var(--sc-faint)]">{tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })}</div><div className="mt-1 text-lg font-black text-[var(--sc-text)]">{number(post.bestOdds)}</div></div>
+                  </div>
+                  <p className="mt-3 text-xs leading-6 text-[var(--sc-muted)]">{tr({ fi: `AI-sijoitus #${post.rank}, datan laatu ${percent(post.quality)} ja ${post.sources || 0} lähdettä.`, en: `AI rank #${post.rank}, data quality ${percent(post.quality)} and ${post.sources || 0} sources.`, es: `Rango IA #${post.rank}, calidad ${percent(post.quality)} y ${post.sources || 0} fuentes.` })}</p>
+                </details>
 
                 <div className="mt-4"><DecisionTransparencyCard explanation={post.explanation} /></div>
 
                 <div className="mt-5 flex flex-wrap gap-2 border-t border-[var(--sc-border)] pt-4">
                   <button type="button" onClick={() => toggleStored(post.eventId, liked, setLiked, "scorecaster-feed-liked")} className={`rounded-xl px-4 py-2 text-sm font-black ${isLiked ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)]"}`}>{isLiked ? "♥" : "♡"} {tr({ fi: "Tykkää", en: "Like", es: "Me gusta" })}</button>
                   <button type="button" onClick={() => toggleStored(post.eventId, saved, setSaved, "scorecaster-feed-saved")} className={`rounded-xl px-4 py-2 text-sm font-black ${isSaved ? "bg-[var(--sc-brand-soft)] text-[var(--sc-text)]" : "text-[var(--sc-muted)] hover:bg-[var(--sc-surface-soft)]"}`}>{isSaved ? "★" : "☆"} {tr({ fi: "Tallenna", en: "Save", es: "Guardar" })}</button>
-                  <Link href={eventHref(post)} className="rounded-xl px-4 py-2 text-sm font-black text-[var(--sc-brand)] hover:bg-[var(--sc-brand-soft)]">{tr({ fi: "Syväanalyysi", en: "Deep analysis", es: "Análisis completo" })}</Link>
+                  <Link href={eventHref(post)} className="rounded-xl px-4 py-2 text-sm font-black text-[var(--sc-brand)] hover:bg-[var(--sc-brand-soft)]">{tr({ fi: "Tarkista ja seuraa", en: "Review and track", es: "Revisar y seguir" })}</Link>
                   <div className="ml-auto rounded-xl px-3 py-2 text-sm font-bold text-[var(--sc-muted)]">{postComments.length} {tr({ fi: "kommenttia", en: "comments", es: "comentarios" })}</div>
                 </div>
               </div>

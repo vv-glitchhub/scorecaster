@@ -29,6 +29,10 @@ test("AI Feed deep-links each observation to its verified event selection", asyn
   assert.match(feed, /function eventHref\(post\)/);
   assert.match(feed, /query\.set\("selection", post\.selection\)/);
   assert.match(feed, /<Link href=\{eventHref\(post\)\}/);
+  assert.match(feed, /Näytä evidenssin yhteenveto/);
+  assert.match(feed, /Show evidence summary/);
+  assert.match(feed, /Tarkista ja seuraa/);
+  assert.match(feed, /Review and track/);
   assert.doesNotMatch(feed, /\/events\?eventId/);
 });
 
