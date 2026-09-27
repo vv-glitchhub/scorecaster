@@ -57,6 +57,11 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
   assert.match(home, /error: loadError/);
   assert.match(home, /requestErrorText\(loadError, tr\)/);
   assert.match(home, /role="alert"/);
+  assert.match(home, /data-today-recovery="true"/);
+  assert.match(home, /Today’s verified analysis is unavailable/);
+  assert.match(home, /We will not fill this view with estimated or fabricated picks/);
+  assert.match(home, /href="\/events"/);
+  assert.match(home, /href="\/feed"/);
   assert.match(home, /onClick=\{refresh\}/);
   assert.match(home, /Yritä uudelleen/);
   assert.match(home, /value=\{loading \? "…" : error \? "–" : analyzed\.toLocaleString\("fi-FI"\)\}/);
