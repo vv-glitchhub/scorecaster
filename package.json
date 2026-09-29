@@ -37,7 +37,7 @@
     "test:polymarket": "node --test scripts/polymarket-intelligence.test.mjs",
     "test:apps": "node --test scripts/excellence-apps.test.mjs",
     "test:agent-v9": "node --test scripts/agent-v9.test.mjs",
-    "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs",
+    "test:agent-v10": "node --test scripts/agent-v10-explanation.test.mjs scripts/caster-ai-integration.test.mjs",
     "test:agent-ticket": "node --test scripts/decision-evidence-seal-v1.test.mjs scripts/agent-decision-ticket.test.mjs scripts/agent-evidence-seal-ui.test.mjs",
     "test:agent-signing-key-handoff": "node --test scripts/agent-signing-key-readiness.test.mjs",
     "test:agent-v11": "node --test scripts/agent-v11-self-learning.test.mjs",

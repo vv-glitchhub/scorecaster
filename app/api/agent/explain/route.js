@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { generateCasterExplanation } from "../../../../lib/caster-ai-explanation.mjs";
 import {
   enforceRateLimit,
   getAuthenticatedContext,
@@ -101,6 +102,11 @@ function systemInstruction(language) {
 }
 
 async function generateGroundedExplanation(contract, language) {
+  if (process.env.CASTER_AI_URL || process.env.CASTER_AI_API_KEY) {
+    // A configured Caster AI outage returns the existing deterministic fallback.
+    // It must not silently send data to another provider or create a second paid call.
+    return generateCasterExplanation(contract, language);
+  }
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, reason: "OpenAI explanation service is not configured" };
 
@@ -231,6 +237,7 @@ export async function POST(request) {
       ticketExpiresAt: new Date(verified.expiresAt).toISOString(),
       generatedAt: new Date().toISOString(),
       model: generated.model,
+      modelVersion: generated.modelVersion || null,
       responseId: generated.responseId,
       explanation: generated.explanation
     },
