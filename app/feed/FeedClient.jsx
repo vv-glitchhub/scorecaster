@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import DecisionTransparencyCard from "../components/DecisionTransparencyCard";
-import { requestErrorText } from "../../lib/client-request.mjs";
+import { fetchJson, requestErrorText } from "../../lib/client-request.mjs";
+
+const FEED_REQUEST_TIMEOUT_MS = 55000;
 
 const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
 const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
@@ -54,47 +56,52 @@ export default function FeedClient() {
   const [sort, setSort] = useState("latest");
   const [expandedComments, setExpandedComments] = useState([]);
   const [deletingCommentId, setDeletingCommentId] = useState("");
+  const mountedRef = useRef(true);
+  const requestIdRef = useRef(0);
+  const activeControllerRef = useRef(null);
 
   async function loadFeed({ silent = false } = {}) {
+    const requestId = ++requestIdRef.current;
+    activeControllerRef.current?.abort();
+    const controller = new AbortController();
+    activeControllerRef.current = controller;
     if (!silent) setLoading(true);
     setError("");
     setCommentsError("");
     try {
       const [feedResult, commentsResult] = await Promise.allSettled([
-        fetch("/api/scorecaster-app?hours=2160&limit=10000", { cache: "no-store" }),
-        fetch("/api/community/comments?limit=200", { cache: "no-store" })
+        fetchJson("/api/scorecaster-app?hours=2160&limit=10000", { timeoutMs: FEED_REQUEST_TIMEOUT_MS, signal: controller.signal }),
+        fetchJson("/api/community/comments?limit=200", { timeoutMs: FEED_REQUEST_TIMEOUT_MS, signal: controller.signal })
       ]);
+      if (!mountedRef.current || requestId !== requestIdRef.current) return;
       if (feedResult.status === "rejected") throw feedResult.reason;
-      const feedResponse = feedResult.value;
-      const feedPayload = await feedResponse.json();
-      if (!feedResponse.ok) throw Object.assign(new Error("AI Feed unavailable"), { status: feedResponse.status });
-      setData(feedPayload);
+      setData(feedResult.value);
       if (commentsResult.status === "fulfilled") {
-        const commentsResponse = commentsResult.value;
-        const commentsPayload = await commentsResponse.json().catch(() => ({ comments: [] }));
-        if (commentsResponse.ok) {
-          setComments(commentsPayload.comments || []);
-        } else {
-          setComments([]);
-          setCommentsError(tr({ fi: "Yhteisökommentit eivät ole juuri nyt saatavilla.", en: "Community comments are temporarily unavailable.", es: "Los comentarios de la comunidad no están disponibles temporalmente." }));
-        }
+        setComments(commentsResult.value.comments || []);
       } else {
         setComments([]);
         setCommentsError(tr({ fi: "Yhteisökommentit eivät ole juuri nyt saatavilla.", en: "Community comments are temporarily unavailable.", es: "Los comentarios de la comunidad no están disponibles temporalmente." }));
       }
     } catch (cause) {
-      setError(requestErrorText(cause, tr));
+      if (mountedRef.current && requestId === requestIdRef.current && cause?.name !== "AbortError") {
+        setError(requestErrorText(cause, tr));
+      }
     } finally {
-      if (!silent) setLoading(false);
+      if (mountedRef.current && requestId === requestIdRef.current && !silent) setLoading(false);
     }
   }
 
   useEffect(() => {
+    mountedRef.current = true;
     setLiked(readStored("scorecaster-feed-liked", []));
     setSaved(readStored("scorecaster-feed-saved", []));
     void loadFeed();
     const timer = window.setInterval(() => loadFeed({ silent: true }), 60000);
-    return () => window.clearInterval(timer);
+    return () => {
+      mountedRef.current = false;
+      activeControllerRef.current?.abort();
+      window.clearInterval(timer);
+    };
   }, []);
 
   const eventMap = useMemo(() => new Map((data?.events || []).map((event) => [event.eventId, event])), [data]);
