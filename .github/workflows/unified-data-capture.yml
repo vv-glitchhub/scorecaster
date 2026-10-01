@@ -38,21 +38,37 @@ jobs:
             -w "%{http_code}" \
             "$SCORECASTER_URL/api/unified-data/freshness" || true)
           required=true
-          if [ "$status" = "200" ] && [ -s /tmp/freshness.json ]; then
-            ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
-            if [ "$ok" = "true" ]; then
-              required=$(jq -r '.protectedWorkerRequired // true' /tmp/freshness.json 2>/dev/null || echo true)
+          blocked=false
+          if [ -s /tmp/freshness.json ]; then
+            unavailable=$(jq -r '.dataStoreUnavailable // false' /tmp/freshness.json 2>/dev/null || echo false)
+            if [ "$unavailable" = "true" ]; then
+              blocked=true
+              required=false
+            elif [ "$status" = "200" ]; then
+              ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
+              if [ "$ok" = "true" ]; then
+                required=$(jq -r '.protectedWorkerRequired // true' /tmp/freshness.json 2>/dev/null || echo true)
+              fi
             fi
           fi
           echo "required=$required" >> "$GITHUB_OUTPUT"
-          if [ "$required" = "true" ]; then
+          echo "blocked=$blocked" >> "$GITHUB_OUTPUT"
+          if [ "$blocked" = "true" ]; then
+            echo "Unified Data store is unavailable; provider fanout is suppressed."
+          elif [ "$required" = "true" ]; then
             echo "Fallback capture is required."
           else
             echo "Post-collector Unified Data is still fresh; fallback provider acquisition is skipped."
           fi
 
+      - name: Fail closed while Unified Data store is unavailable
+        if: steps.freshness.outputs.blocked == 'true'
+        run: |
+          echo "Unified Data capture cannot proceed because the production data store is unavailable."
+          exit 1
+
       - name: Capture event ledgers and closing prices
-        if: steps.freshness.outputs.required == 'true'
+        if: steps.freshness.outputs.required == 'true' && steps.freshness.outputs.blocked != 'true'
         run: |
           status=$(curl --silent --show-error \
             --retry 2 \
@@ -72,7 +88,7 @@ jobs:
           echo "Fallback schedule captured fresh Unified Data."
 
       - name: Capture normalized multi-sport analytics
-        if: steps.freshness.outputs.required == 'true'
+        if: steps.freshness.outputs.required == 'true' && steps.freshness.outputs.blocked != 'true'
         run: |
           status=$(curl --silent --show-error \
             --retry 2 \

@@ -39,6 +39,18 @@ function migrationMissing(error) {
   return text.includes("unified_data_") && (text.includes("does not exist") || text.includes("schema cache"));
 }
 
+async function unifiedDataStoreReady(admin) {
+  try {
+    const { error } = await admin
+      .from("unified_data_snapshots")
+      .select("id")
+      .limit(1);
+    return !error;
+  } catch {
+    return false;
+  }
+}
+
 async function upsertSnapshots(admin, picks, capturedAt) {
   const stored = [];
   const observations = [];
@@ -154,6 +166,17 @@ export async function GET(request) {
   if (!authorized(request)) return response({ ok: false, error: "Unauthorized" }, 401);
   const admin = getSupabaseAdmin();
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
+
+  if (!await unifiedDataStoreReady(admin)) {
+    return response({
+      ok: false,
+      status: "data-store-unavailable",
+      error: "Unified data store is temporarily unavailable",
+      dataStoreUnavailable: true,
+      retryable: true,
+      paperOnly: true
+    }, 503);
+  }
 
   try {
     const now = Date.now();
