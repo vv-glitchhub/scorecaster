@@ -56,6 +56,7 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
 
   assert.match(home, /error: loadError/);
   assert.match(home, /requestErrorText\(loadError, tr\)/);
+  assert.doesNotMatch(home, /<p className="mt-2 text-\[11px\] text-red-100\/55">\{error\}<\/p>/);
   assert.match(home, /role="alert"/);
   assert.match(home, /data-today-recovery="true"/);
   assert.match(home, /Today’s verified analysis is unavailable/);
