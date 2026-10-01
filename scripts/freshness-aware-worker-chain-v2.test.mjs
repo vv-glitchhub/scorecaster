@@ -49,7 +49,7 @@ test("public freshness endpoint returns only bounded capture-age metadata", asyn
 test("protected Unified Data worker contract remains unchanged", async () => {
   const route = await source("app/api/internal/unified-data/route.js");
   assert.match(route, /if \(!authorized\(request\)\)/);
-  assert.match(route, /version:\s*"unified-sports-data-worker-v3"/);
+  assert.match(route, /version:\s*"unified-sports-data-worker-v3(?:\.\d+)?"/);
   assert.doesNotMatch(route, /unified-capture-freshness-v1|protectedWorkerRequired|skipIfFreshMinutes/);
 });
 
@@ -77,12 +77,19 @@ test("Collector and fallback serialize acquisition and consult freshness before 
   assert.match(fallback, /cron: "17,47 \* \* \* \*"/);
 });
 
-test("freshness probe failure defaults to running protected capture", async () => {
+test("freshness probe failure defaults to capture except explicit datastore unavailability", async () => {
   const collector = await source(".github/workflows/collector.yml");
   const fallback = await source(".github/workflows/unified-data-capture.yml");
-  for (const workflow of [collector, fallback]) {
-    const defaultIndex = workflow.indexOf("required=true");
-    const successIndex = workflow.indexOf('if [ "$status" = "200" ]');
-    assert.ok(defaultIndex >= 0 && successIndex > defaultIndex);
-  }
+
+  const collectorDefault = collector.indexOf("required=true");
+  const collectorSuccess = collector.indexOf('if [ "$status" = "200" ]');
+  assert.ok(collectorDefault >= 0 && collectorSuccess > collectorDefault);
+
+  const fallbackDefault = fallback.indexOf("required=true");
+  const unavailableCheck = fallback.indexOf(".dataStoreUnavailable // false");
+  const fallbackSuccess = fallback.indexOf('elif [ "$status" = "200" ]');
+  assert.ok(fallbackDefault >= 0 && unavailableCheck > fallbackDefault && fallbackSuccess > unavailableCheck);
+  assert.match(fallback, /blocked=true/);
+  assert.match(fallback, /required=false/);
+  assert.match(fallback, /provider fanout is suppressed/);
 });
