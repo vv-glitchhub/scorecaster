@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import DecisionTransparencyCard from "../components/DecisionTransparencyCard";
-import { requestErrorText } from "../../lib/client-request.mjs";
+import { fetchJson, requestErrorText } from "../../lib/client-request.mjs";
 
 const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
 const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
@@ -54,24 +54,25 @@ export default function FeedClient() {
   const [sort, setSort] = useState("latest");
   const [expandedComments, setExpandedComments] = useState([]);
   const [deletingCommentId, setDeletingCommentId] = useState("");
+  const feedRequestId = useRef(0);
 
   async function loadFeed({ silent = false } = {}) {
+    const requestId = ++feedRequestId.current;
     if (!silent) setLoading(true);
     setError("");
     setCommentsError("");
     try {
       const [feedResult, commentsResult] = await Promise.allSettled([
-        fetch("/api/scorecaster-app?hours=2160&limit=10000", { cache: "no-store" }),
+        fetchJson("/api/scorecaster-app?hours=2160&limit=10000&view=summary", { timeoutMs: 55000 }),
         fetch("/api/community/comments?limit=200", { cache: "no-store" })
       ]);
+      if (requestId !== feedRequestId.current) return;
       if (feedResult.status === "rejected") throw feedResult.reason;
-      const feedResponse = feedResult.value;
-      const feedPayload = await feedResponse.json();
-      if (!feedResponse.ok) throw Object.assign(new Error("AI Feed unavailable"), { status: feedResponse.status });
-      setData(feedPayload);
+      setData(feedResult.value);
       if (commentsResult.status === "fulfilled") {
         const commentsResponse = commentsResult.value;
         const commentsPayload = await commentsResponse.json().catch(() => ({ comments: [] }));
+        if (requestId !== feedRequestId.current) return;
         if (commentsResponse.ok) {
           setComments(commentsPayload.comments || []);
         } else {
@@ -83,9 +84,12 @@ export default function FeedClient() {
         setCommentsError(tr({ fi: "Yhteisökommentit eivät ole juuri nyt saatavilla.", en: "Community comments are temporarily unavailable.", es: "Los comentarios de la comunidad no están disponibles temporalmente." }));
       }
     } catch (cause) {
+      if (requestId !== feedRequestId.current) return;
+      setData(null);
+      setComments([]);
       setError(requestErrorText(cause, tr));
     } finally {
-      if (!silent) setLoading(false);
+      if (!silent && requestId === feedRequestId.current) setLoading(false);
     }
   }
 
