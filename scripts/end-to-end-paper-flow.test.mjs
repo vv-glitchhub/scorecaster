@@ -36,6 +36,18 @@ test("AI Feed deep-links each observation to its verified event selection", asyn
   assert.doesNotMatch(feed, /\/events\?eventId/);
 });
 
+test("AI Feed keeps machine decisions and reason codes out of the primary presentation", async () => {
+  const feed = await read("app/feed/FeedClient.jsx");
+  assert.match(feed, /function decisionLabel\(decision, tr\)/);
+  assert.match(feed, /function reasonLabel\(reason, tr\)/);
+  assert.match(feed, /decisionLabel\(post\.decision, tr\)/);
+  assert.match(feed, /reasonLabel\(post\.reason, tr\)/);
+  assert.match(feed, /Additional evidence is not available for this observation/);
+  assert.doesNotMatch(feed, />\{post\.decision \|\| "SKIP"\}</);
+  assert.doesNotMatch(feed, />\{post\.reason\}</);
+  assert.match(feed, /Show evidence summary/);
+});
+
 test("My picks is cloud-first with authenticated settlement and a local fallback", async () => {
   const [tracking, cloudRoute] = await Promise.all([
     read("app/tracking/page.jsx"),

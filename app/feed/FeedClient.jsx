@@ -32,6 +32,34 @@ function decisionTone(decision) {
   return "border-slate-500/30 bg-slate-500/10 text-slate-200";
 }
 
+function decisionLabel(decision, tr) {
+  const labels = {
+    PLAY: { fi: "Seurattava mahdollisuus", en: "Opportunity to monitor", es: "Oportunidad para seguir" },
+    CAUTION: { fi: "Varovainen havainto", en: "Cautious observation", es: "Observación cautelosa" },
+    WATCH: { fi: "Seuraa tätä", en: "Watch this", es: "Seguir esto" },
+    SKIP: { fi: "Ei riittävää näyttöä", en: "Not enough evidence", es: "Evidencia insuficiente" }
+  };
+  return tr(labels[String(decision || "SKIP").toUpperCase()] || labels.SKIP);
+}
+
+function reasonLabel(reason, tr) {
+  const codeLabels = {
+    "no-chronology-validated-challenger-profile": { fi: "Haastajan kehityksestä ei ole riittävästi varmennettua historiaa.", en: "There is not enough verified history for the challenger’s development.", es: "No hay suficiente historial verificado sobre la evolución del retador." },
+    "missing-required-inputs": { fi: "Tarvittavia syöttötietoja puuttuu päätöksen tueksi.", en: "Required inputs are missing for a trustworthy decision.", es: "Faltan datos necesarios para una decisión fiable." },
+    "insufficient-xg-history": { fi: "Odotetun maalimäärän historiaa on liian vähän luotettavaan arvioon.", en: "There is too little expected-goals history for a trustworthy estimate.", es: "Hay muy poco historial de goles esperados para una estimación fiable." },
+    "market-history-unavailable": { fi: "Kertoimien historiatietoa ei ole saatavilla vertailua varten.", en: "Market history is unavailable for comparison.", es: "El historial del mercado no está disponible para comparar." },
+    "sportmonks-token-missing": { fi: "Ottelun varmennettu lähdedata ei ole juuri nyt saatavilla.", en: "Verified match-source data is not available right now.", es: "Los datos verificados de la fuente del partido no están disponibles ahora." }
+  };
+  const value = String(reason || "").trim();
+  if (!value) return tr({ fi: "Lisänäyttöä ei ole saatavilla tästä havainnosta.", en: "Additional evidence is not available for this observation.", es: "No hay evidencia adicional disponible para esta observación." });
+  const normalized = value.toLowerCase();
+  if (codeLabels[normalized]) return tr(codeLabels[normalized]);
+  if (/^[a-z0-9]+(?:-[a-z0-9]+)+$/.test(normalized)) {
+    return tr({ fi: "Havainto ei täytä luotettavan päätöksen tietovaatimuksia.", en: "This observation does not meet the data requirements for a trustworthy decision.", es: "Esta observación no cumple los requisitos de datos para una decisión fiable." });
+  }
+  return value;
+}
+
 function eventHref(post) {
   const query = new URLSearchParams();
   if (post.sport) query.set("sport", post.sport);
@@ -197,7 +225,7 @@ export default function FeedClient() {
           <div>
             <div className="text-xs font-black uppercase tracking-[0.18em] text-[var(--sc-brand)]">AI Feed</div>
             <h1 className="mt-2 text-3xl font-black tracking-[-0.04em] text-[var(--sc-text)] sm:text-4xl">{tr({ fi: "AI julkaisee päätökset, perustelut ja lähteet samaan syötteeseen.", en: "AI publishes decisions, reasoning and sources in one feed.", es: "La IA publica decisiones, motivos y fuentes en un solo feed." })}</h1>
-            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--sc-muted)]">{tr({ fi: "Syöte päivittyy minuutin välein. Myös CAUTION- ja SKIP-havainnot näkyvät, jotta tyhjä syöte ei peitä datan puutteita.", en: "The feed refreshes every minute. CAUTION and SKIP observations remain visible so an empty feed never hides weak or missing data.", es: "El feed se actualiza cada minuto y muestra también CAUTION y SKIP." })}</p>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-[var(--sc-muted)]">{tr({ fi: "Syöte päivittyy minuutin välein. Myös varovaiset ja epävarmat havainnot näkyvät, jotta tyhjä syöte ei peitä datan puutteita.", en: "The feed refreshes every minute. Cautious and uncertain observations remain visible so an empty feed never hides weak or missing data.", es: "El feed se actualiza cada minuto y también muestra observaciones cautelosas o inciertas para no ocultar la falta de datos." })}</p>
           </div>
           <div className="shrink-0 text-xs text-[var(--sc-muted)]">{tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" })}<br /><span className="font-black text-[var(--sc-text)]">{updated}</span></div>
         </div>
@@ -242,12 +270,12 @@ export default function FeedClient() {
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{new Date(post.createdAt).toLocaleString(locale)}</span><span>·</span><span>{post.meta}</span></div>
                     <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{post.title}</h2>
                     {post.selection ? <div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{post.selection} @ {number(post.bestOdds)}</div> : null}
-                    <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-black ${decisionTone(post.decision)}`}>{post.decision || "SKIP"}</div>
+                    <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-black ${decisionTone(post.decision)}`}>{decisionLabel(post.decision, tr)}</div>
                   </div>
                 </div>
 
                 <div className="mt-5 rounded-2xl bg-[var(--sc-surface-soft)] p-4 text-sm leading-7 text-[var(--sc-text-secondary)]">
-                  <strong className="text-[var(--sc-text)]">{post.reason}</strong>
+                  <strong className="text-[var(--sc-text)]">{reasonLabel(post.reason, tr)}</strong>
                 </div>
 
                 <details className="mt-4 rounded-2xl border border-[var(--sc-border)] bg-[var(--sc-surface)] px-4 py-3">
