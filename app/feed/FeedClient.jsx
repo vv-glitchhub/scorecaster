@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useLanguage } from "../components/LanguageProvider";
 import DecisionTransparencyCard from "../components/DecisionTransparencyCard";
 import { requestErrorText } from "../../lib/client-request.mjs";
@@ -43,9 +43,11 @@ function eventHref(post) {
 export default function FeedClient() {
   const { tr, locale } = useLanguage();
   const [data, setData] = useState(null);
+  const dataRef = useRef(null);
   const [comments, setComments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [refreshError, setRefreshError] = useState("");
   const [commentsError, setCommentsError] = useState("");
   const [commentStatus, setCommentStatus] = useState({});
   const [drafts, setDrafts] = useState({});
@@ -58,6 +60,7 @@ export default function FeedClient() {
   async function loadFeed({ silent = false } = {}) {
     if (!silent) setLoading(true);
     setError("");
+    setRefreshError("");
     setCommentsError("");
     try {
       const [feedResult, commentsResult] = await Promise.allSettled([
@@ -68,7 +71,9 @@ export default function FeedClient() {
       const feedResponse = feedResult.value;
       const feedPayload = await feedResponse.json();
       if (!feedResponse.ok) throw Object.assign(new Error("AI Feed unavailable"), { status: feedResponse.status });
+      dataRef.current = feedPayload;
       setData(feedPayload);
+      setRefreshError("");
       if (commentsResult.status === "fulfilled") {
         const commentsResponse = commentsResult.value;
         const commentsPayload = await commentsResponse.json().catch(() => ({ comments: [] }));
@@ -83,7 +88,12 @@ export default function FeedClient() {
         setCommentsError(tr({ fi: "Yhteisökommentit eivät ole juuri nyt saatavilla.", en: "Community comments are temporarily unavailable.", es: "Los comentarios de la comunidad no están disponibles temporalmente." }));
       }
     } catch (cause) {
-      setError(requestErrorText(cause, tr));
+      const safeError = requestErrorText(cause, tr);
+      if (silent && dataRef.current) {
+        setRefreshError(safeError);
+      } else {
+        setError(safeError);
+      }
     } finally {
       if (!silent) setLoading(false);
     }
@@ -210,6 +220,7 @@ export default function FeedClient() {
       </section>
 
       {error && <div role="alert" className="rounded-2xl border border-red-400/30 bg-red-500/10 p-5 text-sm text-red-100" data-ai-feed-recovery="true"><div className="font-bold">{error}</div><p className="mt-2 max-w-2xl leading-6 text-red-100/75">{tr({ fi: "Syötettä ei korvata vanhalla tai arvioidulla datalla. Voit yrittää uudelleen tai jatkaa otteluihin.", en: "The feed is not replaced with stale or estimated data. You can try again or continue to matches.", es: "El feed no se sustituye con datos antiguos o estimados. Puedes intentarlo de nuevo o continuar a los partidos." })}</p><div className="mt-4 flex flex-wrap gap-2"><button type="button" disabled={loading} onClick={() => loadFeed()} className="min-h-10 rounded-xl border border-red-200/30 px-4 py-2 text-xs font-black text-red-50 disabled:cursor-wait disabled:opacity-50" data-ai-feed-retry="true">{loading ? tr({ fi: "Ladataan…", en: "Loading…", es: "Cargando…" }) : tr({ fi: "Yritä uudelleen", en: "Try again", es: "Intentar de nuevo" })}</button><Link href="/events" className="inline-flex min-h-10 items-center rounded-xl border border-red-200/20 px-4 py-2 text-xs font-black text-red-50/85">{tr({ fi: "Selaa otteluita", en: "Browse matches", es: "Ver partidos" })}</Link></div></div>}
+      {refreshError && data && <div role="status" className="rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100" data-ai-feed-refresh-recovery="true"><div className="font-bold">{tr({ fi: "Uusin syötepäivitys ei onnistunut.", en: "The latest feed refresh was unavailable.", es: "La última actualización del feed no está disponible." })}</div><p className="mt-1 text-amber-100/75">{tr({ fi: "Näytämme viimeksi varmennetun syötteen. Yritä uudelleen tarkistaaksesi uudet havainnot.", en: "The last verified feed remains visible. Try again to check for newer observations.", es: "El último feed verificado sigue visible. Inténtalo de nuevo para buscar nuevas observaciones." })}</p><button type="button" disabled={loading} onClick={() => loadFeed()} className="mt-3 min-h-10 rounded-xl border border-amber-200/30 px-4 py-2 text-xs font-black text-amber-50 disabled:cursor-wait disabled:opacity-50" data-ai-feed-refresh-retry="true">{loading ? tr({ fi: "Ladataan…", en: "Loading…", es: "Cargando…" }) : tr({ fi: "Tarkista uudelleen", en: "Check again", es: "Comprobar de nuevo" })}</button></div>}
       {commentsError && data && !error && <div role="status" className="rounded-2xl border border-amber-300/30 bg-amber-400/10 p-4 text-sm text-amber-100" data-ai-feed-comments-recovery="true"><div className="font-bold">{commentsError}</div><p className="mt-1 text-amber-100/75">{tr({ fi: "Varmennettu AI-syöte toimii edelleen. Kommentteja ei korvata vanhalla tai arvioidulla sisällöllä.", en: "The verified AI feed is still available. Comments are not replaced with stale or estimated content.", es: "El feed de IA verificado sigue disponible. Los comentarios no se sustituyen con contenido antiguo o estimado." })}</p><button type="button" onClick={() => loadFeed()} className="mt-3 min-h-10 rounded-xl border border-amber-200/30 px-4 py-2 text-xs font-black text-amber-50" data-ai-feed-comments-retry="true">{tr({ fi: "Yritä uudelleen", en: "Try again", es: "Intentar de nuevo" })}</button></div>}
       {loading && <div aria-label={tr({ fi: "Ladataan AI-syötettä", en: "Loading AI feed", es: "Cargando el feed de IA" })} className="space-y-4" data-ai-feed-loading="true">{[1, 2, 3].map((item) => <div key={item} className="animate-pulse rounded-3xl border border-[var(--sc-border)] bg-[var(--sc-surface)] p-5 sm:p-6"><div className="flex items-center gap-4"><div className="h-12 w-12 rounded-2xl bg-[var(--sc-surface-soft)]" /><div className="min-w-0 flex-1 space-y-2"><div className="h-3 w-32 rounded bg-[var(--sc-surface-soft)]" /><div className="h-5 w-3/4 rounded bg-[var(--sc-surface-soft)]" /></div></div><div className="mt-5 h-20 rounded-2xl bg-[var(--sc-surface-soft)]" /><div className="mt-4 grid grid-cols-3 gap-2"><div className="h-14 rounded-2xl bg-[var(--sc-surface-soft)]" /><div className="h-14 rounded-2xl bg-[var(--sc-surface-soft)]" /><div className="h-14 rounded-2xl bg-[var(--sc-surface-soft)]" /></div></div>)}</div>}
       {!loading && !posts.length && (

@@ -36,6 +36,15 @@ test("AI Feed deep-links each observation to its verified event selection", asyn
   assert.doesNotMatch(feed, /\/events\?eventId/);
 });
 
+test("AI Feed keeps verified content visible when a silent refresh fails", async () => {
+  const feed = await read("app/feed/FeedClient.jsx");
+  assert.match(feed, /const \[refreshError, setRefreshError\]/);
+  assert.match(feed, /if \(silent && dataRef\.current\)/);
+  assert.match(feed, /data-ai-feed-refresh-recovery/);
+  assert.match(feed, /The last verified feed remains visible/);
+  assert.match(feed, /data-ai-feed-refresh-retry/);
+});
+
 test("My picks is cloud-first with authenticated settlement and a local fallback", async () => {
   const [tracking, cloudRoute] = await Promise.all([
     read("app/tracking/page.jsx"),
