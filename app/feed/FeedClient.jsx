@@ -8,6 +8,14 @@ import { requestErrorText } from "../../lib/client-request.mjs";
 
 const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
 const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
+const FEED_REQUEST_TIMEOUT_MS = 30000;
+
+function fetchFeedResource(url) {
+  return fetch(url, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(FEED_REQUEST_TIMEOUT_MS)
+  });
+}
 
 function eventTitle(event, fallback) {
   if (event?.homeTeam && event?.awayTeam) return `${event.homeTeam} – ${event.awayTeam}`;
@@ -61,8 +69,8 @@ export default function FeedClient() {
     setCommentsError("");
     try {
       const [feedResult, commentsResult] = await Promise.allSettled([
-        fetch("/api/scorecaster-app?hours=2160&limit=10000", { cache: "no-store" }),
-        fetch("/api/community/comments?limit=200", { cache: "no-store" })
+        fetchFeedResource("/api/scorecaster-app?hours=2160&limit=10000"),
+        fetchFeedResource("/api/community/comments?limit=200")
       ]);
       if (feedResult.status === "rejected") throw feedResult.reason;
       const feedResponse = feedResult.value;
