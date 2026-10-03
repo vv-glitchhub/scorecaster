@@ -26,6 +26,11 @@ test("Today keeps verified event identity and routes paper actions through audit
 
 test("AI Feed deep-links each observation to its verified event selection", async () => {
   const feed = await read("app/feed/FeedClient.jsx");
+  assert.match(feed, /const FEED_REQUEST_TIMEOUT_MS = 30000/);
+  assert.match(feed, /function fetchFeedResource\(url\)/);
+  assert.match(feed, /signal: AbortSignal\.timeout\(FEED_REQUEST_TIMEOUT_MS\)/);
+  assert.match(feed, /fetchFeedResource\("\/api\/scorecaster-app\?hours=2160&limit=10000"\)/);
+  assert.match(feed, /fetchFeedResource\("\/api\/community\/comments\?limit=200"\)/);
   assert.match(feed, /function eventHref\(post\)/);
   assert.match(feed, /query\.set\("selection", post\.selection\)/);
   assert.match(feed, /<Link href=\{eventHref\(post\)\}/);
