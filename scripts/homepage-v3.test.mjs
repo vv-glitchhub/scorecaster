@@ -60,6 +60,7 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
   assert.match(home, /data-today-recovery="true"/);
   assert.match(home, /Today’s verified analysis is unavailable/);
   assert.match(home, /We will not fill this view with estimated or fabricated picks/);
+  assert.doesNotMatch(home, /<p className="mt-2 text-\[11px\] text-red-100\/55">\{error\}<\/p>/);
   assert.match(home, /href="\/events"/);
   assert.match(home, /href="\/feed"/);
   assert.match(home, /onClick=\{refresh\}/);
