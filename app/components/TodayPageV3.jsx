@@ -111,7 +111,7 @@ export default function TodayPageV3() {
   const error = loadError ? requestErrorText(loadError, tr) : "";
 
   return (
-    <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
+    <div data-homepage-v3="mobile-first" aria-busy={loading ? "true" : "false"} className="space-y-3.5 sm:space-y-4">
       <style jsx global>{`
         @media (max-width: 639px) {
           .sc-shell-header > div { padding-left: 12px !important; padding-right: 12px !important; }
@@ -153,11 +153,12 @@ export default function TodayPageV3() {
         ))}
       </nav>
 
-      {error ? <section data-today-recovery="true" role="alert" className="rounded-[1.15rem] border border-red-400/20 bg-[linear-gradient(135deg,rgba(127,29,29,.18),rgba(15,23,42,.72))] px-4 py-4 sm:px-5">
+      {loading ? <p role="status" className="sr-only">{tr({ fi: "Päivän varmennettua analyysiä ladataan.", en: "Loading today’s verified analysis.", es: "Cargando el análisis verificado de hoy." })}</p> : null}
+      {error ? <section data-today-recovery="true" role="alert" aria-describedby="today-recovery-copy" className="rounded-[1.15rem] border border-red-400/20 bg-[linear-gradient(135deg,rgba(127,29,29,.18),rgba(15,23,42,.72))] px-4 py-4 sm:px-5">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="text-sm font-black text-red-100">{tr({ fi: "Päivän varmennettu analyysi ei latautunut", en: "Today’s verified analysis is unavailable", es: "El análisis verificado de hoy no está disponible" })}</div>
-            <p className="mt-1.5 max-w-2xl text-xs leading-5 text-red-100/70">{tr({ fi: "Yhteys analyysipalveluun katkesi. Emme täytä näkymää arvioiduilla tai keksityillä nostoilla — voit yrittää uudelleen tai siirtyä varmennettuihin otteluihin.", en: "The analysis service could not be reached. We will not fill this view with estimated or fabricated picks — retry or continue with verified matches.", es: "No se pudo contactar con el servicio de análisis. No rellenaremos esta vista con selecciones estimadas o inventadas: inténtalo de nuevo o continúa con partidos verificados." })}</p>
+            <p id="today-recovery-copy" className="mt-1.5 max-w-2xl text-xs leading-5 text-red-100/70">{tr({ fi: "Yhteys analyysipalveluun katkesi. Emme täytä näkymää arvioiduilla tai keksityillä nostoilla — voit yrittää uudelleen tai siirtyä varmennettuihin otteluihin.", en: "The analysis service could not be reached. We will not fill this view with estimated or fabricated picks — retry or continue with verified matches.", es: "No se pudo contactar con el servicio de análisis. No rellenaremos esta vista con selecciones estimadas o inventadas: inténtalo de nuevo o continúa con partidos verificados." })}</p>
             <p className="mt-2 text-[11px] text-red-100/55">{error}</p>
           </div>
           <button type="button" onClick={refresh} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-red-200/20 bg-red-100/10 px-3 text-xs font-black text-red-50 hover:bg-red-100/15">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button>

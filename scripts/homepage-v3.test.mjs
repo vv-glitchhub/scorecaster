@@ -58,6 +58,10 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
   assert.match(home, /requestErrorText\(loadError, tr\)/);
   assert.match(home, /role="alert"/);
   assert.match(home, /data-today-recovery="true"/);
+  assert.match(home, /aria-busy=\{loading \? "true" : "false"\}/);
+  assert.match(home, /role="status"/);
+  assert.match(home, /aria-describedby="today-recovery-copy"/);
+  assert.match(home, /id="today-recovery-copy"/);
   assert.match(home, /Today’s verified analysis is unavailable/);
   assert.match(home, /We will not fill this view with estimated or fabricated picks/);
   assert.match(home, /href="\/events"/);
