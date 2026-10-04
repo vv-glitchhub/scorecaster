@@ -8,6 +8,12 @@ import { requestErrorText } from "../../lib/client-request.mjs";
 
 const number = (value, digits = 2) => Number.isFinite(Number(value)) ? Number(value).toFixed(digits) : "–";
 const percent = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
+const postTime = (value, locale, tr) => {
+  const parsed = value ? new Date(value) : null;
+  return parsed && !Number.isNaN(parsed.getTime())
+    ? parsed.toLocaleString(locale)
+    : tr({ fi: "Aika ei saatavilla", en: "Time unavailable", es: "Hora no disponible" });
+};
 
 function eventTitle(event, fallback) {
   if (event?.homeTeam && event?.awayTeam) return `${event.homeTeam} – ${event.awayTeam}`;
@@ -110,7 +116,7 @@ export default function FeedClient() {
     const mapped = source.map((pick, index) => {
       const event = eventMap.get(pick.eventId) || {};
       const eventComments = commentsByEvent[pick.eventId] || [];
-      const createdAt = event?.latestAt || data?.generatedAt || new Date().toISOString();
+      const createdAt = event?.latestAt || null;
       return {
         ...pick,
         rank: index + 1,
@@ -125,7 +131,7 @@ export default function FeedClient() {
     });
     return [...mapped].sort((a, b) => sort === "trending"
       ? b.localScore - a.localScore
-      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      : (b.createdAt ? new Date(b.createdAt).getTime() : 0) - (a.createdAt ? new Date(a.createdAt).getTime() : 0));
   }, [data, eventMap, commentsByEvent, liked, sort]);
 
   function toggleStored(eventId, state, setState, key) {
@@ -239,7 +245,7 @@ export default function FeedClient() {
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] text-lg font-black text-[var(--sc-text)]">AI</div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{new Date(post.createdAt).toLocaleString(locale)}</span><span>·</span><span>{post.meta}</span></div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{postTime(post.createdAt, locale, tr)}</span><span>·</span><span>{post.meta}</span></div>
                     <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{post.title}</h2>
                     {post.selection ? <div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{post.selection} @ {number(post.bestOdds)}</div> : null}
                     <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-black ${decisionTone(post.decision)}`}>{post.decision || "SKIP"}</div>
