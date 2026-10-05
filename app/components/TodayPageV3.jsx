@@ -158,7 +158,6 @@ export default function TodayPageV3() {
           <div className="min-w-0">
             <div className="text-sm font-black text-red-100">{tr({ fi: "Päivän varmennettu analyysi ei latautunut", en: "Today’s verified analysis is unavailable", es: "El análisis verificado de hoy no está disponible" })}</div>
             <p className="mt-1.5 max-w-2xl text-xs leading-5 text-red-100/70">{tr({ fi: "Yhteys analyysipalveluun katkesi. Emme täytä näkymää arvioiduilla tai keksityillä nostoilla — voit yrittää uudelleen tai siirtyä varmennettuihin otteluihin.", en: "The analysis service could not be reached. We will not fill this view with estimated or fabricated picks — retry or continue with verified matches.", es: "No se pudo contactar con el servicio de análisis. No rellenaremos esta vista con selecciones estimadas o inventadas: inténtalo de nuevo o continúa con partidos verificados." })}</p>
-            <p className="mt-2 text-[11px] text-red-100/55">{error}</p>
           </div>
           <button type="button" onClick={refresh} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-red-200/20 bg-red-100/10 px-3 text-xs font-black text-red-50 hover:bg-red-100/15">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button>
         </div>
