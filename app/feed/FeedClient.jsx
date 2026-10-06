@@ -40,6 +40,19 @@ function eventHref(post) {
   return `/event/${encodeURIComponent(post.eventId)}${suffix ? `?${suffix}` : ""}`;
 }
 
+function timestampValue(value) {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  return Number.isFinite(timestamp) ? timestamp : null;
+}
+
+function formatTimestamp(value, locale, tr) {
+  if (timestampValue(value) === null) {
+    return tr({ fi: "Aikaleima ei saatavilla", en: "Freshness unavailable", es: "Hora no disponible" });
+  }
+  return new Date(value).toLocaleString(locale);
+}
+
 export default function FeedClient() {
   const { tr, locale } = useLanguage();
   const [data, setData] = useState(null);
@@ -110,7 +123,7 @@ export default function FeedClient() {
     const mapped = source.map((pick, index) => {
       const event = eventMap.get(pick.eventId) || {};
       const eventComments = commentsByEvent[pick.eventId] || [];
-      const createdAt = event?.latestAt || data?.generatedAt || new Date().toISOString();
+      const createdAt = event?.latestAt || data?.generatedAt || null;
       return {
         ...pick,
         rank: index + 1,
@@ -125,7 +138,8 @@ export default function FeedClient() {
     });
     return [...mapped].sort((a, b) => sort === "trending"
       ? b.localScore - a.localScore
-      : new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      : (timestampValue(b.createdAt) === null ? 1 : 0) - (timestampValue(a.createdAt) === null ? 1 : 0)
+        || (timestampValue(b.createdAt) ?? 0) - (timestampValue(a.createdAt) ?? 0));
   }, [data, eventMap, commentsByEvent, liked, sort]);
 
   function toggleStored(eventId, state, setState, key) {
@@ -188,7 +202,7 @@ export default function FeedClient() {
     }
   }
 
-  const updated = data?.generatedAt ? new Date(data.generatedAt).toLocaleString(locale) : "–";
+  const updated = formatTimestamp(data?.generatedAt, locale, tr);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -239,7 +253,7 @@ export default function FeedClient() {
                 <div className="flex items-start gap-4">
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] text-lg font-black text-[var(--sc-text)]">AI</div>
                   <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{new Date(post.createdAt).toLocaleString(locale)}</span><span>·</span><span>{post.meta}</span></div>
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--sc-muted)]"><span className="font-black text-[var(--sc-text)]">Scorecaster AI</span><span>·</span><span>{formatTimestamp(post.createdAt, locale, tr)}</span><span>·</span><span>{post.meta}</span></div>
                     <h2 className="mt-3 text-2xl font-black tracking-[-0.03em] text-[var(--sc-text)]">{post.title}</h2>
                     {post.selection ? <div className="mt-2 text-sm font-black text-[var(--sc-brand)]">{post.selection} @ {number(post.bestOdds)}</div> : null}
                     <div className={`mt-3 inline-flex rounded-full border px-3 py-1 text-xs font-black ${decisionTone(post.decision)}`}>{post.decision || "SKIP"}</div>

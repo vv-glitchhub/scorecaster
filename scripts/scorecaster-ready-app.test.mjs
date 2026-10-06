@@ -221,6 +221,15 @@ test("ready app keeps real-money execution disabled", async () => {
   assert.doesNotMatch(route, /placeBet|executeBet|payment|withdraw/i);
 });
 
+test("AI Feed does not fabricate freshness when verified timestamps are missing", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  assert.match(feed, /event\?\.latestAt \|\| data\?\.generatedAt \|\| null/);
+  assert.match(feed, /Freshness unavailable/);
+  assert.match(feed, /function timestampValue\(value\)/);
+  assert.match(feed, /timestampValue\(b\.createdAt\) === null/);
+  assert.doesNotMatch(feed, /event\?\.latestAt \|\| data\?\.generatedAt \|\| new Date\(\)\.toISOString\(\)/);
+});
+
 
 test("event detail keeps engineering diagnostics behind one product-level disclosure", async () => {
   const [page, journey] = await Promise.all([
