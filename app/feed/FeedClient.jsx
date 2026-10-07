@@ -83,6 +83,7 @@ export default function FeedClient() {
         setCommentsError(tr({ fi: "Yhteisökommentit eivät ole juuri nyt saatavilla.", en: "Community comments are temporarily unavailable.", es: "Los comentarios de la comunidad no están disponibles temporalmente." }));
       }
     } catch (cause) {
+      setData(null);
       setError(requestErrorText(cause, tr));
     } finally {
       if (!silent) setLoading(false);
