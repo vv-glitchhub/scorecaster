@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { unifiedDataStoreReady } from "../../../../lib/unified-data-store-preflight.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -37,18 +38,6 @@ function authorized(request) {
 function migrationMissing(error) {
   const text = String(error?.message || error || "").toLowerCase();
   return text.includes("unified_data_") && (text.includes("does not exist") || text.includes("schema cache"));
-}
-
-async function unifiedDataStoreReady(admin) {
-  try {
-    const { error } = await admin
-      .from("unified_data_snapshots")
-      .select("id")
-      .limit(1);
-    return !error;
-  } catch {
-    return false;
-  }
 }
 
 async function upsertSnapshots(admin, picks, capturedAt) {
