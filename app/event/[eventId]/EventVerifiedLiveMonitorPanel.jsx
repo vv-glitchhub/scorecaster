@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLanguage } from "../../components/LanguageProvider";
+import { fetchJson, requestErrorText } from "../../../lib/client-request.mjs";
 
 const formatClock = (seconds) => {
   const value = Number(seconds);
@@ -10,20 +12,18 @@ const formatClock = (seconds) => {
 };
 
 export default function EventVerifiedLiveMonitorPanel({ eventId }) {
+  const { tr } = useLanguage();
   const [data, setData] = useState(null);
   const [error, setError] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let active = true;
-    fetch(`/api/verified-live-monitor?eventId=${encodeURIComponent(eventId)}`, { cache: "no-store" })
-      .then(async (response) => {
-        const payload = await response.json();
-        if (!response.ok) throw new Error(payload?.error || "Verified live evidence unavailable");
-        if (active) setData(payload);
-      })
-      .catch((reason) => { if (active) setError(reason instanceof Error ? reason.message : "Verified live evidence unavailable"); });
+    fetchJson(`/api/verified-live-monitor?eventId=${encodeURIComponent(eventId)}`)
+      .then((payload) => { if (active) { setData(payload); setError(""); } })
+      .catch((reason) => { if (active) setError(requestErrorText(reason, tr)); });
     return () => { active = false; };
-  }, [eventId]);
+  }, [eventId, retryToken, tr]);
 
   const current = data?.current;
   return (
@@ -37,7 +37,7 @@ export default function EventVerifiedLiveMonitorPanel({ eventId }) {
         <Link href={`/live-monitor/${encodeURIComponent(eventId)}`} className="sc-button-secondary">Open live audit</Link>
       </div>
 
-      {error && <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">{error}</div>}
+      {error && <div className="mt-4 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100"><div>{error}</div><button type="button" onClick={() => setRetryToken((value) => value + 1)} className="mt-3 font-black text-amber-100 underline underline-offset-4">{tr({ fi: "Yritä uudelleen", en: "Try again", es: "Reintentar" })}</button></div>}
       {!error && !data && <div className="mt-4 text-sm text-[var(--sc-muted)]">Loading verified live evidence…</div>}
       {data && !current && <div className="mt-4 rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 text-sm text-[var(--sc-muted)]">No eligible live evidence has been captured for this event. Missing data stays missing.</div>}
       {current && <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">

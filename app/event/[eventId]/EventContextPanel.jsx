@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../components/LanguageProvider";
+import { fetchJson, requestErrorText } from "../../../lib/client-request.mjs";
 
 const pct = (value, digits = 1) => Number.isFinite(Number(value)) ? `${(Number(value) * 100).toFixed(digits)} %` : "–";
 const signed = (value) => Number.isFinite(Number(value)) ? `${Number(value) >= 0 ? "+" : ""}${(Number(value) * 100).toFixed(1)} pp` : "–";
@@ -19,15 +20,15 @@ function probabilityRows(result) {
 export default function EventContextPanel({ eventId, sport }) {
   const { tr } = useLanguage();
   const [state, setState] = useState({ loading: true, detail: null, result: null, error: "" });
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
         const detailQuery = new URLSearchParams({ eventId, sport });
-        const detailResponse = await fetch(`/api/event-detail?${detailQuery}`, { cache: "no-store" });
-        const detailPayload = await detailResponse.json();
-        if (!detailResponse.ok || !detailPayload?.detail) throw new Error(detailPayload?.error || "Event detail unavailable");
+        const detailPayload = await fetchJson(`/api/event-detail?${detailQuery}`);
+        if (!detailPayload?.detail) throw new Error("Event detail unavailable");
         const detail = detailPayload.detail;
         const kickoff = detail.commenceTime || detail.kickoffAt;
         if (!detail.homeTeam || !detail.awayTeam || !kickoff) throw new Error("Event identity is incomplete");
@@ -38,17 +39,15 @@ export default function EventContextPanel({ eventId, sport }) {
           away: detail.awayTeam,
           kickoff
         });
-        const contextResponse = await fetch(`/api/context?${contextQuery}`, { cache: "no-store" });
-        const contextPayload = await contextResponse.json();
-        if (!contextResponse.ok) throw new Error(contextPayload?.error || contextPayload?.reason || "Context unavailable");
+        const contextPayload = await fetchJson(`/api/context?${contextQuery}`);
         if (!cancelled) setState({ loading: false, detail, result: contextPayload, error: "" });
       } catch (error) {
-        if (!cancelled) setState({ loading: false, detail: null, result: null, error: error instanceof Error ? error.message : "Context unavailable" });
+        if (!cancelled) setState({ loading: false, detail: null, result: null, error: requestErrorText(error, tr) });
       }
     }
     void load();
     return () => { cancelled = true; };
-  }, [eventId, sport]);
+  }, [eventId, sport, retryToken, tr]);
 
   const rows = useMemo(() => probabilityRows(state.result), [state.result]);
 
@@ -61,8 +60,11 @@ export default function EventContextPanel({ eventId, sport }) {
       <section className="sc-surface rounded-[1.65rem] border border-amber-400/20 p-5">
         <div className="text-xs font-black uppercase tracking-[0.16em] text-amber-300">Context Engine</div>
         <h2 className="mt-2 text-xl font-black text-[var(--sc-text)]">{tr({ fi: "Kontekstiarvio ei ole vielä saatavilla", en: "Context preview is not available yet", es: "La vista de contexto aún no está disponible" })}</h2>
-        <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{state.error}. {tr({ fi: "Scorecaster ei korvaa puuttuvaa kokoonpano- tai loukkaantumistietoa arvauksella.", en: "Scorecaster does not replace missing lineup or injury evidence with guesses.", es: "Scorecaster no sustituye datos ausentes por suposiciones." })}</p>
-        <Link href="/context" className="mt-4 inline-flex font-black text-[var(--sc-brand)]">{tr({ fi: "Avaa Context Engine", en: "Open Context Engine", es: "Abrir Context Engine" })}</Link>
+        <p className="mt-2 text-sm leading-6 text-[var(--sc-muted)]">{state.error} {tr({ fi: "Scorecaster ei korvaa puuttuvaa kokoonpano- tai loukkaantumistietoa arvauksella.", en: "Scorecaster does not replace missing lineup or injury evidence with guesses.", es: "Scorecaster no sustituye datos ausentes por suposiciones." })}</p>
+        <div className="mt-4 flex flex-wrap gap-3">
+          <button type="button" onClick={() => setRetryToken((value) => value + 1)} className="sc-button-secondary">{tr({ fi: "Yritä uudelleen", en: "Try again", es: "Reintentar" })}</button>
+          <Link href="/context" className="inline-flex items-center font-black text-[var(--sc-brand)]">{tr({ fi: "Avaa Context Engine", en: "Open Context Engine", es: "Abrir Context Engine" })}</Link>
+        </div>
       </section>
     );
   }

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useLanguage } from "../../components/LanguageProvider";
+import { fetchJson, requestErrorText } from "../../../lib/client-request.mjs";
 
 const observed = value => value !== null && value !== undefined && value !== "" && Number.isFinite(Number(value));
 const decimal = (value) => observed(value) ? Number(value).toFixed(2) : "–";
@@ -31,6 +32,7 @@ export default function EventMarketMicrostructurePanel({ eventId }) {
   const [payload, setPayload] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [retryToken, setRetryToken] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -38,17 +40,15 @@ export default function EventMarketMicrostructurePanel({ eventId }) {
       setLoading(true);
       try {
         const query = new URLSearchParams({ eventId, market: "h2h" });
-        const response = await fetch(`/api/market-microstructure?${query}`, { cache: "no-store" });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data?.error || "Market evidence unavailable");
+        const data = await fetchJson(`/api/market-microstructure?${query}`);
         if (active) { setPayload(data); setError(""); }
       } catch (loadError) {
-        if (active) { setPayload(null); setError(loadError instanceof Error ? loadError.message : "Market evidence unavailable"); }
+        if (active) { setPayload(null); setError(requestErrorText(loadError, tr)); }
       } finally { if (active) setLoading(false); }
     }
     void load();
     return () => { active = false; };
-  }, [eventId]);
+  }, [eventId, retryToken, tr]);
 
   const selections = useMemo(() => (payload?.selections || []).slice(0, 3), [payload]);
 
@@ -64,7 +64,7 @@ export default function EventMarketMicrostructurePanel({ eventId }) {
       </div>
 
       {loading && <div className="mt-5 text-sm text-[var(--sc-muted)]">{tr({ fi: "Ladataan hintahistoriaa…", en: "Loading price history…", es: "Cargando historial…" })}</div>}
-      {!loading && error && <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100">{error}</div>}
+      {!loading && error && <div className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-4 text-sm text-amber-100"><div>{error}</div><button type="button" onClick={() => setRetryToken((value) => value + 1)} className="mt-3 font-black text-amber-100 underline underline-offset-4">{tr({ fi: "Yritä uudelleen", en: "Try again", es: "Reintentar" })}</button></div>}
       {!loading && !error && payload?.status === "missing" && <div className="mt-5 rounded-xl border border-[var(--sc-border)] bg-[var(--sc-surface-soft)] p-4 text-sm text-[var(--sc-muted)]">{tr({ fi: "Varmennettua tarjoajahistoriaa ei ole vielä. Puuttuvaa liike-evidenssiä ei korvata AI-arvauksella.", en: "Verified provider history is not available yet. Missing movement evidence is not replaced with an AI guess.", es: "Aún no hay historial verificado." })}</div>}
       {selections.length > 0 && <div className="mt-5 grid gap-3 lg:grid-cols-3">{selections.map((item) => <Summary key={item.selection} item={item} tr={tr} />)}</div>}
 
