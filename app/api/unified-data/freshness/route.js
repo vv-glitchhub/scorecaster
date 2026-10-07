@@ -53,7 +53,10 @@ export async function GET() {
   } catch {
     return response({
       ok: false,
+      status: "data-store-unavailable",
       error: "Unified Data freshness is unavailable",
+      dataStoreUnavailable: true,
+      retryable: true,
       paperOnly: true
     }, 503);
   }

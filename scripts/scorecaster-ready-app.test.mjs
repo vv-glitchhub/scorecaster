@@ -105,6 +105,29 @@ test("Top Picks list consumers request the compact public view", async () => {
   for (const consumer of consumers) assert.match(consumer, /view=summary/);
 });
 
+test("unified data workers fail before provider fanout when the datastore is unavailable", async () => {
+  const [worker, freshness, workflow] = await Promise.all([
+    file("app/api/internal/unified-data/route.js"),
+    file("app/api/unified-data/freshness/route.js"),
+    file(".github/workflows/unified-data-capture.yml")
+  ]);
+
+  const preflightIndex = worker.indexOf("await unifiedDataStoreReady(admin)");
+  const topPicksIndex = worker.indexOf("/api/top-picks");
+  assert.ok(preflightIndex >= 0, "worker must preflight the data store");
+  assert.ok(topPicksIndex > preflightIndex, "data-store preflight must happen before provider/top-picks fanout");
+  assert.match(worker, /status: "data-store-unavailable"/);
+  assert.match(worker, /dataStoreUnavailable: true/);
+  assert.match(worker, /retryable: true/);
+
+  assert.match(freshness, /status: "data-store-unavailable"/);
+  assert.match(freshness, /dataStoreUnavailable: true/);
+  assert.match(workflow, /blocked=false/);
+  assert.match(workflow, /\.dataStoreUnavailable \/\/ false/);
+  assert.match(workflow, /provider fanout is suppressed/);
+  assert.match(workflow, /Fail closed while Unified Data store is unavailable/);
+});
+
 test("unified API is publishable-only and bounded", async () => {
   const route = await file("app/api/scorecaster-app/route.js");
   assert.match(route, /\.eq\("publishable", true\)/);

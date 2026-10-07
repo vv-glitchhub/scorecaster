@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { unifiedDataStoreReady } from "../../../../lib/unified-data-store-preflight.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -154,6 +155,17 @@ export async function GET(request) {
   if (!authorized(request)) return response({ ok: false, error: "Unauthorized" }, 401);
   const admin = getSupabaseAdmin();
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
+
+  if (!await unifiedDataStoreReady(admin)) {
+    return response({
+      ok: false,
+      status: "data-store-unavailable",
+      error: "Unified data store is temporarily unavailable",
+      dataStoreUnavailable: true,
+      retryable: true,
+      paperOnly: true
+    }, 503);
+  }
 
   try {
     const now = Date.now();

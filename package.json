@@ -55,7 +55,7 @@
     "test:production-evidence": "node --test scripts/production-evidence-v1.test.mjs scripts/migration-release-status.test.mjs scripts/production-release-evidence.test.mjs scripts/production-release-evidence-ui.test.mjs",
     "test:transparency": "node --test scripts/open-transparency.test.mjs",
     "test:ux-v2": "node --test scripts/ux-v2.test.mjs",
-    "test:ready-app": "node --test scripts/scorecaster-ready-app.test.mjs",
+    "test:ready-app": "node --test scripts/scorecaster-ready-app.test.mjs scripts/unified-data-store-preflight.test.mjs",
     "test:paper-flow": "node --test scripts/end-to-end-paper-flow.test.mjs",
     "test:sports-intelligence": "node --test scripts/sports-intelligence-v1.test.mjs",
     "test:sports-analytics": "node --test scripts/sports-analytics-catalog.test.mjs scripts/sports-analytics-ingestion.test.mjs scripts/sports-analytics-insights.test.mjs scripts/sports-analytics-activation.test.mjs scripts/sports-analytics-quality.test.mjs",
