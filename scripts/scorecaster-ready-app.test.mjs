@@ -171,6 +171,7 @@ test("AI Feed has automatic refresh and authenticated community comments", async
 test("AI Feed recovery uses safe localized copy and an actionable retry", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   assert.match(feed, /requestErrorText\(cause, tr\)/);
+  assert.match(feed, /catch \(cause\) \{\s*setData\(null\);\s*setError\(requestErrorText\(cause, tr\)\);/);
   assert.match(feed, /data-ai-feed-recovery/);
   assert.match(feed, /data-ai-feed-retry/);
   assert.match(feed, /Yritä uudelleen/);
