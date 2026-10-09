@@ -21,6 +21,9 @@ test("homepage renders the mobile-first V3 surface through the stable Today entr
   assert.match(home, /Dataa\. /);
   assert.match(home, /Parempia päätöksiä/);
   assert.match(home, /\/api\/recommendations\?limit=20/);
+  assert.match(home, /upstreamGeneratedAt/);
+  assert.match(home, /Verified data updated/);
+  assert.match(home, /Verified data freshness is unavailable/);
 });
 
 test("homepage V3 is compact and responsive instead of reproducing the oversized V2 layout", async () => {
@@ -76,6 +79,19 @@ test("homepage V3 surfaces partial upstream failures without presenting unverifi
   assert.match(home, /Osa markkinoista ei vastannut\. Näytetään vain varmennettu data\./);
   assert.match(home, /Some markets did not respond\. Only verified data is shown\./);
   assert.doesNotMatch(home, /fallback odds|synthetic odds|estimated bookmaker/i);
+});
+
+test("homepage V3 exposes only verified upstream freshness and has a truthful unavailable state", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /function formatFreshness\(value, tr\)/);
+  assert.match(home, /new Date\(value\)/);
+  assert.match(home, /Number\.isFinite\(parsed\.getTime\(\)\)/);
+  assert.match(home, /data\?\.upstreamGeneratedAt/);
+  assert.match(home, /data-today-freshness="true"/);
+  assert.match(home, /Varmennettu data päivitetty/);
+  assert.match(home, /Varmennetun datan päivitysaika ei ole saatavilla\./);
+  assert.doesNotMatch(home, /Date\.now\(\)|new Date\(\)\s*\.toISOString/);
 });
 
 test("homepage V3 preserves safe navigation from a recommendation to the event detail route", async () => {

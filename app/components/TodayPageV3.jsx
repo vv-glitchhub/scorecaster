@@ -31,6 +31,30 @@ function formatOdds(value) {
   return parsed === null ? "–" : parsed.toFixed(2);
 }
 
+function formatFreshness(value, tr) {
+  const unavailable = tr({
+    fi: "Varmennetun datan päivitysaika ei ole saatavilla.",
+    en: "Verified data freshness is unavailable.",
+    es: "La frescura de los datos verificados no está disponible."
+  });
+  if (!value) return unavailable;
+  const parsed = new Date(value);
+  if (!Number.isFinite(parsed.getTime())) return unavailable;
+  const formatted = parsed.toLocaleString("en-GB", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short"
+  });
+  return tr({
+    fi: `Varmennettu data päivitetty ${formatted}`,
+    en: `Verified data updated ${formatted}`,
+    es: `Datos verificados actualizados ${formatted}`
+  });
+}
+
 function eventHref(item) {
   if (!item?.eventId && !item?.id) return "/events";
   const query = new URLSearchParams();
@@ -109,6 +133,7 @@ export default function TodayPageV3() {
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
   const error = loadError ? requestErrorText(loadError, tr) : "";
+  const freshness = formatFreshness(data?.upstreamGeneratedAt, tr);
 
   return (
     <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
@@ -168,6 +193,7 @@ export default function TodayPageV3() {
         </div>
       </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
+      {data ? <div data-today-freshness="true" role="status" className="rounded-[1rem] border border-white/[0.07] bg-white/[0.025] px-3.5 py-2.5 text-[11px] leading-5 text-slate-400">{freshness}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
