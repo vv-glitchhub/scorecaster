@@ -93,6 +93,8 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
   const kickoff = detail?.commenceTime
     ? new Date(detail.commenceTime).toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
     : tr({ fi: "alkamisaika puuttuu", en: "kickoff unavailable", es: "hora no disponible" });
+  const fixtureSource = detail?.fixtureSource || tr({ fi: "Varmennettu lähde", en: "Verified source", es: "Fuente verificada" });
+  const unavailableLabel = tr({ fi: "Ei saatavilla", en: "Not available", es: "No disponible" });
 
   return (
     <section className="sc-surface relative overflow-hidden rounded-[2rem] p-5 sm:p-7" data-match-journey-v1="true">
@@ -121,7 +123,7 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
           <MatchIdentity
             homeTeam={detail.homeTeam}
             awayTeam={detail.awayTeam}
-            meta={`${kickoff} · ${detail.fixtureSource || "verified pipeline"}`}
+            meta={`${kickoff} · ${fixtureSource}`}
           />
           <ol className="relative mt-6 before:absolute before:bottom-5 before:left-5 before:top-5 before:w-px before:bg-[var(--sc-border)]">
             <Step
@@ -137,7 +139,7 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
               label={tr({ fi: "Evidenssi kartoitetaan", en: "Map the evidence", es: "Mapear la evidencia" })}
               detail={evidenceMissing
                 ? tr({ fi: "Osa evidenssipayloadista puuttuu; puuttuva pysyy puuttuvana.", en: "Part of the evidence payload is missing; missing stays missing.", es: "Falta parte de la evidencia; lo ausente sigue ausente." })
-                : `${verifiedCount ?? "—"}/${totalChecks ?? "—"} ${tr({ fi: "tarkistusta", en: "checks", es: "comprobaciones" })} · ${eligibleCount ?? "—"}/${totalFeatures ?? "—"} features`}
+                : `${verifiedCount ?? "—"}/${totalChecks ?? "—"} ${tr({ fi: "tarkistusta", en: "checks", es: "comprobaciones" })} · ${eligibleCount ?? "—"}/${totalFeatures ?? "—"} ${tr({ fi: "evidenssisignaalia", en: "evidence signals", es: "señales de evidencia" })}`}
               state={evidenceMissing ? "warning" : "complete"}
             />
             <Step
@@ -165,7 +167,7 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
                 <h3 className="mt-2 text-2xl font-black tracking-[-0.035em] text-[var(--sc-text)]">{primary?.selection || "—"}</h3>
                 <div className="mt-1 text-sm font-bold text-[var(--sc-muted)]">{primary?.bookmaker || tr({ fi: "Varmennettu hintalähde puuttuu", en: "Verified price source unavailable", es: "Falta fuente de precio verificada" })}</div>
               </div>
-              {decision ? <DecisionBadge decision={decision} /> : <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">UNAVAILABLE</span>}
+              {decision ? <DecisionBadge decision={decision} /> : <span className="rounded-full border border-amber-300/25 bg-amber-300/10 px-3 py-1 text-[10px] font-black uppercase tracking-[0.12em] text-amber-100">{unavailableLabel}</span>}
             </div>
             <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
               <MetricTile compact label={tr({ fi: "Kerroin", en: "Odds", es: "Cuota" })} value={decimal(primary?.odds)} tone="blue" />
@@ -178,7 +180,7 @@ export default function MatchJourneyV1({ detail, sport, tr, locale }) {
             </p>
             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
               <Link href={eventHref} className="sc-button-primary">{primary ? tr({ fi: "Avaa päätöslippu", en: "Open decision ticket", es: "Abrir ticket de decisión" }) : tr({ fi: "Avaa event-audit", en: "Open event audit", es: "Abrir auditoría" })}</Link>
-              {primary ? <Link href={`/decision-evidence?eventId=${encodeURIComponent(detail.eventId)}&sport=${encodeURIComponent(eventSport)}&selection=${encodeURIComponent(primary.selection)}`} className="sc-button-secondary">Decision Evidence</Link> : null}
+              {primary ? <Link href={`/decision-evidence?eventId=${encodeURIComponent(detail.eventId)}&sport=${encodeURIComponent(eventSport)}&selection=${encodeURIComponent(primary.selection)}`} className="sc-button-secondary">{tr({ fi: "Tarkista päätösevidenssi", en: "Review decision evidence", es: "Revisar evidencia de la decisión" })}</Link> : null}
             </div>
           </article>
 
