@@ -31,6 +31,12 @@ function formatOdds(value) {
   return parsed === null ? "–" : parsed.toFixed(2);
 }
 
+function formatUpdatedAt(value, locale) {
+  const timestamp = Date.parse(value || "");
+  if (!Number.isFinite(timestamp)) return "";
+  return new Date(timestamp).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" });
+}
+
 function eventHref(item) {
   if (!item?.eventId && !item?.id) return "/events";
   const query = new URLSearchParams();
@@ -87,7 +93,7 @@ function CompactPanel({ title, action, children, className = "" }) {
 }
 
 export default function TodayPageV3() {
-  const { tr } = useLanguage();
+  const { tr, locale } = useLanguage();
   const { data, loading, error: loadError, refresh } = useRemoteJson("/api/recommendations?limit=20", { refreshMs: 300000, timeoutMs: 60000 });
   const recommendations = useMemo(() => Array.isArray(data?.recommendations) ? data.recommendations : [], [data]);
   const plays = useMemo(() => recommendations.filter((item) => item?.decision === "PLAY"), [recommendations]);
@@ -109,6 +115,7 @@ export default function TodayPageV3() {
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
   const error = loadError ? requestErrorText(loadError, tr) : "";
+  const updatedAt = formatUpdatedAt(data?.upstreamGeneratedAt, locale);
 
   return (
     <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
@@ -158,7 +165,6 @@ export default function TodayPageV3() {
           <div className="min-w-0">
             <div className="text-sm font-black text-red-100">{tr({ fi: "Päivän varmennettu analyysi ei latautunut", en: "Today’s verified analysis is unavailable", es: "El análisis verificado de hoy no está disponible" })}</div>
             <p className="mt-1.5 max-w-2xl text-xs leading-5 text-red-100/70">{tr({ fi: "Yhteys analyysipalveluun katkesi. Emme täytä näkymää arvioiduilla tai keksityillä nostoilla — voit yrittää uudelleen tai siirtyä varmennettuihin otteluihin.", en: "The analysis service could not be reached. We will not fill this view with estimated or fabricated picks — retry or continue with verified matches.", es: "No se pudo contactar con el servicio de análisis. No rellenaremos esta vista con selecciones estimadas o inventadas: inténtalo de nuevo o continúa con partidos verificados." })}</p>
-            <p className="mt-2 text-[11px] text-red-100/55">{error}</p>
           </div>
           <button type="button" onClick={refresh} className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl border border-red-200/20 bg-red-100/10 px-3 text-xs font-black text-red-50 hover:bg-red-100/15">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button>
         </div>
@@ -167,6 +173,7 @@ export default function TodayPageV3() {
           <Link href="/feed" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-black text-slate-300">AI Feed →</Link>
         </div>
       </section> : null}
+      {updatedAt ? <div role="status" className="flex items-center gap-2 rounded-[1rem] border border-sky-400/15 bg-sky-400/[0.045] px-3.5 py-2.5 text-xs text-sky-100/75"><span aria-hidden="true" className="text-sky-300">●</span><span>{tr({ fi: "Päivitetty", en: "Updated", es: "Actualizado" })} {updatedAt}</span></div> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">

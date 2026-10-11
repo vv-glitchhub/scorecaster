@@ -56,6 +56,7 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
 
   assert.match(home, /error: loadError/);
   assert.match(home, /requestErrorText\(loadError, tr\)/);
+  assert.doesNotMatch(home, /<p className="mt-2 text-\[11px\] text-red-100\/55">\{error\}<\/p>/);
   assert.match(home, /role="alert"/);
   assert.match(home, /data-today-recovery="true"/);
   assert.match(home, /Today’s verified analysis is unavailable/);
@@ -76,6 +77,19 @@ test("homepage V3 surfaces partial upstream failures without presenting unverifi
   assert.match(home, /Osa markkinoista ei vastannut\. Näytetään vain varmennettu data\./);
   assert.match(home, /Some markets did not respond\. Only verified data is shown\./);
   assert.doesNotMatch(home, /fallback odds|synthetic odds|estimated bookmaker/i);
+});
+
+test("homepage V3 shows only valid upstream freshness evidence", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /data\?\.upstreamGeneratedAt/);
+  assert.match(home, /function formatUpdatedAt\(value, locale\)/);
+  assert.match(home, /Date\.parse\(value \|\| ""\)/);
+  assert.match(home, /dateStyle: "short", timeStyle: "short"/);
+  assert.match(home, /Päivitetty/);
+  assert.match(home, /Updated/);
+  assert.match(home, /Actualizado/);
+  assert.match(home, /role="status"/);
 });
 
 test("homepage V3 preserves safe navigation from a recommendation to the event detail route", async () => {
