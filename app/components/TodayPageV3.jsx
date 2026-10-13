@@ -31,6 +31,16 @@ function formatOdds(value) {
   return parsed === null ? "–" : parsed.toFixed(2);
 }
 
+function formatUpdatedAt(value) {
+  if (!value) return null;
+  const timestamp = Date.parse(value);
+  if (!Number.isFinite(timestamp)) return null;
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short"
+  }).format(new Date(timestamp));
+}
+
 function eventHref(item) {
   if (!item?.eventId && !item?.id) return "/events";
   const query = new URLSearchParams();
@@ -109,6 +119,7 @@ export default function TodayPageV3() {
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
   const error = loadError ? requestErrorText(loadError, tr) : "";
+  const upstreamUpdatedAt = formatUpdatedAt(data?.upstreamGeneratedAt);
 
   return (
     <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
@@ -168,6 +179,7 @@ export default function TodayPageV3() {
         </div>
       </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
+      {!loading && !error && upstreamUpdatedAt ? <div role="status" className="rounded-[1rem] border border-sky-400/20 bg-sky-400/[0.055] px-3.5 py-3 text-xs leading-5 text-sky-100/80">{tr({ fi: `Varmennettu data päivitetty ${upstreamUpdatedAt}`, en: `Verified data updated ${upstreamUpdatedAt}`, es: `Datos verificados actualizados ${upstreamUpdatedAt}` })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
