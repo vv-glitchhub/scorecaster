@@ -560,6 +560,22 @@ export async function GET(request) {
     counts[value] = (counts[value] || 0) + 1;
     return counts;
   }, { PLAY: 0, CAUTION: 0, SKIP: 0 });
+  // Explain zero PLAY results without relaxing risk gates or exposing private evidence.
+  const rejectionReasons = sorted.reduce((counts, pick) => {
+    if (pick.productDecision === "PLAY") return counts;
+    const reason = pick.decision === "PASS" ? "market-data-or-value-gate"
+      : pick.marketDecisionBeforeSafetyGate === "BET" ? "independent-evidence-or-safety-gate"
+      : pick.decision === "WAIT" ? "market-data-quality-gate"
+      : "insufficient-edge-or-ev";
+    counts[reason] = (counts[reason] || 0) + 1;
+    return counts;
+  }, {});
+  const pipelineStatus = providerGames === 0 ? "no-provider-games"
+    : acceptedGames === 0 ? "no-valid-upcoming-fixtures"
+    : allPicks.length === 0 ? "no-market-candidates"
+    : sorted.length === 0 ? "no-enriched-candidates"
+    : decisionCounts.PLAY === 0 ? "no-qualified-play"
+    : "play-available";
   const ownedEvidence = picksWithOwnedEvidence.reduce((counts, pick) => {
     const evidence = pick.ownedDecisionEvidenceV1 || {};
     if (evidence.marketMapped) counts.marketMapped += 1;
@@ -599,6 +615,8 @@ export async function GET(request) {
       excludedGames: Math.max(0, providerGames - acceptedGames),
       intelligenceLevels,
       decisionCounts,
+      pipelineStatus,
+      rejectionReasons,
       disclaimer: "Live-provider market value is evaluated first. Scorecaster's owned model and other independent evidence may satisfy the existing evidence gate or downgrade a candidate, but they never change the market probability and no single evidence layer can create PLAY by itself.",
       leagues,
       count: sorted.length,
