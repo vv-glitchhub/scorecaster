@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { GET as getTopPicksRoute } from "../../top-picks/route";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -159,16 +160,21 @@ export async function GET(request) {
     const now = Date.now();
     const capturedAt = new Date(now).toISOString();
     const origin = new URL(request.url).origin;
-    const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(75_000)
-    });
-    const topPicks = await topPicksResponse.json();
+    // Execute the existing validated route in-process. A nested public HTTP
+    // request adds network failures, protection redirects and extra latency.
+    const topPicksResponse = await getTopPicksRoute(
+      new Request(`${origin}/api/top-picks`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      })
+    );
+    const topPicks = await topPicksResponse.json().catch(() => null);
     if (!topPicksResponse.ok || topPicks?.ok === false) {
       return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
     }
 
-    const publicPicks = Array.isArray(topPicks.data) ? topPicks.data : [];
+    const publicPicks = Array.isArray(topPicks?.data) ? topPicks.data : [];
+    const pipelineStatus = topPicks?.pipelineStatus || "unknown";
     const capturePicks = await enrichPicksForUnifiedCapture(publicPicks, { now });
     const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
@@ -182,6 +188,9 @@ export async function GET(request) {
       version: "unified-sports-data-worker-v3.1",
       capturedAt,
       selections: capture.stored.length,
+      topPicksPipelineStatus: pipelineStatus,
+      topPicksCandidateCount: Number(topPicks?.marketCandidateCount || 0),
+      zeroSelections: capture.stored.length === 0,
       providerObservations: capture.observationCount,
       secondaryPricingCapture: {
         ...secondaryPricingCapture,
