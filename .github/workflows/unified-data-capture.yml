@@ -69,7 +69,13 @@ jobs:
             echo "Unified Data worker returned ok=false"
             exit 1
           fi
-          echo "Fallback schedule captured fresh Unified Data."
+          selections=$(jq -r '.selections // 0' /tmp/unified.json)
+          if ! [[ "$selections" =~ ^[0-9]+$ ]] || [ "$selections" -eq 0 ]; then
+            echo "::error::Unified Data worker returned zero captured selections; provider data is not restored."
+            echo "Top Picks pipeline status: $(jq -r '.topPicksPipelineStatus // "unknown"' /tmp/unified.json)"
+            exit 1
+          fi
+          echo "Fallback schedule captured $selections verified selections."
 
       - name: Capture normalized multi-sport analytics
         if: steps.freshness.outputs.required == 'true'
