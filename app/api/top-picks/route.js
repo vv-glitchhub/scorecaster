@@ -1,4 +1,5 @@
 import { SPORTS } from "../../../lib/sports";
+import { GET as getOddsRoute } from "../odds/route";
 import { directoryFixtures, marketCoverage } from "../../../lib/live-market-availability.mjs";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
@@ -419,10 +420,13 @@ async function loadLeague(origin, league, now, { directory = false, eventId = ""
   const unavailable = (errorCode, httpStatus = null) => ({ ok: false, sportKey: league, errorCode, httpStatus, picks: [], fixtures: [], providerGames: 0, acceptedGames: 0 });
   try {
     const markets = directory ? "h2h" : TOP_PICK_MARKETS.join(",");
-    const response = await fetch(
+    // Invoke the existing validated odds route in-process. Protected preview
+    // deployments can block nested HTTP requests before they reach /api/odds.
+    // The odds route retains its own upstream timeout and H2H fallback.
+    const response = await getOddsRoute(new Request(
       `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=${encodeURIComponent(markets)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(directory ? 18000 : 28000) }
-    );
+      { method: "GET", headers: { Accept: "application/json" } }
+    ));
 
     if (!response.ok) return unavailable("provider-unavailable", response.status);
     const data = await response.json();
