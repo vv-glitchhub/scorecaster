@@ -179,8 +179,14 @@ export async function GET(request) {
     const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
     const providerQuality = await recentProviderQuality(admin, now);
-    const incidents = evaluateUnifiedDataIncidents(capture.stored, providerQuality);
-    const incidentSync = await syncIncidents(admin, incidents, capturedAt);
+    // An empty capture is not proof that existing provider incidents resolved.
+    // Preserve active incidents until a nonempty, verified capture can assess them.
+    const incidents = capture.stored.length
+      ? evaluateUnifiedDataIncidents(capture.stored, providerQuality)
+      : [];
+    const incidentSync = capture.stored.length
+      ? await syncIncidents(admin, incidents, capturedAt)
+      : { active: null, resolved: 0, skipped: "no-captured-selections" };
     const closing = await finalizeClosingRecords(admin, now);
 
     return response({
