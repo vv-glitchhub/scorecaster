@@ -480,7 +480,12 @@ async function loadLeague(origin, league, now, { directory = false, eventId = ""
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const unknownKeys = [...url.searchParams.keys()].filter((key) => !["sports", "view", "eventId"].includes(key));
+  // Vercel's protected-deployment fetch helpers may append access-control
+  // query parameters. Ignore only Vercel-owned keys; keep strict validation
+  // for all other caller-supplied parameters.
+  const unknownKeys = [...url.searchParams.keys()].filter((key) =>
+    !["sports", "view", "eventId"].includes(key) && !key.startsWith("_vercel_")
+  );
   if (unknownKeys.length) {
     return Response.json(
       { ok: false, error: "Unsupported query parameter", data: [] },
