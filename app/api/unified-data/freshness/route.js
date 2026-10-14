@@ -21,6 +21,8 @@ export async function GET() {
     return response({
       ok: false,
       error: "Unified Data freshness is unavailable",
+      errorCode: "supabase-admin-unconfigured",
+      protectedWorkerRequired: true,
       paperOnly: true
     }, 503);
   }
@@ -32,7 +34,9 @@ export async function GET() {
       .order("captured_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (error) throw error;
+    if (error) {
+      return response({ ok: false, error: "Unified Data freshness is unavailable", errorCode: "snapshot-query-failed", protectedWorkerRequired: true, paperOnly: true }, 503);
+    }
 
     const freshness = evaluateUnifiedCaptureFreshness({
       latestCapturedAt: data?.captured_at || null,
@@ -54,6 +58,8 @@ export async function GET() {
     return response({
       ok: false,
       error: "Unified Data freshness is unavailable",
+      errorCode: "snapshot-query-failed",
+      protectedWorkerRequired: true,
       paperOnly: true
     }, 503);
   }
