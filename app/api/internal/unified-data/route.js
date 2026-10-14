@@ -1,5 +1,6 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
+import { selectCapturePicks } from "../../../../lib/unified-capture-priority-v1.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -175,7 +176,10 @@ export async function GET(request) {
 
     const publicPicks = Array.isArray(topPicks?.data) ? topPicks.data : [];
     const pipelineStatus = topPicks?.pipelineStatus || "unknown";
-    const capturePicks = await enrichPicksForUnifiedCapture(publicPicks, { now });
+    // Preserve the public live market universe; limit only long-term capture.
+    // Owned European football leagues get first access to the write budget.
+    const selectedPicks = selectCapturePicks(publicPicks);
+    const capturePicks = await enrichPicksForUnifiedCapture(selectedPicks, { now });
     const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
     const providerQuality = await recentProviderQuality(admin, now);
@@ -196,6 +200,8 @@ export async function GET(request) {
       selections: capture.stored.length,
       topPicksPipelineStatus: pipelineStatus,
       topPicksCandidateCount: Number(topPicks?.marketCandidateCount || 0),
+      captureCandidateCount: selectedPicks.length,
+      captureSkippedByBudget: Math.max(0, publicPicks.length - selectedPicks.length),
       zeroSelections: capture.stored.length === 0,
       providerObservations: capture.observationCount,
       secondaryPricingCapture: {
