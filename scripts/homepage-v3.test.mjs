@@ -78,6 +78,16 @@ test("homepage V3 surfaces partial upstream failures without presenting unverifi
   assert.doesNotMatch(home, /fallback odds|synthetic odds|estimated bookmaker/i);
 });
 
+test("homepage V3 exposes upstream freshness truthfully", async () => {
+  const home = await file("app/components/TodayPageV3.jsx");
+
+  assert.match(home, /data\?\.upstreamGeneratedAt/);
+  assert.match(home, /data-today-freshness="true"/);
+  assert.match(home, /Verified data updated/);
+  assert.match(home, /Verified data update time is unavailable/);
+  assert.match(home, /Number\.isFinite\(timestamp\)/);
+});
+
 test("homepage V3 preserves safe navigation from a recommendation to the event detail route", async () => {
   const home = await file("app/components/TodayPageV3.jsx");
 

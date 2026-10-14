@@ -31,6 +31,24 @@ function formatOdds(value) {
   return parsed === null ? "–" : parsed.toFixed(2);
 }
 
+function formatFreshness(value, tr) {
+  if (typeof value === "string") {
+    const timestamp = Date.parse(value);
+    if (Number.isFinite(timestamp)) {
+      return tr({
+        fi: `Varmennettu data päivitetty ${new Date(timestamp).toLocaleString("fi-FI", { dateStyle: "medium", timeStyle: "short" })}`,
+        en: `Verified data updated ${new Date(timestamp).toLocaleString("en-GB", { dateStyle: "medium", timeStyle: "short" })}`,
+        es: `Datos verificados actualizados ${new Date(timestamp).toLocaleString("es-ES", { dateStyle: "medium", timeStyle: "short" })}`
+      });
+    }
+  }
+  return tr({
+    fi: "Varmennetun datan päivitysaika ei ole saatavilla.",
+    en: "Verified data update time is unavailable.",
+    es: "La hora de actualización de los datos verificados no está disponible."
+  });
+}
+
 function eventHref(item) {
   if (!item?.eventId && !item?.id) return "/events";
   const query = new URLSearchParams();
@@ -168,6 +186,9 @@ export default function TodayPageV3() {
         </div>
       </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
+      <div data-today-freshness="true" role="status" className="rounded-[1rem] border border-sky-400/15 bg-sky-400/[0.035] px-3.5 py-2.5 text-[11px] leading-5 text-sky-100/70">
+        {formatFreshness(data?.upstreamGeneratedAt, tr)}
+      </div>
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
