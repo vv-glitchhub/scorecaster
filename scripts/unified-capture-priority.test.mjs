@@ -21,3 +21,8 @@ test("does not mutate original candidate list", () => {
   assert.equal(picks.length, 2);
   assert.equal(picks[0].league, "soccer_usa_mls");
 });
+
+test("MLS cannot exhaust unused owned-football budget", () => {
+  const onlyMls = Array.from({ length: 30 }, (_, i) => make("soccer_usa_mls", i));
+  assert.equal(selectCapturePicks(onlyMls).length, 6);
+});
