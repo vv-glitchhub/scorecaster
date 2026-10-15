@@ -25,6 +25,7 @@ import {
   runtimeDeploymentEvidence
 } from "../../../lib/production-release-evidence.mjs";
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../lib/supabase-service-restriction.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -152,6 +153,7 @@ export async function GET(request) {
 
   const fatal = results.find((result) => result.error);
   if (fatal) {
+    if (isSupabaseServiceRestricted(fatal.error)) return json({ ...restrictedSupabaseResponse("Production evidence"), safety: { paperOnly: true, realMoneyExecution: false, probabilityChanged: false } }, 503);
     return json({
       ok: false,
       error: process.env.NODE_ENV === "production" ? "Production evidence could not be loaded" : String(fatal.error),
