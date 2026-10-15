@@ -89,6 +89,7 @@ function CompactPanel({ title, action, children, className = "" }) {
 export default function TodayPageV3() {
   const { tr } = useLanguage();
   const { data, loading, error: loadError, refresh } = useRemoteJson("/api/recommendations?limit=20", { refreshMs: 300000, timeoutMs: 60000 });
+  const { error: dataStorageError } = useRemoteJson("/api/unified-data/freshness", { refreshMs: 900000, timeoutMs: 15000 });
   const recommendations = useMemo(() => Array.isArray(data?.recommendations) ? data.recommendations : [], [data]);
   const plays = useMemo(() => recommendations.filter((item) => item?.decision === "PLAY"), [recommendations]);
   const nearPlay = useMemo(() => {
@@ -178,6 +179,7 @@ export default function TodayPageV3() {
           <Link href="/feed" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-black text-slate-300">AI Feed →</Link>
         </div>
       </section> : null}
+      {dataStorageError?.code === "supabase-service-restricted" ? <div data-storage-restriction="true" role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Tallennuspalvelu on käyttökiintiön vuoksi rajoitettu. Ottelu- ja kerrointietoja voidaan näyttää, mutta historiallinen analyysi ja oman mallin tuoreus eivät päivity.", en: "Storage is currently restricted by a service quota. Live matches and odds may still appear, but historical analysis and own-model freshness are not updating.", es: "El almacenamiento está restringido por una cuota de servicio. Los partidos y las cuotas pueden mostrarse, pero el análisis histórico y el modelo no se actualizan." })}</div> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
