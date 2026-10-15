@@ -20,3 +20,10 @@ test("collector discloses only fixed failure stages, not production exception de
   assert.match(text, /process\.env\.NODE_ENV === "production" \? "Collector capture failed" : String\(error\)/);
   assert.match(text, /if \(!authorized\(request\)\)/);
 });
+
+test("scheduled collector logs only allowlisted failure stages", async () => {
+  const workflow = await readFile(new URL("../.github/workflows/collector.yml",import.meta.url),"utf8");
+  assert.match(workflow, /stage=\$\(jq -r '\.failureStage \/\/ empty' \/tmp\/collector\.json/);
+  assert.match(workflow, /create-run\|acquire-data\|external-collector\|save-records\|finish-run/);
+  assert.doesNotMatch(workflow, /cat \/tmp\/collector\.json/);
+});
