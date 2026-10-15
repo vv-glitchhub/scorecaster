@@ -46,3 +46,13 @@ test("validated estimator status is passed through to the homepage without grant
   assert.equal(result.decision, "CAUTION");
   assert.equal(result.realMoneyActionAvailable, false);
 });
+
+test("Today distinguishes calibrated paper-only strategies from unavailable model evidence", async () => {
+  const source = await readFile(new URL("../app/components/TodayPageV3.jsx", import.meta.url), "utf8");
+  assert.match(source, /data-probability-value-unverified="true"/);
+  assert.match(source, /data-probability-value-verified="paper-only"/);
+  assert.match(source, /probabilityValue\?\.eligible === true/);
+  assert.match(source, /conservativeEV/);
+  assert.match(source, /High probability \+ value/);
+  assert.match(source, /Paper-only/);
+});
