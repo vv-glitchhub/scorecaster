@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import {
   evaluateUnifiedCaptureFreshness,
   UNIFIED_CAPTURE_FRESHNESS_MINUTES
@@ -35,6 +36,7 @@ export async function GET() {
       .limit(1)
       .maybeSingle();
     if (error) {
+      if (isSupabaseServiceRestricted(error)) return response({ ...restrictedSupabaseResponse("Unified Data freshness"), fresh: false, captureBlocked: true, protectedWorkerRequired: false }, 503);
       return response({ ok: false, error: "Unified Data freshness is unavailable", errorCode: "snapshot-query-failed", protectedWorkerRequired: true, paperOnly: true }, 503);
     }
 
@@ -54,7 +56,8 @@ export async function GET() {
       protectedWorkerRequired: freshness.protectedWorkerRequired,
       paperOnly: true
     });
-  } catch {
+  } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response({ ...restrictedSupabaseResponse("Unified Data freshness"), fresh: false, captureBlocked: true, protectedWorkerRequired: false }, 503);
     return response({
       ok: false,
       error: "Unified Data freshness is unavailable",
