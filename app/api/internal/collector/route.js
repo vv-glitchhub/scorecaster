@@ -163,11 +163,12 @@ async function collectFixtureSnapshots(origin, collectedAt) {
 }
 
 async function createRun(admin, startedAt) {
-  const { data, error } = await admin
+  const { data, error, status } = await admin
     .from("collector_runs")
     .insert({ started_at: startedAt, status: "running", trigger_type: "scheduled", paper_only: true })
     .select("id")
     .single();
+  if (Number(status) === 402) throw { status: 402 };
   if (error) throw error;
   return data.id;
 }
