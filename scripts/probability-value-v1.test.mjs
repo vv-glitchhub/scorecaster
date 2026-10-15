@@ -8,6 +8,7 @@ const evidence = (probability, validation) => ({
 });
 const candidate = (id, odds, probability, lowerProbability, overrides={}) => ({
   id, marketKey:"h2h", fixtureVerifiedByProvider:true, productDecision:"PLAY",
+  dataGate:{playable:true,stale:false},
   odds, ownedDecisionEvidenceV1:evidence(probability, {outOfSample:true,calibrated:true,sampleSize:500,confidenceLevel:0.95,lowerProbability}),
   ...overrides
 });
