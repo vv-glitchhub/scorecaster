@@ -1,4 +1,5 @@
 import { getSupabaseAdminClient } from "../../../../lib/supabase";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { settlementMonitorAuthorizationValid, settlementMonitorConfiguration } from "../../../../lib/settlement-monitor-config.js";
 import { runSettlementMonitor } from "../../../../lib/settlement-monitor.js";
 
@@ -26,6 +27,7 @@ export async function GET(request) {
   try {
     return json(await runSettlementMonitor({ admin }), 200);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return json(restrictedSupabaseResponse("Settlement Monitor"), 503);
     return json({ ok: false, error: process.env.NODE_ENV === "production" ? "Settlement Monitor cycle failed" : String(error?.message || error) }, 500);
   }
 }
