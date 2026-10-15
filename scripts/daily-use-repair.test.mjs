@@ -138,6 +138,8 @@ async function routeHarness(provider) {
       }));
     },
     attachOwnedDecisionEvidenceBatch: async picks => { calls.enrichment += 1; return picks; },
+    evaluateProbabilityValueV1: () => ({ eligible: false, status: "out-of-sample-calibration-required", paperOnly: true }),
+    probabilityValueLeaderboardsV1: () => ({ eligibleCount: 0, highProbabilityValue: [], maximumValue: [], status: "no-calibrated-qualified-candidates", paperOnly: true }),
     enrichPickWithLiveIntelligence: async pick => pick,
     calculatePickQuality: () => ({ qualityScore: 75, qualityGrade: "A" }),
     evaluateIndependentIntelligenceSafetyV1: () => ({ downgrade: true }),
