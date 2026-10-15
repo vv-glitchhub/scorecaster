@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { collectorRegistrySummary } from "../../../../lib/collector-source-registry.mjs";
 import {
   normalizeCollectorBatch,
@@ -305,6 +306,7 @@ export async function GET(request) {
         errors: [{ error: migrationMissing(error) ? "migration-not-active" : "collector-failed", detail: String(error) }],
       }).catch(() => null);
     }
+    if (isSupabaseServiceRestricted(error)) return response({ ...restrictedSupabaseResponse("Collector capture"), failureStage }, 503);
     return response({
       ok: false,
       failureStage,
