@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
 import { selectCapturePicks } from "../../../../lib/unified-capture-priority-v1.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
@@ -158,6 +159,7 @@ export async function GET(request) {
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
 
   try {
+    await assertSupabaseRestReachable(admin, "unified_data_snapshots");
     const now = Date.now();
     const capturedAt = new Date(now).toISOString();
     const origin = new URL(request.url).origin;
@@ -214,6 +216,7 @@ export async function GET(request) {
       paperOnly: true
     });
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response(restrictedSupabaseResponse("Unified Data capture"), 503);
     return response({
       ok: false,
       error: migrationMissing(error)
