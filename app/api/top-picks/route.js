@@ -5,6 +5,7 @@ import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-evidence-v1";
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
+import { evaluateProbabilityValueV1, probabilityValueLeaderboardsV1 } from "../../../lib/probability-value-v1.mjs";
 import { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";
 import {
   isSupportedMarketLeague,
@@ -93,6 +94,7 @@ function publicPickSummary(pick = {}) {
     modelProbability: pick.modelProbability,
     independentModelProbability: pick.independentModelProbability ?? null,
     ownedDecisionEvidence: compactOwnedDecisionEvidence(pick.ownedDecisionEvidenceV1),
+    probabilityValue: pick.probabilityValue || null,
     probabilityDispersion: pick.probabilityDispersion,
     confidence: pick.confidence,
     sourceTrust: pick.sourceTrust,
@@ -550,12 +552,14 @@ export async function GET(request) {
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
   const sorted = enriched
     .sort((a, b) => rankPick(b) - rankPick(a))
-    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS);
+    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS)
+    .map((pick) => ({ ...pick, probabilityValue: evaluateProbabilityValueV1(pick) }));
   const featured = filterUpcomingPicks(sorted, FEATURED_WINDOW_HOURS, now)
     .filter((pick) => pick.productDecision !== "SKIP")
     .slice(0, 3);
   const responseData = view === "summary" ? sorted.map(publicPickSummary) : sorted;
   const responseFeatured = view === "summary" ? featured.map(publicPickSummary) : featured;
+  const probabilityValueLeaders = probabilityValueLeaderboardsV1(sorted);
 
   const providerGames = leagueResults.reduce((sum, result) => sum + result.providerGames, 0);
   const acceptedGames = leagueResults.reduce((sum, result) => sum + result.acceptedGames, 0);
@@ -616,6 +620,7 @@ export async function GET(request) {
       deepCandidateSelection: "owned-evidence-first+event-diversity",
       markets: TOP_PICK_MARKETS,
       ownedEvidence,
+      probabilityValueLeaders,
       view,
       leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
       defaultLeagueSeason: marketSeason(now),
