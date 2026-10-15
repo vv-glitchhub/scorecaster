@@ -42,13 +42,21 @@ async function fetchTopPicks(target) {
   // Internal HTTP calls can be intercepted by Vercel preview protection and
   // incorrectly turn working live odds into HTTP 502 for the homepage.
   // Retain a fail-closed overall timeout; neither path invents recommendations.
-  const response = await Promise.race([
-    getTopPicksRoute(new Request(target.toString(), {
-      method: "GET",
-      headers: { Accept: "application/json" }
-    })),
-    new Promise((_, reject) => setTimeout(() => reject(new Error("top-picks-timeout")), TOP_PICKS_TIMEOUT_MS))
-  ]);
+  let timer;
+  let response;
+  try {
+    response = await Promise.race([
+      getTopPicksRoute(new Request(target.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      })),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("top-picks-timeout")), TOP_PICKS_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok !== true) {
     return { ok: false, status: response.status, payload, data: [] };
