@@ -2,5 +2,5 @@
   "schemaVersion": 1,
   "contractVersion": "scorecaster-protected-worker-contract-v2",
   "workerCount": 10,
-  "implementationFingerprint": "c1f59f9894445ef3c56f22a4ea2d4b91f433729fd1745d9d764d1a304b617bd3"
+  "implementationFingerprint": "46ff1bfab2e10d68d332a6112d14075263bd3efe11c9def9a9d764fb5bad3eb4"
 }
