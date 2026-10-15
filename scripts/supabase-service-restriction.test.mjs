@@ -120,7 +120,7 @@ test("Today reports restricted history separately from verified live odds", asyn
   const client = await read("lib/client-request.mjs");
   assert.match(today, /data-storage-restriction="true"/);
   assert.match(today, /dataStorageError\?\.code === "supabase-service-restricted"/);
-  assert.match(today, /\/"api\/unified-data\/freshness"/);
+  assert.ok(today.includes('useRemoteJson("/api/unified-data/freshness"'));
   assert.match(client, /error\?\.code === "supabase-service-restricted"/);
   assert.match(client, /model storage are restricted/);
 });
