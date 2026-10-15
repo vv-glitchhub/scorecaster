@@ -48,6 +48,7 @@ const missingSchema = (error) => error?.code === "42P01"
 async function safeQuery(label, operation) {
   try {
     const result = await operation();
+    if (Number(result?.status) === 402) return { label, available: false, rows: [], error: { status: 402 } };
     if (result?.error) {
       if (missingSchema(result.error)) return { label, available: false, rows: [], warning: `${label}_migration_required` };
       throw result.error;
