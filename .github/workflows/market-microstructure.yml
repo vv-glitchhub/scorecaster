@@ -76,8 +76,13 @@ jobs:
           const code = Number(process.env.HTTP_CODE || 0);
           let payload = null;
           try { payload = JSON.parse(fs.readFileSync(process.env.REPORT_PATH, 'utf8')); } catch {}
+          const restricted = payload?.errorCode === 'supabase-service-restricted';
+          if (restricted && code === 503) {
+            console.error('::error::Supabase Fair Use restriction (HTTP 402) blocks market capture; check organization quota/billing.');
+          }
           const safe = {
             httpStatus: code,
+            quotaRestricted: restricted,
             ok: payload?.ok === true,
             version: payload?.version || null,
             status: payload?.status || null,
