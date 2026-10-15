@@ -195,7 +195,7 @@ test("public unified service does not opt in to live SportsGameOdds acquisition"
 test("protected worker enriches only after CRON authorization guard", async () => {
   const route = await source("app/api/internal/unified-data/route.js");
   const unauthorized = route.indexOf("if (!authorized(request))");
-  const enrichment = route.indexOf("enrichPicksForUnifiedCapture(publicPicks");
+  const enrichment = route.indexOf("enrichPicksForUnifiedCapture(selectedPicks");
   assert.ok(unauthorized >= 0);
   assert.ok(enrichment > unauthorized);
   assert.match(route, /version:\s*"unified-sports-data-worker-v3\.1"/);
