@@ -38,6 +38,11 @@ jobs:
             -w "%{http_code}" \
             "$SCORECASTER_URL/api/unified-data/freshness" || true)
           required=true
+          # A confirmed 402 block cannot be repaired by repeated worker calls.
+          if [ "$status" = "503" ] && [ "$(jq -r '.errorCode // empty' /tmp/freshness.json 2>/dev/null || true)" = "supabase-service-restricted" ]; then
+            echo "::error::Supabase Fair Use restriction (HTTP 402). Restore the project billing/quota before resuming capture."
+            exit 1
+          fi
           if [ "$status" = "200" ] && [ -s /tmp/freshness.json ]; then
             ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
             if [ "$ok" = "true" ]; then
@@ -62,6 +67,9 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             "$SCORECASTER_URL/api/internal/unified-data")
           if [ "$status" != "200" ]; then
+            if [ "$(jq -r '.errorCode // empty' /tmp/unified.json 2>/dev/null || true)" = "supabase-service-restricted" ]; then
+              echo "::error::Unified Data blocked by Supabase Fair Use (HTTP 402); no verified rows captured."
+            fi
             echo "Unified Data worker failed with HTTP $status"
             exit 1
           fi
