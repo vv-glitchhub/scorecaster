@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { fetchExternalSportsAnalytics, sportsAnalyticsProviderConfiguration } from "../../../../lib/sports-analytics-provider";
 import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v1.mjs";
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
@@ -269,6 +270,7 @@ export async function GET(request) {
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
 
   try {
+    await assertSupabaseRestReachable(admin, "sports_analytics_snapshots");
     const capturedAt = new Date().toISOString();
     const origin = new URL(request.url).origin;
     // Call the already-loaded route handler in-process instead of making a
@@ -313,6 +315,7 @@ export async function GET(request) {
       paperOnly: true
     }, allRequestedEventsFailed ? 500 : 200);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response(restrictedSupabaseResponse("Sports analytics capture"), 503);
     return response({
       ok: false,
       error: migrationMissing(error) ? "Sports analytics migration is not active" : process.env.NODE_ENV === "production" ? "Sports analytics capture failed" : String(error),
