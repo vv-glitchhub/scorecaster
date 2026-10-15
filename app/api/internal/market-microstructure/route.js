@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-source-registry.mjs";
 import { normalizeCollectorBatch } from "../../../../lib/collector-normalize.mjs";
 import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
@@ -131,13 +132,14 @@ function missingPatch(error) {
 }
 
 async function createRun(admin, runId, startedAt) {
-  const { error } = await admin.from("market_capture_runs_v2").insert({
+  const { error, status } = await admin.from("market_capture_runs_v2").insert({
     id: runId,
     started_at: startedAt,
     status: "running",
     source_id: "the_odds_api",
     paper_only: true
   });
+  if (Number(status) === 402) throw { status: 402 };
   if (error) throw error;
 }
 
@@ -223,6 +225,9 @@ export async function GET(request) {
   let runCreated = false;
 
   try {
+    // Quota restrictions can reject every REST request even when the SQL
+    // dashboard remains reachable. Fail before spending upstream odds quota.
+    await assertSupabaseRestReachable(admin, "market_capture_runs_v2");
     await createRun(admin, runId, startedAt);
     runCreated = true;
     const results = await Promise.allSettled(sports.map((sport) => fetchLeague(request, sport, markets)));
@@ -322,6 +327,13 @@ export async function GET(request) {
       paperOnly: true
     }, status === "failed" ? 503 : 200);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) {
+      return response({ ...restrictedSupabaseResponse("Market microstructure capture"),
+        version: "scorecaster-market-microstructure-worker-v2.3",
+        activationMode: activation.mode, emergencyStopAvailable: activation.emergencyStopAvailable,
+        rawPayloadStored: false, probabilityChanged: false,
+        realMoneyExecution: false }, 503);
+    }
     if (runCreated) {
       await finishRun(admin, runId, {
         completed_at: new Date().toISOString(),
