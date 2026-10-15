@@ -38,6 +38,14 @@ jobs:
             "$SCORECASTER_URL/api/internal/collector")
           if [ "$status" != "200" ]; then
             echo "Collector failed with HTTP $status"
+            # Only allow fixed stage identifiers; never print the worker's
+            # response body or arbitrary database/provider error strings.
+            stage=$(jq -r '.failureStage // empty' /tmp/collector.json 2>/dev/null || true)
+            case "$stage" in
+              create-run|acquire-data|external-collector|save-records|finish-run)
+                echo "::error::Collector failed at stage $stage"
+                ;;
+            esac
             exit 1
           fi
           if [ "$(jq -r '.ok // false' /tmp/collector.json)" != "true" ]; then
