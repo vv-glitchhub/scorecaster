@@ -14,6 +14,7 @@ test("Supabase 402 is classified across status, HTTP code and PostgREST message"
   for (const error of [
     { status: 402 }, { statusCode: "402" }, { code: 402 },
     { message: "402 Payment Required" }, { message: "Project service restriction" },
+    { code: "exceeded_db_size_quota" }, { code: "overdue_payment" },
     { details: "Fair Use Policy service is restricted" }
   ]) {
     assert.equal(isSupabaseServiceRestricted(error), true, JSON.stringify(error));
@@ -56,6 +57,12 @@ test("availability preflight is a single lightweight HEAD read and fails closed"
       from() { return { select() { return { limit() { return Promise.resolve({ error: restricted }); } }; } }; }
     }, "sports_analytics_snapshots"),
     (error) => error === restricted
+  );
+  await assert.rejects(
+    assertSupabaseRestReachable({
+      from() { return { select() { return { limit() { return Promise.resolve({ status: 402, error: null }); } }; } }; }
+    }, "unified_data_snapshots"),
+    (error) => error?.status === 402
   );
 });
 
@@ -106,4 +113,14 @@ test("freshness-aware cron skips protected worker for explicit quota restriction
     assert.match(source, /if \[ "\$status" = "200" \]/);
     assert.match(source, /api\/unified-data\/freshness/);
   }
+});
+
+test("Today reports restricted history separately from verified live odds", async () => {
+  const today = await read("app/components/TodayPageV3.jsx");
+  const client = await read("lib/client-request.mjs");
+  assert.match(today, /data-storage-restriction="true"/);
+  assert.match(today, /dataStorageError\?\.code === "supabase-service-restricted"/);
+  assert.match(today, /\/"api\/unified-data\/freshness"/);
+  assert.match(client, /error\?\.code === "supabase-service-restricted"/);
+  assert.match(client, /model storage are restricted/);
 });
