@@ -10,6 +10,7 @@ import {
 } from "../../../../lib/collector-json-provider";
 import { activeMarketLeagues } from "../../../../lib/active-market-universe.js";
 import { GET as getOddsRoute } from "../../odds/route";
+import { GET as getTopPicksRoute } from "../../top-picks/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -183,8 +184,10 @@ export async function GET(request) {
 
   const startedAt = new Date().toISOString();
   let runId = null;
+  let failureStage = "create-run";
   try {
     runId = await createRun(admin, startedAt);
+    failureStage = "acquire-data";
     const origin = new URL(request.url).origin;
     const sourceStatus = [];
     const errors = [];
@@ -193,10 +196,12 @@ export async function GET(request) {
     let internal = { records: [], received: 0, accepted: 0, rejectedCount: 0, publishable: 0, researchOnly: 0 };
 
     try {
-      const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(75_000),
-      });
+      // Call the same validated handler without making a protected
+      // same-origin HTTP request through Vercel middleware or CDN.
+      const topPicksResponse = await getTopPicksRoute(new Request(`${origin}/api/top-picks`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }));
       const topPicks = await topPicksResponse.json().catch(() => null);
       if (topPicksResponse.ok && topPicks?.ok !== false) {
         internal = scorecasterPicksToCollectorRecords(Array.isArray(topPicks?.data) ? topPicks.data : [], startedAt);
@@ -223,6 +228,7 @@ export async function GET(request) {
       sourceStatus.push({ sourceId: "scorecaster_internal", mode: "error", ok: false, records: 0 });
     }
 
+    failureStage = "external-collector";
     const eventIds = [...new Set(internal.records.map((record) => record.event_id))];
     const sports = [...new Set(internal.records.map((record) => record.sport))];
     const external = await fetchCollectorJsonRecords({
@@ -239,6 +245,7 @@ export async function GET(request) {
     });
     if (!external.ok) errors.push({ sourceId: external.source, error: external.reason || "external-source-failed" });
 
+    failureStage = "save-records";
     const records = mergeRecords([internal.records, external.records]);
     if (records.length) {
       const rows = records.map((record) => ({ ...record, run_id: runId }));
@@ -256,6 +263,7 @@ export async function GET(request) {
     const status = records.length ? (errors.length ? "partial" : "success") : "failed";
     const completedAt = new Date().toISOString();
 
+    failureStage = "finish-run";
     await finishRun(admin, runId, {
       completed_at: completedAt,
       status,
@@ -299,6 +307,7 @@ export async function GET(request) {
     }
     return response({
       ok: false,
+      failureStage,
       error: migrationMissing(error)
         ? "Collector migration is not active"
         : process.env.NODE_ENV === "production" ? "Collector capture failed" : String(error),
