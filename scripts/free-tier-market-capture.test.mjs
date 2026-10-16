@@ -94,7 +94,7 @@ test("worker persists only selected fixtures and does not silently delete histor
 test("sports analytics captures at most ten unique events while prioritizing owned football", async () => {
   const worker=await readFile(new URL("../app/api/internal/sports-analytics/route.js",import.meta.url),"utf8");
   assert.match(worker,/const eligiblePicks = uniqueEvents/);
-  assert.match(worker,/selectCapturePicks\(eligiblePicks, \{ total: 10, ownedFootball: 7, other: 3 \}\)/);
+  assert.match(worker,/selectCapturePicks\(selectScheduledHistoricalPicks\(eligiblePicks\), \{ total: 10, ownedFootball: 7, other: 3 \}\)/);
   assert.match(worker,/eventsAvailableBeforeStorageBudget: eligiblePicks\.length/);
   assert.match(worker,/historicalDataDeleted: false/);
   assert.match(worker,/await assertSupabaseRestReachable\(admin, "sports_analytics_snapshots"\)/);
