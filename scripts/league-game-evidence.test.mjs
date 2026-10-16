@@ -81,7 +81,8 @@ test("unverified, partial, malformed or scheduled results are not fabricated",()
 test("target cutoff ensures future results never leak into historical features",()=>{
   const payload=buildVerifiedGamePerformance([
     verified({event_id:"early",commence_time:"2026-10-01T15:00:00Z"}),
-    verified({event_id:"late",commence_time:"2026-10-13T15:00:00Z"})
+    verified({event_id:"late",commence_time:"2026-10-13T15:00:00Z"}),
+    verified({event_id:"late-arrival",commence_time:"2026-10-05T15:00:00Z",captured_at:"2026-10-14T15:00:00Z"})
   ],{sportKey:"soccer_epl",before:"2026-10-12T12:00:00Z",team:"Home",limit:100});
   assert.equal(payload.gameCount,1);
   assert.equal(payload.teamMatchCount,1);
@@ -96,6 +97,7 @@ test("game API reads real canonical outcomes only and handles quota failure",asy
   assert.match(route,/scorecaster_event_outcomes_v1/);
   assert.match(route,/\.eq\("finality_verified",true\)/);
   assert.match(route,/\.eq\("status","final"\)/);
+  assert.match(route,/query = query\.lt\("commence_time",before\)\.lt\("captured_at",before\)/);
   assert.match(route,/\.limit\(Math\.min\(1000,requestedLimit\*5\)\)/);
   assert.match(route,/restrictedSupabaseResponse\("Verified game data"\)/);
   assert.match(route,/queryBounded:true/);
