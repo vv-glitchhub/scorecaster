@@ -26,3 +26,11 @@ test("MLS cannot exhaust unused owned-football budget", () => {
   const onlyMls = Array.from({ length: 30 }, (_, i) => make("soccer_usa_mls", i));
   assert.equal(selectCapturePicks(onlyMls).length, 6);
 });
+
+test("canonical sportKey beats a descriptive league title for owned-football prioritization", () => {
+  const nfl = Array.from({length:10},(_,i)=>({...make("americanfootball_nfl",i),sportKey:"americanfootball_nfl"}));
+  const football = Array.from({length:13},(_,i)=>({...make("Premier League",i+100),sportKey:"soccer_epl"}));
+  const picked = selectCapturePicks([...nfl,...football]);
+  assert.equal(picked.filter(p=>p.sportKey==="soccer_epl").length,12);
+  assert.equal(picked.filter(p=>p.sportKey==="americanfootball_nfl").length,6);
+});
