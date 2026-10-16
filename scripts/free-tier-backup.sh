@@ -16,6 +16,13 @@ for binary in pg_dump pg_restore psql sha256sum date; do
   command -v "$binary" >/dev/null || { echo "Missing required program: $binary" >&2; exit 2; }
 done
 
+source_check="$(psql --no-psqlrc -XAtq -v ON_ERROR_STOP=1 -c \
+  "SELECT CASE WHEN to_regclass('public.market_provider_snapshots_v2') IS NOT NULL AND to_regclass('public.sports_analytics_observations') IS NOT NULL AND to_regclass('public.scorecaster_own_decisions_v1') IS NOT NULL THEN 'scorecaster' ELSE 'wrong-database' END")"
+if [[ "$source_check" != "scorecaster" ]]; then
+  echo "Refusing to archive a database without required Scorecaster history tables." >&2
+  exit 2
+fi
+
 destination="$(realpath -m "$1")"
 repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
 if [[ -n "$repo_root" && ( "$destination" == "$repo_root" || "$destination" == "$repo_root/"* ) ]]; then
