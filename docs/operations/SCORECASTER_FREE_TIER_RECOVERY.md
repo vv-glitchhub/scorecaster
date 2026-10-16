@@ -37,10 +37,10 @@ These changes **reduce growth; they do not reduce the existing 2.79 GB footprint
 
 ## 3. Make a recoverable archive before changing production
 
-Prerequisites: PostgreSQL 17-compatible `pg_dump`, `pg_restore`, `psql`, Bash, `sha256sum`, free local disk space, an **encrypted user-controlled destination outside the Git repository**, and a database connection credential obtained securely from Supabase Dashboard > Database. Do not send database credentials to chat or commit them. For Windows, use WSL/Linux with PostgreSQL client tools.
+Prerequisites: PostgreSQL 17-compatible `pg_dump`, `pg_restore`, `psql`, Bash, `sha256sum`, free local disk space, an **encrypted user-controlled destination outside the Git repository**, and a database connection credential obtained securely from Supabase Dashboard > Database. Prefer a protected `PGPASSFILE` or `PGSERVICE` connection profile rather than putting a password-bearing URI in process arguments. Do not send database credentials to chat or commit them. For Windows, use WSL/Linux with PostgreSQL client tools.
 
 1. Stop or pause **all application writers** for a consistent export. The Free-project service restriction may already block REST writes, but verify this; the direct SQL management connector might still allow management operations.
-2. On your trusted computer, set `SCORECASTER_ARCHIVE_DATABASE_URL` to the Postgres connection string (prefer an appropriately restricted role capable of reading the required public tables). Run:
+2. On your trusted computer, configure libpq environment variables `PGHOST`, `PGPORT`, `PGDATABASE`, `PGUSER`, `PGSSLMODE=require` and a restricted-permission `PGPASSFILE` outside the repository (or use `PGSERVICE`). Prefer an appropriately restricted database role capable of reading all required public tables. **Do not pass a password-bearing URI on the command line.** Run:
 
    ```bash
    bash scripts/free-tier-backup.sh /secure/offline/scorecaster-archives
@@ -48,7 +48,7 @@ Prerequisites: PostgreSQL 17-compatible `pg_dump`, `pg_restore`, `psql`, Bash, `
 
    This exports **the entire `public` schema with data**, creates an index of restore items, captures exact row counts for critical tables, creates SHA-256 checksums, and never deletes or uploads data. It does **not** include the Supabase-managed `auth` and `storage` schemas, configuration, or object files: preserve those separately where relevant.
 3. Copy the archive to **a second encrypted device/location**. Never put a SQL dump in GitHub, a public GitHub Actions artifact, or the same restricted Supabase Storage bucket. Check available free storage and file-size limits before selecting a cloud destination.
-4. Create a separate, disposable PostgreSQL 17 database on your **local computer** called exactly `scorecaster_archive_restore_test`. Install required Supabase-compatible extensions and roles first. Connect with `SCORECASTER_ARCHIVE_RESTORE_TEST_URL` and run:
+4. Create a separate, disposable PostgreSQL 17 database on your **local computer** called exactly `scorecaster_archive_restore_test`. Install required Supabase-compatible extensions and roles first. Unset `PGSERVICE`, then explicitly configure `PGHOST=127.0.0.1`, `PGDATABASE=scorecaster_archive_restore_test`, `PGUSER` and `PGPORT` (plus local authentication). The verifier refuses a remote host or any other database. Run:
 
    ```bash
    bash scripts/free-tier-verify-restore.sh /secure/offline/scorecaster-archives/scorecaster-public-YYYYMMDDTHHMMSSZ.dump
