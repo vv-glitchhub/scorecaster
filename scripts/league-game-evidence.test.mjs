@@ -103,3 +103,14 @@ test("game API reads real canonical outcomes only and handles quota failure",asy
   assert.match(route,/queryBounded:true/);
   assert.doesNotMatch(route,/\.upsert\(|\.insert\(|\.delete\(/);
 });
+
+test("team form is derived from final verified scores, not generic 5.0 placeholders",async()=>{
+  const route=await readFile(new URL("../app/api/team-form/route.js",import.meta.url),"utf8");
+  assert.match(route,/GET as getGameData/);
+  assert.match(route,/getGameData\(new Request/);
+  assert.match(route,/games\.reduce\(\(sum,m\)=>sum\+m\.points/);
+  assert.match(route,/goalsForPerGame:/);
+  assert.match(route,/attackRating:null,defenseRating:null/);
+  assert.match(route,/statsBeyondResultsAvailable:false/);
+  assert.doesNotMatch(route,/fallbackTeamForm|formScore:\s*5\.0/);
+});
