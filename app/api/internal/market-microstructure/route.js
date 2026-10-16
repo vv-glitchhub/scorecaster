@@ -5,6 +5,7 @@ import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-
 import { normalizeCollectorBatch } from "../../../../lib/collector-normalize.mjs";
 import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 import { normalizeMarketProviderGames } from "../../../../lib/market-microstructure-v2.mjs";
+import { selectFreeTierMarketCapture } from "../../../../lib/free-tier-market-capture.mjs";
 import {
   MARKET_FAMILIES,
   activeMarketLeagues,
@@ -231,6 +232,12 @@ export async function GET(request) {
     await createRun(admin, runId, startedAt);
     runCreated = true;
     const results = await Promise.allSettled(sports.map((sport) => fetchLeague(request, sport, markets)));
+    // Preserve provider discovery for every requested league; only bound the
+    // rows persisted in the costly longitudinal market-history tables.
+    const storagePlan = selectFreeTierMarketCapture(results.map((settled, index) => ({
+      sport: sports[index],
+      games: settled.status === "fulfilled" && settled.value.ok ? settled.value.games : []
+    })), { now: startedAt });
     const diagnostics = [];
     const records = [];
     const rejected = [];
@@ -253,7 +260,8 @@ export async function GET(request) {
 
       const captureWindow = splitCaptureWindow(result.games, startedAt);
       ignoredPostStartGames += captureWindow.ignoredPostStart.length;
-      fixtureInputs.push(...fixtureSnapshotInputs(captureWindow.preStart, sport, startedAt));
+      const storedGames = storagePlan.selectedBySport.get(sport) || [];
+      fixtureInputs.push(...fixtureSnapshotInputs(storedGames, sport, startedAt));
       diagnostics.push({
         sport,
         ok: true,
@@ -264,10 +272,12 @@ export async function GET(request) {
         providerHeaders: result.providerHeaders,
         games: result.games.length,
         preStartGames: captureWindow.preStart.length,
+        historyGamesSelected: storedGames.length,
+        historyGamesDeferred: Math.max(0, captureWindow.preStart.length - storedGames.length),
         ignoredPostStartGames: captureWindow.ignoredPostStart.length
       });
 
-      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(captureWindow.preStart), {
+      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(storedGames), {
         capturedAt: startedAt,
         sourceId: "the_odds_api",
         captureId: runId
@@ -311,6 +321,11 @@ export async function GET(request) {
       markets,
       events: eventIds.size,
       normalizedRecords: records.length,
+      storagePolicyVersion: storagePlan.version,
+      historyEventsSelected: storagePlan.selectedEvents,
+      historyEventsEligible: storagePlan.eligibleEvents,
+      bookmakersPerHistoryEvent: storagePlan.bookmakerCap,
+      historicalDataDeleted: false,
       stored: inserted.length,
       writeBatches: Math.ceil(records.length / WRITE_BATCH_SIZE),
       duplicates: Math.max(0, records.length - inserted.length),
