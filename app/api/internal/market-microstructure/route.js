@@ -6,6 +6,7 @@ import { normalizeCollectorBatch } from "../../../../lib/collector-normalize.mjs
 import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 import { normalizeMarketProviderGames } from "../../../../lib/market-microstructure-v2.mjs";
 import { selectFreeTierMarketCapture } from "../../../../lib/free-tier-market-capture.mjs";
+import { selectScheduledHistoricalLeagues } from "../../../../lib/free-tier-league-policy.mjs";
 import {
   MARKET_FAMILIES,
   activeMarketLeagues,
@@ -39,7 +40,7 @@ function configuredSports(now = Date.now()) {
     .split(",")
     .map((value) => clean(value, 100))
     .filter((value) => ALLOWED_SPORTS.has(value));
-  return [...new Set(requested.length ? requested : activeMarketLeagues(now))].slice(0, 16);
+  return selectScheduledHistoricalLeagues(requested.length ? requested : activeMarketLeagues(now)).slice(0, 16);
 }
 
 function configuredMarkets() {
