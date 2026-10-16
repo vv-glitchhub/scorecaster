@@ -11,6 +11,10 @@ if [[ -z "${PGHOST:-}" || -z "${PGDATABASE:-}" || -z "${PGUSER:-}" ]]; then
   echo "Explicit PGHOST+PGDATABASE+PGUSER are required for an isolated LOCAL restore." >&2
   exit 2
 fi
+if [[ -n "${PGSERVICE:-}" ]]; then
+  echo "Unset PGSERVICE: verification must use explicit LOCAL connection settings." >&2
+  exit 2
+fi
 if [[ "$PGDATABASE" != "scorecaster_archive_restore_test" ]]; then
   echo "Refusing restore outside the named test database." >&2
   exit 2
