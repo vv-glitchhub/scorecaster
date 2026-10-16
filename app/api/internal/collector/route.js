@@ -10,6 +10,7 @@ import {
   fetchCollectorJsonRecords,
 } from "../../../../lib/collector-json-provider";
 import { activeMarketLeagues } from "../../../../lib/active-market-universe.js";
+import { selectScheduledHistoricalLeagues, selectScheduledHistoricalPicks } from "../../../../lib/free-tier-league-policy.mjs";
 import { GET as getOddsRoute } from "../../odds/route";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
 
@@ -19,7 +20,7 @@ export const maxDuration = 120;
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
 function fallbackLeagues(now = Date.now()) {
-  return activeMarketLeagues(now).slice(0, 16);
+  return selectScheduledHistoricalLeagues(activeMarketLeagues(now)).slice(0, 16);
 }
 
 function response(payload, status = 200) {
@@ -206,7 +207,7 @@ export async function GET(request) {
       }));
       const topPicks = await topPicksResponse.json().catch(() => null);
       if (topPicksResponse.ok && topPicks?.ok !== false) {
-        internal = scorecasterPicksToCollectorRecords(Array.isArray(topPicks?.data) ? topPicks.data : [], startedAt);
+        internal = scorecasterPicksToCollectorRecords(selectScheduledHistoricalPicks(Array.isArray(topPicks?.data) ? topPicks.data : []), startedAt);
       }
 
       if (!internal.records.length) {
