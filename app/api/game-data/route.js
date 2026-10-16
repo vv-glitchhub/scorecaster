@@ -38,12 +38,14 @@ export async function GET(request) {
   const admin = getSupabaseAdmin();
   if (!admin) return respond({ok:false,error:"Game data store unavailable",paperOnly:true},503);
   try {
-    const source = await admin
+    let query = admin
       .from("scorecaster_event_outcomes_v1")
       .select("event_id,sport_key,home_team,away_team,commence_time,status,finality_verified,home_score,away_score,captured_at")
       .eq("sport_key",sport)
       .eq("status","final")
-      .eq("finality_verified",true)
+      .eq("finality_verified",true);
+    if (before) query = query.lt("commence_time",before).lt("captured_at",before);
+    const source = await query
       .order("commence_time",{ascending:false})
       .limit(Math.min(1000,requestedLimit*5));
     if (Number(source?.status)===402 || isSupabaseServiceRestricted(source?.error)) {
