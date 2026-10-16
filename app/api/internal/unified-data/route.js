@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
 import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
 import { selectCapturePicks } from "../../../../lib/unified-capture-priority-v1.mjs";
+import { selectScheduledHistoricalPicks } from "../../../../lib/free-tier-league-policy.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -180,7 +181,7 @@ export async function GET(request) {
     const pipelineStatus = topPicks?.pipelineStatus || "unknown";
     // Preserve the public live market universe; limit only long-term capture.
     // Owned European football leagues get first access to the write budget.
-    const selectedPicks = selectCapturePicks(publicPicks);
+    const selectedPicks = selectCapturePicks(selectScheduledHistoricalPicks(publicPicks));
     const capturePicks = await enrichPicksForUnifiedCapture(selectedPicks, { now });
     const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
