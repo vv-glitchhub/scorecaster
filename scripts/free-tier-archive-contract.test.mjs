@@ -15,13 +15,15 @@ test("archive shell scripts pass Bash syntax without executing database commands
 test("public-schema archive is private, export-only, and fails closed on incomplete data", async () => {
   const script = await source("scripts/free-tier-backup.sh");
   assert.match(script, /umask 077/);
-  assert.match(script, /pg_dump .*--dbname=/);
+  assert.match(script, /pg_dump/);
+  assert.doesNotMatch(script, /pg_dump\s+--dbname=/);
   assert.match(script, /--schema=public/);
   assert.match(script, /--format=custom --compress=9/);
   assert.match(script, /pg_restore --list/);
   assert.match(script, /sha256sum/);
   assert.match(script, /Refusing to write a database archive inside the Git repository/);
-  assert.match(script, /SCORECASTER_ARCHIVE_DATABASE_URL/);
+  assert.match(script, /PGHOST\+PGDATABASE\+PGUSER/);
+  assert.match(script, /PGPASSFILE/);
   assert.doesNotMatch(script, /\b(?:DELETE\s+FROM|TRUNCATE\s+TABLE|DROP\s+TABLE)\b/i);
   assert.doesNotMatch(script, /(?:github\.com|curl .*upload|upload-artifact|aws s3|rsync .*@)/i);
 });
@@ -35,7 +37,7 @@ test("restore check only targets an empty local test DB and checks physical coun
   assert.match(script, /--single-transaction --clean --if-exists/);
   assert.match(script, /RESTORE_VERIFIED/);
   assert.match(script, /row count differs/);
-  assert.doesNotMatch(script, /SCORECASTER_ARCHIVE_DATABASE_URL/);
+  assert.doesNotMatch(script, /SCORECASTER_ARCHIVE_RESTORE_TEST_URL/);
 });
 
 test("market history is throttled without changing Top Picks, and retention does not run automatically", async () => {
