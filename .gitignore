@@ -8,3 +8,12 @@ coverage/
 .env
 .env.*
 !.env.example
+
+# Raw/archived databases may contain secrets and user records. Never commit.
+*.dump
+*.backup
+scorecaster-public-*.toc
+scorecaster-public-*.counts.tsv
+scorecaster-public-*.sha256
+archives/
+scorecaster-archives/
