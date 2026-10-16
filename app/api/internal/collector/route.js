@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { collectorRegistrySummary } from "../../../../lib/collector-source-registry.mjs";
 import {
   normalizeCollectorBatch,
@@ -9,7 +10,9 @@ import {
   fetchCollectorJsonRecords,
 } from "../../../../lib/collector-json-provider";
 import { activeMarketLeagues } from "../../../../lib/active-market-universe.js";
+import { selectScheduledHistoricalLeagues, selectScheduledHistoricalPicks } from "../../../../lib/free-tier-league-policy.mjs";
 import { GET as getOddsRoute } from "../../odds/route";
+import { GET as getTopPicksRoute } from "../../top-picks/route";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -17,7 +20,7 @@ export const maxDuration = 120;
 const HEADERS = { "Cache-Control": "no-store", "X-Content-Type-Options": "nosniff" };
 
 function fallbackLeagues(now = Date.now()) {
-  return activeMarketLeagues(now).slice(0, 16);
+  return selectScheduledHistoricalLeagues(activeMarketLeagues(now)).slice(0, 16);
 }
 
 function response(payload, status = 200) {
@@ -161,11 +164,12 @@ async function collectFixtureSnapshots(origin, collectedAt) {
 }
 
 async function createRun(admin, startedAt) {
-  const { data, error } = await admin
+  const { data, error, status } = await admin
     .from("collector_runs")
     .insert({ started_at: startedAt, status: "running", trigger_type: "scheduled", paper_only: true })
     .select("id")
     .single();
+  if (Number(status) === 402) throw { status: 402 };
   if (error) throw error;
   return data.id;
 }
@@ -183,8 +187,10 @@ export async function GET(request) {
 
   const startedAt = new Date().toISOString();
   let runId = null;
+  let failureStage = "create-run";
   try {
     runId = await createRun(admin, startedAt);
+    failureStage = "acquire-data";
     const origin = new URL(request.url).origin;
     const sourceStatus = [];
     const errors = [];
@@ -193,13 +199,15 @@ export async function GET(request) {
     let internal = { records: [], received: 0, accepted: 0, rejectedCount: 0, publishable: 0, researchOnly: 0 };
 
     try {
-      const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(75_000),
-      });
+      // Call the same validated handler without making a protected
+      // same-origin HTTP request through Vercel middleware or CDN.
+      const topPicksResponse = await getTopPicksRoute(new Request(`${origin}/api/top-picks`, {
+        method: "GET",
+        headers: { Accept: "application/json" },
+      }));
       const topPicks = await topPicksResponse.json().catch(() => null);
       if (topPicksResponse.ok && topPicks?.ok !== false) {
-        internal = scorecasterPicksToCollectorRecords(Array.isArray(topPicks?.data) ? topPicks.data : [], startedAt);
+        internal = scorecasterPicksToCollectorRecords(selectScheduledHistoricalPicks(Array.isArray(topPicks?.data) ? topPicks.data : []), startedAt);
       }
 
       if (!internal.records.length) {
@@ -223,6 +231,7 @@ export async function GET(request) {
       sourceStatus.push({ sourceId: "scorecaster_internal", mode: "error", ok: false, records: 0 });
     }
 
+    failureStage = "external-collector";
     const eventIds = [...new Set(internal.records.map((record) => record.event_id))];
     const sports = [...new Set(internal.records.map((record) => record.sport))];
     const external = await fetchCollectorJsonRecords({
@@ -239,6 +248,7 @@ export async function GET(request) {
     });
     if (!external.ok) errors.push({ sourceId: external.source, error: external.reason || "external-source-failed" });
 
+    failureStage = "save-records";
     const records = mergeRecords([internal.records, external.records]);
     if (records.length) {
       const rows = records.map((record) => ({ ...record, run_id: runId }));
@@ -256,6 +266,7 @@ export async function GET(request) {
     const status = records.length ? (errors.length ? "partial" : "success") : "failed";
     const completedAt = new Date().toISOString();
 
+    failureStage = "finish-run";
     await finishRun(admin, runId, {
       completed_at: completedAt,
       status,
@@ -297,8 +308,10 @@ export async function GET(request) {
         errors: [{ error: migrationMissing(error) ? "migration-not-active" : "collector-failed", detail: String(error) }],
       }).catch(() => null);
     }
+    if (isSupabaseServiceRestricted(error)) return response({ ...restrictedSupabaseResponse("Collector capture"), failureStage }, 503);
     return response({
       ok: false,
+      failureStage,
       error: migrationMissing(error)
         ? "Collector migration is not active"
         : process.env.NODE_ENV === "production" ? "Collector capture failed" : String(error),

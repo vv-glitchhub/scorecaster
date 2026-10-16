@@ -1,4 +1,8 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
+import { GET as getTopPicksRoute } from "../../top-picks/route";
+import { selectCapturePicks } from "../../../../lib/unified-capture-priority-v1.mjs";
+import { selectScheduledHistoricalPicks } from "../../../../lib/free-tier-league-policy.mjs";
 import { enrichPicksForUnifiedCapture } from "../../../../lib/unified-capture-enrichment-v1.mjs";
 import { summarizeUnifiedCaptureSecondaryPricing } from "../../../../lib/unified-capture-secondary-summary-v1.mjs";
 import {
@@ -156,25 +160,40 @@ export async function GET(request) {
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
 
   try {
+    await assertSupabaseRestReachable(admin, "unified_data_snapshots");
     const now = Date.now();
     const capturedAt = new Date(now).toISOString();
     const origin = new URL(request.url).origin;
-    const topPicksResponse = await fetch(`${origin}/api/top-picks`, {
-      cache: "no-store",
-      signal: AbortSignal.timeout(75_000)
-    });
-    const topPicks = await topPicksResponse.json();
+    // Execute the existing validated route in-process. A nested public HTTP
+    // request adds network failures, protection redirects and extra latency.
+    const topPicksResponse = await getTopPicksRoute(
+      new Request(`${origin}/api/top-picks`, {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      })
+    );
+    const topPicks = await topPicksResponse.json().catch(() => null);
     if (!topPicksResponse.ok || topPicks?.ok === false) {
       return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
     }
 
-    const publicPicks = Array.isArray(topPicks.data) ? topPicks.data : [];
-    const capturePicks = await enrichPicksForUnifiedCapture(publicPicks, { now });
+    const publicPicks = Array.isArray(topPicks?.data) ? topPicks.data : [];
+    const pipelineStatus = topPicks?.pipelineStatus || "unknown";
+    // Preserve the public live market universe; limit only long-term capture.
+    // Owned European football leagues get first access to the write budget.
+    const selectedPicks = selectCapturePicks(selectScheduledHistoricalPicks(publicPicks));
+    const capturePicks = await enrichPicksForUnifiedCapture(selectedPicks, { now });
     const secondaryPricingCapture = summarizeUnifiedCaptureSecondaryPricing(capturePicks);
     const capture = await upsertSnapshots(admin, capturePicks, capturedAt);
     const providerQuality = await recentProviderQuality(admin, now);
-    const incidents = evaluateUnifiedDataIncidents(capture.stored, providerQuality);
-    const incidentSync = await syncIncidents(admin, incidents, capturedAt);
+    // An empty capture is not proof that existing provider incidents resolved.
+    // Preserve active incidents until a nonempty, verified capture can assess them.
+    const incidents = capture.stored.length
+      ? evaluateUnifiedDataIncidents(capture.stored, providerQuality)
+      : [];
+    const incidentSync = capture.stored.length
+      ? await syncIncidents(admin, incidents, capturedAt)
+      : { active: null, resolved: 0, skipped: "no-captured-selections" };
     const closing = await finalizeClosingRecords(admin, now);
 
     return response({
@@ -182,6 +201,11 @@ export async function GET(request) {
       version: "unified-sports-data-worker-v3.1",
       capturedAt,
       selections: capture.stored.length,
+      topPicksPipelineStatus: pipelineStatus,
+      topPicksCandidateCount: Number(topPicks?.marketCandidateCount || 0),
+      captureCandidateCount: selectedPicks.length,
+      captureSkippedByBudget: Math.max(0, publicPicks.length - selectedPicks.length),
+      zeroSelections: capture.stored.length === 0,
       providerObservations: capture.observationCount,
       secondaryPricingCapture: {
         ...secondaryPricingCapture,
@@ -193,6 +217,7 @@ export async function GET(request) {
       paperOnly: true
     });
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response(restrictedSupabaseResponse("Unified Data capture"), 503);
     return response({
       ok: false,
       error: migrationMissing(error)

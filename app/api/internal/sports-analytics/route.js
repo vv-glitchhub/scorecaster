@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { fetchExternalSportsAnalytics, sportsAnalyticsProviderConfiguration } from "../../../../lib/sports-analytics-provider";
 import { buildNhlXgGoalieShadowV1 } from "../../../../lib/nhl-xg-goalie-shadow-v1.mjs";
 import { buildSoccerXgPoissonShadowV1 } from "../../../../lib/soccer-xg-poisson-shadow-v1.mjs";
@@ -7,6 +8,8 @@ import { buildMlbPitchingOffenseShadowV1 } from "../../../../lib/mlb-pitching-of
 import { buildNoVigEventMarketBenchmarkV1, NO_VIG_EVENT_MARKET_BENCHMARK_VERSION } from "../../../../lib/no-vig-market-benchmark-v1.mjs";
 import { ADVANCED_MODEL_READINESS_VERSION, buildAdvancedModelReadinessV1 } from "../../../../lib/advanced-model-readiness-v1.mjs";
 import { GET as getTopPicksRoute } from "../../top-picks/route";
+import { selectCapturePicks } from "../../../../lib/unified-capture-priority-v1.mjs";
+import { selectScheduledHistoricalPicks } from "../../../../lib/free-tier-league-policy.mjs";
 import {
   buildAutomaticObservationsFromPick,
   buildSportsAnalyticsSnapshot,
@@ -269,6 +272,7 @@ export async function GET(request) {
   if (!admin) return response({ ok: false, error: "Supabase admin client is not configured" }, 503);
 
   try {
+    await assertSupabaseRestReachable(admin, "sports_analytics_snapshots");
     const capturedAt = new Date().toISOString();
     const origin = new URL(request.url).origin;
     // Call the already-loaded route handler in-process instead of making a
@@ -279,7 +283,10 @@ export async function GET(request) {
     const topPicks = await topPicksResponse.json().catch(() => null);
     if (!topPicksResponse.ok || topPicks?.ok === false) return response({ ok: false, error: topPicks?.error || topPicks?.reason || "Top Picks unavailable" }, 503);
 
-    const picks = uniqueEvents(Array.isArray(topPicks.data) ? topPicks.data : []);
+    const eligiblePicks = uniqueEvents(Array.isArray(topPicks.data) ? topPicks.data : []);
+    // Bound durable sports-analysis rows without reducing live Top Picks.
+    // The owned football evidence budget is preserved by canonical sportKey.
+    const picks = selectCapturePicks(selectScheduledHistoricalPicks(eligiblePicks), { total: 10, ownedFootball: 7, other: 3 });
     const settled = await Promise.allSettled(picks.map((pick) => storeEvent(admin, pick, capturedAt)));
     const stored = settled.filter((item) => item.status === "fulfilled" && item.value).map((item) => item.value);
     const failures = settled.filter((item) => item.status === "rejected");
@@ -296,6 +303,9 @@ export async function GET(request) {
       marketBenchmarkVersion: NO_VIG_EVENT_MARKET_BENCHMARK_VERSION,
       capturedAt,
       eventsRequested: picks.length,
+      eventsAvailableBeforeStorageBudget: eligiblePicks.length,
+      storagePolicyVersion: "free-tier-sports-analytics-v1",
+      historicalDataDeleted: false,
       eventsStored: stored.length,
       observationsStored: stored.reduce((sum, item) => sum + item.automaticObservations + item.externalObservations, 0),
       automaticObservations: stored.reduce((sum, item) => sum + item.automaticObservations, 0),
@@ -313,6 +323,7 @@ export async function GET(request) {
       paperOnly: true
     }, allRequestedEventsFailed ? 500 : 200);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response(restrictedSupabaseResponse("Sports analytics capture"), 503);
     return response({
       ok: false,
       error: migrationMissing(error) ? "Sports analytics migration is not active" : process.env.NODE_ENV === "production" ? "Sports analytics capture failed" : String(error),

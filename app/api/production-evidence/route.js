@@ -25,6 +25,7 @@ import {
   runtimeDeploymentEvidence
 } from "../../../lib/production-release-evidence.mjs";
 import { getSupabaseAdmin } from "../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../lib/supabase-service-restriction.mjs";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -47,6 +48,7 @@ const missingSchema = (error) => error?.code === "42P01"
 async function safeQuery(label, operation) {
   try {
     const result = await operation();
+    if (Number(result?.status) === 402) return { label, available: false, rows: [], error: { status: 402 } };
     if (result?.error) {
       if (missingSchema(result.error)) return { label, available: false, rows: [], warning: `${label}_migration_required` };
       throw result.error;
@@ -152,6 +154,7 @@ export async function GET(request) {
 
   const fatal = results.find((result) => result.error);
   if (fatal) {
+    if (isSupabaseServiceRestricted(fatal.error)) return json({ ...restrictedSupabaseResponse("Production evidence"), safety: { paperOnly: true, realMoneyExecution: false, probabilityChanged: false } }, 503);
     return json({
       ok: false,
       error: process.env.NODE_ENV === "production" ? "Production evidence could not be loaded" : String(fatal.error),

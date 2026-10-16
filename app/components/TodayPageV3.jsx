@@ -89,6 +89,7 @@ function CompactPanel({ title, action, children, className = "" }) {
 export default function TodayPageV3() {
   const { tr } = useLanguage();
   const { data, loading, error: loadError, refresh } = useRemoteJson("/api/recommendations?limit=20", { refreshMs: 300000, timeoutMs: 60000 });
+  const { error: dataStorageError } = useRemoteJson("/api/unified-data/freshness", { refreshMs: 900000, timeoutMs: 15000 });
   const recommendations = useMemo(() => Array.isArray(data?.recommendations) ? data.recommendations : [], [data]);
   const plays = useMemo(() => recommendations.filter((item) => item?.decision === "PLAY"), [recommendations]);
   const nearPlay = useMemo(() => {
@@ -106,6 +107,17 @@ export default function TodayPageV3() {
   const confidences = recommendations.map((item) => finite(item?.confidence)).filter((value) => value !== null);
   const avgConfidence = confidences.length ? confidences.reduce((sum, value) => sum + value, 0) / confidences.length : null;
   const maxBooks = recommendations.map((item) => finite(item?.bookmakerCount)).filter((value) => value !== null).sort((a, b) => b - a)[0] ?? null;
+  const calibratedValuePicks = useMemo(() => recommendations.filter((item) =>
+    item?.decision === "PLAY" &&
+    item?.probabilityValue?.eligible === true &&
+    finite(item?.probabilityValue?.conservativeEV) > 0
+  ), [recommendations]);
+  const highProbabilityValue = useMemo(() => [...calibratedValuePicks].sort((a, b) =>
+    finite(b.probabilityValue?.modelEstimatedWinProbability) - finite(a.probabilityValue?.modelEstimatedWinProbability)
+  ).slice(0, 3), [calibratedValuePicks]);
+  const maximumValue = useMemo(() => [...calibratedValuePicks].sort((a, b) =>
+    finite(b.probabilityValue?.conservativeEV) - finite(a.probabilityValue?.conservativeEV)
+  ).slice(0, 3), [calibratedValuePicks]);
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
   const error = loadError ? requestErrorText(loadError, tr) : "";
@@ -167,12 +179,40 @@ export default function TodayPageV3() {
           <Link href="/feed" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-black text-slate-300">AI Feed →</Link>
         </div>
       </section> : null}
+      {dataStorageError?.code === "supabase-service-restricted" ? <div data-storage-restriction="true" role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Tallennuspalvelu on käyttökiintiön vuoksi rajoitettu. Ottelu- ja kerrointietoja voidaan näyttää, mutta historiallinen analyysi ja oman mallin tuoreus eivät päivity.", en: "Storage is currently restricted by a service quota. Live matches and odds may still appear, but historical analysis and own-model freshness are not updating.", es: "El almacenamiento está restringido por una cuota de servicio. Los partidos y las cuotas pueden mostrarse, pero el análisis histórico y el modelo no se actualizan." })}</div> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
           <CompactPanel title={<span><span className="mr-2 text-emerald-300">★</span>Top AI Picks</span>} action={<Link href="/feed" className="text-[10px] font-black text-sky-300">{tr({ fi: "Näytä kaikki →", en: "View all →", es: "Ver todo →" })}</Link>}>
             <div className="space-y-2">{loading ? [0,1,2].map((key) => <div key={key} className="h-[68px] animate-pulse rounded-[1rem] bg-white/[0.035]" />) : ranked.length ? ranked.map((item, index) => <PickRow key={`${item?.eventId || item?.id}-${item?.selection}-${index}`} item={item} index={index} tr={tr} />) : <div data-today-empty-recovery="true" className="rounded-[1rem] border border-white/[0.06] bg-white/[0.025] p-4 text-xs leading-5 text-slate-500"><div>{tr({ fi: "Ei varmennettuja nostoja juuri nyt.", en: "No verified picks right now.", es: "No hay selecciones verificadas ahora." })}</div><p className="mt-2">{tr({ fi: "Scorecaster ei täytä näkymää tekaistuilla kohteilla. Tarkista ottelut tai päivitä data.", en: "Scorecaster does not fill this view with fabricated picks. Browse matches or refresh the data.", es: "Scorecaster no rellena esta vista con selecciones inventadas. Explora partidos o actualiza los datos." })}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={refresh} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/[0.07] px-3 font-black text-sky-200">{tr({ fi: "Päivitä data", en: "Refresh data", es: "Actualizar datos" })}</button><Link href="/events" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 px-3 font-black text-slate-300">{tr({ fi: "Selaa otteluita →", en: "Browse matches →", es: "Explorar partidos →" })}</Link></div></div>}</div>
+          </CompactPanel>
+
+          <CompactPanel title="Probability × Value">
+            {calibratedValuePicks.length === 0 ? (
+              <div data-probability-value-unverified="true" className="rounded-xl border border-amber-400/15 bg-amber-400/[0.045] p-3 text-xs leading-5 text-slate-400">
+                <p className="font-bold text-amber-100">{tr({ fi: "Ei vielä kalibroituja PLAY-kohteita", en: "No calibrated PLAY selections yet", es: "Aún no hay pronósticos PLAY calibrados" })}</p>
+                <p className="mt-1">{tr({ fi: "Oman mallin tuore, riippumaton ja testattu alaraja puuttuu. Korkea osumatodennäköisyys ja positiivinen arvo pitää todentaa ennen suositusta.", en: "Fresh, independent and calibrated model bounds are missing. High win probability and positive value must be verified first.", es: "Faltan límites del modelo propios, independientes y calibrados. Primero hay que verificar la probabilidad y el valor." })}</p>
+              </div>
+            ) : (
+              <div className="grid gap-3" data-probability-value-verified="paper-only">
+                {[
+                  { title: tr({ fi: "Korkea todennäköisyys + arvo", en: "High probability + value", es: "Alta probabilidad + valor" }), picks: highProbabilityValue },
+                  { title: tr({ fi: "Suurin varovainen arvo", en: "Maximum conservative value", es: "Máximo valor conservador" }), picks: maximumValue }
+                ].map((strategy) => (
+                  <div key={strategy.title}>
+                    <p className="mb-1 text-[10px] font-bold text-slate-400">{strategy.title}</p>
+                    {strategy.picks.map((item) => (
+                      <Link key={item.id} href={eventHref(item)} className="flex justify-between gap-2 rounded-lg px-2 py-2 text-xs text-sky-200 hover:bg-white/[0.04]">
+                        <span className="truncate">{item.match || item.selection}</span>
+                        <span className="shrink-0">{formatPercent(item.probabilityValue.modelEstimatedWinProbability)} · {formatPercent(item.probabilityValue.conservativeEV)} EV</span>
+                      </Link>
+                    ))}
+                  </div>
+                ))}
+                <p className="text-[10px] text-slate-500">{tr({ fi: "Vain paperiseurantaan. Historiallinen tuotto ei takaa tulevaa.", en: "Paper-only. Historical results never guarantee future returns.", es: "Solo simulación. El historial no garantiza resultados futuros." })}</p>
+              </div>
+            )}
           </CompactPanel>
 
           <CompactPanel title={tr({ fi: "Market Insights", en: "Market Insights", es: "Market Insights" })} className="hidden lg:block">

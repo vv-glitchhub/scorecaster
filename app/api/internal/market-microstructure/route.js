@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { assertSupabaseRestReachable, isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { getCollectorSource, sourceCanCollect } from "../../../../lib/collector-source-registry.mjs";
 import { normalizeCollectorBatch } from "../../../../lib/collector-normalize.mjs";
 import { resolveMarketMicrostructureActivation } from "../../../../lib/market-microstructure-activation.mjs";
 import { normalizeMarketProviderGames } from "../../../../lib/market-microstructure-v2.mjs";
+import { selectFreeTierMarketCapture } from "../../../../lib/free-tier-market-capture.mjs";
+import { selectScheduledHistoricalLeagues } from "../../../../lib/free-tier-league-policy.mjs";
 import {
   MARKET_FAMILIES,
   activeMarketLeagues,
@@ -37,7 +40,7 @@ function configuredSports(now = Date.now()) {
     .split(",")
     .map((value) => clean(value, 100))
     .filter((value) => ALLOWED_SPORTS.has(value));
-  return [...new Set(requested.length ? requested : activeMarketLeagues(now))].slice(0, 16);
+  return selectScheduledHistoricalLeagues(requested.length ? requested : activeMarketLeagues(now)).slice(0, 16);
 }
 
 function configuredMarkets() {
@@ -131,13 +134,14 @@ function missingPatch(error) {
 }
 
 async function createRun(admin, runId, startedAt) {
-  const { error } = await admin.from("market_capture_runs_v2").insert({
+  const { error, status } = await admin.from("market_capture_runs_v2").insert({
     id: runId,
     started_at: startedAt,
     status: "running",
     source_id: "the_odds_api",
     paper_only: true
   });
+  if (Number(status) === 402) throw { status: 402 };
   if (error) throw error;
 }
 
@@ -223,9 +227,18 @@ export async function GET(request) {
   let runCreated = false;
 
   try {
+    // Quota restrictions can reject every REST request even when the SQL
+    // dashboard remains reachable. Fail before spending upstream odds quota.
+    await assertSupabaseRestReachable(admin, "market_capture_runs_v2");
     await createRun(admin, runId, startedAt);
     runCreated = true;
     const results = await Promise.allSettled(sports.map((sport) => fetchLeague(request, sport, markets)));
+    // Preserve provider discovery for every requested league; only bound the
+    // rows persisted in the costly longitudinal market-history tables.
+    const storagePlan = selectFreeTierMarketCapture(results.map((settled, index) => ({
+      sport: sports[index],
+      games: settled.status === "fulfilled" && settled.value.ok ? settled.value.games : []
+    })), { now: startedAt });
     const diagnostics = [];
     const records = [];
     const rejected = [];
@@ -248,7 +261,8 @@ export async function GET(request) {
 
       const captureWindow = splitCaptureWindow(result.games, startedAt);
       ignoredPostStartGames += captureWindow.ignoredPostStart.length;
-      fixtureInputs.push(...fixtureSnapshotInputs(captureWindow.preStart, sport, startedAt));
+      const storedGames = storagePlan.selectedBySport.get(sport) || [];
+      fixtureInputs.push(...fixtureSnapshotInputs(storedGames, sport, startedAt));
       diagnostics.push({
         sport,
         ok: true,
@@ -259,10 +273,12 @@ export async function GET(request) {
         providerHeaders: result.providerHeaders,
         games: result.games.length,
         preStartGames: captureWindow.preStart.length,
+        historyGamesSelected: storedGames.length,
+        historyGamesDeferred: Math.max(0, captureWindow.preStart.length - storedGames.length),
         ignoredPostStartGames: captureWindow.ignoredPostStart.length
       });
 
-      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(captureWindow.preStart), {
+      const normalized = normalizeMarketProviderGames(keepSupportedMarkets(storedGames), {
         capturedAt: startedAt,
         sourceId: "the_odds_api",
         captureId: runId
@@ -306,6 +322,11 @@ export async function GET(request) {
       markets,
       events: eventIds.size,
       normalizedRecords: records.length,
+      storagePolicyVersion: storagePlan.version,
+      historyEventsSelected: storagePlan.selectedEvents,
+      historyEventsEligible: storagePlan.eligibleEvents,
+      bookmakersPerHistoryEvent: storagePlan.bookmakerCap,
+      historicalDataDeleted: false,
       stored: inserted.length,
       writeBatches: Math.ceil(records.length / WRITE_BATCH_SIZE),
       duplicates: Math.max(0, records.length - inserted.length),
@@ -322,6 +343,13 @@ export async function GET(request) {
       paperOnly: true
     }, status === "failed" ? 503 : 200);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) {
+      return response({ ...restrictedSupabaseResponse("Market microstructure capture"),
+        version: "scorecaster-market-microstructure-worker-v2.3",
+        activationMode: activation.mode, emergencyStopAvailable: activation.emergencyStopAvailable,
+        rawPayloadStored: false, probabilityChanged: false,
+        realMoneyExecution: false }, 503);
+    }
     if (runCreated) {
       await finishRun(admin, runId, {
         completed_at: new Date().toISOString(),

@@ -49,7 +49,7 @@ test("public freshness endpoint returns only bounded capture-age metadata", asyn
 test("protected Unified Data worker contract remains unchanged", async () => {
   const route = await source("app/api/internal/unified-data/route.js");
   assert.match(route, /if \(!authorized\(request\)\)/);
-  assert.match(route, /version:\s*"unified-sports-data-worker-v3"/);
+  assert.match(route, /version:\s*"unified-sports-data-worker-v3\.1"/);
   assert.doesNotMatch(route, /unified-capture-freshness-v1|protectedWorkerRequired|skipIfFreshMinutes/);
 });
 

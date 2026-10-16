@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../../../../lib/supabase-admin";
+import { isSupabaseServiceRestricted, restrictedSupabaseResponse } from "../../../../lib/supabase-service-restriction.mjs";
 import { collectorRegistrySummary } from "../../../../lib/collector-source-registry.mjs";
 import { buildCollectorCoverage, buildCollectorSourceQuality, detectCollectorIncidents } from "../../../../lib/collector-insights.mjs";
 
@@ -38,7 +39,10 @@ export async function GET() {
       admin.from("collector_records").select("id", { count: "exact", head: true }).eq("publishable", true).gte("collected_at", since),
       admin.from("collector_records").select("source_id,event_id,sport,metric,observed_at,collected_at,confidence,source_trust").eq("publishable", true).gte("collected_at", since).order("collected_at", { ascending: false }).limit(1000)
     ]);
-    for (const result of [latestRun, recentRuns, runCount, recordCount, publishableCount, recentRecords]) if (result.error) throw result.error;
+    for (const result of [latestRun, recentRuns, runCount, recordCount, publishableCount, recentRecords]) {
+      if (Number(result.status) === 402) throw { status: 402 };
+      if (result.error) throw result.error;
+    }
 
     const lastStartedAt = latestRun.data?.started_at || null;
     const ageMinutes = lastStartedAt ? Math.max(0, Math.round((Date.now() - new Date(lastStartedAt).getTime()) / 60_000)) : null;
@@ -103,6 +107,7 @@ export async function GET() {
       safety: { paperOnly: true, probabilityChanged: false, researchDataPublished: false }
     }, status === "healthy" ? 200 : 503);
   } catch (error) {
+    if (isSupabaseServiceRestricted(error)) return response({ ...restrictedSupabaseResponse("Collector health"), status: "restricted", version: "scorecaster-collector-health-v3", migrationActive: null }, 503);
     return response({
       ok: false,
       status: migrationMissing(error) ? "not-activated" : "error",

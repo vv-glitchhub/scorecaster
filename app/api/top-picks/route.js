@@ -1,9 +1,11 @@
 import { SPORTS } from "../../../lib/sports";
+import { GET as getOddsRoute } from "../odds/route";
 import { directoryFixtures, marketCoverage } from "../../../lib/live-market-availability.mjs";
 import { createTopPicksFromGames } from "../../../lib/scorecaster-engine";
 import { enrichPickWithLiveIntelligence } from "../../../lib/agent-intelligence-loader";
 import { attachOwnedDecisionEvidenceBatch } from "../../../lib/owned-decision-evidence-v1";
 import { calculatePickQuality } from "../../../lib/pick-quality-engine";
+import { evaluateProbabilityValueV1, probabilityValueLeaderboardsV1 } from "../../../lib/probability-value-v1.mjs";
 import { evaluateIndependentIntelligenceSafetyV1 } from "../../../lib/intelligence-play-safety-v1.mjs";
 import {
   isSupportedMarketLeague,
@@ -92,6 +94,7 @@ function publicPickSummary(pick = {}) {
     modelProbability: pick.modelProbability,
     independentModelProbability: pick.independentModelProbability ?? null,
     ownedDecisionEvidence: compactOwnedDecisionEvidence(pick.ownedDecisionEvidenceV1),
+    probabilityValue: pick.probabilityValue || null,
     probabilityDispersion: pick.probabilityDispersion,
     confidence: pick.confidence,
     sourceTrust: pick.sourceTrust,
@@ -419,10 +422,13 @@ async function loadLeague(origin, league, now, { directory = false, eventId = ""
   const unavailable = (errorCode, httpStatus = null) => ({ ok: false, sportKey: league, errorCode, httpStatus, picks: [], fixtures: [], providerGames: 0, acceptedGames: 0 });
   try {
     const markets = directory ? "h2h" : TOP_PICK_MARKETS.join(",");
-    const response = await fetch(
+    // Invoke the existing validated odds route in-process. Protected preview
+    // deployments can block nested HTTP requests before they reach /api/odds.
+    // The odds route retains its own upstream timeout and H2H fallback.
+    const response = await getOddsRoute(new Request(
       `${origin}/api/odds?sport=${encodeURIComponent(league)}&markets=${encodeURIComponent(markets)}`,
-      { cache: "no-store", signal: AbortSignal.timeout(directory ? 18000 : 28000) }
-    );
+      { method: "GET", headers: { Accept: "application/json" } }
+    ));
 
     if (!response.ok) return unavailable("provider-unavailable", response.status);
     const data = await response.json();
@@ -480,7 +486,12 @@ async function loadLeague(origin, league, now, { directory = false, eventId = ""
 
 export async function GET(request) {
   const url = new URL(request.url);
-  const unknownKeys = [...url.searchParams.keys()].filter((key) => !["sports", "view", "eventId"].includes(key));
+  // Vercel's protected-deployment fetch helpers may append access-control
+  // query parameters. Ignore only Vercel-owned keys; keep strict validation
+  // for all other caller-supplied parameters.
+  const unknownKeys = [...url.searchParams.keys()].filter((key) =>
+    !["sports", "view", "eventId"].includes(key) && !key.startsWith("_vercel_")
+  );
   if (unknownKeys.length) {
     return Response.json(
       { ok: false, error: "Unsupported query parameter", data: [] },
@@ -541,12 +552,14 @@ export async function GET(request) {
   const enriched = await Promise.all(preFiltered.map(enrichSafely));
   const sorted = enriched
     .sort((a, b) => rankPick(b) - rankPick(a))
-    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS);
+    .slice(0, MAX_INTELLIGENCE_ENRICHMENTS)
+    .map((pick) => ({ ...pick, probabilityValue: evaluateProbabilityValueV1(pick) }));
   const featured = filterUpcomingPicks(sorted, FEATURED_WINDOW_HOURS, now)
     .filter((pick) => pick.productDecision !== "SKIP")
     .slice(0, 3);
   const responseData = view === "summary" ? sorted.map(publicPickSummary) : sorted;
   const responseFeatured = view === "summary" ? featured.map(publicPickSummary) : featured;
+  const probabilityValueLeaders = probabilityValueLeaderboardsV1(sorted);
 
   const providerGames = leagueResults.reduce((sum, result) => sum + result.providerGames, 0);
   const acceptedGames = leagueResults.reduce((sum, result) => sum + result.acceptedGames, 0);
@@ -560,6 +573,22 @@ export async function GET(request) {
     counts[value] = (counts[value] || 0) + 1;
     return counts;
   }, { PLAY: 0, CAUTION: 0, SKIP: 0 });
+  // Explain zero PLAY results without relaxing risk gates or exposing private evidence.
+  const rejectionReasons = sorted.reduce((counts, pick) => {
+    if (pick.productDecision === "PLAY") return counts;
+    const reason = pick.decision === "PASS" ? "market-data-or-value-gate"
+      : pick.marketDecisionBeforeSafetyGate === "BET" ? "independent-evidence-or-safety-gate"
+      : pick.decision === "WAIT" ? "market-data-quality-gate"
+      : "insufficient-edge-or-ev";
+    counts[reason] = (counts[reason] || 0) + 1;
+    return counts;
+  }, {});
+  const pipelineStatus = providerGames === 0 ? "no-provider-games"
+    : acceptedGames === 0 ? "no-valid-upcoming-fixtures"
+    : allPicks.length === 0 ? "no-market-candidates"
+    : sorted.length === 0 ? "no-enriched-candidates"
+    : decisionCounts.PLAY === 0 ? "no-qualified-play"
+    : "play-available";
   const ownedEvidence = picksWithOwnedEvidence.reduce((counts, pick) => {
     const evidence = pick.ownedDecisionEvidenceV1 || {};
     if (evidence.marketMapped) counts.marketMapped += 1;
@@ -591,6 +620,7 @@ export async function GET(request) {
       deepCandidateSelection: "owned-evidence-first+event-diversity",
       markets: TOP_PICK_MARKETS,
       ownedEvidence,
+      probabilityValueLeaders,
       view,
       leagueSelectionMode: url.searchParams.has("sports") ? "requested" : "season-aware-default",
       defaultLeagueSeason: marketSeason(now),
@@ -599,6 +629,8 @@ export async function GET(request) {
       excludedGames: Math.max(0, providerGames - acceptedGames),
       intelligenceLevels,
       decisionCounts,
+      pipelineStatus,
+      rejectionReasons,
       disclaimer: "Live-provider market value is evaluated first. Scorecaster's owned model and other independent evidence may satisfy the existing evidence gate or downgrade a candidate, but they never change the market probability and no single evidence layer can create PLAY by itself.",
       leagues,
       count: sorted.length,

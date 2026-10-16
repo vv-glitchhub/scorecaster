@@ -37,7 +37,18 @@ jobs:
             -H "Authorization: Bearer $CRON_SECRET" \
             "$SCORECASTER_URL/api/internal/collector")
           if [ "$status" != "200" ]; then
+            if [ "$(jq -r '.errorCode // empty' /tmp/collector.json 2>/dev/null || true)" = "supabase-service-restricted" ]; then
+              echo "::error::Collector blocked by Supabase Fair Use (HTTP 402); check organization billing and database quota."
+            fi
             echo "Collector failed with HTTP $status"
+            # Only allow fixed stage identifiers; never print the worker's
+            # response body or arbitrary database/provider error strings.
+            stage=$(jq -r '.failureStage // empty' /tmp/collector.json 2>/dev/null || true)
+            case "$stage" in
+              create-run|acquire-data|external-collector|save-records|finish-run)
+                echo "::error::Collector failed at stage $stage"
+                ;;
+            esac
             exit 1
           fi
           if [ "$(jq -r '.ok // false' /tmp/collector.json)" != "true" ]; then
@@ -57,6 +68,10 @@ jobs:
             -w "%{http_code}" \
             "$SCORECASTER_URL/api/unified-data/freshness" || true)
           required=true
+          if [ "$status" = "503" ] && [ "$(jq -r '.errorCode // empty' /tmp/freshness.json 2>/dev/null || true)" = "supabase-service-restricted" ]; then
+            echo "::error::Supabase Fair Use restriction (HTTP 402); protected acquisition is blocked."
+            exit 1
+          fi
           if [ "$status" = "200" ] && [ -s /tmp/freshness.json ]; then
             ok=$(jq -r '.ok // false' /tmp/freshness.json 2>/dev/null || echo false)
             if [ "$ok" = "true" ]; then
