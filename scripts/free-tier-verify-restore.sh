@@ -49,7 +49,7 @@ esac
 # They allow CREATE SCHEMA public from the archive where PG17 creates it by
 # default. This NEVER points to production.
 pg_restore --exit-on-error --single-transaction --clean --if-exists \
-  --no-owner --no-acl "$archive"
+  --no-owner --no-acl --dbname="$PGDATABASE" "$archive"
 while IFS=$'\t' read -r table expected; do
   [[ "$table" == "table" ]] && continue
   [[ "$table" =~ ^[a-z][a-z0-9_]*$ && "$expected" =~ ^[0-9]+$ ]] || {
