@@ -11,8 +11,11 @@ on:
       - "scripts/market-microstructure-v2.test.mjs"
       - "supabase/scorecaster_market_microstructure_v2.sql"
       - ".github/workflows/market-microstructure.yml"
+  # Historical snapshots every 3 hours; live public odds still refresh on demand.
+  # This reduces long-lived rows under Supabase Free but is not a substitute
+  # for verified archival and changes market-movement/closing-line granularity.
   schedule:
-    - cron: "17 * * * *"
+    - cron: "17 */3 * * *"
   workflow_dispatch:
 
 permissions:
