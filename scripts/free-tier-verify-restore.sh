@@ -4,10 +4,17 @@
 set -Eeuo pipefail
 umask 077
 if [[ $# -ne 1 ]]; then
-  echo "Usage: SCORECASTER_ARCHIVE_RESTORE_TEST_URL='postgresql://localhost/.../scorecaster_archive_restore_test' bash scripts/free-tier-verify-restore.sh /secure/offline/archives/scorecaster-public-TIMESTAMP.dump" >&2
+  echo "Usage: PGHOST=localhost PGDATABASE=scorecaster_archive_restore_test PGUSER=... bash scripts/free-tier-verify-restore.sh /secure/offline/archives/scorecaster-public-TIMESTAMP.dump" >&2
   exit 2
 fi
-: "${SCORECASTER_ARCHIVE_RESTORE_TEST_URL:?A dedicated LOCAL test database connection is required.}"
+if [[ -z "${PGHOST:-}" || -z "${PGDATABASE:-}" || -z "${PGUSER:-}" ]]; then
+  echo "Explicit PGHOST+PGDATABASE+PGUSER are required for an isolated LOCAL restore." >&2
+  exit 2
+fi
+if [[ "$PGDATABASE" != "scorecaster_archive_restore_test" ]]; then
+  echo "Refusing restore outside the named test database." >&2
+  exit 2
+fi
 for binary in pg_restore psql sha256sum; do
   command -v "$binary" >/dev/null || { echo "Missing program: $binary" >&2; exit 2; }
 done
@@ -26,7 +33,7 @@ stem="${name%.dump}"
 (cd "$directory" && sha256sum --check "${stem}.sha256")
 pg_restore --list "$archive" >/dev/null
 
-db_info="$(psql "$SCORECASTER_ARCHIVE_RESTORE_TEST_URL" --no-psqlrc -XAtq -v ON_ERROR_STOP=1 -c \
+db_info="$(psql --no-psqlrc -XAtq -v ON_ERROR_STOP=1 -c \
   "SELECT current_database() || '|' || COALESCE(host(inet_server_addr()), 'local') || '|' || (SELECT count(*) FROM pg_catalog.pg_class WHERE relnamespace = 'public'::regnamespace AND relkind IN ('r','p','f'));")"
 IFS='|' read -r db_name db_host existing_tables <<< "$db_info"
 if [[ "$db_name" != "scorecaster_archive_restore_test" || "$existing_tables" != "0" ]]; then
@@ -42,13 +49,13 @@ esac
 # They allow CREATE SCHEMA public from the archive where PG17 creates it by
 # default. This NEVER points to production.
 pg_restore --exit-on-error --single-transaction --clean --if-exists \
-  --no-owner --no-acl --dbname="$SCORECASTER_ARCHIVE_RESTORE_TEST_URL" "$archive"
+  --no-owner --no-acl "$archive"
 while IFS=$'\t' read -r table expected; do
   [[ "$table" == "table" ]] && continue
   [[ "$table" =~ ^[a-z][a-z0-9_]*$ && "$expected" =~ ^[0-9]+$ ]] || {
     echo "Invalid counts manifest; refusing certification." >&2; exit 1;
   }
-  actual="$(psql "$SCORECASTER_ARCHIVE_RESTORE_TEST_URL" --no-psqlrc -XAtq -v ON_ERROR_STOP=1 \
+  actual="$(psql --no-psqlrc -XAtq -v ON_ERROR_STOP=1 \
     -c "SELECT count(*) FROM public.${table}")"
   [[ "$actual" == "$expected" ]] || {
     echo "RESTORE_NOT_VERIFIED: public.${table} row count differs from the source manifest." >&2; exit 1;
