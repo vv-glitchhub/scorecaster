@@ -185,6 +185,16 @@ test("AI Feed recovery uses safe localized copy and an actionable retry", async 
   assert.doesNotMatch(feed, /setCommentStatus\(\(current\) => \(\{ \.\.\.current, \[eventId\]: cause\?\.message/);
 });
 
+test("AI Feed keeps verified cards visible when a background refresh fails", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  assert.match(feed, /backgroundError/);
+  assert.match(feed, /if \(silent\) setBackgroundError\(requestErrorText\(cause, tr\)\)/);
+  assert.match(feed, /data-ai-feed-refresh-recovery/);
+  assert.match(feed, /data-ai-feed-refresh-retry/);
+  assert.match(feed, /backgroundError && data && !error/);
+  assert.doesNotMatch(feed, /if \(silent\) setError\(requestErrorText\(cause, tr\)\)/);
+});
+
 test("AI Feed explains optional community comment failures without blocking verified analysis", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   assert.match(feed, /Promise\.allSettled/);
