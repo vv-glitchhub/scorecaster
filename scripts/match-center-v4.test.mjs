@@ -56,6 +56,9 @@ test("Match Center V4 consolidates verified match research without inventing una
   assert.match(center, /Head to head/);
   assert.match(center, /derived from Scorecaster verified final results/);
   assert.match(center, /paper only/);
+  assert.match(center, /Match decision support/);
+  assert.match(center, /Advanced details & diagnostics/);
+  assert.match(center, /Analysis level:/);
   assert.match(route, /loadVerifiedEventHistoryV1/);
   assert.match(route, /verifiedEventHistoryVersion/);
   assert.match(history, /finality_verified/);
