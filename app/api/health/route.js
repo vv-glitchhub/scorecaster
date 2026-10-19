@@ -1,3 +1,4 @@
+import { freeDataOnlyMode } from "../../../lib/free-data-only.mjs";
 import { notificationDeliveryConfiguration } from "../../../lib/notification-delivery-config";
 import { autonomousAgentConfiguration } from "../../../lib/autonomous-agent-config.js";
 import { settlementMonitorConfiguration } from "../../../lib/settlement-monitor-config.js";
@@ -11,9 +12,10 @@ export async function GET() {
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
-  const newsProviderConfigured = Boolean(process.env.NEWS_API_KEY);
-  const injuryProviderConfigured = Boolean(process.env.SPORTSDATA_API_KEY);
-  const lineupProviderConfigured = Boolean(process.env.LINEUP_API_URL && process.env.LINEUP_API_KEY);
+  const freeDataOnly = freeDataOnlyMode();
+  const newsProviderConfigured = !freeDataOnly && Boolean(process.env.NEWS_API_KEY);
+  const injuryProviderConfigured = !freeDataOnly && Boolean(process.env.SPORTSDATA_API_KEY);
+  const lineupProviderConfigured = !freeDataOnly && Boolean(process.env.LINEUP_API_URL && process.env.LINEUP_API_KEY);
   const notificationDelivery = notificationDeliveryConfiguration();
   const autonomousAgent = autonomousAgentConfiguration();
   const settlementMonitor = settlementMonitorConfiguration();
@@ -22,6 +24,7 @@ export async function GET() {
 
   const services = {
     localQuickUse: true,
+    freeDataOnlyMode: freeDataOnly,
     riskEngine: true,
     betSlipEngine: true,
     bettingConsensusWorkspace: true,
@@ -156,7 +159,7 @@ export async function GET() {
     mobileBearerAuth: true,
     cloudSyncApi: true,
     paperBetSettlementApi: true,
-    automaticH2hScoreSettlement: Boolean(process.env.ODDS_API_KEY),
+    automaticH2hScoreSettlement: !freeDataOnly && Boolean(process.env.ODDS_API_KEY),
     automaticSettlementHourlyQuota: true,
     settlementMonitorV1: true,
     settlementMonitorWorkerEnabled: settlementMonitor.enabledFlag,
