@@ -30,6 +30,6 @@ test("paid API entry points check the opt-in before outbound calls", async () =>
 test("the public odds API preserves an explicit unavailable state, not fabricated prices", async () => {
   const source = await readFile(new URL("../app/api/odds/route.js", import.meta.url), "utf8");
   assert.match(source, /paid-odds-disabled/);
-  assert.match(source, /status: 503|, 503,/);
+  assert.match(source, /, 503\)/);
   assert.match(source, /data: \[\]/);
 });
