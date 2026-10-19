@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { freeDataOnlyMode } from "../../../../lib/free-data-only.mjs";
 import {
   enforceRateLimit,
   getAuthenticatedContext,
@@ -101,6 +102,7 @@ function systemInstruction(language) {
 }
 
 async function generateGroundedExplanation(contract, language) {
+  if (freeDataOnlyMode()) return { ok: false, reason: "Paid enhanced explanations are disabled in free-data-only mode" };
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) return { ok: false, reason: "OpenAI explanation service is not configured" };
 
