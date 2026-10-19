@@ -61,7 +61,7 @@ export default function FeedClient() {
     setCommentsError("");
     try {
       const [feedResult, commentsResult] = await Promise.allSettled([
-        fetch("/api/scorecaster-app?hours=2160&limit=10000", { cache: "no-store" }),
+        fetch("/api/scorecaster-app?hours=168&limit=500&view=summary", { cache: "no-store" }),
         fetch("/api/community/comments?limit=200", { cache: "no-store" })
       ]);
       if (feedResult.status === "rejected") throw feedResult.reason;
