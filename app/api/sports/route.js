@@ -1,3 +1,4 @@
+import { freeDataOnlyMode } from "../../../lib/free-data-only.mjs";
 import { SPORTS } from "../../../lib/sports.js";
 
 const SUPPORTED_LEAGUES = SPORTS.flatMap((group) => group.leagues.map((league) => ({
@@ -29,11 +30,11 @@ function isAllowedSport(sport) {
 export async function GET() {
   try {
     const apiKey = process.env.ODDS_API_KEY;
-    if (!apiKey) {
+    if (!apiKey || freeDataOnlyMode()) {
       return Response.json({
         fallback: true,
         data: getFallbackSports(),
-        error: "Live sports discovery is not configured"
+        error: freeDataOnlyMode() ? "Paid sports discovery is disabled in free-data-only mode" : "Live sports discovery is not configured"
       });
     }
 
