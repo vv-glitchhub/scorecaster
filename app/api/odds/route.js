@@ -1,3 +1,4 @@
+import { freeDataOnlyMode } from "../../../lib/free-data-only.mjs";
 import { SPORTS } from "../../../lib/sports";
 import { enrichGamesWithVeikkaus } from "../../../lib/veikkaus-odds-provider.mjs";
 
@@ -112,6 +113,10 @@ export async function GET(request) {
   const canonical = canonicalRequestUrl(request, sport, markets);
   if (canonical.search !== requestUrl.search) {
     return Response.redirect(canonical, 307);
+  }
+
+  if (freeDataOnlyMode()) {
+    return json({ ok: false, source: "unavailable", mode: "free-data-only", errorCode: "paid-odds-disabled", reason: "Paid odds are disabled by configuration", sport, markets, count: 0, data: [] }, 503);
   }
 
   const apiKey = process.env.ODDS_API_KEY;
