@@ -31,6 +31,17 @@ function formatOdds(value) {
   return parsed === null ? "–" : parsed.toFixed(2);
 }
 
+function formatVerifiedAt(value) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "UTC"
+  }).format(parsed);
+}
+
 function eventHref(item) {
   if (!item?.eventId && !item?.id) return "/events";
   const query = new URLSearchParams();
@@ -109,6 +120,7 @@ export default function TodayPageV3() {
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
   const error = loadError ? requestErrorText(loadError, tr) : "";
+  const verifiedAt = formatVerifiedAt(data?.upstreamGeneratedAt);
 
   return (
     <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
@@ -168,6 +180,10 @@ export default function TodayPageV3() {
         </div>
       </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
+      {!loading && !error ? <div data-today-freshness="true" role="status" className="flex items-center gap-2 px-1 text-[11px] leading-5 text-slate-500">
+        <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${verifiedAt ? "bg-emerald-300" : "bg-amber-300"}`} aria-hidden="true" />
+        <span>{verifiedAt ? tr({ fi: `Varmennettu data päivitetty ${verifiedAt} (UTC).`, en: `Verified data updated ${verifiedAt} (UTC).`, es: `Datos verificados actualizados ${verifiedAt} (UTC).` }) : tr({ fi: "Varmennuksen ajankohta ei ole saatavilla.", en: "Verification time is unavailable.", es: "La hora de verificación no está disponible." })}</span>
+      </div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
