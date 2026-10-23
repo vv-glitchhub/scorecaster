@@ -169,7 +169,7 @@ export default function TodayPageV3() {
       </section> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
-      <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
+      {!error ? <div data-today-content="true" className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
         <div className="space-y-3.5">
           <CompactPanel title={<span><span className="mr-2 text-emerald-300">★</span>Top AI Picks</span>} action={<Link href="/feed" className="text-[10px] font-black text-sky-300">{tr({ fi: "Näytä kaikki →", en: "View all →", es: "Ver todo →" })}</Link>}>
             <div className="space-y-2">{loading ? [0,1,2].map((key) => <div key={key} className="h-[68px] animate-pulse rounded-[1rem] bg-white/[0.035]" />) : ranked.length ? ranked.map((item, index) => <PickRow key={`${item?.eventId || item?.id}-${item?.selection}-${index}`} item={item} index={index} tr={tr} />) : <div data-today-empty-recovery="true" className="rounded-[1rem] border border-white/[0.06] bg-white/[0.025] p-4 text-xs leading-5 text-slate-500"><div>{tr({ fi: "Ei varmennettuja nostoja juuri nyt.", en: "No verified picks right now.", es: "No hay selecciones verificadas ahora." })}</div><p className="mt-2">{tr({ fi: "Scorecaster ei täytä näkymää tekaistuilla kohteilla. Tarkista ottelut tai päivitä data.", en: "Scorecaster does not fill this view with fabricated picks. Browse matches or refresh the data.", es: "Scorecaster no rellena esta vista con selecciones inventadas. Explora partidos o actualiza los datos." })}</p><div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={refresh} className="inline-flex min-h-10 items-center justify-center rounded-xl border border-sky-400/25 bg-sky-400/[0.07] px-3 font-black text-sky-200">{tr({ fi: "Päivitä data", en: "Refresh data", es: "Actualizar datos" })}</button><Link href="/events" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 px-3 font-black text-slate-300">{tr({ fi: "Selaa otteluita →", en: "Browse matches →", es: "Explorar partidos →" })}</Link></div></div>}</div>
@@ -222,7 +222,7 @@ export default function TodayPageV3() {
             <p className="mt-3 text-[10px] leading-4 text-slate-600">{tr({ fi: "Nämä ovat nykyisen datan mittareita, eivät toteutunutta ROI:ta tai luvattua voittoprosenttia.", en: "These are current-data metrics, not realized ROI or a promised win rate.", es: "Son métricas de datos actuales, no ROI realizado ni tasa de acierto prometida." })}</p>
           </CompactPanel>
         </div>
-      </div>
+      </div> : null}
 
       <section className="grid grid-cols-2 gap-2 sm:grid-cols-3">
         <Link href="/events" className="rounded-[1rem] border border-white/[0.07] bg-white/[0.025] px-3.5 py-3 text-xs font-black text-slate-300">{tr({ fi: "Kaikki ottelut →", en: "All matches →", es: "Todos los partidos →" })}</Link>
