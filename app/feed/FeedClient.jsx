@@ -32,6 +32,42 @@ function decisionTone(decision) {
   return "border-slate-500/30 bg-slate-500/10 text-slate-200";
 }
 
+function feedHealth(data, locale, tr) {
+  const status = data?.collectorHealth?.status;
+  const latestObservedAt = (data?.events || [])
+    .map((event) => event?.latestAt)
+    .filter((value) => value && !Number.isNaN(new Date(value).getTime()))
+    .sort((a, b) => new Date(b).getTime() - new Date(a).getTime())[0] || null;
+  const observed = latestObservedAt ? new Date(latestObservedAt).toLocaleString(locale) : null;
+  const copy = {
+    healthy: {
+      label: tr({ fi: "Varmennettu data on ajan tasalla", en: "Verified data is current", es: "Los datos verificados están actualizados" }),
+      detail: tr({ fi: "Uusimmat julkaistut havainnot", en: "Latest published observations", es: "Últimas observaciones publicadas" }),
+      tone: "border-emerald-400/30 bg-emerald-500/10 text-emerald-100"
+    },
+    stale: {
+      label: tr({ fi: "Varmennettu data voi olla viivästynyttä", en: "Verified data may be delayed", es: "Los datos verificados pueden estar retrasados" }),
+      detail: tr({ fi: "Tarkista ottelu ja päivitä ennen päätöstä", en: "Review the match and refresh before deciding", es: "Revisa el partido y actualiza antes de decidir" }),
+      tone: "border-amber-400/30 bg-amber-500/10 text-amber-100"
+    },
+    degraded: {
+      label: tr({ fi: "Datan keruu on osittain häiriintynyt", en: "Data collection is partly degraded", es: "La recopilación de datos está parcialmente degradada" }),
+      detail: tr({ fi: "Kaikki havainnot eivät ehkä ole saatavilla", en: "Some observations may be unavailable", es: "Algunas observaciones pueden no estar disponibles" }),
+      tone: "border-amber-400/30 bg-amber-500/10 text-amber-100"
+    },
+    "not-activated": {
+      label: tr({ fi: "Varmennettua keruuta ei ole aktivoitu", en: "Verified collection is not active", es: "La recopilación verificada no está activa" }),
+      detail: tr({ fi: "Syöte ei täytä näkymää arvioiduilla havainnoilla", en: "The feed will not fill the gap with estimates", es: "El feed no rellenará el vacío con estimaciones" }),
+      tone: "border-slate-400/30 bg-slate-500/10 text-slate-200"
+    }
+  }[status] || {
+    label: tr({ fi: "Datan tuoreutta ei voitu varmistaa", en: "Data freshness could not be verified", es: "No se pudo verificar la actualidad de los datos" }),
+    detail: tr({ fi: "Päivitä syöte ennen päätöstä", en: "Refresh the feed before deciding", es: "Actualiza el feed antes de decidir" }),
+    tone: "border-slate-400/30 bg-slate-500/10 text-slate-200"
+  };
+  return { ...copy, observed };
+}
+
 function eventHref(post) {
   const query = new URLSearchParams();
   if (post.sport) query.set("sport", post.sport);
@@ -189,6 +225,7 @@ export default function FeedClient() {
   }
 
   const updated = data?.generatedAt ? new Date(data.generatedAt).toLocaleString(locale) : "–";
+  const health = feedHealth(data, locale, tr);
 
   return (
     <div className="mx-auto max-w-5xl space-y-6">
@@ -206,6 +243,10 @@ export default function FeedClient() {
           <button type="button" onClick={() => setSort("trending")} className={`rounded-full px-4 py-2 text-xs font-black ${sort === "trending" ? "bg-[var(--sc-brand)] text-[var(--sc-brand-ink)]" : "border border-[var(--sc-border)] text-[var(--sc-muted)]"}`}>{tr({ fi: "Nousussa", en: "Trending", es: "Tendencias" })}</button>
           <button type="button" disabled={loading} onClick={() => loadFeed()} className="rounded-full border border-[var(--sc-border)] px-4 py-2 text-xs font-black text-[var(--sc-muted)] disabled:cursor-wait disabled:opacity-50">{loading ? tr({ fi: "Ladataan…", en: "Loading…", es: "Cargando…" }) : tr({ fi: "Päivitä", en: "Refresh", es: "Actualizar" })}</button>
           <Link href="/transparency" className="rounded-full border border-[var(--sc-brand-border)] bg-[var(--sc-brand-soft)] px-4 py-2 text-xs font-black text-[var(--sc-text)]">{tr({ fi: "Kaikki kaavat ja lähteet", en: "All formulas and sources", es: "Todas las fórmulas y fuentes" })}</Link>
+        </div>
+        <div className={`mt-5 rounded-2xl border px-4 py-3 text-sm ${health.tone}`} data-ai-feed-freshness="true" aria-live="polite">
+          <div className="font-black">{health.label}</div>
+          <div className="mt-1 text-xs opacity-80">{health.detail}{health.observed ? ` · ${tr({ fi: "Viimeisin havainto", en: "Latest observation", es: "Última observación" })}: ${health.observed}` : ""}</div>
         </div>
       </section>
 

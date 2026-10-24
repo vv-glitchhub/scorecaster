@@ -185,6 +185,18 @@ test("AI Feed recovery uses safe localized copy and an actionable retry", async 
   assert.doesNotMatch(feed, /setCommentStatus\(\(current\) => \(\{ \.\.\.current, \[eventId\]: cause\?\.message/);
 });
 
+test("AI Feed surfaces verified freshness without exposing collector status codes", async () => {
+  const feed = await file("app/feed/FeedClient.jsx");
+  assert.match(feed, /collectorHealth\?\.status/);
+  assert.match(feed, /event\?\.latestAt/);
+  assert.match(feed, /data-ai-feed-freshness/);
+  assert.match(feed, /Verified data is current/);
+  assert.match(feed, /Verified data may be delayed/);
+  assert.match(feed, /Some observations may be unavailable/);
+  assert.match(feed, /Latest observation/);
+  assert.doesNotMatch(feed, /collectorHealth\?\.status[^\n]*\{status\}/);
+});
+
 test("AI Feed explains optional community comment failures without blocking verified analysis", async () => {
   const feed = await file("app/feed/FeedClient.jsx");
   assert.match(feed, /Promise\.allSettled/);
