@@ -88,7 +88,7 @@ function CompactPanel({ title, action, children, className = "" }) {
 
 export default function TodayPageV3() {
   const { tr } = useLanguage();
-  const { data, loading, error: loadError, refresh } = useRemoteJson("/api/recommendations?limit=20", { refreshMs: 300000, timeoutMs: 60000 });
+  const { data, loading, refreshing, error: loadError, refresh } = useRemoteJson("/api/recommendations?limit=20", { refreshMs: 300000, timeoutMs: 60000 });
   const recommendations = useMemo(() => Array.isArray(data?.recommendations) ? data.recommendations : [], [data]);
   const plays = useMemo(() => recommendations.filter((item) => item?.decision === "PLAY"), [recommendations]);
   const nearPlay = useMemo(() => {
@@ -108,7 +108,8 @@ export default function TodayPageV3() {
   const maxBooks = recommendations.map((item) => finite(item?.bookmakerCount)).filter((value) => value !== null).sort((a, b) => b - a)[0] ?? null;
   const modelProbability = finite(featured?.independentModelProbability);
   const marketProbability = finite(featured?.marketProbability ?? featured?.consensusProbability);
-  const error = loadError ? requestErrorText(loadError, tr) : "";
+  const error = loadError && !data ? requestErrorText(loadError, tr) : "";
+  const refreshError = loadError && data ? requestErrorText(loadError, tr) : "";
 
   return (
     <div data-homepage-v3="mobile-first" className="space-y-3.5 sm:space-y-4">
@@ -167,6 +168,8 @@ export default function TodayPageV3() {
           <Link href="/feed" className="inline-flex min-h-10 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04] px-3 text-xs font-black text-slate-300">AI Feed →</Link>
         </div>
       </section> : null}
+      {refreshing ? <div role="status" aria-live="polite" className="rounded-[1rem] border border-sky-400/20 bg-sky-400/[0.055] px-3.5 py-2.5 text-xs leading-5 text-sky-100/80">{tr({ fi: "Tarkistetaan uusinta varmennettua dataa…", en: "Checking for the latest verified data…", es: "Comprobando los datos verificados más recientes…" })}</div> : null}
+      {refreshError ? <div role="status" aria-live="polite" className="flex flex-wrap items-center justify-between gap-2 rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-2.5 text-xs leading-5 text-amber-100/80"><span>{tr({ fi: "Uusin datapäivitys ei onnistunut. Näytetään viimeisin varmennettu tulos.", en: "The latest data refresh failed. Showing the last verified result.", es: "La última actualización falló. Se muestra el último resultado verificado." })}</span><button type="button" onClick={refresh} className="font-black text-amber-100 underline underline-offset-2">{tr({ fi: "Yritä uudelleen", en: "Retry", es: "Reintentar" })}</button></div> : null}
       {data?.partialUpstream ? <div role="status" className="rounded-[1rem] border border-amber-400/20 bg-amber-400/[0.055] px-3.5 py-3 text-xs leading-5 text-amber-100/80">{tr({ fi: "Osa markkinoista ei vastannut. Näytetään vain varmennettu data.", en: "Some markets did not respond. Only verified data is shown.", es: "Algunos mercados no respondieron. Solo se muestran datos verificados." })}</div> : null}
 
       <div className="grid items-start gap-3.5 lg:grid-cols-[minmax(240px,.78fr)_minmax(390px,1.32fr)_minmax(250px,.82fr)] lg:gap-4">
