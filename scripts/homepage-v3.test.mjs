@@ -63,6 +63,7 @@ test("homepage V3 fails visibly and recoverably when recommendations cannot be l
   assert.match(home, /href="\/events"/);
   assert.match(home, /href="\/feed"/);
   assert.match(home, /onClick=\{refresh\}/);
+  assert.doesNotMatch(home, /<p className="mt-2 text-\[11px\] text-red-100\/55">\{error\}<\/p>/);
   assert.match(home, /Yritä uudelleen/);
   assert.match(home, /value=\{loading \? "…" : error \? "–" : analyzed\.toLocaleString\("fi-FI"\)\}/);
   assert.match(home, /label="PLAY nyt" value=\{loading \? "…" : error \? "–" : plays\.length\}/);
