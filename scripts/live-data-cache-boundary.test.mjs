@@ -77,7 +77,9 @@ test("live API routes cannot override the global no-store boundary with public C
   const recommendations = await readFile(resolve(root, "app/api/recommendations/route.js"), "utf8");
   assert.match(audit, /cacheable-api-response-header/);
   assert.match(recommendations, /"Cache-Control": "no-store, max-age=0"/);
-  assert.match(recommendations, /cache: "no-store"/);
+  // In-process Top Picks calls cannot opt into CDN caching or create a same-origin fetch.
+  assert.match(recommendations, /getTopPicksRoute\\(new Request\\(/);
+  assert.doesNotMatch(recommendations, /await fetch\\(target/);
   assert.doesNotMatch(recommendations, /s-maxage|stale-while-revalidate/);
 });
 
