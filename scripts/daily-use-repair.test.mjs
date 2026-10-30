@@ -141,7 +141,7 @@ async function routeHarness(provider) {
     enrichPickWithLiveIntelligence: async pick => pick,
     calculatePickQuality: () => ({ qualityScore: 75, qualityGrade: "A" }),
     evaluateIndependentIntelligenceSafetyV1: () => ({ downgrade: true }),
-    fetch: async url => { calls.requests.push(String(url)); return provider(new URL(url)); }
+    getOddsRoute: async request => { calls.requests.push(request.url); return provider(new URL(request.url)); }
   };
   const GET = new Function(...Object.keys(dependencies), source + "\nreturn GET;")(...Object.values(dependencies));
   return { GET, calls };
