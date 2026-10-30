@@ -1,4 +1,5 @@
 import { buildRecommendationFeed } from "../../../lib/recommendation-engine.mjs";
+import { GET as getTopPicksRoute } from "../top-picks/route";
 import { activeMarketLeagues, topPicksDefaultLeagues } from "../../../lib/active-market-universe.js";
 import { SPORTS } from "../../../lib/sports.js";
 import { loadAvailableBatches } from "../../../lib/live-market-availability.mjs";
@@ -37,10 +38,25 @@ function pruneTopPicksCache(now = Date.now()) {
 }
 
 async function fetchTopPicks(target) {
-  const response = await fetch(target, {
-    cache: "no-store",
-    signal: AbortSignal.timeout(TOP_PICKS_TIMEOUT_MS)
-  });
+  // The recommendation route shares the validated Top Picks handler directly.
+  // Internal HTTP calls can be intercepted by Vercel preview protection and
+  // incorrectly turn working live odds into HTTP 502 for the homepage.
+  // Retain a fail-closed overall timeout; neither path invents recommendations.
+  let timer;
+  let response;
+  try {
+    response = await Promise.race([
+      getTopPicksRoute(new Request(target.toString(), {
+        method: "GET",
+        headers: { Accept: "application/json" }
+      })),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("top-picks-timeout")), TOP_PICKS_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
   const payload = await response.json().catch(() => null);
   if (!response.ok || payload?.ok !== true) {
     return { ok: false, status: response.status, payload, data: [] };
